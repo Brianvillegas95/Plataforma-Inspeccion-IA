@@ -276,8 +276,8 @@ body {
     font-weight: 500;
 }
 .inspector-body #webcam-container { 
-    width: 220px;  /* Manteniendo el tamaño de webcam que funcionaba */
-    height: 220px; 
+    width: 300px;  /* Manteniendo el tamaño de webcam que funcionaba */
+    height: 300px; 
     margin: 0 auto 10px auto; 
     border-radius: 6px; 
     overflow: hidden;
