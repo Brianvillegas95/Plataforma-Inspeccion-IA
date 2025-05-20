@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma de Inspección IA - Grupo Azor</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-area="Moldeo">Moldeo <i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="#">Proceso A (Próximamente)</a></li>
+                            <li><a href="#">Proceso B (Próximamente)</a></li>
+                        </ul>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-area="Empaque">Empaque <i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="inspeccion_blister.html">Inspección Blíster</a></li>
+                            <li><a href="#">Otro Tipo Empaque (Próximamente)</a></li>
+                        </ul>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-area="Ensamble">Ensamble <i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="#">Componente X (Próximamente)</a></li>
+                            <li><a href="#">Componente Y (Próximamente)</a></li>
+                        </ul>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-area="Bolígrafo">Bolígrafo <i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="#">Inspección Tinta (Próximamente)</a></li>
+                            <li><a href="#">Inspección Punta (Próximamente)</a></li>
+                        </ul>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-area="Dragon Shield">Dragon Shield <i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="#">Calidad Mica (Próximamente)</a></li>
+                            <li><a href="#">Calidad Impresión (Próximamente)</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <section class="hero-interactive-auditor">
+                <div class="hero-titulo-principal">
+                    <h2>Centro de Inspección Visual Inteligente</h2>
+                    <p>Grupo Azor innovando en el control de calidad mediante Inteligencia Artificial, transformando datos visuales en decisiones precisas para un futuro de excelencia.</p>
+                </div>
+                <div class="auditor-presentacion-dinamica">
+                    <img src="imagenes/Auditor.png" alt="Asistente de Calidad IA" id="hero-auditor-image-dinamico">
+                    <div id="hero-auditor-bubble-dinamico" class="auditor-bubble">
+                        <span></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="clasificacion-defectos-section">
+                <div class="section-header">
+                    <h2>Clasificación de Defectos Estándar</h2>
+                    <p>Entender la severidad de los defectos es crucial para el control de calidad efectivo.</p>
+                </div>
+                <div class="defectos-grid">
+                    <div class="defecto-card defecto-menor">
+                        <div class="defecto-card-header">
+                            <i class="fas fa-check-circle"></i>
+                            <h4>Defecto Menor</h4>
+                        </div>
+                        <div class="defecto-card-body">
+                            <p><strong>Descripción:</strong> No afecta la funcionalidad ni la forma, ajuste o función principal del producto.</p>
+                            <p><strong>Impacto:</strong> Usualmente no es detectado por el usuario final. Es una pequeña desviación de los estándares.</p>
+                            <p><strong>Ejemplo:</strong> Pequeñas imperfecciones estéticas casi imperceptibles, ligeras variaciones de color en zonas no críticas, marcas superficiales mínimas.</p>
+                        </div>
+                    </div>
+                    <div class="defecto-card defecto-mayor">
+                        <div class="defecto-card-header">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h4>Defecto Mayor</h4>
+                        </div>
+                        <div class="defecto-card-body">
+                            <p><strong>Descripción:</strong> No afecta la seguridad, pero puede afectar la funcionalidad, apariencia o vendibilidad del producto. No cumple el estándar de calidad.</p>
+                            <p><strong>Impacto:</strong> Probablemente será detectado por el usuario y podría causar quejas, devoluciones o dañar la imagen de la marca.</p>
+                            <p><strong>Ejemplo:</strong> Desalineación visible, color claramente fuera de especificación, acabado irregular notable, funcionamiento deficiente pero no peligroso.</p>
+                        </div>
+                    </div>
+                    <div class="defecto-card defecto-critico">
+                        <div class="defecto-card-header">
+                            <i class="fas fa-times-circle"></i>
+                            <h4>Defecto Crítico</h4>
+                        </div>
+                        <div class="defecto-card-body">
+                            <p><strong>Descripción:</strong> Afecta directamente la funcionalidad, seguridad o regulaciones del producto. El producto es inutilizable o peligroso.</p>
+                            <p><strong>Impacto:</strong> Compromete totalmente el uso, la seguridad del usuario o el desempeño del producto. Puede causar daños o incumplir normativas.</p>
+                            <p><strong>Ejemplo:</strong> Componentes rotos o faltantes que impiden el uso, fallas mecánicas o eléctricas peligrosas, contaminación, etiquetado incorrecto de seguridad.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="aql-calculator-section" class="calculator-section">
+                <div class="calculator-header">
+                    <i class="fas fa-calculator feature-icon"></i>
+                    <h3>Calculadora de Muestreo AQL</h3>
+                    <p>Basada en MIL-STD-105E (ANSI/ASQ Z1.4) para muestreo simple, inspección normal.</p>
+                </div>
+                <div class="calculator-form-container">
+                    <div class="calculator-form">
+                        <div class="form-group">
+                            <label for="inspection-level">Nivel de Inspección:</label>
+                            <select id="inspection-level" name="inspection-level">
+                                <optgroup label="Niveles Generales">
+                                    <option value="GI">General I</option>
+                                    <option value="GII" selected>General II (Más Común)</option>
+                                    <option value="GIII">General III</option>
+                                </optgroup>
+                                <optgroup label="Niveles Especiales">
+                                    <option value="S1">S-1</option>
+                                    <option value="S2">S-2</option>
+                                    <option value="S3">S-3</option>
+                                    <option value="S4">S-4</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="lot-size">Tamaño del Lote:</label>
+                            <input type="number" id="lot-size" name="lot-size" min="2" placeholder="Ej: 500">
+                        </div>
+                        <div class="form-group">
+                            <label for="aql-value">Nivel de Calidad Aceptable (AQL %):</label>
+                            <select id="aql-value" name="aql-value">
+                                <option value="1.0" selected>1.0</option>
+                                <option value="2.5">2.5</option>
+                                <option value="4.0">4.0</option>
+                            </select>
+                        </div>
+                        <button id="calculate-aql-btn" class="button primary-action">
+                            <i class="fas fa-cogs"></i> Calcular Plan
+                        </button>
+                    </div>
+                    <div id="aql-results" class="calculator-results" style="display:none;">
+                        <h4>Plan de Muestreo Sugerido:</h4>
+                        <div class="result-item">
+                            <span>Letra Código de Muestra:</span>
+                            <strong id="result-code-letter">-</strong>
+                        </div>
+                        <div class="result-item">
+                            <span>Tamaño de Muestra (n):</span>
+                            <strong id="result-sample-size">-</strong>
+                        </div>
+                        <div class="result-item">
+                            <span>Máx. Defectos para Aceptar (Ac):</span>
+                            <strong id="result-ac">-</strong>
+                        </div>
+                        <div class="result-item">
+                            <span>Mín. Defectos para Rechazar (Re):</span>
+                            <strong id="result-re">-</strong>
+                        </div>
+                        <p id="result-note" class="note"></p>
+                    </div>
+                </div>
+            </section>
+            
+        </main>
+
+        <footer class="app-footer">
+            &copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados. Impulsado por IA.
+        </footer>
+    </div>
+    <script>
+        // Script para el año en el footer
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+        
+        // Script para el auditor dinámico en la página principal
+        const auditorBubbleEl = document.getElementById('hero-auditor-bubble-dinamico');
+        const auditorBubbleSpan = auditorBubbleEl ? auditorBubbleEl.querySelector('span') : null;
+        const auditorImageEl = document.getElementById('hero-auditor-image-dinamico');
+        const navMenuItemsForAuditor = document.querySelectorAll('.main-nav .dropdown-toggle');
+
+        const mensajesAuditor = {
+            "bienvenida": "¡Hola! Soy Quali, tu Asistente IA. Explora el menú para iniciar una inspección.",
+            "guia": "Selecciona una opción del menú para ver las herramientas disponibles o aprender más.",
+            "Moldeo": "En 'Moldeo' revisamos la perfección de cada pieza, desde su forma hasta el acabado final.",
+            "Empaque": "Para 'Empaque', como los blísteres, verifico sellados, contenido correcto y etiquetado.",
+            "Ensamble": "Analicemos los ensambles. Buscaré componentes faltantes o que no estén en su posición correcta.",
+            "Bolígrafo": "Inspección detallada de bolígrafos: calidad de la tinta, trazo y la integridad del mecanismo.",
+            "Dragon Shield": "Aseguramos la excelencia en 'Dragon Shield', verificando la claridad y resistencia de cada protector."
+        };
+
+        let typingTimeoutAuditor;
+        let initialWelcomeTyped = false;
+        let currentAuditorMessage = "";
+
+        function setAuditorSpeech(message, isTypingEffect = false) {
+            if (!auditorBubbleSpan) {
+                return;
+            }
+            currentAuditorMessage = message;
+            clearTimeout(typingTimeoutAuditor);
+            auditorBubbleSpan.textContent = '';
+            auditorBubbleSpan.classList.remove('typing-effect-active');
+
+            if (isTypingEffect) {
+                auditorBubbleSpan.classList.add('typing-effect-active');
+                let i = 0;
+                function typeCharacter() {
+                    if (i < message.length) {
+                        auditorBubbleSpan.textContent += message.charAt(i);
+                        i++;
+                        typingTimeoutAuditor = setTimeout(typeCharacter, 35);
+                    } else {
+                        auditorBubbleSpan.classList.remove('typing-effect-active');
+                        if (message === mensajesAuditor.bienvenida) {
+                            initialWelcomeTyped = true;
+                            setTimeout(() => {
+                                if (currentAuditorMessage === mensajesAuditor.bienvenida) { 
+                                   setAuditorSpeech(mensajesAuditor.guia); 
+                                }
+                            }, 4000); 
+                        }
+                    }
+                }
+                typeCharacter();
+            } else {
+                auditorBubbleSpan.textContent = message;
+            }
+        }
+
+        if (auditorBubbleSpan) { 
+             setAuditorSpeech(mensajesAuditor.bienvenida, true);
+        }
+
+        navMenuItemsForAuditor.forEach(item => {
+            const area = item.dataset.area;
+            item.addEventListener('mouseenter', () => {
+                if (mensajesAuditor[area]) {
+                    setAuditorSpeech(mensajesAuditor[area]); 
+                    if(auditorImageEl) auditorImageEl.classList.add('interactive');
+                }
+            });
+            item.addEventListener('mouseleave', () => {
+                if(auditorImageEl) auditorImageEl.classList.remove('interactive');
+                if (initialWelcomeTyped && currentAuditorMessage !== mensajesAuditor.guia) {
+                    if (currentAuditorMessage !== mensajesAuditor.bienvenida) {
+                        setTimeout(() => {
+                            if (auditorImageEl && !auditorImageEl.classList.contains('interactive')) { 
+                                setAuditorSpeech(mensajesAuditor.guia);
+                            }
+                        }, 1000); 
+                    }
+                }
+            });
+        });
+        
+        window.addEventListener('load', () => {
+            const auditorPresentacionEl = document.querySelector('.auditor-presentacion-dinamica');
+            if (auditorPresentacionEl) {
+                auditorPresentacionEl.classList.add('visible');
+            }
+        });
+
+        // === LÓGICA PARA LA CALCULADORA AQL ===
+        const inspectionLevelSelect = document.getElementById('inspection-level');
+        const lotSizeInput = document.getElementById('lot-size');
+        const aqlValueSelect = document.getElementById('aql-value');
+        const calculateAqlBtn = document.getElementById('calculate-aql-btn');
+        const aqlResultsDiv = document.getElementById('aql-results');
+        const resultCodeLetterEl = document.getElementById('result-code-letter');
+        const resultSampleSizeEl = document.getElementById('result-sample-size');
+        const resultAcEl = document.getElementById('result-ac');
+        const resultReEl = document.getElementById('result-re');
+        const resultNoteEl = document.getElementById('result-note');
+
+        const sampleSizeCodeLetters = [
+            { range: [2, 8],     levels: { S1: 'A', S2: 'A', S3: 'A', S4: 'A', GI: 'A', GII: 'A', GIII: 'B' } },
+            { range: [9, 15],    levels: { S1: 'A', S2: 'A', S3: 'A', S4: 'B', GI: 'A', GII: 'B', GIII: 'C' } },
+            { range: [16, 25],   levels: { S1: 'A', S2: 'B', S3: 'B', S4: 'C', GI: 'B', GII: 'C', GIII: 'D' } },
+            { range: [26, 50],   levels: { S1: 'B', S2: 'B', S3: 'C', S4: 'D', GI: 'C', GII: 'D', GIII: 'E' } },
+            { range: [51, 90],   levels: { S1: 'B', S2: 'C', S3: 'D', S4: 'E', GI: 'D', GII: 'E', GIII: 'F' } },
+            { range: [91, 150],  levels: { S1: 'C', S2: 'C', S3: 'E', S4: 'F', GI: 'E', GII: 'F', GIII: 'G' } },
+            { range: [151, 280], levels: { S1: 'C', S2: 'D', S3: 'F', S4: 'G', GI: 'F', GII: 'G', GIII: 'H' } },
+            { range: [281, 500], levels: { S1: 'C', S2: 'D', S3: 'G', S4: 'H', GI: 'G', GII: 'H', GIII: 'J' } },
+            { range: [501, 1200], levels: { S1: 'D', S2: 'E', S3: 'H', S4: 'J', GI: 'H', GII: 'J', GIII: 'K' } },
+            { range: [1201, 3200], levels: { S1: 'D', S2: 'E', S3: 'J', S4: 'K', GI: 'J', GII: 'K', GIII: 'L' } },
+            { range: [3201, 10000], levels: { S1: 'D', S2: 'F', S3: 'K', S4: 'L', GI: 'K', GII: 'L', GIII: 'M' } },
+            { range: [10001, 35000], levels: { S1: 'E', S2: 'F', S3: 'L', S4: 'M', GI: 'L', GII: 'M', GIII: 'N' } },
+            { range: [35001, 150000], levels: { S1: 'E', S2: 'G', S3: 'M', S4: 'N', GI: 'M', GII: 'N', GIII: 'P' } },
+            { range: [150001, 500000], levels: { S1: 'F', S2: 'G', S3: 'N', S4: 'P', GI: 'N', GII: 'P', GIII: 'Q' } },
+            { range: [500001, Infinity], levels: { S1: 'F', S2: 'H', S3: 'P', S4: 'Q', GI: 'P', GII: 'Q', GIII: 'R' } }
+        ];
+        
+        const singleSamplingPlans = {
+            'A': { ss: 2,   aqls: { '1.0': {ac:0, re:1}, '2.5': {ac:0, re:1}, '4.0': {ac:0, re:1} } },
+            'B': { ss: 3,   aqls: { '1.0': {ac:0, re:1}, '2.5': {ac:0, re:1}, '4.0': {ac:0, re:1} } },
+            'C': { ss: 5,   aqls: { '1.0': {ac:0, re:1}, '2.5': {ac:0, re:1}, '4.0': {ac:1, re:2} } }, 
+            'D': { ss: 8,   aqls: { '1.0': {ac:0, re:1}, '2.5': {ac:1, re:2}, '4.0': {ac:1, re:2} } }, 
+            'E': { ss: 13,  aqls: { '1.0': {ac:0, re:1}, '2.5': {ac:1, re:2}, '4.0': {ac:2, re:3} } },
+            'F': { ss: 20,  aqls: { '1.0': {ac:1, re:2}, '2.5': {ac:1, re:2}, '4.0': {ac:3, re:4} } }, 
+            'G': { ss: 32,  aqls: { '1.0': {ac:1, re:2}, '2.5': {ac:2, re:3}, '4.0': {ac:5, re:6} } },
+            'H': { ss: 50,  aqls: { '1.0': {ac:1, re:2}, '2.5': {ac:3, re:4}, '4.0': {ac:7, re:8} } }, 
+            'J': { ss: 80,  aqls: { '1.0': {ac:2, re:3}, '2.5': {ac:5, re:6}, '4.0': {ac:10, re:11} } },
+            'K': { ss: 125, aqls: { '1.0': {ac:3, re:4}, '2.5': {ac:7, re:8}, '4.0': {ac:14, re:15} } },
+            'L': { ss: 200, aqls: { '1.0': {ac:5, re:6}, '2.5': {ac:10, re:11}, '4.0': {ac:21, re:22} } },
+            'M': { ss: 315, aqls: { '1.0': {ac:7, re:8}, '2.5': {ac:14, re:15}, '4.0': {ac:21, re:22} } }, 
+            'N': { ss: 500, aqls: { '1.0': {ac:10, re:11}, '2.5': {ac:21, re:22}, '4.0': {ac:21, re:22} } },
+            'P': { ss: 800, aqls: { '1.0': {ac:14, re:15}, '2.5': {ac:21, re:22}, '4.0': {ac:21, re:22} } },
+            'Q': { ss: 1250,aqls: { '1.0': {ac:21, re:22}, '2.5': {ac:21, re:22}, '4.0': {ac:21, re:22} } },
+            'R': { ss: 2000,aqls: { '1.0': {ac:21, re:22}, '2.5': {ac:21, re:22}, '4.0': {ac:21, re:22} } }  
+        };
+        const codeLetterOrder = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R'];
+
+        function getCodeLetter(lotSize, inspLevel) {
+            if (lotSize === null || isNaN(lotSize) || lotSize < 2) return null; 
+            for (const entry of sampleSizeCodeLetters) {
+                if (lotSize >= entry.range[0] && lotSize <= entry.range[1]) {
+                    return entry.levels[inspLevel];
+                }
+            }
+            if (lotSize > sampleSizeCodeLetters[sampleSizeCodeLetters.length - 1].range[1]) {
+                return sampleSizeCodeLetters[sampleSizeCodeLetters.length - 1].levels[inspLevel];
+            }
+            return null; 
+        }
+        
+        function getResolvedSamplingPlan(codeLetter, selectedAqlValue) {
+            const selectedAqlString = parseFloat(selectedAqlValue).toFixed(selectedAqlValue.includes('.') ? (selectedAqlValue.split('.')[1] || '').length : 0).toString();
+            
+            if (!singleSamplingPlans[codeLetter] || !singleSamplingPlans[codeLetter].aqls[selectedAqlString]) {
+                let ss = singleSamplingPlans[codeLetter] ? singleSamplingPlans[codeLetter].ss : '-';
+                 if (ss !== '-' && parseInt(lotSizeInput.value) > 0 && ss > parseInt(lotSizeInput.value)) {
+                    return { ss: parseInt(lotSizeInput.value), ac: '100%', re: 'Insp.', note: `Nota: Tamaño de muestra (${ss}) excede tamaño de lote. Se recomienda inspección 100%.` };
+                }
+                return { ss: ss, ac: '*', re: '*', note: `Plan no aplicable para AQL ${selectedAqlString} con letra ${codeLetter}. Consulte MIL-STD-105E.` };
+            }
+            const plan = singleSamplingPlans[codeLetter].aqls[selectedAqlString];
+            let note = plan.note || '';
+
+            if (singleSamplingPlans[codeLetter].ss > parseInt(lotSizeInput.value) && parseInt(lotSizeInput.value) > 0) {
+                 note = `Nota: Tamaño de muestra (${singleSamplingPlans[codeLetter].ss}) excede tamaño de lote. Se recomienda inspección 100%.`;
+                 return { ss: parseInt(lotSizeInput.value), ac: '100%', re: 'Insp.', note: note };
+            }
+
+            return {
+                ss: singleSamplingPlans[codeLetter].ss, 
+                ac: plan.ac,
+                re: plan.re,
+                note: note 
+            };
+        }
+
+        if (calculateAqlBtn) {
+            calculateAqlBtn.addEventListener('click', () => {
+                const lotSizeStr = lotSizeInput.value;
+                const lotSize = parseInt(lotSizeStr);
+                const inspLevel = inspectionLevelSelect.value;
+                const selectedAql = aqlValueSelect.value; 
+
+                resultNoteEl.textContent = ''; 
+
+                if (lotSizeStr === "" || isNaN(lotSize) || lotSize < 2) {
+                    resultNoteEl.textContent = 'Por favor, ingrese un tamaño de lote válido (mínimo 2).';
+                    resultCodeLetterEl.textContent = '-';
+                    resultSampleSizeEl.textContent = '-';
+                    resultAcEl.textContent = '-';
+                    resultReEl.textContent = '-';
+                    aqlResultsDiv.style.display = 'block';
+                    return;
+                }
+
+                const codeLetter = getCodeLetter(lotSize, inspLevel);
+                
+                if (codeLetter) {
+                    const plan = getResolvedSamplingPlan(codeLetter, selectedAql);
+                    
+                    resultCodeLetterEl.textContent = codeLetter;
+                    resultSampleSizeEl.textContent = plan.ss;
+                    resultAcEl.textContent = plan.ac;
+                    resultReEl.textContent = plan.re;
+                    resultNoteEl.textContent = plan.note || '';
+                } else {
+                    resultCodeLetterEl.textContent = '-';
+                    resultSampleSizeEl.textContent = '-';
+                    resultAcEl.textContent = '-';
+                    resultReEl.textContent = '-';
+                    resultNoteEl.textContent = 'No se pudo determinar la letra código para el tamaño de lote y nivel de inspección.';
+                }
+                aqlResultsDiv.style.display = 'block';
+            });
+        }
+    </script>
+</body>
+</html>
