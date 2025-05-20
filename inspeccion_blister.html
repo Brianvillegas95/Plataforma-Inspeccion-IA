@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inspección de Blíster IA - Grupo Azor</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+</head>
+<body class="inspector-body">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li class="dropdown">
+                        <a href="index.html" class="dropdown-toggle">Inicio</a>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle active" data-area="Empaque">Empaque <i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="inspeccion_blister.html" class="active">Inspección Blíster</a></li>
+                            <li><a href="#">Otro Tipo Empaque (Próximamente)</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="main-content-grid"> 
+            <section class="vision-panel">
+                <h2 class="panel-title"><i class="fas fa-eye"></i> Clasificador de Blíster</h2>
+                <div id="webcam-container">
+                    {/* El canvas de la webcam se insertará aquí por JS */}
+                </div>
+                <div id="progress-bar-container" style="display:none;">
+                    <div id="progress-bar"></div>
+                </div>
+                <div class="label-container" id="label-container">Cargando modelo IA...</div>
+                <div class="error-message" id="error-container" style="display: none;"></div>
+            </section>
+
+            <aside class="controls-panel">
+                <h3 class="panel-title"><i class="fas fa-list-ol"></i> Instrucciones</h3>
+                <h4>Instrucciones de Uso:</h4>
+                <ol>
+                    <li>Coloque el objeto a inspeccionar frente a la cámara.</li>
+                    <li>Presione "Analizar Muestra" para iniciar la inspección.</li>
+                    <li>El sistema identificará cualquier defecto o atributo visual.</li>
+                </ol>
+
+                <div class="action-buttons single-button-centered">
+                    <button id="capture-button" class="button primary-action" disabled>
+                        <i class="fas fa-spinner fa-spin"></i> Cargando Modelo...
+                    </button>
+                </div>
+
+                <div id="auditor-section"> 
+                    <p id="auditor-title">Asistente de Inspección</p>
+                    <div id="auditor-image-container">
+                        <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
+                    </div>
+                    
+                    <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
+                        <span>Preparando sistema de inspección...</span>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <footer class="app-footer">
+            &copy; <span id="currentYearInspector"></span> Grupo Azor México. Todos los derechos reservados.
+        </footer>
+    </div>
+
+    <script type="text/javascript">
+        if(document.getElementById('currentYearInspector')) { 
+            document.getElementById('currentYearInspector').textContent = new Date().getFullYear();
+        }
+
+        const URL_MODELO_BLISTER = "./modelos_ia/clasificador_blister_v1/"; 
+        
+        let model, webcam, labelContainerInspector, maxPredictions;
+        const errorContainerInspector = document.getElementById('error-container');
+        const captureButtonInspector = document.getElementById('capture-button');
+        const progressBarInspector = document.getElementById('progress-bar');
+        const progressBarContainerInspector = document.getElementById('progress-bar-container');
+        const webcamContainerInspector = document.getElementById('webcam-container');
+        
+        const auditorImageInspector = document.getElementById('auditor-image'); 
+        const auditorMessageBubbleInspector = document.getElementById('auditor-message-bubble');
+        const auditorBubbleSpanInspector = auditorMessageBubbleInspector ? auditorMessageBubbleInspector.querySelector('span') : null;
+
+        let isWebcamActiveInspector = false;
+        let isAnalyzingInspector = false;
+        let typingTimeoutAuditorInspector; 
+
+        function setAuditorInspectorSpeech(message, isTypingEffect = false, status = 'idle') {
+            if (!auditorBubbleSpanInspector) return;
+
+            clearTimeout(typingTimeoutAuditorInspector);
+            auditorBubbleSpanInspector.textContent = '';
+            auditorBubbleSpanInspector.classList.remove('typing-effect-active'); 
+
+            if (auditorImageInspector) {
+                auditorImageInspector.className = 'auditor-image-estilizada'; 
+                if (status === 'ok') auditorImageInspector.classList.add('status-ok');
+                else if (status === 'error') auditorImageInspector.classList.add('status-error');
+                else if (status === 'thinking' || status === 'loading') auditorImageInspector.classList.add('status-thinking');
+            }
+
+            if (isTypingEffect) {
+                auditorBubbleSpanInspector.classList.add('typing-effect-active');
+                let i = 0;
+                function typeCharacter() {
+                    if (i < message.length) {
+                        auditorBubbleSpanInspector.textContent += message.charAt(i);
+                        i++;
+                        typingTimeoutAuditorInspector = setTimeout(typeCharacter, 30); 
+                    } else {
+                        auditorBubbleSpanInspector.classList.remove('typing-effect-active');
+                    }
+                }
+                typeCharacter();
+            } else {
+                auditorBubbleSpanInspector.textContent = message;
+            }
+        }
+
+        async function initInspector() {
+            labelContainerInspector = document.getElementById("label-container");
+            if (!labelContainerInspector || !captureButtonInspector || !progressBarContainerInspector || 
+                !webcamContainerInspector || !errorContainerInspector || !auditorBubbleSpanInspector || !auditorImageInspector) {
+                console.error("Error crítico: Elementos del DOM para el inspector no fueron encontrados.");
+                if (auditorBubbleSpanInspector) setAuditorInspectorSpeech("Error fatal en la interfaz.", false, 'error');
+                else if(labelContainerInspector) labelContainerInspector.innerHTML = "<span style='color:red;'>Error: Interfaz no cargada.</span>";
+                return;
+            }
+
+            setAuditorInspectorSpeech('Inicializando IA de blíster...', true, 'loading');
+            labelContainerInspector.innerHTML = "Cargando modelo IA...";
+            progressBarContainerInspector.style.display = 'block';
+            if(progressBarInspector) progressBarInspector.style.width = '0%'; 
+            captureButtonInspector.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando Modelo...';
+            captureButtonInspector.disabled = true;
+
+            const modelURL = URL_MODELO_BLISTER + "model.json";
+            const metadataURL = URL_MODELO_BLISTER + "metadata.json";
+
+            try {
+                model = await tmImage.load(modelURL, metadataURL, (loaded, total) => {
+                    if (total && progressBarInspector) progressBarInspector.style.width = (loaded / total) * 100 + '%';
+                });
+                maxPredictions = model.getTotalClasses();
+
+                const flip = true;
+                const webcamCanvasWidth = 220; 
+                const webcamCanvasHeight = 220; 
+                webcam = new tmImage.Webcam(webcamCanvasWidth, webcamCanvasHeight, flip); 
+                
+                setAuditorInspectorSpeech('Configurando cámara...', false, 'loading');
+                await webcam.setup({ facingMode: "environment" }); 
+                await webcam.play();
+                isWebcamActiveInspector = true;
+                
+                webcamContainerInspector.innerHTML = ''; 
+                webcamContainerInspector.appendChild(webcam.canvas);
+                
+                labelContainerInspector.innerHTML = "IA Lista. Presione 'Analizar'.";
+                progressBarContainerInspector.style.display = 'none';
+                setAuditorInspectorSpeech('Sistema listo. Coloque el blíster.', true, 'idle');
+                captureButtonInspector.disabled = false;
+                captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Analizar Muestra';
+                
+            } catch (error) {
+                console.error("Error al inicializar el sistema de inspección:", error);
+                let errMsg = "Error carga modelo. Verifique consola (F12).";
+                 if (typeof error === 'string' && error.includes("fetch")) {
+                    errMsg = `Archivos de modelo no encontrados en: "${URL_MODELO_BLISTER}". Verifique ruta y archivos (model.json, metadata.json, *.bin).`;
+                } else if (typeof error === 'object' && error.message) {
+                    if (error.message.includes("fetch") || error.message.includes("404")) { 
+                         errMsg = `No se pudieron cargar los archivos del modelo desde "${URL_MODELO_BLISTER}". Verifique la ruta y que los archivos existan.`;
+                    } else if (error.message.includes("getUserMedia")) {
+                         errMsg = "Error acceso cámara. Verifique permisos y que no esté en uso por otra app.";
+                    } else {
+                        errMsg = "Error carga modelo: " + error.message.substring(0,120) + "...";
+                    }
+                }
+
+                errorContainerInspector.innerText = errMsg; // Mostrar error técnico
+                // CAMBIO: El mensaje del auditor también refleja el problema.
+                setAuditorInspectorSpeech('¡Error al iniciar IA! ' + errMsg.substring(0,70) + "...", false, 'error');
+                if (labelContainerInspector) labelContainerInspector.innerHTML = "<span style='color:var(--error-color)'>Fallo Inicialización IA</span>";
+                if (progressBarContainerInspector) progressBarContainerInspector.style.display = 'none';
+                if (captureButtonInspector) {
+                    captureButtonInspector.disabled = true;
+                    captureButtonInspector.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
+                }
+                if(errorContainerInspector) errorContainerInspector.style.display = 'block'; // Mostrar div de error
+            }
+        }
+
+        async function loopInspector() {
+            if (!isWebcamActiveInspector || !isAnalyzingInspector) {
+                if(webcamContainerInspector) webcamContainerInspector.classList.remove('analyzing');
+                return;
+            }
+            if(webcamContainerInspector) webcamContainerInspector.classList.add('analyzing');
+            if (webcam) webcam.update(); 
+            await predictInspector();
+            window.requestAnimationFrame(loopInspector);
+        }
+
+        async function predictInspector() {
+            if (!model || !webcam || !webcam.canvas) return;
+            try {
+                const prediction = await model.predict(webcam.canvas);
+                let bestPrediction = prediction.reduce((max, p) => p.probability > max.probability ? p : max, prediction[0]);
+
+                if (bestPrediction) {
+                    const resultText = `${bestPrediction.className.toUpperCase().substring(0,25)}`;
+                    const isCorrect = bestPrediction.className.toLowerCase().includes('correcto');
+                    const color = isCorrect ? 'var(--success-color)' : 'var(--error-color)';
+                    labelContainerInspector.innerHTML = `Resultado: <span style="color: ${color}">${resultText}</span>`;
+                    
+                    const auditorMsg = `IA dictamina: ${isCorrect ? '¡PRODUCTO APROBADO!' : '¡DEFECTO DETECTADO!'}`;
+                    setAuditorInspectorSpeech(auditorMsg, true, isCorrect ? 'ok' : 'error');
+
+                } else {
+                    labelContainerInspector.innerHTML = "Análisis no concluyente.";
+                    setAuditorInspectorSpeech('IA: No estoy seguro del resultado. Intente de nuevo.', false, 'idle');
+                }
+            } catch (error) {
+                console.error("Error durante la predicción:", error);
+                if(errorContainerInspector) {
+                    errorContainerInspector.innerText = "Error al procesar imagen.";
+                    errorContainerInspector.style.display = 'block';
+                }
+                if(labelContainerInspector) labelContainerInspector.innerHTML = "<span style='color:var(--error-color)'>Error en Predicción</span>";
+                setAuditorInspectorSpeech('Hubo un fallo en el análisis de la imagen.', false, 'error');
+            }
+        }
+
+        function toggleAnalysisStateInspector() {
+            if (!isWebcamActiveInspector) { 
+                 if(errorContainerInspector) {
+                    errorContainerInspector.innerText = "La cámara no está activa. Verifique permisos o errores previos.";
+                    errorContainerInspector.style.display = 'block';
+                 }
+                 setAuditorInspectorSpeech('Error: Cámara no funcional.', false, 'error');
+                 return;
+            }
+            isAnalyzingInspector = !isAnalyzingInspector;
+            if (isAnalyzingInspector) {
+                captureButtonInspector.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Análisis';
+                if(errorContainerInspector) errorContainerInspector.style.display = 'none'; 
+                if(labelContainerInspector) labelContainerInspector.innerHTML = "Analizando...";
+                setAuditorInspectorSpeech('IA procesando imagen, un momento...', true, 'thinking');
+                if (webcam && !webcam.playing) webcam.play();
+                window.requestAnimationFrame(loopInspector); 
+            } else {
+                captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Analizar Muestra';
+                if(webcamContainerInspector) webcamContainerInspector.classList.remove('analyzing');
+                setAuditorInspectorSpeech('Análisis detenido. Listo.', false, 'idle');
+            }
+        }
+        
+        if (captureButtonInspector) {
+            captureButtonInspector.addEventListener('click', toggleAnalysisStateInspector);
+        }
+
+        document.addEventListener('DOMContentLoaded', initInspector);
+    </script>
+</body>
+</html>
