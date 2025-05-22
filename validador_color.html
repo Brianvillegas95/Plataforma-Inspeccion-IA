@@ -22,10 +22,10 @@
                         <a href="index.html" class="dropdown-toggle">Inicio</a>
                     </li>
                     <li class="dropdown">
-                        <a href="#" class="dropdown-toggle active" data-area="Moldeo">Moldeo<i class="fas fa-angle-down nav-arrow"></i></a>
+                        <a href="#" class="dropdown-toggle active" data-area="Herramientas IA">Herramientas IA <i class="fas fa-angle-down nav-arrow"></i></a>
                         <ul class="dropdown-menu">
-                            <li><a href="validador_color.html">ColorChecK AI</a></li>
-                            <li><a href="#">Proceso B (Próximamente)</a></li>
+                            <li><a href="inspeccion_blister.html">Inspección Blíster</a></li>
+                            <li><a href="validador_color.html" class="active">Validador de Color</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -135,7 +135,7 @@
             const standardColorValuesEl = document.getElementById('standard-color-values');
             const deltaEValueEl = document.getElementById('delta-e-value');
             const toleranceBar = document.getElementById('tolerance-bar');
-            const toleranceStatusEl = document.getElementById('tolerance-status'); // Elemento para el texto/indicador de estado
+            const toleranceStatusEl = document.getElementById('tolerance-status'); 
             const colorResultNoteEl = document.getElementById('color-result-note');
 
             let stream = null;
@@ -240,7 +240,10 @@
                     toleranceStatusEl.textContent = '-';
                     toleranceStatusEl.className = 'tolerance-status-text'; // Reset a clase base
                 }
-                if(toleranceBar) { toleranceBar.style.width = '0%'; toleranceBar.className = 'tolerance-bar-fill';} // Reset clase base barra
+                if(toleranceBar) { 
+                    toleranceBar.style.width = '0%'; 
+                    toleranceBar.className = 'tolerance-bar-fill'; // Reset clase base barra
+                }
                 if(instructionTextEl) instructionTextEl.textContent = "Dibuje un recuadro en la imagen para seleccionar el área de color.";
                 if(colorResultNoteEl) colorResultNoteEl.textContent = '';
                 checkEnableCompareButton();
@@ -429,18 +432,29 @@
                             if (isNaN(labSampleFromChroma.L) || isNaN(labSampleFromChroma.a) || isNaN(labSampleFromChroma.b)) {
                                 console.error("Error de conversión a LAB con Chroma.js: uno de los valores es NaN.", labChromaArray);
                                 if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Conversión LAB (NaN)';
+                                if (toleranceStatusEl) {
+                                    toleranceStatusEl.textContent = 'Error Conversión';
+                                    toleranceStatusEl.className = 'tolerance-status-text status-danger';
+                                }
                                 return;
                             }
                             conversionOkForComparison = true;
                         } catch (chromaError) {
                              console.error("Error al usar chroma-js para comparación:", chromaError);
+                             if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Lib. Conversión';
+                             if (toleranceStatusEl) {
+                                toleranceStatusEl.textContent = 'Error Conversión';
+                                toleranceStatusEl.className = 'tolerance-status-text status-danger';
+                             }
+                             return;
                         }
                     } else {
                         console.error("Librería 'chroma-js' (window.chroma) NO está definida para comparación.");
-                    }
-
-                    if (!conversionOkForComparison) {
-                        if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Librería conversión.';
+                        if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Lib. Conversión';
+                        if (toleranceStatusEl) {
+                            toleranceStatusEl.textContent = 'Error Librería';
+                            toleranceStatusEl.className = 'tolerance-status-text status-danger';
+                        }
                         return;
                     }
 
@@ -448,18 +462,23 @@
                      if (!labStandardOriginal || typeof labStandardOriginal.L !== 'number' || typeof labStandardOriginal.a !== 'number' || typeof labStandardOriginal.b !== 'number') {
                          console.error("Datos LAB del color estándar son inválidos o no son números:", labStandardOriginal);
                          if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Estándar LAB inv.';
+                         if (toleranceStatusEl) {
+                            toleranceStatusEl.textContent = 'Error Estándar';
+                            toleranceStatusEl.className = 'tolerance-status-text status-danger';
+                         }
                          return;
                     }
 
                     const labForDeltaESample = { L: labSampleFromChroma.L, A: labSampleFromChroma.a, B: labSampleFromChroma.b };
                     const labForDeltaEStandard = { L: labStandardOriginal.L, A: labStandardOriginal.a, B: labStandardOriginal.b };
 
-                    // console.log("DEBUG NaN: labForDeltaESample (con A, B):", JSON.stringify(labForDeltaESample));
-                    // console.log("DEBUG NaN: labForDeltaEStandard (con A, B):", JSON.stringify(labForDeltaEStandard));
-
                     if (typeof window.DeltaE === 'undefined' || (window.DeltaE && typeof window.DeltaE.getDeltaE00 !== 'function')) {
                         console.error("Error formal: Librería 'DeltaE' no disponible o función getDeltaE00 no encontrada.");
                         if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Librería Delta E.';
+                        if (toleranceStatusEl) {
+                            toleranceStatusEl.textContent = 'Error Librería ΔE';
+                            toleranceStatusEl.className = 'tolerance-status-text status-danger';
+                        }
                         return;
                     }
                     
@@ -469,6 +488,10 @@
                     } catch (deltaError) {
                         console.error("Error al calcular Delta E con la librería:", deltaError);
                         if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Cálculo Delta E.';
+                        if (toleranceStatusEl) {
+                            toleranceStatusEl.textContent = 'Error Cálculo ΔE';
+                            toleranceStatusEl.className = 'tolerance-status-text status-danger';
+                        }
                         return;
                     }
                     
@@ -477,11 +500,11 @@
                         console.log("Valores que entraron a getDeltaE00: Sample (L,A,B):", labForDeltaESample, "Standard (L,A,B):", labForDeltaEStandard);
                         if (deltaEValueEl) deltaEValueEl.textContent = 'NaN (Error Cálculo)';
                         if (toleranceStatusEl) {
-                            toleranceStatusEl.textContent = 'Error en Cálculo';
-                            toleranceStatusEl.className = 'tolerance-status-text status-danger'; // Clase base + error
+                            toleranceStatusEl.textContent = 'Error en Cálculo (NaN)';
+                            toleranceStatusEl.className = 'tolerance-status-text status-danger';
                         }
                         if (toleranceBar) {
-                            toleranceBar.style.width = '100%';
+                            toleranceBar.style.width = '0%'; // O un indicador de error en la barra
                             toleranceBar.className = 'tolerance-bar-fill status-danger';
                         }
                         return; 
@@ -490,8 +513,8 @@
                     if (deltaEValueEl) deltaEValueEl.textContent = deltaE.toFixed(2);
                     
                     let statusText = ''; 
-                    let barClass = 'tolerance-bar-fill'; // Clase base para la barra
-                    let statusClass = ''; // Clase específica de estado para el texto
+                    let barClass = 'tolerance-bar-fill'; 
+                    let statusClass = ''; 
                     let barWidthPercentage = 0;
                     const maxDeltaEForBar = 10; const umbralExcelente = 2.0; const umbralAceptable = 5.0; 
 
@@ -509,17 +532,15 @@
                     }
                     barWidthPercentage = Math.min(100, Math.max(0, barWidthPercentage)); 
 
-                    // Actualizar el elemento de texto del estado y añadirle la clase correspondiente
                     if (toleranceStatusEl) {
                         toleranceStatusEl.textContent = statusText;
-                        toleranceStatusEl.className = 'tolerance-status-text'; // Limpiar clases previas y poner la base
-                        toleranceStatusEl.classList.add(statusClass); // Añadir la clase de estado actual
+                        toleranceStatusEl.className = 'tolerance-status-text'; 
+                        toleranceStatusEl.classList.add(statusClass); 
                     }
                     
-                    // Actualizar la barra de progreso
                     if (toleranceBar) { 
                         toleranceBar.style.width = `${barWidthPercentage}%`;
-                        toleranceBar.className = `tolerance-bar-fill ${statusClass}`; // Aplicar clase de estado a la barra
+                        toleranceBar.className = `tolerance-bar-fill ${statusClass}`; 
                     }
 
                     if (colorResultNoteEl) {
