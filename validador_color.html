@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validador de Color IA (Área) - Grupo Azor</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
+    <script src="deltae.js"></script> 
+</head>
+<body class="color-validator-body">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li class="dropdown">
+                        <a href="index.html" class="dropdown-toggle">Inicio</a>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle active" data-area="Moldeo">Moldeo<i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="validador_color.html">ColorChecK AI</a></li>
+                            <li><a href="#">Proceso B (Próximamente)</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <section class="tool-section color-validator-tool">
+                <div class="section-header">
+                    <i class="fas fa-palette feature-icon"></i>
+                    <h2>Estación Digital de Validación de Color</h2>
+                    <p>Capture una imagen y dibuje un recuadro sobre el área de color a validar.</p>
+                </div>
+
+                <div class="color-validator-grid">
+                    <div class="color-capture-panel">
+                        <h3 class="panel-title-sub"><i class="fas fa-camera"></i> 1. Captura de Imagen</h3>
+                        <div id="color-webcam-container" class="webcam-view">
+                            <video id="color-video-feed" playsinline autoplay muted></video>
+                            <p id="webcam-loading-prompt">Activando cámara...</p>
+                        </div>
+                        <canvas id="color-capture-canvas" style="display:none;"></canvas> 
+                        <button id="capture-color-btn" class="button primary-action full-width-button">
+                            <i class="fas fa-camera-retro"></i> Capturar Imagen
+                        </button>
+                        <div class="color-picker-instructions">
+                            <p id="instruction-text">Tras capturar, dibuje un recuadro en la imagen para seleccionar el área de color.</p>
+                        </div>
+                    </div>
+
+                    <div class="color-analysis-panel">
+                        <h3 class="panel-title-sub"><i class="fas fa-crop-alt"></i> 2. Área de Muestra y Estándar</h3>
+                        <div class="captured-image-area">
+                            <canvas id="display-captured-image-canvas" class="captured-image-canvas"></canvas> 
+                            <p id="capture-prompt">Active la cámara y capture una imagen para analizar.</p>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="standard-color-select">Seleccione Color Estándar Azor:</label>
+                            <select id="standard-color-select" name="standard-color-select">
+                                <option value="">-- Elija un estándar --</option>
+                            </select>
+                        </div>
+                        <button id="compare-colors-btn" class="button secondary-action full-width-button" disabled>
+                            <i class="fas fa-exchange-alt"></i> Comparar Colores
+                        </button>
+                    </div>
+
+                    <div class="color-results-panel">
+                        <h3 class="panel-title-sub"><i class="fas fa-tachometer-alt"></i> 3. Resultados</h3>
+                        <div class="color-comparison-display">
+                            <div class="color-box-container">
+                                <p>Color de Muestra (Promedio):</p>
+                                <div id="captured-color-display" class="color-display-box"></div>
+                                <span id="captured-color-values" class="color-value-text">-</span>
+                            </div>
+                            <div class="color-box-container">
+                                <p>Color Estándar:</p>
+                                <div id="standard-color-display" class="color-display-box"></div>
+                                <span id="standard-color-values" class="color-value-text">-</span>
+                            </div>
+                        </div>
+                        <div class="delta-e-result">
+                            <h4>Diferencia de Color (ΔE*<sub_00</sub>):</h4>
+                            <p id="delta-e-value" class="delta-e-value-text">-</p>
+                            <div class="tolerance-bar-container">
+                                <div id="tolerance-bar" class="tolerance-bar-fill"></div>
+                            </div>
+                            <p id="tolerance-status" class="tolerance-status-text">-</p>
+                        </div>
+                         <p id="color-result-note" class="note" style="margin-top:10px;"></p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            &copy; <span id="currentYearColorValidator"></span> Grupo Azor México. Todos los derechos reservados.
+        </footer>
+    </div>
+
+    <script type="text/javascript">
+        if(document.getElementById('currentYearColorValidator')) {
+            document.getElementById('currentYearColorValidator').textContent = new Date().getFullYear();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DEBUG: Inicio DOMContentLoaded.");
+            console.log("DEBUG: typeof window.chroma:", typeof window.chroma, "(debería ser 'function')");
+            console.log("DEBUG: typeof window.DeltaE:", typeof window.DeltaE, "(debería ser 'object' si deltae.js local se carga bien)");
+            
+            const videoElement = document.getElementById('color-video-feed');
+            const webcamLoadingPrompt = document.getElementById('webcam-loading-prompt');
+            const captureButton = document.getElementById('capture-color-btn');
+            const displayCanvas = document.getElementById('display-captured-image-canvas');
+            const displayCtx = displayCanvas ? displayCanvas.getContext('2d', { willReadFrequently: true }) : null;
+            const captureCanvas = document.getElementById('color-capture-canvas'); 
+            const captureCtx = captureCanvas ? captureCanvas.getContext('2d', { willReadFrequently: true }) : null;
+            const capturePrompt = document.getElementById('capture-prompt');
+            const instructionTextEl = document.getElementById('instruction-text');
+            const compareButton = document.getElementById('compare-colors-btn');
+            const standardColorSelect = document.getElementById('standard-color-select');
+            
+            const capturedColorDisplay = document.getElementById('captured-color-display');
+            const capturedColorValuesEl = document.getElementById('captured-color-values');
+            const standardColorDisplay = document.getElementById('standard-color-display');
+            const standardColorValuesEl = document.getElementById('standard-color-values');
+            const deltaEValueEl = document.getElementById('delta-e-value');
+            const toleranceBar = document.getElementById('tolerance-bar');
+            const toleranceStatusEl = document.getElementById('tolerance-status'); // Elemento para el texto/indicador de estado
+            const colorResultNoteEl = document.getElementById('color-result-note');
+
+            let stream = null;
+            let pickedColorRGB = null; 
+            let currentStandardColorData = null;
+            let imageIsCaptured = false; 
+            let isDrawingSelection = false;
+            let selectionRect = { startX: 0, startY: 0, currentX: 0, currentY: 0, width: 0, height: 0 };
+
+            const coloresEstandarAzor = {
+                "azul_corp": { nombre: "Azul Azor Corporativo", hex: "#007BFF", lab: { L: 53.39, a: 2.71, b: -58.01 } },
+                "rojo_logo": { nombre: "Rojo Azor Intenso", hex: "#D40000", lab: { L: 42.78, a: 67.63, b: 52.75 } },
+                "amarillo_resaltador": { nombre: "Amarillo Resaltador", hex: "#FFEB3B", lab: { L: 93.62, a: -10.16, b: 83.24 } },
+                "verde_producto_eco": { nombre: "Verde Eco Azor", hex: "#4CAF50", lab: { L: 60.32, a: -47.56, b: 46.99 } }
+            };
+
+            function rgbToHex(r, g, b) {
+                const toHex = c => (c < 16 ? '0' : '') + c.toString(16);
+                return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+            }
+
+            function populateStandardColors() {
+                if (!standardColorSelect) { return; }
+                standardColorSelect.innerHTML = '<option value="">-- Elija un estándar --</option>';
+                for (const key in coloresEstandarAzor) {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = coloresEstandarAzor[key].nombre;
+                    standardColorSelect.appendChild(option);
+                }
+            }
+            
+            async function startWebcam() {
+                if (!videoElement || !captureCanvas || !displayCanvas || !webcamLoadingPrompt || !capturePrompt || !displayCtx || !captureCtx) {
+                    if (webcamLoadingPrompt) webcamLoadingPrompt.textContent = "Error: Elementos de UI no encontrados.";
+                    return;
+                }
+                webcamLoadingPrompt.style.display = 'block';
+                capturePrompt.textContent = "Activando cámara...";
+                capturePrompt.style.display = 'block'; 
+                if (displayCtx) displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+
+                try {
+                    if (stream) { 
+                        stream.getTracks().forEach(track => track.stop());
+                        stream = null; 
+                    }
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            facingMode: "environment", 
+                            width: { ideal: 640 }, 
+                            height: { ideal: 480 } 
+                        } 
+                    });
+                    videoElement.srcObject = stream;
+                    
+                    await new Promise((resolve, reject) => {
+                        let resolved = false; let loadAttempts = 0; const maxLoadAttempts = 5; 
+                        function checkVideoDimensions() {
+                            if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+                                if (!resolved) {
+                                    captureCanvas.width = videoElement.videoWidth;
+                                    captureCanvas.height = videoElement.videoHeight;
+                                    const webcamContainerEl = document.getElementById('color-webcam-container');
+                                    const aspectRatio = videoElement.videoWidth / videoElement.videoHeight;
+                                    let dCanvasWidth = (webcamContainerEl && webcamContainerEl.clientWidth > 0) ? webcamContainerEl.clientWidth - 2 : 300; 
+                                    let dCanvasHeight = dCanvasWidth / aspectRatio;
+                                    if (dCanvasHeight > 280) { dCanvasHeight = 280; dCanvasWidth = dCanvasHeight * aspectRatio; }
+                                    displayCanvas.width = dCanvasWidth; displayCanvas.height = dCanvasHeight;
+                                    resolved = true; resolve();
+                                }
+                            } else {
+                                loadAttempts++;
+                                if (loadAttempts < maxLoadAttempts && !resolved) { setTimeout(checkVideoDimensions, 500); } 
+                                else if (!resolved) { reject(new Error("Dimensiones del video siguen siendo 0.")); }
+                            }
+                        }
+                        videoElement.onloadedmetadata = checkVideoDimensions; videoElement.oncanplay = checkVideoDimensions; 
+                        videoElement.onerror = (e) => { if (!resolved) reject(new Error("Error al cargar metadata/video: " + e)); };
+                        setTimeout(() => { if (!resolved) reject(new Error("Timeout esperando metadata/video.")); }, 4000); 
+                    });
+                    
+                    if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
+                    if (capturePrompt) capturePrompt.textContent = "Cámara activa. Enfoque y capture la imagen.";
+                    imageIsCaptured = false; pickedColorRGB = null; 
+                    checkEnableCompareButton();
+                } catch (err) {
+                    console.error("Validador Color: Error al acceder/configurar webcam: ", err);
+                    if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
+                    if (capturePrompt) capturePrompt.textContent = "Error webcam: " + (err.message ? err.message.substring(0, 70) : "Desconocido") + "...";
+                }
+            }
+            
+            function resetUIForNewCapture() {
+                if (capturePrompt) capturePrompt.style.display = 'none'; 
+                imageIsCaptured = true; pickedColorRGB = null; 
+                if (compareButton) compareButton.disabled = true; 
+                if(capturedColorDisplay) capturedColorDisplay.style.backgroundColor = 'transparent';
+                if(capturedColorValuesEl) capturedColorValuesEl.textContent = 'Dibuje un área en la imagen';
+                if(deltaEValueEl) deltaEValueEl.textContent = '-';
+                if(toleranceStatusEl) {
+                    toleranceStatusEl.textContent = '-';
+                    toleranceStatusEl.className = 'tolerance-status-text'; // Reset a clase base
+                }
+                if(toleranceBar) { toleranceBar.style.width = '0%'; toleranceBar.className = 'tolerance-bar-fill';} // Reset clase base barra
+                if(instructionTextEl) instructionTextEl.textContent = "Dibuje un recuadro en la imagen para seleccionar el área de color.";
+                if(colorResultNoteEl) colorResultNoteEl.textContent = '';
+                checkEnableCompareButton();
+            }
+
+            if (captureButton) {
+                captureButton.addEventListener('click', () => {
+                    if (!stream || !videoElement.srcObject || videoElement.paused || videoElement.ended) {
+                         if (capturePrompt) capturePrompt.textContent = "Cámara no activa. Recargue.";
+                        return;
+                    }
+                    if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+                        if (captureCanvas.width !== videoElement.videoWidth || captureCanvas.height !== videoElement.videoHeight) {
+                            captureCanvas.width = videoElement.videoWidth; captureCanvas.height = videoElement.videoHeight;
+                        }
+                    } else {
+                        console.warn("Dimensiones video no disponibles, usando fallback.");
+                        captureCanvas.width = 640; captureCanvas.height = 480;
+                    }
+                    if (!captureCtx) { console.error("Contexto captureCanvas no disponible."); return;}
+                    captureCtx.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
+                    const parentWidth = displayCanvas.parentElement ? displayCanvas.parentElement.clientWidth : 300;
+                    const aspectRatio = (captureCanvas.height > 0) ? (captureCanvas.width / captureCanvas.height) : (16/9); 
+                    let dCanvasWidth = parentWidth > 0 ? parentWidth - 2 : 300;
+                    let dCanvasHeight = dCanvasWidth / aspectRatio;
+                    if (dCanvasHeight > 280) { dCanvasHeight = 280; dCanvasWidth = dCanvasHeight * aspectRatio; }
+                    displayCanvas.width = dCanvasWidth; displayCanvas.height = dCanvasHeight;
+                    if (displayCtx) {
+                        displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height); 
+                        displayCtx.drawImage(captureCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
+                    }
+                    resetUIForNewCapture();
+                });
+            }
+
+            function checkEnableCompareButton() {
+                if (compareButton) {
+                    const standardSelected = standardColorSelect && standardColorSelect.value !== "";
+                    compareButton.disabled = !(pickedColorRGB && standardSelected && currentStandardColorData);
+                }
+            }
+
+            if (displayCanvas && displayCtx && captureCtx) {
+                displayCanvas.addEventListener('mousedown', (event) => {
+                    if (!imageIsCaptured) return; 
+                    isDrawingSelection = true; const rect = displayCanvas.getBoundingClientRect();
+                    selectionRect.startX = event.clientX - rect.left; selectionRect.startY = event.clientY - rect.top;
+                    selectionRect.currentX = selectionRect.startX; selectionRect.currentY = selectionRect.startY;
+                    selectionRect.width = 0; selectionRect.height = 0;
+                    pickedColorRGB = null; 
+                    if(capturedColorDisplay) capturedColorDisplay.style.backgroundColor = 'transparent';
+                    if(capturedColorValuesEl) capturedColorValuesEl.textContent = 'Dibujando área...';
+                    checkEnableCompareButton(); 
+                });
+
+                displayCanvas.addEventListener('mousemove', (event) => {
+                    if (!imageIsCaptured || !isDrawingSelection) return;
+                    const rect = displayCanvas.getBoundingClientRect();
+                    selectionRect.currentX = event.clientX - rect.left; selectionRect.currentY = event.clientY - rect.top;
+                    selectionRect.width = selectionRect.currentX - selectionRect.startX;
+                    selectionRect.height = selectionRect.currentY - selectionRect.startY;
+                    if (captureCanvas && captureCanvas.width > 0 && captureCanvas.height > 0 && displayCtx) { 
+                        displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+                        displayCtx.drawImage(captureCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
+                        displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.8)'; displayCtx.lineWidth = 2;
+                        displayCtx.strokeRect(selectionRect.startX, selectionRect.startY, selectionRect.width, selectionRect.height);
+                    }
+                });
+
+                displayCanvas.addEventListener('mouseup', () => {
+                    if (!imageIsCaptured || !isDrawingSelection) { isDrawingSelection = false; return; }
+                    isDrawingSelection = false;
+                    let finalRectX = Math.min(selectionRect.startX, selectionRect.currentX);
+                    let finalRectY = Math.min(selectionRect.startY, selectionRect.currentY);
+                    let finalRectWidth = Math.abs(selectionRect.width);
+                    let finalRectHeight = Math.abs(selectionRect.height);
+                    
+                    if (!(displayCtx && captureCanvas && captureCanvas.width > 0 && captureCanvas.height > 0 && captureCtx)) {
+                        if(capturedColorValuesEl) capturedColorValuesEl.textContent = 'Error: Imagen base no disp.';
+                        pickedColorRGB = null; checkEnableCompareButton(); return;
+                    }
+                    displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+                    displayCtx.drawImage(captureCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
+                    if (finalRectWidth < 1 || finalRectHeight < 1) { 
+                        if(capturedColorValuesEl) capturedColorValuesEl.textContent = 'Área muy pequeña.';
+                        pickedColorRGB = null; checkEnableCompareButton(); return;
+                    }
+                    if (displayCanvas.width === 0 || displayCanvas.height === 0) {
+                        if(capturedColorValuesEl) capturedColorValuesEl.textContent = 'Error: Display inválido.';
+                        pickedColorRGB = null; checkEnableCompareButton(); return;
+                    }
+                    const scaleX = captureCanvas.width / displayCanvas.width; const scaleY = captureCanvas.height / displayCanvas.height;
+                    let originalX = Math.floor(finalRectX * scaleX); let originalY = Math.floor(finalRectY * scaleY);
+                    let originalWidth = Math.floor(finalRectWidth * scaleX); let originalHeight = Math.floor(finalRectHeight * scaleY);
+                    originalX = Math.max(0, Math.min(originalX, captureCanvas.width - 1));
+                    originalY = Math.max(0, Math.min(originalY, captureCanvas.height - 1));
+                    originalWidth = Math.max(1, Math.min(originalWidth, captureCanvas.width - originalX)); 
+                    originalHeight = Math.max(1, Math.min(originalHeight, captureCanvas.height - originalY));
+                    if (originalWidth <= 0 || originalHeight <= 0) {
+                        if(capturedColorValuesEl) capturedColorValuesEl.textContent = 'Error: Área cálculo inválida.';
+                        pickedColorRGB = null; checkEnableCompareButton(); return;
+                    }
+                    try {
+                        const imageData = captureCtx.getImageData(originalX, originalY, originalWidth, originalHeight);
+                        const data = imageData.data; let sumR = 0, sumG = 0, sumB = 0; let pixelCount = 0;
+                        for (let i = 0; i < data.length; i += 4) {
+                            sumR += data[i]; sumG += data[i+1]; sumB += data[i+2]; pixelCount++;
+                        }
+                        if (pixelCount > 0) {
+                            pickedColorRGB = { r: Math.round(sumR / pixelCount), g: Math.round(sumG / pixelCount), b: Math.round(sumB / pixelCount) };
+                            const hexPicked = rgbToHex(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b);
+                            let labCapturedText = 'N/A'; let labConversionOk = false;
+
+                            if (typeof window.chroma !== 'undefined') { 
+                                try {
+                                    const labArr = window.chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab();
+                                    labCapturedText = `${labArr[0].toFixed(1)}, ${labArr[1].toFixed(1)}, ${labArr[2].toFixed(1)}`;
+                                    labConversionOk = true;
+                                } catch (chromaError) {
+                                    console.error("Error al usar chroma-js para convertir RGB a LAB:", chromaError);
+                                    if(capturedColorValuesEl) capturedColorValuesEl.textContent = `HEX: ${hexPicked} | LAB: Error chroma.js`;
+                                }
+                            } else {
+                                console.warn("Librería 'chroma-js' (window.chroma) NO está definida al procesar la muestra.");
+                                if(capturedColorValuesEl) capturedColorValuesEl.textContent = `HEX: ${hexPicked} | LAB: Error lib. conversión`;
+                            }
+
+                            if (capturedColorDisplay) capturedColorDisplay.style.backgroundColor = hexPicked;
+                            if (labConversionOk) { 
+                                if(capturedColorValuesEl) capturedColorValuesEl.textContent = `HEX: ${hexPicked} | LAB: ${labCapturedText}`;
+                            }
+                            if (instructionTextEl) instructionTextEl.textContent = "Área seleccionada. Elija un estándar.";
+                            displayCtx.strokeStyle = 'rgba(40, 167, 69, 0.9)'; displayCtx.lineWidth = 2;
+                            displayCtx.strokeRect(finalRectX, finalRectY, finalRectWidth, finalRectHeight); 
+                        } else {
+                             if(capturedColorValuesEl) capturedColorValuesEl.textContent = 'No se pudo promediar (0px).';
+                             pickedColorRGB = null;
+                        }
+                    } catch (e) {
+                        console.error("Error al procesar datos del área (catch):", e); 
+                        if(capturedColorValuesEl) capturedColorValuesEl.textContent = 'Error procesar área.';
+                        pickedColorRGB = null;
+                    }
+                    checkEnableCompareButton();
+                });
+            } else {
+                console.error("Validador Color: Canvas de dibujo no encontrado/inicializado.");
+            }
+            
+            if (standardColorSelect) {
+                standardColorSelect.addEventListener('change', () => {
+                    const selectedKey = standardColorSelect.value;
+                    if (selectedKey && coloresEstandarAzor[selectedKey]) {
+                        currentStandardColorData = coloresEstandarAzor[selectedKey];
+                        if(standardColorDisplay) standardColorDisplay.style.backgroundColor = currentStandardColorData.hex;
+                        if(standardColorValuesEl) {
+                            standardColorValuesEl.textContent = `HEX: ${currentStandardColorData.hex.toUpperCase()} | LAB: ${currentStandardColorData.lab.L.toFixed(1)}, ${currentStandardColorData.lab.a.toFixed(1)}, ${currentStandardColorData.lab.b.toFixed(1)}`;
+                        }
+                    } else {
+                        currentStandardColorData = null;
+                        if(standardColorDisplay) standardColorDisplay.style.backgroundColor = 'transparent';
+                        if(standardColorValuesEl) standardColorValuesEl.textContent = '-';
+                    }
+                    checkEnableCompareButton(); 
+                });
+            }
+
+            if (compareButton) {
+                compareButton.addEventListener('click', () => {
+                    if (!pickedColorRGB || !currentStandardColorData) {
+                        if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Faltan datos.';
+                        return;
+                    }
+                    
+                    let labSampleFromChroma; 
+                    let conversionOkForComparison = false;
+
+                    if (typeof window.chroma !== 'undefined') { 
+                        try {
+                            const labChromaArray = window.chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab();
+                            labSampleFromChroma = { 
+                                L: parseFloat(labChromaArray[0]), 
+                                a: parseFloat(labChromaArray[1]), 
+                                b: parseFloat(labChromaArray[2]) 
+                            };
+                            if (isNaN(labSampleFromChroma.L) || isNaN(labSampleFromChroma.a) || isNaN(labSampleFromChroma.b)) {
+                                console.error("Error de conversión a LAB con Chroma.js: uno de los valores es NaN.", labChromaArray);
+                                if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Conversión LAB (NaN)';
+                                return;
+                            }
+                            conversionOkForComparison = true;
+                        } catch (chromaError) {
+                             console.error("Error al usar chroma-js para comparación:", chromaError);
+                        }
+                    } else {
+                        console.error("Librería 'chroma-js' (window.chroma) NO está definida para comparación.");
+                    }
+
+                    if (!conversionOkForComparison) {
+                        if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Librería conversión.';
+                        return;
+                    }
+
+                    const labStandardOriginal = currentStandardColorData.lab;
+                     if (!labStandardOriginal || typeof labStandardOriginal.L !== 'number' || typeof labStandardOriginal.a !== 'number' || typeof labStandardOriginal.b !== 'number') {
+                         console.error("Datos LAB del color estándar son inválidos o no son números:", labStandardOriginal);
+                         if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Estándar LAB inv.';
+                         return;
+                    }
+
+                    const labForDeltaESample = { L: labSampleFromChroma.L, A: labSampleFromChroma.a, B: labSampleFromChroma.b };
+                    const labForDeltaEStandard = { L: labStandardOriginal.L, A: labStandardOriginal.a, B: labStandardOriginal.b };
+
+                    // console.log("DEBUG NaN: labForDeltaESample (con A, B):", JSON.stringify(labForDeltaESample));
+                    // console.log("DEBUG NaN: labForDeltaEStandard (con A, B):", JSON.stringify(labForDeltaEStandard));
+
+                    if (typeof window.DeltaE === 'undefined' || (window.DeltaE && typeof window.DeltaE.getDeltaE00 !== 'function')) {
+                        console.error("Error formal: Librería 'DeltaE' no disponible o función getDeltaE00 no encontrada.");
+                        if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Librería Delta E.';
+                        return;
+                    }
+                    
+                    let deltaE;
+                    try {
+                        deltaE = window.DeltaE.getDeltaE00(labForDeltaESample, labForDeltaEStandard);
+                    } catch (deltaError) {
+                        console.error("Error al calcular Delta E con la librería:", deltaError);
+                        if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Cálculo Delta E.';
+                        return;
+                    }
+                    
+                    if (isNaN(deltaE)) {
+                        console.error("Error: El cálculo de DeltaE resultó en NaN.");
+                        console.log("Valores que entraron a getDeltaE00: Sample (L,A,B):", labForDeltaESample, "Standard (L,A,B):", labForDeltaEStandard);
+                        if (deltaEValueEl) deltaEValueEl.textContent = 'NaN (Error Cálculo)';
+                        if (toleranceStatusEl) {
+                            toleranceStatusEl.textContent = 'Error en Cálculo';
+                            toleranceStatusEl.className = 'tolerance-status-text status-danger'; // Clase base + error
+                        }
+                        if (toleranceBar) {
+                            toleranceBar.style.width = '100%';
+                            toleranceBar.className = 'tolerance-bar-fill status-danger';
+                        }
+                        return; 
+                    }
+
+                    if (deltaEValueEl) deltaEValueEl.textContent = deltaE.toFixed(2);
+                    
+                    let statusText = ''; 
+                    let barClass = 'tolerance-bar-fill'; // Clase base para la barra
+                    let statusClass = ''; // Clase específica de estado para el texto
+                    let barWidthPercentage = 0;
+                    const maxDeltaEForBar = 10; const umbralExcelente = 2.0; const umbralAceptable = 5.0; 
+
+                    if (deltaE <= umbralExcelente) {
+                        statusText = 'Aprobado (Excelente)'; statusClass = 'status-ok';
+                        barWidthPercentage = (deltaE / umbralExcelente) * (100 / 3);
+                    } else if (deltaE <= umbralAceptable) {
+                        statusText = 'Aprobado (Aceptable)'; statusClass = 'status-warning';
+                        barWidthPercentage = (100 / 3) + ((deltaE - umbralExcelente) / (umbralAceptable - umbralExcelente)) * (100 / 3);
+                    } else {
+                        statusText = 'Rechazado (Fuera de Tolerancia)'; statusClass = 'status-danger';
+                        if (deltaE <= maxDeltaEForBar) {
+                           barWidthPercentage = (200 / 3) + ((deltaE - umbralAceptable) / (maxDeltaEForBar - umbralAceptable)) * (100 / 3);
+                        } else { barWidthPercentage = 100; }
+                    }
+                    barWidthPercentage = Math.min(100, Math.max(0, barWidthPercentage)); 
+
+                    // Actualizar el elemento de texto del estado y añadirle la clase correspondiente
+                    if (toleranceStatusEl) {
+                        toleranceStatusEl.textContent = statusText;
+                        toleranceStatusEl.className = 'tolerance-status-text'; // Limpiar clases previas y poner la base
+                        toleranceStatusEl.classList.add(statusClass); // Añadir la clase de estado actual
+                    }
+                    
+                    // Actualizar la barra de progreso
+                    if (toleranceBar) { 
+                        toleranceBar.style.width = `${barWidthPercentage}%`;
+                        toleranceBar.className = `tolerance-bar-fill ${statusClass}`; // Aplicar clase de estado a la barra
+                    }
+
+                    if (colorResultNoteEl) {
+                        let note = `Un valor ΔE*₀₀ de ${deltaE.toFixed(2)} indica la diferencia perceptual. `;
+                        if (deltaE <= 1.0) note += "Generalmente imperceptible."; else if (deltaE <= 2.0) note += "Diferencia muy pequeña.";
+                        else if (deltaE <= 5.0) note += "Diferencia perceptible."; else if (deltaE <= 10.0) note += "Claramente perceptible.";
+                        else note += "Diferencia muy grande.";
+                        colorResultNoteEl.textContent = note;
+                    }
+                });
+            }
+            populateStandardColors();
+            startWebcam();
+        });
+    </script>
+</body>
+</html>
