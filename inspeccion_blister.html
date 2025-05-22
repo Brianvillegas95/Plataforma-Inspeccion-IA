@@ -159,8 +159,8 @@
                 maxPredictions = model.getTotalClasses();
 
                 const flip = true;
-                const webcamCanvasWidth = 300; 
-                const webcamCanvasHeight = 300; 
+                const webcamCanvasWidth = 220; 
+                const webcamCanvasHeight = 220; 
                 webcam = new tmImage.Webcam(webcamCanvasWidth, webcamCanvasHeight, flip); 
                 
                 setAuditorInspectorSpeech('Configurando cámara...', false, 'loading');
@@ -173,7 +173,7 @@
                 
                 labelContainerInspector.innerHTML = "IA Lista. Presione 'Analizar'.";
                 progressBarContainerInspector.style.display = 'none';
-                setAuditorInspectorSpeech('Sistema listo. Coloque la muestra.', true, 'idle');
+                setAuditorInspectorSpeech('Sistema listo. Coloque el blíster.', true, 'idle');
                 captureButtonInspector.disabled = false;
                 captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Analizar Muestra';
                 
