@@ -1,4 +1,4 @@
-/* css/estilos.css (Enfocado en restaurar layout de inspeccion_blister.html) */
+/* css/estilos.css (Tu versión base + estilos para Validador de Color al final) */
 :root {
     --azor-blue: #007bff; 
     --azor-blue-dark: #0056b3; 
@@ -239,17 +239,14 @@ body {
 .app-footer span#currentYear { font-weight: bold; }
 
 /* === ESTILOS PARA LA PÁGINA DE INSPECCIÓN (inspeccion_blister.html) === */
-
-/* Restaurar el layout de dos columnas para el inspector */
 .inspector-body .main-content-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr; /* Layout de dos columnas */
+    grid-template-columns: 2fr 1fr; 
     gap: 15px; 
     padding: 15px; 
     flex-grow: 1;
     overflow: hidden; 
 }
-
 .inspector-body .vision-panel, 
 .inspector-body .controls-panel { 
     border: 1px solid var(--border-color);
@@ -258,32 +255,32 @@ body {
     box-shadow: var(--shadow-sm);
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Prevenir scroll interno si el contenido es demasiado alto */
-    /* Alturas podrían ser necesarias si el contenido es muy variable,
-       o usar flex-grow en el elemento que deba expandirse.
-       Por ahora, confiamos en que el contenido cabe. */
+    overflow-y: auto; 
+    max-height: 100%; 
 }
 .inspector-body .panel-title { 
     margin-bottom: 10px; 
     padding-bottom: 6px; 
     font-size: 1.15em; 
-    /* (El resto de los estilos de panel-title ya están definidos globalmente) */
+    flex-shrink: 0; 
 }
 .inspector-body .controls-panel h4 { 
     font-size: 0.9em; 
     color: var(--text-secondary);
     margin-bottom: 8px; 
     font-weight: 500;
+    flex-shrink: 0;
 }
 .inspector-body #webcam-container { 
-    width: 300px;  /* Manteniendo el tamaño de webcam que funcionaba */
-    height: 300px; 
+    width: 220px;  
+    height: 220px; 
     margin: 0 auto 10px auto; 
     border-radius: 6px; 
     overflow: hidden;
     background-color: #333; 
     border: 1px solid var(--border-color); 
     position: relative;
+    flex-shrink: 0;
 }
 .inspector-body #webcam-container video,
 .inspector-body #webcam-container canvas { 
@@ -294,49 +291,39 @@ body {
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
     animation: pulseBoxShadow 1.5s infinite alternate; 
 }
-.inspector-body #progress-bar-container { margin: 10px 0; height: 6px; background-color: #e9ecef; border-radius: 3px;}
+.inspector-body #progress-bar-container { margin: 10px 0; height: 6px; background-color: #e9ecef; border-radius: 3px; flex-shrink: 0;}
 .inspector-body #progress-bar { height: 100%; width: 0; background-color: var(--success-color); transition: width 0.4s ease-in-out; border-radius: 3px; }
 .inspector-body .label-container { 
     font-size: 1.1em; padding: 8px 10px; margin-top: 8px; min-height: 38px;
     font-weight: bold; color: var(--text-primary); text-align: center; background-color: #f8f9fa;
     border: 1px solid var(--border-color); border-radius: 6px; display: flex;
-    align-items: center; justify-content: center;
+    align-items: center; justify-content: center; flex-shrink: 0;
 }
 .inspector-body .label-container span { font-weight: bold; }
 .inspector-body .error-message { 
     font-size: 0.85em; padding: 6px 8px; margin-top: 8px;
     color: var(--error-color); text-align: center; background-color: #f8d7da;
-    border: 1px solid #f5c6cb; border-radius: 6px;
+    border: 1px solid #f5c6cb; border-radius: 6px; flex-shrink: 0;
 }
 .inspector-body .controls-panel ol { 
     font-size: 0.85rem; line-height: 1.5; margin-bottom: 10px; padding-left: 20px;
+    flex-shrink: 0;
 }
 .inspector-body .controls-panel ol li { margin-bottom: 5px; }
-
-/* CAMBIO: Estilos para centrar el único botón de acción en el inspector */
 .inspector-body .action-buttons.single-button-centered {
-    display: flex;
-    justify-content: center; 
-    margin-top: 20px; /* Más espacio arriba y abajo para destacar el botón */
-    margin-bottom: 20px; 
+    display: flex; justify-content: center; 
+    margin-top: 15px; margin-bottom: 15px; flex-shrink: 0;
 }
 .inspector-body .action-buttons.single-button-centered .button {
-    width: auto; 
-    min-width: 220px; /* Ancho mínimo para el botón */
-    padding: 12px 30px; /* Hacerlo un poco más grande y prominente */
-    font-size: 1rem; /* Fuente un poco más grande para el botón principal */
+    width: auto; min-width: 200px; padding: 10px 25px; font-size: 0.95rem; 
 }
-
 .inspector-body #auditor-section { 
     margin-top: auto; text-align: center; padding-top: 10px; 
-    border-top: 1px solid var(--border-color); 
+    border-top: 1px solid var(--border-color); flex-shrink: 0;
 }
 .inspector-body #auditor-image-container { margin-bottom: 6px; }
 .inspector-body #auditor-image.auditor-image-estilizada {
-    max-width: 85px; 
-    height: auto;
-    border-radius: 0; 
-    border: none; 
+    max-width: 85px; height: auto; border-radius: 0; border: none; 
     filter: drop-shadow(0px 3px 8px rgba(0, 0, 0, 0.12)); 
     transition: transform 0.3s ease;
 }
@@ -344,47 +331,118 @@ body {
 .inspector-body #auditor-image.status-ok { filter: drop-shadow(0px 3px 8px rgba(40, 167, 69, 0.4)); }
 .inspector-body #auditor-image.status-error { animation: auditorShake 0.5s; filter: drop-shadow(0px 3px 8px rgba(220, 53, 69, 0.4)); }
 .inspector-body #auditor-image.status-thinking { animation: auditorPulse 1.2s infinite ease-in-out; }
-
-/* CAMBIO: Asegurar que la burbuja del auditor esté centrada y legible */
 .inspector-body #auditor-message-bubble.auditor-bubble.auditor-bubble-centered { 
-    background-color: #e9ecef; 
-    padding: 10px 15px; /* Aumentar padding para legibilidad */
-    border-radius: 10px; 
-    max-width: 95%; /* Que use casi todo el ancho del panel si es necesario */
-    margin-left: auto; 
-    margin-right: auto; 
-    font-size: 0.9em; /* Un poco más grande para legibilidad */
-    color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
-    position: relative; 
-    line-height: 1.5;
-    min-height: 3em; /* Suficiente para dos líneas de texto */
-    text-align: center; 
-    display: flex; /* Para centrar verticalmente el span interno */
-    align-items: center;
-    justify-content: center;
+    background-color: #e9ecef; padding: 8px 12px; border-radius: 10px; 
+    max-width: 95%; margin-left: auto; margin-right: auto; 
+    font-size: 0.85em; color: var(--text-primary); box-shadow: var(--shadow-sm);
+    position: relative; line-height: 1.5; min-height: 3em; 
+    text-align: center; display: flex; align-items: center; justify-content: center;
 }
-.inspector-body #auditor-message-bubble.auditor-bubble.auditor-bubble-centered span {
-    display: inline-block; 
-}
-.inspector-body #auditor-message-bubble.auditor-bubble span.typing-effect-active::after { 
-    content: '|'; display: inline-block; animation: blinkCursor 0.6s infinite;
-    margin-left: 1px; color: var(--azor-blue); font-weight: bold;
-}
-.inspector-body #auditor-message-bubble.auditor-bubble::before {
-    display: none; 
-}
-.inspector-body #auditor-title { 
-    font-size: 0.95em; 
-    margin-bottom: 5px; 
-    font-weight: 500; 
-    color: var(--text-primary); 
-}
+.inspector-body #auditor-message-bubble.auditor-bubble.auditor-bubble-centered span { display: inline-block; }
+.inspector-body #auditor-message-bubble.auditor-bubble span.typing-effect-active::after { content: '|'; display: inline-block; animation: blinkCursor 0.6s infinite; margin-left: 1px; color: var(--azor-blue); font-weight: bold; }
+.inspector-body #auditor-message-bubble.auditor-bubble::before { display: none; }
+.inspector-body #auditor-title { font-size: 0.95em; margin-bottom: 5px; font-weight: 500; color: var(--text-primary); }
 
 /* Animaciones (reutilizadas) */
 @keyframes auditorPulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.3); } 50% { transform: scale(1.05); box-shadow: 0 0 5px 5px rgba(0, 123, 255, 0.1); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.0); } }
 @keyframes auditorShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 @keyframes pulseBoxShadow { from { box-shadow: 0 0 0 0px rgba(0, 123, 255, 0.15); } to { box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.3); } }
+
+/* === ESTILOS PARA LA NUEVA HERRAMIENTA: VALIDADOR DE COLOR === */
+/* Asegurarse de que el body para validador de color también tenga overflow hidden si es necesario */
+body.color-validator-body {
+    overflow: hidden !important;
+}
+body.color-validator-body .app-container {
+    overflow: hidden; /* El app-container gestiona el scroll si es necesario */
+}
+
+.color-validator-body .main-content { /* Específico para que el contenido del validador de color use el espacio */
+    padding: 0; 
+    overflow-y: auto; /* Permitir scroll DENTRO del main-content del validador si es necesario */
+    flex-grow: 1;
+    display: flex; /* Para que .tool-section pueda usar flex-grow */
+}
+.color-validator-tool {
+    padding: 20px; 
+    background-color: var(--surface-bg);
+    flex-grow: 1; 
+    display: flex;
+    flex-direction: column;
+    width: 100%; /* Asegurar que ocupe el ancho */
+}
+.color-validator-tool .section-header { margin-bottom: 20px; text-align:center; }
+.color-validator-tool .section-header .feature-icon { font-size: 2.5em; margin-bottom: 10px; }
+.color-validator-tool .section-header h2 { font-size: 1.8em; }
+.color-validator-tool .section-header p { font-size: 0.95em; }
+.color-validator-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+    gap: 20px;
+    align-items: stretch; /* CAMBIO: Para que los paneles intenten tener la misma altura */
+    flex-grow: 1; 
+    width: 100%;
+}
+.color-capture-panel, .color-analysis-panel, .color-results-panel {
+    background-color: var(--surface-bg); padding: 15px; border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm); border: 1px solid var(--border-color);
+    display: flex; flex-direction: column; gap: 12px;
+    /* min-height: 300px; Eliminado para que el flex-grow funcione mejor */
+}
+.panel-title-sub { 
+    font-size: 1.1em; color: var(--azor-blue); padding-bottom: 6px;
+    margin-bottom: 8px; border-bottom: 1px solid var(--azor-blue);
+    display: flex; align-items: center; flex-shrink: 0;
+}
+.panel-title-sub i { margin-right: 8px; }
+#color-webcam-container.webcam-view {
+    width: 100%; 
+    min-height: 180px; 
+    max-height: 240px; 
+    background-color: #333; border-radius: var(--border-radius); overflow: hidden;
+    margin-bottom: 10px; display: flex; align-items: center; justify-content: center; position:relative;
+    flex-shrink: 0;
+}
+#webcam-loading-prompt { position: absolute; color: white; background-color: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px;}
+.captured-image-area { flex-grow: 1; display: flex; flex-direction: column; } /* Para que el canvas pueda crecer */
+.captured-image-canvas {
+    width: 100%; 
+    /* height: auto; No, dejar que el contenedor padre lo defina o aspect ratio */
+    max-height: 240px; 
+    border: 1px solid var(--border-color); border-radius: var(--border-radius);
+    background-color: #f0f0f0; cursor: crosshair; margin-bottom: 10px;
+    display: block; 
+    object-fit: contain; /* Para que la imagen se ajuste sin cortarse */
+    flex-shrink: 0; /* Evitar que se encoja demasiado */
+}
+#capture-prompt { display: flex; align-items: center; justify-content: center; min-height: 150px; width: 100%; flex-grow: 1;}
+.color-picker-instructions { text-align: center; font-size: 0.8em; color: var(--text-secondary); flex-shrink: 0;}
+.color-picker-instructions p { margin-bottom: 5px; }
+.color-preview-live-container { display:flex; align-items:center; justify-content: center; gap: 10px; margin-top:5px;}
+#color-preview-box { width: 30px; height: 30px; border: 1px solid var(--border-color); background-color: #eee; border-radius: 4px; }
+#selected-color-value-temp {font-weight: 500;}
+
+.color-analysis-panel .form-group { margin-bottom: auto; } /* Empujar botón de comparar hacia abajo */
+
+.full-width-button { width: 100%; flex-shrink: 0;}
+.color-comparison-display { display: flex; justify-content: space-around; align-items: flex-start; margin-bottom: 15px; gap: 10px; flex-shrink: 0;}
+.color-box-container { text-align: center; flex: 1; max-width: 150px;}
+.color-box-container p { font-size: 0.85em; font-weight: 500; margin-bottom: 5px; }
+.color-display-box { width: 80px; height: 80px; border: 1px solid var(--border-color); margin: 0 auto 5px auto; border-radius: var(--border-radius); background-color: #f0f0f0; }
+.color-value-text { font-size: 0.75em; color: var(--text-secondary); word-break: break-all; min-height: 2.5em; }
+.delta-e-result { text-align: center; margin-top: 10px; flex-shrink: 0;}
+.delta-e-result h4 { font-size: 1em; margin-bottom: 5px; }
+.delta-e-value-text { font-size: 1.6em; font-weight: 700; margin-bottom: 8px; }
+.tolerance-bar-container { width: 100%; height: 18px; background-color: #e0e0e0; border-radius: 9px; overflow: hidden; margin-bottom: 5px; border: 1px solid #c0c0c0; }
+.tolerance-bar-fill { height: 100%; width: 0%; border-radius: 9px; transition: width 0.5s ease-in-out, background-color 0.5s ease; text-align: center; line-height: 18px; color: white; font-size: 0.8em; }
+.tolerance-bar-fill.tolerance-ok { background-color: var(--success-color); }
+.tolerance-bar-fill.tolerance-warning { background-color: var(--warning-color); }
+.tolerance-bar-fill.tolerance-danger { background-color: var(--danger-color); }
+.tolerance-status-text { font-size: 1em; font-weight: bold; margin-top: 5px;}
+.tolerance-status-text.tolerance-ok { color: var(--success-color); }
+.tolerance-status-text.tolerance-warning { color: var(--warning-color); }
+.tolerance-status-text.tolerance-danger { color: var(--danger-color); }
+.color-validator-tool .note { font-size: 0.8em; color: var(--text-secondary); margin-top:10px; text-align: center; flex-shrink: 0;}
 
 /* Responsive */
 @media (max-width: 1024px) { 
@@ -416,21 +474,25 @@ body {
     .calculator-form-container { flex-direction: column; align-items: center; } 
     .calculator-form, .calculator-results { max-width: 500px; }
 
-    /* Inspector en tablet: apilar columnas */
-    .inspector-body .main-content-grid { grid-template-columns: 1fr; gap: 10px; padding: 10px;}
+    .color-validator-grid { grid-template-columns: 1fr; }
+    .color-capture-panel, .color-analysis-panel, .color-results-panel { max-width: 500px; margin-left: auto; margin-right: auto; min-height: auto; /* Permitir que se encojan */ }
+    #color-webcam-container.webcam-view, .captured-image-canvas { max-height: 220px; }
+
+    .inspector-body .main-content-grid { grid-template-columns: 1fr; gap: 10px; padding: 10px; max-height: none; }
+    .inspector-body .vision-panel, .inspector-body .controls-panel {max-height: none; overflow-y: visible; }
     .inspector-body .panel-title { font-size: 1.1em; }
-    .inspector-body #webcam-container { width: 200px; height: 200px; } /* Mantener un tamaño decente */
+    .inspector-body #webcam-container { width: 200px; height: 200px; } 
     .inspector-body .action-buttons.single-button-centered .button { min-width: 180px; font-size: 0.9rem; }
 }
 
 @media (max-width: 768px) { 
     html, body { font-size: 13px; } 
-    .app-header { flex-direction: column; gap: 10px; padding: 15px; } 
-    .app-header h1 { font-size: 1.3em; text-align: center; }
-    .logo { max-height: 40px; }
+    .app-header { flex-direction: column; gap: 8px; padding: 12px 15px; } 
+    .app-header h1 { font-size: 1.2em; text-align: center; } 
+    .logo { max-height: 35px; } 
     .main-nav { width: 100%; overflow-x: auto; padding-bottom: 8px;} 
     .main-nav ul { justify-content: flex-start; flex-wrap: nowrap;} 
-    .main-nav > ul > li > a.dropdown-toggle { font-size: 0.9rem; padding: 8px 12px; } 
+    .main-nav > ul > li > a.dropdown-toggle { font-size: 0.85rem; padding: 8px 10px; } 
 
     .hero-interactive-auditor { padding: 20px 15px; }
     .hero-titulo-principal h2 { font-size: 1.6em; }
@@ -446,7 +508,6 @@ body {
     .calculator-form { padding: 20px; }
     .calculator-results { padding: 15px 20px; }
 
-    /* Inspector en móvil */
     .inspector-body .main-content-grid { padding: 10px; gap: 8px; } 
     .inspector-body .panel-title { font-size: 1em; }
     .inspector-body #webcam-container { width: 150px; height: 150px; margin-bottom: 8px;} 
@@ -455,4 +516,5 @@ body {
     .inspector-body .action-buttons.single-button-centered .button { min-width: 150px; font-size: 0.85rem; padding: 8px 20px; }
     .inspector-body #auditor-image.auditor-image-estilizada { max-width: 70px; } 
     .inspector-body #auditor-message-bubble.auditor-bubble { font-size: 0.75em; max-width: 150px; padding: 6px 10px; min-height: 2.5em;} 
+
 }
