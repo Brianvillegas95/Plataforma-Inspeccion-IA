@@ -37,7 +37,7 @@
                 <div class="section-header">
                     <i class="fas fa-palette feature-icon"></i>
                     <h2>Estación Digital de Validación de Color</h2>
-                    <p>Capture una imagen y dibuje un recuadro sobre el área de color a validar.</p>
+                    <p id="main-instruction-text" style="font-weight: bold; color: #007bff;">PASO OBLIGATORIO: Calibre la cámara usando el panel "Ajuste de Cámara" para continuar.</p>
                 </div>
 
                 <div class="color-validator-grid">
@@ -48,11 +48,16 @@
                             <p id="webcam-loading-prompt">Activando cámara...</p>
                         </div>
                         <canvas id="color-capture-canvas" style="display:none;"></canvas> 
-                        <button id="capture-color-btn" class="button primary-action full-width-button">
+                        <canvas id="calibration-helper-canvas" style="display:none;"></canvas>
+                        <button id="capture-color-btn" class="button primary-action full-width-button" disabled title="Debe calibrar la cámara primero">
                             <i class="fas fa-camera-retro"></i> Capturar Imagen
                         </button>
+                        <input type="file" id="select-image-input" accept="image/*" style="display:none;">
+                        <button id="select-image-btn" class="button secondary-action full-width-button" style="margin-top: 10px;" disabled title="Debe calibrar la cámara primero">
+                            <i class="fas fa-folder-open"></i> Seleccionar Imagen de Biblioteca
+                        </button>
                         <div class="color-picker-instructions">
-                            <p id="instruction-text">Tras capturar, dibuje un recuadro en la imagen para seleccionar el área de color.</p>
+                            <p id="instruction-text" style="color: #dc3545; font-weight:bold;">CALIBRACIÓN REQUERIDA: Use el botón "Calibrar con Fondo Gris" en el panel "Ajuste de Cámara".</p>
                         </div>
                     </div>
 
@@ -60,12 +65,12 @@
                         <h3 class="panel-title-sub"><i class="fas fa-crop-alt"></i> 2. Área de Muestra y Estándar</h3>
                         <div class="captured-image-area">
                             <canvas id="display-captured-image-canvas" class="captured-image-canvas"></canvas> 
-                            <p id="capture-prompt">Active la cámara y capture una imagen para analizar.</p>
+                            <p id="capture-prompt">Esperando calibración de cámara e imagen...</p>
                         </div>
                         
                         <div class="form-group">
                             <label for="standard-color-select">Seleccione Color Estándar Azor:</label>
-                            <select id="standard-color-select" name="standard-color-select">
+                            <select id="standard-color-select" name="standard-color-select" disabled>
                                 <option value="">-- Elija un estándar --</option>
                             </select>
                         </div>
@@ -98,8 +103,73 @@
                         </div>
                          <p id="color-result-note" class="note" style="margin-top:10px;"></p>
                     </div>
-                </div>
-            </section>
+
+                    <div class="camera-settings-panel" style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-top: 20px; border: 1px solid #eee;">
+                        <h3 class="panel-title-sub" style="margin-top: 0; margin-bottom: 15px; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;"><i class="fas fa-tools"></i> 4. Ajuste de Cámara</h3>
+                        <p id="camera-support-status" class="note" style="font-style: italic; color: #666; margin-bottom: 10px;">Activando cámara y detectando controles...</p>
+                        
+                        <button id="auto-calibrate-gray-btn" class="button primary-action full-width-button" style="margin-bottom: 10px; background-color: #28a745; border-color: #28a745;">
+                            <i class="fas fa-magic"></i> PASO 1: Calibrar con Fondo Gris
+                        </button>
+                        <p class="note" style="font-size:0.8em; margin-bottom:15px; padding: 8px; background-color: #eef; border-radius:4px;">Coloque un fondo gris mate bien iluminado en el centro y presione. Este es un ajuste inicial y puede requerir afinación manual.</p>
+                        <div id="calibration-feedback" class="note" style="font-size:0.85em; margin-bottom:15px; padding: 8px; background-color: #fff; border: 1px dashed #ccc; border-radius:4px; display:none;"></div>
+
+                        <button id="toggle-manual-camera-controls-btn" class="button secondary-action full-width-button" style="margin-bottom:15px; background-color: #007bff; border-color: #007bff;" disabled>
+                            <i class="fas fa-sliders-h"></i> Ajustes Manuales (Opcional post-calibración)
+                        </button>
+
+                        <div id="manual-camera-controls-container" style="display:none; margin-top:15px; padding-top:15px; border-top: 1px solid #e0e0e0;">
+                            <p class="note" style="font-size:0.9em; margin-bottom:10px;">Ajusta manualmente los siguientes parámetros si es necesario:</p>
+                            <div class="form-group camera-control-group" id="brightness-control-group" style="display:none; margin-bottom: 12px;">
+                                <label for="brightness-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Brillo:</label>
+                                <input type="range" id="brightness-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
+                                <span id="brightness-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
+                            </div>
+                            <div class="form-group camera-control-group" id="contrast-control-group" style="display:none; margin-bottom: 12px;">
+                                <label for="contrast-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Contraste:</label>
+                                <input type="range" id="contrast-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
+                                <span id="contrast-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
+                            </div>
+                            <div class="form-group camera-control-group" id="saturation-control-group" style="display:none; margin-bottom: 12px;">
+                                <label for="saturation-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Saturación:</label>
+                                <input type="range" id="saturation-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
+                                <span id="saturation-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
+                            </div>
+                             <div class="form-group camera-control-group" id="sharpness-control-group" style="display:none; margin-bottom: 12px;">
+                                <label for="sharpness-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Nitidez:</label>
+                                <input type="range" id="sharpness-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
+                                <span id="sharpness-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
+                            </div>
+
+                            <div class="form-group camera-control-group" id="exposure-mode-control-group" style="display:none; margin-bottom: 12px;">
+                                <label for="exposure-mode-select" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Modo de Exposición:</label>
+                                <select id="exposure-mode-select" class="camera-select" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; font-size:0.9em;">
+                                </select>
+                            </div>
+                            <div class="form-group camera-control-group" id="exposure-time-control-group" style="display:none; margin-bottom: 12px;">
+                                <label for="exposure-time-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Tiempo de Exposición (log2 s):</label>
+                                <input type="range" id="exposure-time-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
+                                <span id="exposure-time-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
+                            </div>
+                            
+                            <div class="form-group camera-control-group" id="white-balance-mode-control-group" style="display:none; margin-bottom: 12px;">
+                                <label for="white-balance-mode-select" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Modo Balance de Blancos:</label>
+                                <select id="white-balance-mode-select" class="camera-select" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; font-size:0.9em;">
+                                </select>
+                            </div>
+                            <div class="form-group camera-control-group" id="color-temperature-control-group" style="display:none; margin-bottom: 12px;">
+                                <label for="color-temperature-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Temperatura de Color (K):</label>
+                                <input type="range" id="color-temperature-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
+                                <span id="color-temperature-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
+                            </div>
+                            <button id="lock-camera-settings-btn" class="button tertiary-action full-width-button" style="margin-top: 10px; background-color: #6c757d; color:white; font-size:0.9em;">
+                                <i class="fas fa-lock"></i> Fijar Ajustes Manuales Actuales
+                            </button>
+                        </div>
+                         <p class="note" style="font-size: 0.8em; margin-top:15px;">Nota: La disponibilidad y efectividad de todos los controles dependen de la cámara y el navegador. Cada sesión inicia con los ajustes predeterminados de la cámara.</p>
+                    </div>
+
+                </div> </section>
         </main>
 
         <footer class="app-footer">
@@ -114,20 +184,25 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DEBUG: Inicio DOMContentLoaded.");
-            console.log("DEBUG: typeof window.chroma:", typeof window.chroma, "(debería ser 'function')");
-            console.log("DEBUG: typeof window.DeltaE:", typeof window.DeltaE, "(debería ser 'object' si deltae.js local se carga bien)");
             
             const videoElement = document.getElementById('color-video-feed');
             const webcamLoadingPrompt = document.getElementById('webcam-loading-prompt');
             const captureButton = document.getElementById('capture-color-btn');
+            const selectImageBtn = document.getElementById('select-image-btn');
+            const standardColorSelect = document.getElementById('standard-color-select');
+            const compareButton = document.getElementById('compare-colors-btn');
+            const instructionTextEl = document.getElementById('instruction-text');
+            const mainInstructionTextEl = document.getElementById('main-instruction-text');
+
+
             const displayCanvas = document.getElementById('display-captured-image-canvas');
             const displayCtx = displayCanvas ? displayCanvas.getContext('2d', { willReadFrequently: true }) : null;
             const captureCanvas = document.getElementById('color-capture-canvas'); 
             const captureCtx = captureCanvas ? captureCanvas.getContext('2d', { willReadFrequently: true }) : null;
+            const calibrationHelperCanvas = document.getElementById('calibration-helper-canvas'); 
+            const calibrationHelperCtx = calibrationHelperCanvas ? calibrationHelperCanvas.getContext('2d', { willReadFrequently: true }) : null; 
+
             const capturePrompt = document.getElementById('capture-prompt');
-            const instructionTextEl = document.getElementById('instruction-text');
-            const compareButton = document.getElementById('compare-colors-btn');
-            const standardColorSelect = document.getElementById('standard-color-select');
             
             const capturedColorDisplay = document.getElementById('captured-color-display');
             const capturedColorValuesEl = document.getElementById('captured-color-values');
@@ -137,6 +212,37 @@
             const toleranceBar = document.getElementById('tolerance-bar');
             const toleranceStatusEl = document.getElementById('tolerance-status'); 
             const colorResultNoteEl = document.getElementById('color-result-note');
+            const fileInput = document.getElementById('select-image-input');
+
+            const cameraSupportStatusEl = document.getElementById('camera-support-status');
+            const autoCalibrateGrayBtn = document.getElementById('auto-calibrate-gray-btn'); 
+            const calibrationFeedbackEl = document.getElementById('calibration-feedback'); 
+            const toggleManualControlsBtn = document.getElementById('toggle-manual-camera-controls-btn'); 
+            const manualControlsContainer = document.getElementById('manual-camera-controls-container'); 
+            const lockCameraSettingsBtn = document.getElementById('lock-camera-settings-btn');
+
+            const brightnessControlGroup = document.getElementById('brightness-control-group');
+            const brightnessSlider = document.getElementById('brightness-slider');
+            const brightnessValueEl = document.getElementById('brightness-value');
+            const contrastControlGroup = document.getElementById('contrast-control-group');
+            const contrastSlider = document.getElementById('contrast-slider');
+            const contrastValueEl = document.getElementById('contrast-value');
+            const saturationControlGroup = document.getElementById('saturation-control-group');
+            const saturationSlider = document.getElementById('saturation-slider');
+            const saturationValueEl = document.getElementById('saturation-value');
+            const sharpnessControlGroup = document.getElementById('sharpness-control-group');
+            const sharpnessSlider = document.getElementById('sharpness-slider');
+            const sharpnessValueEl = document.getElementById('sharpness-value');
+            const exposureModeControlGroup = document.getElementById('exposure-mode-control-group');
+            const exposureModeSelect = document.getElementById('exposure-mode-select');
+            const exposureTimeControlGroup = document.getElementById('exposure-time-control-group');
+            const exposureTimeSlider = document.getElementById('exposure-time-slider');
+            const exposureTimeValueEl = document.getElementById('exposure-time-value');
+            const whiteBalanceModeControlGroup = document.getElementById('white-balance-mode-control-group');
+            const whiteBalanceModeSelect = document.getElementById('white-balance-mode-select');
+            const colorTemperatureControlGroup = document.getElementById('color-temperature-control-group');
+            const colorTemperatureSlider = document.getElementById('color-temperature-slider');
+            const colorTemperatureValueEl = document.getElementById('color-temperature-value');
 
             let stream = null;
             let pickedColorRGB = null; 
@@ -144,15 +250,17 @@
             let imageIsCaptured = false; 
             let isDrawingSelection = false;
             let selectionRect = { startX: 0, startY: 0, currentX: 0, currentY: 0, width: 0, height: 0 };
+            let videoTrack = null; 
+            let cameraCapabilities = {}; 
+            let isCameraCalibrated = false; 
 
             const coloresEstandarAzor = {
-                "azul_corp": { nombre: "Azul Azor Corporativo", hex: "#007BFF", lab: { L: 53.39, a: 2.71, b: -58.01 } },
+                "narana_web": { nombre: "Naranja Web", hex: "#CF2D00", lab: { L: 45.8, a: 60.8, b: 58.5 } },
                 "rojo_logo": { nombre: "Rojo Azor Intenso", hex: "#D40000", lab: { L: 42.78, a: 67.63, b: 52.75 } },
                 "amarillo_resaltador": { nombre: "Amarillo Resaltador", hex: "#FFEB3B", lab: { L: 78.1, a: -29.5, b: 55.1 } },
-                "verde_producto_eco": { nombre: "Verde Eco Azor", hex: "#4CAF50", lab: { L: 60.32, a: -47.56, b: 46.99 } },
+                 "verde_producto_eco": { nombre: "Verde Eco Azor", hex: "#4CAF50", lab: { L: 60.32, a: -47.56, b: 46.99 } },
                 "naranja_ferula": { nombre: "Naranja Ferula", hex: "#FA4F00", lab: { L: 59.0, a: 63.9, b: 69.6 } },
                 "verde_manzana": { nombre: "Verde Manzana", hex: "#1D6900", lab: { L: 40.5, a: -40.4, b: 45.3 } }
-
             };
 
             function rgbToHex(r, g, b) {
@@ -161,7 +269,7 @@
             }
 
             function populateStandardColors() {
-                if (!standardColorSelect) { return; }
+                 if (!standardColorSelect) { return; }
                 standardColorSelect.innerHTML = '<option value="">-- Elija un estándar --</option>';
                 for (const key in coloresEstandarAzor) {
                     const option = document.createElement('option');
@@ -170,12 +278,37 @@
                     standardColorSelect.appendChild(option);
                 }
             }
+
+            function setCaptureActive(isActive) {
+                isCameraCalibrated = isActive;
+                if (captureButton) captureButton.disabled = !isActive;
+                if (selectImageBtn) selectImageBtn.disabled = !isActive; 
+                if (standardColorSelect) standardColorSelect.disabled = !isActive;
+                
+                if(isActive) {
+                    if(instructionTextEl) instructionTextEl.textContent = "Cámara calibrada. Capture una imagen y dibuje un recuadro para seleccionar el área de color.";
+                    if(instructionTextEl) instructionTextEl.style.color = '#28a745'; 
+                    if(mainInstructionTextEl) mainInstructionTextEl.textContent = "Cámara lista. Proceda a capturar la imagen.";
+                    if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#28a745';
+                    if (capturePrompt) capturePrompt.textContent = "Cámara lista. Capture una imagen para analizar.";
+                } else {
+                    if(instructionTextEl) instructionTextEl.textContent = "CALIBRACIÓN REQUERIDA: Use el botón \"Calibrar con Fondo Gris\" en el panel \"Ajuste de Cámara\".";
+                    if(instructionTextEl) instructionTextEl.style.color = '#dc3545'; 
+                    if(mainInstructionTextEl) mainInstructionTextEl.textContent = "PASO OBLIGATORIO: Calibre la cámara usando el panel \"Ajuste de Cámara\" para continuar.";
+                     if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#007bff';
+                    if (capturePrompt) capturePrompt.textContent = "Esperando calibración de cámara e imagen...";
+                }
+            }
             
             async function startWebcam() {
                 if (!videoElement || !captureCanvas || !displayCanvas || !webcamLoadingPrompt || !capturePrompt || !displayCtx || !captureCtx) {
                     if (webcamLoadingPrompt) webcamLoadingPrompt.textContent = "Error: Elementos de UI no encontrados.";
                     return;
                 }
+                setCaptureActive(false); 
+                videoElement.style.display = 'block';
+                const webcamContainer = document.getElementById('color-webcam-container');
+                if (webcamContainer) webcamContainer.style.minHeight = ''; 
                 webcamLoadingPrompt.style.display = 'block';
                 capturePrompt.textContent = "Activando cámara...";
                 capturePrompt.style.display = 'block'; 
@@ -185,15 +318,19 @@
                     if (stream) { 
                         stream.getTracks().forEach(track => track.stop());
                         stream = null; 
+                        videoTrack = null;
                     }
-                    stream = await navigator.mediaDevices.getUserMedia({ 
+                    const constraints = { 
                         video: { 
                             facingMode: "environment", 
                             width: { ideal: 640 }, 
-                            height: { ideal: 480 } 
+                            height: { ideal: 480 }
                         } 
-                    });
+                    };
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
                     videoElement.srcObject = stream;
+                    videoTrack = stream.getVideoTracks()[0]; 
+                    cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
                     
                     await new Promise((resolve, reject) => {
                         let resolved = false; let loadAttempts = 0; const maxLoadAttempts = 5; 
@@ -202,6 +339,10 @@
                                 if (!resolved) {
                                     captureCanvas.width = videoElement.videoWidth;
                                     captureCanvas.height = videoElement.videoHeight;
+                                    if (calibrationHelperCanvas) {
+                                        calibrationHelperCanvas.width = videoElement.videoWidth;
+                                        calibrationHelperCanvas.height = videoElement.videoHeight;
+                                    }
                                     const webcamContainerEl = document.getElementById('color-webcam-container');
                                     const aspectRatio = videoElement.videoWidth / videoElement.videoHeight;
                                     let dCanvasWidth = (webcamContainerEl && webcamContainerEl.clientWidth > 0) ? webcamContainerEl.clientWidth - 2 : 300; 
@@ -222,14 +363,395 @@
                     });
                     
                     if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
-                    if (capturePrompt) capturePrompt.textContent = "Cámara activa. Enfoque y capture la imagen.";
                     imageIsCaptured = false; pickedColorRGB = null; 
                     checkEnableCompareButton();
+                    initializeCameraControls();
+
                 } catch (err) {
                     console.error("Validador Color: Error al acceder/configurar webcam: ", err);
                     if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
-                    if (capturePrompt) capturePrompt.textContent = "Error webcam: " + (err.message ? err.message.substring(0, 70) : "Desconocido") + "...";
+                    if (capturePrompt) capturePrompt.textContent = "Error webcam: " + (err.message ? err.message.substring(0, 70) : "Desconocido") + "... Por favor, recargue la página y otorge permisos.";
+                    if (cameraSupportStatusEl) cameraSupportStatusEl.textContent = "No se pudo acceder a la cámara. Verifique permisos y recargue.";
+                     if (autoCalibrateGrayBtn) autoCalibrateGrayBtn.disabled = true;
+                     if (toggleManualControlsBtn) toggleManualControlsBtn.disabled = true;
                 }
+            }
+
+            // MODIFICADO: Se ajusta esta función para que use String(sliderElement.step)
+            function updateSliderValue(sliderElement, valueElement, value, unit = "") {
+                if (valueElement) { 
+                    let displayValue = parseFloat(value);
+                    let numDecimals = 0; // Por defecto 0 decimales
+
+                    if (sliderElement && typeof sliderElement.step !== 'undefined') {
+                        const stepStr = String(sliderElement.step); // Convertir step a string para análisis
+                        if (stepStr.includes('.')) {
+                            numDecimals = stepStr.split('.')[1].length;
+                        }
+                    }
+                    displayValue = displayValue.toFixed(numDecimals);
+                    valueElement.textContent = `${displayValue}${unit}`;
+                }
+                // Actualizar el valor del slider si es necesario (principalmente para la configuración inicial)
+                if (sliderElement && String(sliderElement.value) !== String(value)) {
+                    sliderElement.value = value;
+                }
+            }
+            
+            async function applyCameraSetting(settingName, value, updateUI = true) {
+                if (!videoTrack || !videoTrack.applyConstraints) {
+                    console.warn("applyConstraints no soportado o pista de video no disponible.");
+                    return false;
+                }
+                let originalValue = value;
+                let numericValue = parseFloat(value);
+                if (isNaN(numericValue) && typeof value === 'string' && !['continuous', 'manual', 'none', 'single-shot'].includes(value)) { 
+                     numericValue = value; 
+                } else if (!isNaN(numericValue)) {
+                    value = numericValue;
+                }
+
+                const constraint = {};
+                constraint[settingName] = value;
+
+                try {
+                    console.log(`Aplicando ajuste: ${settingName} = ${value}`);
+                    await videoTrack.applyConstraints({ advanced: [constraint] });
+                    if (updateUI) { 
+                        const currentSettings = videoTrack.getSettings ? videoTrack.getSettings() : {};
+                        // Re-obtener el slider y su valueEl para pasar a updateSliderValue
+                        let targetSlider, targetValueEl;
+                        switch(settingName) {
+                            case 'brightness': 
+                                targetSlider = brightnessSlider; targetValueEl = brightnessValueEl;
+                                if (targetSlider) updateSliderValue(targetSlider, targetValueEl, currentSettings.brightness || originalValue);
+                                break;
+                            case 'contrast':
+                                targetSlider = contrastSlider; targetValueEl = contrastValueEl;
+                                if (targetSlider) updateSliderValue(targetSlider, targetValueEl, currentSettings.contrast || originalValue);
+                                break;
+                             case 'saturation':
+                                targetSlider = saturationSlider; targetValueEl = saturationValueEl;
+                                if (targetSlider) updateSliderValue(targetSlider, targetValueEl, currentSettings.saturation || originalValue);
+                                break;
+                            case 'sharpness':
+                                targetSlider = sharpnessSlider; targetValueEl = sharpnessValueEl;
+                                if (targetSlider) updateSliderValue(targetSlider, targetValueEl, currentSettings.sharpness || originalValue);
+                                break;
+                            case 'exposureMode':
+                                if (exposureModeSelect) exposureModeSelect.value = currentSettings.exposureMode || originalValue;
+                                if (exposureTimeControlGroup) exposureTimeControlGroup.style.display = (exposureModeSelect.value === 'manual' && cameraCapabilities.exposureTime) ? 'block' : 'none';
+                                break;
+                            case 'whiteBalanceMode':
+                                if (whiteBalanceModeSelect) whiteBalanceModeSelect.value = currentSettings.whiteBalanceMode || originalValue;
+                                if (colorTemperatureControlGroup) colorTemperatureControlGroup.style.display = (whiteBalanceModeSelect.value === 'manual' && cameraCapabilities.colorTemperature) ? 'block' : 'none';
+                                break;
+                             case 'exposureTime':
+                                targetSlider = exposureTimeSlider; targetValueEl = exposureTimeValueEl;
+                                if (targetSlider) updateSliderValue(targetSlider, targetValueEl, currentSettings.exposureTime || originalValue, " (log2 s)");
+                                break;
+                            case 'colorTemperature':
+                                targetSlider = colorTemperatureSlider; targetValueEl = colorTemperatureValueEl;
+                                if (targetSlider) updateSliderValue(targetSlider, targetValueEl, currentSettings.colorTemperature || originalValue, " K");
+                                break;
+                        }
+                    }
+                    return true;
+                } catch (err) {
+                    console.error(`Error al aplicar ${settingName}: `, err);
+                     if (cameraSupportStatusEl) cameraSupportStatusEl.textContent = `Error al aplicar ${settingName}. Puede no ser compatible.`;
+                     return false;
+                }
+            }
+
+            // MODIFICADO: Se ajusta la lógica del 'step' para 'exposureTime' y el 'oninput'
+            function initializeCameraControls() {
+                if (!videoTrack) {
+                    if (cameraSupportStatusEl) cameraSupportStatusEl.textContent = "Pista de video no disponible para controles.";
+                    if (autoCalibrateGrayBtn) autoCalibrateGrayBtn.disabled = true;
+                    if (toggleManualControlsBtn) toggleManualControlsBtn.disabled = true;
+                    return;
+                }
+                
+                const settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
+                let controlsAvailable = false;
+                if (autoCalibrateGrayBtn) autoCalibrateGrayBtn.disabled = false; 
+                if (toggleManualControlsBtn) toggleManualControlsBtn.disabled = !isCameraCalibrated; 
+
+
+                if (cameraSupportStatusEl) cameraSupportStatusEl.textContent = "Verificando controles de cámara...";
+
+                const setupSlider = (capKey, groupEl, sliderEl, valueEl, unit = "") => {
+                    if (cameraCapabilities[capKey] && groupEl && sliderEl && valueEl) {
+                        groupEl.style.display = 'block'; 
+                        const caps = cameraCapabilities[capKey]; 
+                        sliderEl.min = caps.min;
+                        sliderEl.max = caps.max;
+
+                        // MODIFICADO: Lógica para el 'step' del exposureTimeSlider
+                        if (capKey === 'exposureTime') {
+                            let desiredStep = 0.01; // Queremos un step fino por defecto (e.g., 2 decimales para log2 s)
+                            if (typeof caps.step === 'number' && caps.step > 0 && caps.step < desiredStep) {
+                                sliderEl.step = caps.step; // Si la cámara ofrece algo más fino, usarlo
+                            } else {
+                                sliderEl.step = desiredStep;
+                            }
+                        } else {
+                            // Comportamiento original para otros sliders
+                            sliderEl.step = caps.step || 1;
+                        }
+                        // Fin de la modificación del step
+
+                        const initialValue = typeof settings[capKey] !== 'undefined' ? settings[capKey] : 
+                                            ((caps.max - caps.min) / 2 + caps.min);
+                        
+                        updateSliderValue(sliderEl, valueEl, initialValue, unit); // Pasa sliderEl para formato inicial
+                        
+                        // MODIFICADO: Se pasa sliderEl a updateSliderValue en oninput
+                        sliderEl.oninput = () => updateSliderValue(sliderEl, valueEl, sliderEl.value, unit);
+                        sliderEl.onchange = () => applyCameraSetting(capKey, sliderEl.value);
+                        return true;
+                    }
+                    return false;
+                };
+
+                if (setupSlider('brightness', brightnessControlGroup, brightnessSlider, brightnessValueEl)) controlsAvailable = true;
+                if (setupSlider('contrast', contrastControlGroup, contrastSlider, contrastValueEl)) controlsAvailable = true;
+                if (setupSlider('saturation', saturationControlGroup, saturationSlider, saturationValueEl)) controlsAvailable = true;
+                if (setupSlider('sharpness', sharpnessControlGroup, sharpnessSlider, sharpnessValueEl)) controlsAvailable = true;
+
+
+                const setupModeSelect = (capKey, groupEl, selectEl, dependentGroupEl = null, dependentCapKey = null) => {
+                    if (cameraCapabilities[capKey] && groupEl && selectEl) {
+                        groupEl.style.display = 'block';
+                        selectEl.innerHTML = ''; 
+                        const baseModes = ['continuous', 'manual', 'single-shot', 'none'];
+                        const availableModes = Array.isArray(cameraCapabilities[capKey]) ? cameraCapabilities[capKey] : [];
+                        
+                        baseModes.forEach(mode => {
+                            if (availableModes.includes(mode)) {
+                                const option = document.createElement('option');
+                                option.value = mode;
+                                option.textContent = mode.charAt(0).toUpperCase() + mode.slice(1) + (mode === 'single-shot' ? ' (Disparo Único)' : '');
+                                selectEl.appendChild(option);
+                            }
+                        });
+                        selectEl.value = settings[capKey] || (availableModes.includes('continuous') ? 'continuous' : (availableModes.length > 0 ? availableModes[0] : ''));
+                        
+                        const updateDependentVisibility = () => {
+                             if (dependentGroupEl && dependentCapKey) {
+                                dependentGroupEl.style.display = (selectEl.value === 'manual' && cameraCapabilities[dependentCapKey]) ? 'block' : 'none';
+                            }
+                        };
+                        selectEl.onchange = () => {
+                            applyCameraSetting(capKey, selectEl.value);
+                            updateDependentVisibility();
+                        };
+                        updateDependentVisibility(); 
+                        return true;
+                    }
+                    return false;
+                };
+
+                if (setupModeSelect('exposureMode', exposureModeControlGroup, exposureModeSelect, exposureTimeControlGroup, 'exposureTime')) controlsAvailable = true;
+                if (setupSlider('exposureTime', exposureTimeControlGroup, exposureTimeSlider, exposureTimeValueEl, " (log2 s)")) controlsAvailable = true;
+                if (exposureModeSelect && exposureTimeControlGroup) {
+                    exposureTimeControlGroup.style.display = (exposureModeSelect.value === 'manual' && cameraCapabilities.exposureTime) ? 'block' : 'none';
+                }
+
+                if (setupModeSelect('whiteBalanceMode', whiteBalanceModeControlGroup, whiteBalanceModeSelect, colorTemperatureControlGroup, 'colorTemperature')) controlsAvailable = true;
+                if (setupSlider('colorTemperature', colorTemperatureControlGroup, colorTemperatureSlider, colorTemperatureValueEl, " K")) controlsAvailable = true;
+                if (whiteBalanceModeSelect && colorTemperatureControlGroup) {
+                     colorTemperatureControlGroup.style.display = (whiteBalanceModeSelect.value === 'manual' && cameraCapabilities.colorTemperature) ? 'block' : 'none';
+                }
+
+                if (lockCameraSettingsBtn) lockCameraSettingsBtn.style.display = controlsAvailable ? 'block' : 'none';
+                if (!controlsAvailable && manualControlsContainer) {
+                    if (toggleManualControlsBtn) toggleManualControlsBtn.style.display = 'none';
+                     manualControlsContainer.style.display = 'none'; 
+                }
+
+
+                if (cameraSupportStatusEl) {
+                    cameraSupportStatusEl.textContent = controlsAvailable ? "Controles de cámara listos." : "No se detectaron controles de cámara compatibles o la cámara no está activa.";
+                }
+            }
+
+            if (toggleManualControlsBtn && manualControlsContainer) {
+                toggleManualControlsBtn.addEventListener('click', () => {
+                    const isHidden = manualControlsContainer.style.display === 'none';
+                    manualControlsContainer.style.display = isHidden ? 'block' : 'none';
+                    toggleManualControlsBtn.innerHTML = isHidden ? '<i class="fas fa-eye-slash"></i> Ocultar Ajustes Manuales' : '<i class="fas fa-sliders-h"></i> Ajustes Manuales de Cámara';
+                });
+            }
+            
+            if (lockCameraSettingsBtn) {
+                lockCameraSettingsBtn.addEventListener('click', async () => {
+                    if (!videoTrack) return;
+                    if (!isCameraCalibrated) {
+                         if(calibrationFeedbackEl) {
+                            calibrationFeedbackEl.textContent = "Por favor, calibre la cámara primero antes de fijar ajustes.";
+                            calibrationFeedbackEl.style.display = 'block';
+                            calibrationFeedbackEl.style.backgroundColor = '#fff3cd'; 
+                        }
+                        return;
+                    }
+                    console.log("Intentando fijar ajustes manuales actuales...");
+                    let appliedManually = false;
+                    try {
+                        const currentSettings = videoTrack.getSettings();
+                        if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
+                            await applyCameraSetting('exposureMode', 'manual', false); 
+                            if (exposureModeSelect) exposureModeSelect.value = 'manual';
+                            if (cameraCapabilities.exposureTime && typeof currentSettings.exposureTime !== 'undefined') {
+                                await applyCameraSetting('exposureTime', currentSettings.exposureTime);
+                            }
+                             if (exposureTimeControlGroup) exposureTimeControlGroup.style.display = 'block';
+                            appliedManually = true;
+                        }
+                        if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('manual')) {
+                            await applyCameraSetting('whiteBalanceMode', 'manual', false);
+                            if (whiteBalanceModeSelect) whiteBalanceModeSelect.value = 'manual';
+                            if (cameraCapabilities.colorTemperature && typeof currentSettings.colorTemperature !== 'undefined') {
+                               await applyCameraSetting('colorTemperature', currentSettings.colorTemperature);
+                            }
+                            if (colorTemperatureControlGroup) colorTemperatureControlGroup.style.display = 'block';
+                            appliedManually = true;
+                        }
+                        if (cameraSupportStatusEl) {
+                           cameraSupportStatusEl.textContent = appliedManually ? "Modos manuales activados con valores actuales." : "No se pudieron fijar modos manuales (no soportados o error).";
+                        }
+                    } catch (err) {
+                        console.error("Error al intentar fijar ajustes manuales:", err);
+                        if (cameraSupportStatusEl) cameraSupportStatusEl.textContent = "Error al fijar modos manuales.";
+                    }
+                });
+            }
+
+            if (autoCalibrateGrayBtn) {
+                autoCalibrateGrayBtn.addEventListener('click', async () => {
+                    if (!videoTrack || !calibrationHelperCtx || !window.chroma) {
+                        if(calibrationFeedbackEl) {
+                            calibrationFeedbackEl.textContent = "Error: Cámara no lista o librería chroma.js no encontrada.";
+                            calibrationFeedbackEl.style.display = 'block';
+                            calibrationFeedbackEl.style.backgroundColor = '#f8d7da';
+                        }
+                        return;
+                    }
+                    if(calibrationFeedbackEl) {
+                        calibrationFeedbackEl.textContent = "Iniciando calibración automática... por favor espere.";
+                        calibrationFeedbackEl.style.display = 'block';
+                        calibrationFeedbackEl.style.backgroundColor = '#d1ecf1';
+                    }
+                    autoCalibrateGrayBtn.disabled = true;
+                    if (toggleManualControlsBtn) toggleManualControlsBtn.disabled = true;
+
+
+                    try {
+                        let expModeSet = false, wbModeSet = false;
+                        if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
+                           expModeSet = await applyCameraSetting('exposureMode', 'manual');
+                        } else if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('continuous')) { 
+                           await applyCameraSetting('exposureMode', 'continuous'); 
+                        }
+
+                        if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('manual')) {
+                           wbModeSet = await applyCameraSetting('whiteBalanceMode', 'manual');
+                        } else if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('continuous')) {
+                           await applyCameraSetting('whiteBalanceMode', 'continuous');
+                        }
+                        
+                        await new Promise(resolve => setTimeout(resolve, 300)); 
+
+                        const cWidth = calibrationHelperCanvas.width;
+                        const cHeight = calibrationHelperCanvas.height;
+                        const sampleSizePercent = 0.2; 
+                        const sX = cWidth * (0.5 - sampleSizePercent / 2);
+                        const sY = cHeight * (0.5 - sampleSizePercent / 2);
+                        const sWidth = cWidth * sampleSizePercent;
+                        const sHeight = cHeight * sampleSizePercent;
+
+                        calibrationHelperCtx.drawImage(videoElement, 0, 0, cWidth, cHeight);
+                        const imageData = calibrationHelperCtx.getImageData(sX, sY, sWidth, sHeight);
+                        const data = imageData.data;
+                        let sumR = 0, sumG = 0, sumB = 0;
+                        for (let i = 0; i < data.length; i += 4) {
+                            sumR += data[i]; sumG += data[i+1]; sumB += data[i+2];
+                        }
+                        const numPixels = data.length / 4;
+                        const avgR = Math.round(sumR / numPixels);
+                        const avgG = Math.round(sumG / numPixels);
+                        const avgB = Math.round(sumB / numPixels);
+
+                        const labInitial = chroma(avgR, avgG, avgB).lab();
+                        let feedbackText = `Color central inicial: RGB(${avgR},${avgG},${avgB}), LAB(${labInitial[0].toFixed(1)}, ${labInitial[1].toFixed(1)}, ${labInitial[2].toFixed(1)}). `;
+                        
+                        const targetL = 50;
+                        const lDiff = targetL - labInitial[0];
+                        
+                        if (expModeSet && cameraCapabilities.exposureTime) { 
+                            const expCaps = cameraCapabilities.exposureTime;
+                            let currentExp = videoTrack.getSettings().exposureTime || (expCaps.min + expCaps.max) / 2;
+                            let expChange = (lDiff / 25); 
+                            expChange = Math.max(-0.5, Math.min(0.5, expChange)); 
+                            let newExp = Math.max(expCaps.min, Math.min(expCaps.max, currentExp + expChange)); 
+                            await applyCameraSetting('exposureTime', newExp);
+                            feedbackText += `Ajuste Exp. Tiempo a ${newExp.toFixed(2)}. `;
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                        } else if (cameraCapabilities.brightness) { 
+                            const brightCaps = cameraCapabilities.brightness;
+                            let currentBright = videoTrack.getSettings().brightness || (brightCaps.min + brightCaps.max) / 2;
+                            let brightChange = (lDiff / 15) * (brightCaps.step || 1); 
+                            let newBright = Math.max(brightCaps.min, Math.min(brightCaps.max, currentBright + brightChange));
+                            await applyCameraSetting('brightness', newBright);
+                            feedbackText += `Ajuste Brillo a ${newBright.toFixed(0)}. `;
+                             await new Promise(resolve => setTimeout(resolve, 200));
+                        }
+
+                        calibrationHelperCtx.drawImage(videoElement, 0, 0, cWidth, cHeight);
+                        const imageDataExp = calibrationHelperCtx.getImageData(sX, sY, sWidth, sHeight);
+                        const dataExp = imageDataExp.data;
+                        let sumRExp = 0, sumGExp = 0, sumBExp = 0;
+                        for (let i = 0; i < dataExp.length; i += 4) { sumRExp += dataExp[i]; sumGExp += dataExp[i+1]; sumBExp += dataExp[i+2]; }
+                        const avgRExp = Math.round(sumRExp / numPixels); const avgGExp = Math.round(sumGExp / numPixels); const avgBExp = Math.round(sumBExp / numPixels);
+                        const labAfterExp = chroma(avgRExp, avgGExp, avgBExp).lab();
+                        feedbackText += `LAB post-exp: (${labAfterExp[0].toFixed(1)}, ${labAfterExp[1].toFixed(1)}, ${labAfterExp[2].toFixed(1)}). `;
+
+                        if (wbModeSet && cameraCapabilities.colorTemperature) {
+                            const tempCaps = cameraCapabilities.colorTemperature;
+                            let currentTemp = videoTrack.getSettings().colorTemperature || (tempCaps.min + tempCaps.max) / 2;
+                            let tempChange = 0;
+                            if (labAfterExp[2] > 1.5) { 
+                                tempChange = - (tempCaps.step || 50) * Math.min(5, Math.ceil(labAfterExp[2] / 2)); 
+                            } else if (labAfterExp[2] < -1.5) { 
+                                tempChange = (tempCaps.step || 50) * Math.min(5, Math.ceil(-labAfterExp[2] / 2)); 
+                            }
+                            let newTemp = Math.max(tempCaps.min, Math.min(tempCaps.max, currentTemp + tempChange));
+                            newTemp = Math.round(newTemp / (tempCaps.step || 50)) * (tempCaps.step || 50); 
+                            if(Math.abs(tempChange) >= (tempCaps.step || 50)/2) { 
+                                await applyCameraSetting('colorTemperature', newTemp);
+                                feedbackText += `Ajuste Temp. Color a ${newTemp.toFixed(0)}K. `;
+                            }
+                        }
+                        
+                        if(calibrationFeedbackEl) {
+                            calibrationFeedbackEl.textContent = feedbackText + "Calibración inicial completa. Revise y ajuste manualmente si es necesario.";
+                            calibrationFeedbackEl.style.backgroundColor = '#d4edda';
+                        }
+                        setCaptureActive(true); 
+
+                    } catch (error) {
+                        console.error("Error en calibración automática:", error);
+                         if(calibrationFeedbackEl) {
+                            calibrationFeedbackEl.textContent = "Error durante la calibración: " + error.message;
+                            calibrationFeedbackEl.style.backgroundColor = '#f8d7da';
+                         }
+                         setCaptureActive(false); 
+                    } finally {
+                        autoCalibrateGrayBtn.disabled = false;
+                         if (toggleManualControlsBtn) toggleManualControlsBtn.disabled = !isCameraCalibrated; 
+                    }
+                });
             }
             
             function resetUIForNewCapture() {
@@ -241,57 +763,179 @@
                 if(deltaEValueEl) deltaEValueEl.textContent = '-';
                 if(toleranceStatusEl) {
                     toleranceStatusEl.textContent = '-';
-                    toleranceStatusEl.className = 'tolerance-status-text'; // Reset a clase base
+                    toleranceStatusEl.className = 'tolerance-status-text';
                 }
                 if(toleranceBar) { 
                     toleranceBar.style.width = '0%'; 
-                    toleranceBar.className = 'tolerance-bar-fill'; // Reset clase base barra
+                    toleranceBar.className = 'tolerance-bar-fill';
                 }
-                if(instructionTextEl) instructionTextEl.textContent = "Dibuje un recuadro en la imagen para seleccionar el área de color.";
+                if (isCameraCalibrated && instructionTextEl) { 
+                     instructionTextEl.textContent = "Dibuje un recuadro en la imagen para seleccionar el área de color.";
+                     instructionTextEl.style.color = '#212529'; 
+                }
                 if(colorResultNoteEl) colorResultNoteEl.textContent = '';
                 checkEnableCompareButton();
             }
 
             if (captureButton) {
-                captureButton.addEventListener('click', () => {
-                    if (!stream || !videoElement.srcObject || videoElement.paused || videoElement.ended) {
-                         if (capturePrompt) capturePrompt.textContent = "Cámara no activa. Recargue.";
+                captureButton.addEventListener('click', async () => {
+                    if (!isCameraCalibrated) {
+                        alert("Por favor, calibre la cámara primero usando el botón 'Calibrar con Fondo Gris'.");
                         return;
                     }
+                    let cameraRestarted = false;
+                    if (!stream || !videoElement.srcObject || videoElement.paused || videoElement.ended || !videoTrack) {
+                        videoElement.style.display = 'block';
+                        const webcamContainer = document.getElementById('color-webcam-container');
+                        if (webcamContainer) webcamContainer.style.minHeight = ''; 
+                        if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'block';
+                        if (capturePrompt) capturePrompt.textContent = "Activando cámara...";
+
+                        await startWebcam(); 
+                        if (!stream || !videoElement.srcObject || videoElement.paused || videoElement.ended || !videoTrack) {
+                             if (capturePrompt) capturePrompt.textContent = "No se pudo activar la cámara. Revise permisos o recargue.";
+                             if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
+                            return;
+                        }
+                         if (!isCameraCalibrated) { 
+                            alert("La cámara se reinició. Por favor, calibre la cámara primero.");
+                            return;
+                        }
+                        cameraRestarted = true;
+                        await new Promise(resolve => setTimeout(resolve, 200)); 
+                    }
+
                     if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
                         if (captureCanvas.width !== videoElement.videoWidth || captureCanvas.height !== videoElement.videoHeight) {
-                            captureCanvas.width = videoElement.videoWidth; captureCanvas.height = videoElement.videoHeight;
+                            captureCanvas.width = videoElement.videoWidth;
+                            captureCanvas.height = videoElement.videoHeight;
                         }
                     } else {
-                        console.warn("Dimensiones video no disponibles, usando fallback.");
+                        console.warn("Dimensiones video no disponibles al capturar, usando fallback.");
                         captureCanvas.width = 640; captureCanvas.height = 480;
                     }
-                    if (!captureCtx) { console.error("Contexto captureCanvas no disponible."); return;}
+
+                    if (!captureCtx) {
+                        console.error("Contexto captureCanvas no disponible al capturar.");
+                        if (capturePrompt) capturePrompt.textContent = "Error: Contexto de captura no disponible.";
+                        return;
+                    }
                     captureCtx.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
+
                     const parentWidth = displayCanvas.parentElement ? displayCanvas.parentElement.clientWidth : 300;
                     const aspectRatio = (captureCanvas.height > 0) ? (captureCanvas.width / captureCanvas.height) : (16/9); 
                     let dCanvasWidth = parentWidth > 0 ? parentWidth - 2 : 300;
                     let dCanvasHeight = dCanvasWidth / aspectRatio;
                     if (dCanvasHeight > 280) { dCanvasHeight = 280; dCanvasWidth = dCanvasHeight * aspectRatio; }
                     displayCanvas.width = dCanvasWidth; displayCanvas.height = dCanvasHeight;
+
                     if (displayCtx) {
                         displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height); 
                         displayCtx.drawImage(captureCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
                     }
+                    
                     resetUIForNewCapture();
+                    
+                    if (capturePrompt) {
+                        capturePrompt.textContent = "Imagen capturada. Dibuje el área.";
+                        capturePrompt.style.display = 'block';
+                    }
+                    if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
+                });
+            }
+
+            if (selectImageBtn && fileInput) {
+                selectImageBtn.addEventListener('click', () => { 
+                     if (!isCameraCalibrated) {
+                        alert("Por favor, calibre la cámara primero usando el botón 'Calibrar con Fondo Gris', incluso si va a seleccionar una imagen de biblioteca, para asegurar un contexto de color consistente.");
+                        return;
+                    }
+                    fileInput.click(); 
+                });
+                fileInput.addEventListener('change', (event) => {
+                    const file = event.target.files[0];
+                    if (file && file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                if (stream) {
+                                    stream.getTracks().forEach(track => track.stop());
+                                    stream = null;
+                                    videoTrack = null;
+                                    videoElement.srcObject = null;
+                                }
+                                videoElement.style.display = 'none';
+                                if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
+                                const webcamContainer = document.getElementById('color-webcam-container');
+                                if (webcamContainer) webcamContainer.style.minHeight = 'auto';
+
+
+                                if (captureCanvas.width !== img.width || captureCanvas.height !== img.height) {
+                                    captureCanvas.width = img.width;
+                                    captureCanvas.height = img.height;
+                                }
+                                if (!captureCtx) {
+                                    console.error("Contexto captureCanvas no disponible para imagen cargada.");
+                                    if (capturePrompt) capturePrompt.textContent = "Error: Contexto de imagen no disponible.";
+                                    return;
+                                }
+                                captureCtx.drawImage(img, 0, 0, captureCanvas.width, captureCanvas.height);
+
+                                const parentWidth = displayCanvas.parentElement ? displayCanvas.parentElement.clientWidth : 300;
+                                const aspectRatio = (captureCanvas.height > 0) ? (captureCanvas.width / captureCanvas.height) : (16/9);
+                                let dCanvasWidth = parentWidth > 0 ? parentWidth - 2 : 300;
+                                let dCanvasHeight = dCanvasWidth / aspectRatio;
+                                if (dCanvasHeight > 280) { 
+                                    dCanvasHeight = 280;
+                                    dCanvasWidth = dCanvasHeight * aspectRatio;
+                                }
+                                displayCanvas.width = dCanvasWidth;
+                                displayCanvas.height = dCanvasHeight;
+
+                                if (displayCtx) {
+                                    displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+                                    displayCtx.drawImage(captureCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
+                                }
+
+                                resetUIForNewCapture(); 
+                                if (capturePrompt) {
+                                     capturePrompt.textContent = "Imagen cargada desde archivo.";
+                                     capturePrompt.style.display = 'block';
+                                }
+                                fileInput.value = null; 
+                            };
+                            img.onerror = () => {
+                                if (capturePrompt) capturePrompt.textContent = "Error al cargar la imagen seleccionada.";
+                                console.error("Error al cargar la imagen seleccionada en el elemento Image.");
+                                fileInput.value = null;
+                            };
+                            img.src = e.target.result;
+                        };
+                        reader.onerror = () => {
+                            if (capturePrompt) capturePrompt.textContent = "Error al leer el archivo de imagen.";
+                            console.error("Error al leer el archivo con FileReader.");
+                            fileInput.value = null;
+                        };
+                        reader.readAsDataURL(file);
+                    } else if (file) {
+                        if (capturePrompt) capturePrompt.textContent = "Por favor, seleccione un archivo de imagen válido (PNG, JPG, etc.).";
+                        console.warn("Archivo seleccionado no es una imagen:", file.type);
+                        fileInput.value = null;
+                    }
                 });
             }
 
             function checkEnableCompareButton() {
-                if (compareButton) {
+                 if (compareButton) {
                     const standardSelected = standardColorSelect && standardColorSelect.value !== "";
-                    compareButton.disabled = !(pickedColorRGB && standardSelected && currentStandardColorData);
+                    compareButton.disabled = !(isCameraCalibrated && pickedColorRGB && standardSelected && currentStandardColorData);
                 }
             }
 
             if (displayCanvas && displayCtx && captureCtx) {
-                displayCanvas.addEventListener('mousedown', (event) => {
-                    if (!imageIsCaptured) return; 
+                 displayCanvas.addEventListener('mousedown', (event) => {
+                    if (!isCameraCalibrated || !imageIsCaptured) return;  
                     isDrawingSelection = true; const rect = displayCanvas.getBoundingClientRect();
                     selectionRect.startX = event.clientX - rect.left; selectionRect.startY = event.clientY - rect.top;
                     selectionRect.currentX = selectionRect.startX; selectionRect.currentY = selectionRect.startY;
@@ -303,7 +947,7 @@
                 });
 
                 displayCanvas.addEventListener('mousemove', (event) => {
-                    if (!imageIsCaptured || !isDrawingSelection) return;
+                    if (!isCameraCalibrated ||!imageIsCaptured || !isDrawingSelection) return;
                     const rect = displayCanvas.getBoundingClientRect();
                     selectionRect.currentX = event.clientX - rect.left; selectionRect.currentY = event.clientY - rect.top;
                     selectionRect.width = selectionRect.currentX - selectionRect.startX;
@@ -317,7 +961,7 @@
                 });
 
                 displayCanvas.addEventListener('mouseup', () => {
-                    if (!imageIsCaptured || !isDrawingSelection) { isDrawingSelection = false; return; }
+                    if (!isCameraCalibrated || !imageIsCaptured || !isDrawingSelection) { isDrawingSelection = false; return; }
                     isDrawingSelection = false;
                     let finalRectX = Math.min(selectionRect.startX, selectionRect.currentX);
                     let finalRectY = Math.min(selectionRect.startY, selectionRect.currentY);
@@ -378,7 +1022,7 @@
                             if (labConversionOk) { 
                                 if(capturedColorValuesEl) capturedColorValuesEl.textContent = `HEX: ${hexPicked} | LAB: ${labCapturedText}`;
                             }
-                            if (instructionTextEl) instructionTextEl.textContent = "Área seleccionada. Elija un estándar.";
+                            if (instructionTextEl) instructionTextEl.textContent = "Área seleccionada. Elija un estándar y compare."; 
                             displayCtx.strokeStyle = 'rgba(40, 167, 69, 0.9)'; displayCtx.lineWidth = 2;
                             displayCtx.strokeRect(finalRectX, finalRectY, finalRectWidth, finalRectHeight); 
                         } else {
@@ -398,7 +1042,7 @@
             
             if (standardColorSelect) {
                 standardColorSelect.addEventListener('change', () => {
-                    const selectedKey = standardColorSelect.value;
+                     const selectedKey = standardColorSelect.value;
                     if (selectedKey && coloresEstandarAzor[selectedKey]) {
                         currentStandardColorData = coloresEstandarAzor[selectedKey];
                         if(standardColorDisplay) standardColorDisplay.style.backgroundColor = currentStandardColorData.hex;
@@ -416,8 +1060,12 @@
 
             if (compareButton) {
                 compareButton.addEventListener('click', () => {
-                    if (!pickedColorRGB || !currentStandardColorData) {
+                     if (!pickedColorRGB || !currentStandardColorData) {
                         if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Faltan datos.';
+                        return;
+                    }
+                     if (!isCameraCalibrated) { 
+                        alert("La cámara no está calibrada. Por favor, calibre primero.");
                         return;
                     }
                     
@@ -507,7 +1155,7 @@
                             toleranceStatusEl.className = 'tolerance-status-text status-danger';
                         }
                         if (toleranceBar) {
-                            toleranceBar.style.width = '0%'; // O un indicador de error en la barra
+                            toleranceBar.style.width = '0%'; 
                             toleranceBar.className = 'tolerance-bar-fill status-danger';
                         }
                         return; 
@@ -519,7 +1167,7 @@
                     let barClass = 'tolerance-bar-fill'; 
                     let statusClass = ''; 
                     let barWidthPercentage = 0;
-                    const maxDeltaEForBar = 10; const umbralExcelente = 2.0; const umbralAceptable = 5.0; 
+                    const maxDeltaEForBar = 10; const umbralExcelente = 1.5; const umbralAceptable = 3.5; 
 
                     if (deltaE <= umbralExcelente) {
                         statusText = 'Aprobado (Excelente)'; statusClass = 'status-ok';
@@ -556,7 +1204,7 @@
                 });
             }
             populateStandardColors();
-            startWebcam();
+            startWebcam(); 
         });
     </script>
 </body>
