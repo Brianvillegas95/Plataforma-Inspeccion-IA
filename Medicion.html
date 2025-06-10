@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medición Dimensional de Sleeves IA - Grupo Azor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="css/estilos.css"> <script type="text/javascript">
+        // La variable 'cv' se hará global una vez que opencv.js se cargue
+        let cv = null; 
+        let opencvInitialized = false;
+
+        // Variables del DOM (declaradas globalmente para accesibilidad)
+        let imageUpload, fileNameSpan, imageCanvas, canvasPrompt, ctx, opencvLoadingMessage;
+        let referenceMMInput, autoCalibrateButton, clearAllButton, autoMeasureAllButton;
+        let refPixelsSpan, pixelMMRatioSpan, point1CoordsSpan, point2CoordsSpan;
+        let measurementResultsContainer, validationStatusEl;
+
+        // --- Variables de Estado Globales ---
+        let uploadedImage = new Image(); 
+        let currentImageUrl = ''; 
+        let pixelToMMRatio = 0; 
+        let protectorCounter = 0; 
+        let referencePoints = []; // Almacena los puntos de referencia para el dibujo persistente
+
+        // Variables para Zoom y Pan
+        let zoom = 1;
+        let panX = 0;
+        let panY = 0;
+        let isPanning = false;
+        let lastPanX = 0;
+        let lastPanY = 0;
+
+        // Definición de las tolerancias
+        const TOLERANCE_WIDTH_NOMINAL = 92.5; 
+        const TOLERENCE_WIDTH_DELTA = 0.15;   
+        const TOLERANCE_HEIGHT_NOMINAL = 66.5; 
+        const TOLERANCE_HEIGHT_DELTA = 0.15;   
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Asignar elementos del DOM
+            imageUpload = document.getElementById('imageUpload');
+            fileNameSpan = document.getElementById('fileName');
+            imageCanvas = document.getElementById('imageCanvas');
+            canvasPrompt = document.getElementById('canvas-prompt');
+            ctx = imageCanvas ? imageCanvas.getContext('2d', { willReadFrequently: true }) : null;
+            opencvLoadingMessage = document.getElementById('opencv-loading-message');
+            
+            referenceMMInput = document.getElementById('referenceMM');
+            autoCalibrateButton = document.getElementById('autoCalibrateButton');
+            clearAllButton = document.getElementById('clearAllButton'); 
+            autoMeasureAllButton = document.getElementById('autoMeasureAllButton'); 
+
+            refPixelsSpan = document.getElementById('refPixels');
+            pixelMMRatioSpan = document.getElementById('pixelMMRatio');
+            point1CoordsSpan = document.getElementById('point1Coords'); 
+            point2CoordsSpan = document.getElementById('point2Coords'); 
+            
+            measurementResultsContainer = document.getElementById('measurementResultsContainer'); 
+            validationStatusEl = document.getElementById('validationStatus'); 
+
+            if (!ctx) {
+                console.error("Error crítico: No se pudo obtener el contexto 2D del canvas. La herramienta no funcionará.");
+                if (canvasPrompt) canvasPrompt.textContent = "Error: El canvas no está disponible.";
+                return; 
+            }
+
+            // --- Event Listeners que NO dependen de OpenCV ---
+            imageUpload.addEventListener('change', (event) => {
+                const file = event.target.files[0]; 
+                console.log("DEBUG: Archivo seleccionado:", file ? file.name : "Ninguno");
+
+                if (file) {
+                    fileNameSpan.textContent = file.name;
+                    currentImageUrl = ''; 
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        console.log("DEBUG: FileReader onload - Archivo leído.");
+                        currentImageUrl = e.target.result; 
+
+                        uploadedImage = new Image(); 
+                        uploadedImage.onload = () => {
+                            console.log("DEBUG: uploadedImage onload - Imagen completamente cargada en objeto Image.");
+                            imageCanvas.width = uploadedImage.naturalWidth;
+                            imageCanvas.height = uploadedImage.naturalHeight;
+                            resetMeasurements(); 
+                        };
+                        uploadedImage.onerror = () => {
+                            console.error("ERROR: uploadedImage onerror - Fallo al cargar la imagen en el objeto Image.");
+                            fileNameSpan.textContent = 'Error al cargar imagen.';
+                            alert('No se pudo cargar la imagen. Asegúrate de que es un archivo de imagen válido (JPG, PNG, etc.).');
+                            resetMeasurements();
+                            autoCalibrateButton.disabled = true; 
+                        };
+                        uploadedImage.src = currentImageUrl; 
+                    };
+                    reader.onerror = (e) => {
+                        console.error("ERROR: FileReader onerror - Fallo al leer el archivo:", e);
+                        fileNameSpan.textContent = 'Error de lectura de archivo.';
+                        alert('Hubo un error al leer el archivo. Intenta de nuevo.');
+                        resetMeasurements();
+                        autoCalibrateButton.disabled = true; 
+                    };
+                    reader.readAsDataURL(file); 
+                } else {
+                    fileNameSpan.textContent = 'Ningún archivo seleccionado';
+                    currentImageUrl = ''; 
+                    resetMeasurements(); 
+                    autoCalibrateButton.disabled = true; 
+                }
+            });
+
+            // Eventos de Zoom y Pan en el Canvas
+            imageCanvas.addEventListener('wheel', (event) => {
+                event.preventDefault(); 
+                const scaleAmount = 1.1; 
+                const rect = imageCanvas.getBoundingClientRect(); 
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+
+                const imgX_beforeZoom = (mouseX - panX) / zoom;
+                const imgY_beforeZoom = (mouseY - panY) / zoom;
+
+                if (event.deltaY < 0) { 
+                    zoom *= scaleAmount;
+                } else { 
+                    zoom /= scaleAmount;
+                }
+                zoom = Math.max(0.1, Math.min(zoom, 10)); // Limitar zoom
+
+                panX = mouseX - imgX_beforeZoom * zoom;
+                panY = mouseY - imgY_beforeZoom * zoom;
+
+                redrawCanvas();
+            });
+
+            imageCanvas.addEventListener('mousedown', (event) => {
+                if (event.button === 0) { 
+                    isPanning = true;
+                    lastPanX = event.clientX;
+                    lastPanY = event.clientY;
+                    imageCanvas.parentElement.classList.add('panning');
+                }
+            });
+
+            imageCanvas.addEventListener('mousemove', (event) => {
+                if (isPanning) {
+                    const deltaX = event.clientX - lastPanX;
+                    const deltaY = event.clientY - lastPanY;
+                    panX += deltaX;
+                    panY += deltaY;
+                    lastPanX = event.clientX;
+                    lastPanY = event.clientY;
+                    redrawCanvas();
+                }
+            });
+
+            imageCanvas.addEventListener('mouseup', () => {
+                isPanning = false;
+                imageCanvas.parentElement.classList.remove('panning');
+            });
+
+            imageCanvas.addEventListener('mouseout', () => { // Detener pan si el ratón sale del canvas
+                isPanning = false; 
+                imageCanvas.parentElement.classList.remove('panning');
+            });
+            
+            // Botón para Limpiar Todo
+            clearAllButton.addEventListener('click', () => {
+                console.log("DEBUG: Botón 'Limpiar Todo y Reiniciar' clicado.");
+                resetMeasurements(); 
+            });
+
+            // --- Estado inicial de la UI ---
+            opencvLoadingMessage.style.display = 'block'; 
+            autoCalibrateButton.disabled = true; 
+            autoMeasureAllButton.disabled = true; 
+            validationStatusEl.className = 'validation-status-text status-pending'; 
+            validationStatusEl.textContent = 'Pendiente';
+
+            // Actualizar año en el footer
+            document.getElementById('currentYearDimensional').textContent = new Date().getFullYear();
+        }); // Fin de DOMContentLoaded
+
+        // --- Inicialización de OpenCV.js usando cv.onRuntimeInitialized ---
+        // Esta función se activará cuando TODO el runtime de OpenCV.js (incluido WebAssembly) esté listo.
+        window.onOpenCvReady = () => { // Esta función es llamada por el atributo 'onload' del script de opencv.js
+            if (window.cv) {
+                cv = window.cv; // Asigna la instancia global a nuestra variable local
+                console.log("DEBUG: OpenCV.js archivo cargado. Esperando inicialización del runtime...");
+                opencvLoadingMessage.textContent = "Inicializando OpenCV.js runtime...";
+
+                // Usa el callback de inicialización del runtime
+                cv.onRuntimeInitialized = () => {
+                    opencvInitialized = true;
+                    console.log("DEBUG: OpenCV.js runtime completamente inicializado.");
+                    opencvLoadingMessage.style.display = 'none'; // Ocultar mensaje de carga
+
+                    // Comprobar si imread está disponible explícitamente después de la inicialización del runtime
+                    if (typeof cv.imread === 'function') {
+                        console.log("DEBUG: cv.imread() está disponible.");
+                        
+                        // AHORA QUE OPENCV ESTÁ REALMENTE LISTO, ASIGNAMOS EVENT LISTENERS A LOS BOTONES
+                        autoCalibrateButton.addEventListener('click', () => {
+                            console.log("DEBUG: Botón 'Calibrar Automáticamente' clicado.");
+                            if (!currentImageUrl || uploadedImage.naturalWidth === 0) {
+                                alert('Por favor, sube una imagen primero para poder calibrar.');
+                                return;
+                            }
+                            const refValue = parseFloat(referenceMMInput.value);
+                            if (isNaN(refValue) || refValue <= 0) {
+                                alert('Por favor, introduce un valor numérico válido y mayor que cero para la referencia del calibrador (ej. 153.15).');
+                                return;
+                            }
+                            autoCalibrateWithOpenCV(); // Llama a la función de calibración con OpenCV
+                        });
+
+                        autoMeasureAllButton.addEventListener('click', () => {
+                            console.log("DEBUG: Botón 'Medir Todos los Protectores' clicado.");
+                            if (!currentImageUrl || uploadedImage.naturalWidth === 0) {
+                                alert('Por favor, sube una imagen primero.');
+                                return;
+                            }
+                            if (pixelToMMRatio === 0) {
+                                alert('Por favor, realiza la calibración automática con el calibrador primero para establecer la escala.');
+                                return;
+                            }
+                            autoMeasureAllProtectorsWithOpenCV(); // Llama a la función de medición automática de protectores
+                        });
+
+                        // Habilitar/deshabilitar botones al inicio, después de que OpenCV esté listo y cv.imread exista.
+                        if (currentImageUrl && uploadedImage.naturalWidth > 0) {
+                            autoCalibrateButton.disabled = false; 
+                        } else {
+                            autoCalibrateButton.disabled = true; 
+                        }
+                        autoMeasureAllButton.disabled = true; 
+
+                    } else {
+                        console.error("ERROR: cv.imread NO está definida como una función DESPUÉS de onRuntimeInitialized.");
+                        opencvLoadingMessage.textContent = "Error: OpenCV.js runtime inicializado, pero imread no disponible.";
+                        alert('OpenCV.js se cargó, pero una función esencial (imread) no está disponible. Esto podría ser un problema con la versión de OpenCV.js o una carga incompleta. Por favor, intenta actualizar la página.');
+                    }
+                }; // Fin de cv.onRuntimeInitialized
+                
+            } else {
+                console.error("ERROR: Fallo al acceder a window.cv. OpenCV.js no se cargó correctamente desde el archivo.");
+                opencvLoadingMessage.textContent = "Error: OpenCV.js no pudo cargar desde el archivo local.";
+                alert('No se pudo cargar OpenCV.js. La herramienta de medición no funcionará. Asegúrate de que el archivo js/opencv.js existe y la ruta es correcta.');
+            }
+        }; // Fin de window.onOpenCvReady
+
+
+        // --- Funciones de Dibujo Principal (adaptadas para Zoom y Pan) ---
+        function redrawCanvas() {
+            if (!uploadedImage.src) {
+                ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+                if (canvasPrompt) canvasPrompt.style.display = 'block';
+                return;
+            }
+            if (canvasPrompt) canvasPrompt.style.display = 'none';
+
+            // Guardar el estado del contexto antes de las transformaciones
+            ctx.save(); 
+
+            ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+            
+            // Aplicar transformaciones para pan y zoom
+            ctx.translate(panX, panY);
+            ctx.scale(zoom, zoom);
+
+            // Dibujar la imagen en 0,0 del contexto transformado
+            ctx.drawImage(uploadedImage, 0, 0); 
+
+            // Redibujar puntos y líneas de referencia (si la calibración automática los ha encontrado)
+            // Se dibujan en las coordenadas de la imagen original (0,0) y se escalan/traducen por el ctx
+            if (referencePoints.length > 0) {
+                for (let i = 0; i < referencePoints.length; i++) {
+                    drawPoint(referencePoints[i].x, referencePoints[i].y, 'red', 5); // Radio fijo, el ctx lo escala
+                }
+                if (referencePoints.length === 2) {
+                    drawLine(referencePoints[0].x, referencePoints[0].y,
+                             referencePoints[1].x, referencePoints[1].y, 'blue', 2); // Ancho fijo, el ctx lo escala
+                }
+            }
+            // NOTA: Los rectángulos de los protectores NO se dibujan aquí. 
+            // Se dibujan directamente en autoMeasureAllProtectorsWithOpenCV después de la detección
+            // para que no se mantengan si se reinicia el canvas o se cambia la imagen sin volver a medir.
+            
+            // Restaurar el estado del contexto para no afectar futuros dibujos
+            ctx.restore(); 
+        }
+
+        // --- Función para Reiniciar Todas las Mediciones y el Estado de la UI ---
+        function resetMeasurements() {
+            console.log("DEBUG: resetMeasurements llamada.");
+            referencePoints = []; 
+            pixelToMMRatio = 0;
+            protectorCounter = 0; 
+            measurementResultsContainer.innerHTML = ''; 
+            validationStatusEl.className = 'validation-status-text status-pending';
+            validationStatusEl.textContent = 'Pendiente';
+
+            zoom = 1;
+            panX = 0;
+            panY = 0;
+            isPanning = false;
+
+            if (currentImageUrl && uploadedImage.naturalWidth > 0 && uploadedImage.naturalHeight > 0) {
+                imageCanvas.width = uploadedImage.naturalWidth;
+                imageCanvas.height = uploadedImage.naturalHeight;
+                
+                // Asegurar que el canvas y el contenedor se restablezcan a un estado adaptable
+                imageCanvas.style.width = '100%';
+                imageCanvas.style.height = 'auto'; // Ajustar altura automáticamente para mantener el aspecto
+                imageCanvas.style.marginLeft = '0';
+                imageCanvas.style.marginRight = '0';
+                
+                redrawCanvas(); 
+            } else {
+                ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+                imageCanvas.width = 0; 
+                imageCanvas.height = 0;
+                if (canvasPrompt) canvasPrompt.style.display = 'block'; 
+                imageCanvas.style.width = '100%'; 
+                imageCanvas.style.height = 'auto';
+            }
+            
+            point1CoordsSpan.textContent = '-'; 
+            point2CoordsSpan.textContent = '-'; 
+            refPixelsSpan.textContent = '0.00 px';
+            pixelMMRatioSpan.textContent = '0.0000 px/mm';
+            
+            autoCalibrateButton.classList.remove('active-mode'); 
+            autoMeasureAllButton.classList.remove('active-mode'); 
+            referenceMMInput.disabled = false; 
+            autoMeasureAllButton.textContent = `Medir Todos los Protectores`; 
+
+            // Habilitar/deshabilitar botones lógicamente
+            // Solo se habilitan si OpenCV está inicializado Y hay una imagen cargada.
+            if (opencvInitialized && currentImageUrl && uploadedImage.naturalWidth > 0) {
+                autoCalibrateButton.disabled = false; 
+                autoMeasureAllButton.disabled = true; 
+            } else {
+                autoCalibrateButton.disabled = true; 
+                autoMeasureAllButton.disabled = true; 
+            }
+            imageCanvas.parentElement.classList.remove('processing-mode', 'panning'); 
+            imageCanvas.parentElement.classList.add('grab'); 
+        }
+
+        // --- FUNCIÓN DE CALIBRACIÓN AUTOMÁTICA (Implementación con OpenCV.js) ---
+        async function autoCalibrateWithOpenCV() {
+            console.log("DEBUG: Iniciando calibración automática con OpenCV.js...");
+            // La comprobación de cv.imread aquí ya no debería ser necesaria si onRuntimeInitialized funciona como se espera
+            if (!opencvInitialized) { 
+                alert('OpenCV.js aún no está cargado o sus funciones no están listas. Por favor, espera un momento y reintenta.');
+                console.error("ERROR: OpenCV.js no inicializado en autoCalibrateWithOpenCV.");
+                return;
+            }
+            if (!uploadedImage.src || uploadedImage.naturalWidth === 0) {
+                alert('Por favor, sube una imagen primero para calibrar.');
+                return;
+            }
+
+            const referenceValueMM = parseFloat(referenceMMInput.value);
+            if (isNaN(referenceValueMM) || referenceValueMM <= 0) {
+                alert('Por favor, introduce un valor numérico válido y mayor que cero para la referencia del calibrador (ej. 153.15).');
+                return;
+            }
+
+            // Indicar estado de procesamiento
+            imageCanvas.parentElement.classList.add('processing-mode');
+            autoCalibrateButton.disabled = true; 
+            autoMeasureAllButton.disabled = true; 
+
+            // Cargar la imagen en un canvas auxiliar para asegurar que OpenCV lea los píxeles correctos
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+            tempCanvas.width = uploadedImage.naturalWidth;
+            tempCanvas.height = uploadedImage.naturalHeight;
+            tempCtx.drawImage(uploadedImage, 0, 0); 
+
+            let src = new cv.Mat(); 
+            let gray = new cv.Mat();
+            let blurred = new cv.Mat();
+            let thresh = new cv.Mat();
+            let contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
+
+            try {
+                src = cv.imread(tempCanvas); 
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+                cv.adaptiveThreshold(blurred, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 5); 
+                
+                cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                let potentialMandibles = [];
+                for (let i = 0; i < contours.size(); ++i) {
+                    let cnt = contours.get(i);
+                    let rect = cv.boundingRect(cnt); 
+                    
+                    const aspectRatio = rect.width / rect.height;
+                    const minMandibleArea = (uploadedImage.naturalWidth * uploadedImage.naturalHeight) * 0.001; 
+                    const maxMandibleArea = (uploadedImage.naturalWidth * uploadedImage.naturalHeight) * 0.05; 
+                    const minMandibleAspectRatio = 5; 
+                    const maxMandibleAspectRatio = 20; 
+                    
+                    const scanTopY = uploadedImage.naturalHeight * 0.01; 
+                    const scanBottomY = uploadedImage.naturalHeight * 0.35; 
+
+                    if (cv.contourArea(cnt) > minMandibleArea && cv.contourArea(cnt) < maxMandibleArea &&
+                        aspectRatio > minMandibleAspectRatio && aspectRatio < maxMandibleAspectRatio && 
+                        rect.y > scanTopY && (rect.y + rect.height) < scanBottomY) { 
+                        potentialMandibles.push(rect);
+                    }
+                    cnt.delete(); 
+                }
+
+                potentialMandibles.sort((a, b) => a.x - b.x); 
+
+                if (potentialMandibles.length >= 2) {
+                    let leftMandibleRect = potentialMandibles[0];
+                    let rightMandibleRect = potentialMandibles[potentialMandibles.length - 1];
+
+                    const p1x = leftMandibleRect.x + leftMandibleRect.width; 
+                    const p1y = leftMandibleRect.y + leftMandibleRect.height / 2;
+                    const p2x = rightMandibleRect.x;                         
+                    const p2y = rightMandibleRect.y + rightMandibleRect.height / 2;
+
+                    if (Math.abs(p2x - p1x) > 50) { 
+                        referencePoints = [
+                            { x: p1x, y: p1y }, 
+                            { x: p2x, y: p2y }
+                        ];
+
+                        point1CoordsSpan.textContent = `Auto (X1: ${referencePoints[0].x.toFixed(0)}, Y1: ${referencePoints[0].y.toFixed(0)})`;
+                        point2CoordsSpan.textContent = `Auto (X2: ${referencePoints[1].x.toFixed(0)}, Y2: ${referencePoints[1].y.toFixed(0)})`;
+
+                        calculateReferenceDistance(referencePoints[0], referencePoints[1]); 
+                        
+                        autoMeasureAllButton.disabled = false; 
+                        autoCalibrateButton.classList.remove('active-mode'); 
+                        imageCanvas.parentElement.classList.remove('processing-mode'); 
+                        imageCanvas.parentElement.classList.add('grab'); 
+                        alert('Calibración automática completada con éxito. Ahora puedes medir todos los protectores automáticamente.');
+                        console.log("DEBUG: Calibración automática exitosa con OpenCV.js. Puntos detectados:", referencePoints);
+                        redrawCanvas(); 
+                    } else {
+                        alert('Fallo la calibración automática: Las mandíbulas detectadas están demasiado cerca o son muy pequeñas. Intenta con una imagen más nítida del calibrador o ajusta sus parámetros.');
+                        console.error("ERROR: Mandíbulas no detectadas claramente o muy cerca.");
+                        resetMeasurements(); 
+                    }
+                } else {
+                    alert('Fallo la calibración automática: No se detectaron al menos dos mandíbulas válidas del calibrador. Asegúrate de que esté visible, contraste bien, sea alargado y esté en la parte superior de la imagen.');
+                    console.error("ERROR: No se encontraron suficientes mandíbulas para calibrar.");
+                    resetMeasurements(); 
+                }
+            } catch (err) {
+                console.error("ERROR: Error durante el procesamiento de OpenCV para calibración:", err);
+                alert('Ocurrió un error inesperado durante la calibración automática. Consulta la consola (F12) para más detalles.');
+                resetMeasurements();
+            } finally {
+                // Liberar toda la memoria de los objetos Mat y MatVector de OpenCV
+                src.delete();
+                gray.delete();
+                blurred.delete();
+                thresh.delete();
+                contours.delete();
+                hierarchy.delete();
+                imageCanvas.parentElement.classList.remove('processing-mode');
+                autoCalibrateButton.disabled = false; 
+            }
+        }
+
+        // --- FUNCIÓN: Medir Todos los Protectores Automáticamente con OpenCV.js ---
+        async function autoMeasureAllProtectorsWithOpenCV() {
+            console.log("DEBUG: Iniciando medición automática de protectores con OpenCV.js...");
+            // La comprobación de cv.imread aquí ya no debería ser necesaria si onRuntimeInitialized funciona como se espera
+            if (!opencvInitialized) { 
+                alert('OpenCV.js aún no está cargado o sus funciones no están listas. Por favor, espera un momento y reintenta.');
+                console.error("ERROR: OpenCV.js no inicializado en autoMeasureAllProtectorsWithOpenCV.");
+                return;
+            }
+            if (!uploadedImage.src || uploadedImage.naturalWidth === 0) {
+                alert('Por favor, sube una imagen primero.');
+                return;
+            }
+            if (pixelToMMRatio === 0) {
+                alert('Por favor, realiza la calibración automática con el calibrador primero para establecer la escala.');
+                return;
+            }
+
+            // Indicar estado de procesamiento
+            imageCanvas.parentElement.classList.add('processing-mode');
+            autoCalibrateButton.disabled = true; 
+            autoMeasureAllButton.disabled = true; 
+            measurementResultsContainer.innerHTML = ''; // Limpiar resultados anteriores
+            protectorCounter = 0; 
+
+            // Cargar la imagen en un canvas auxiliar
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+            tempCanvas.width = uploadedImage.naturalWidth;
+            tempCanvas.height = uploadedImage.naturalHeight;
+            tempCtx.drawImage(uploadedImage, 0, 0);
+
+            let src = new cv.Mat(); 
+            let gray = new cv.Mat();
+            let blurred = new cv.Mat();
+            let thresh = new cv.Mat();
+            let contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
+
+            try {
+                src = cv.imread(tempCanvas); 
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+                cv.adaptiveThreshold(blurred, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 2); 
+
+                cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                let detectedProtectors = [];
+                const MIN_PROTECTOR_AREA = uploadedImage.naturalWidth * uploadedImage.naturalHeight * 0.005; 
+                const MAX_PROTECTOR_AREA = uploadedImage.naturalWidth * uploadedImage.naturalHeight * 0.1; 
+                const MIN_ASPECT_RATIO = 1.0; 
+                const MAX_ASPECT_RATIO = 1.6; 
+
+                const calibratorZoneBottomY = uploadedImage.naturalHeight * 0.35; 
+
+                for (let i = 0; i < contours.size(); ++i) {
+                    let cnt = contours.get(i);
+                    let area = cv.contourArea(cnt);
+                    let rect = cv.boundingRect(cnt);
+                    
+                    const isOutsideCalibratorZone = (rect.y > calibratorZoneBottomY); 
+                    
+                    if (area > MIN_PROTECTOR_AREA && area < MAX_PROTECTOR_AREA && isOutsideCalibratorZone) {
+                        const aspectRatio = rect.width / rect.height;
+                        if (aspectRatio >= MIN_ASPECT_RATIO && aspectRatio <= MAX_ASPECT_RATIO) {
+                            detectedProtectors.push(rect);
+                        }
+                    }
+                    cnt.delete(); 
+                }
+
+                detectedProtectors.sort((a, b) => {
+                    if (Math.abs(a.y - b.y) < 50) { 
+                        return a.x - b.x; 
+                    }
+                    return a.y - b.y; 
+                });
+
+                if (detectedProtectors.length > 0) { 
+                    alert(`Detectados ${detectedProtectors.length} protectores. Calculando dimensiones...`);
+                    
+                    redrawCanvas(); 
+
+                    for (let i = 0; i < detectedProtectors.length; i++) {
+                        const rect = detectedProtectors[i];
+                        const detectedWidthPx = rect.width;
+                        const detectedHeightPx = rect.height;
+
+                        const detectedWidthMM = detectedWidthPx / pixelToMMRatio;
+                        const detectedHeightMM = detectedHeightPx / pixelToMMRatio;
+
+                        protectorCounter++;
+                        addMeasurementResult(protectorCounter, detectedWidthPx, detectedHeightPx, detectedWidthMM, detectedHeightMM);
+                        
+                        ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)'; 
+                        ctx.lineWidth = 3 / zoom; 
+                        ctx.strokeRect(rect.x, rect.y, rect.width, rect.height); 
+                    }
+                    validationStatusEl.className = 'validation-status-text status-pass'; 
+                    validationStatusEl.textContent = `Proceso Completo (${detectedProtectors.length} detectados)`;
+
+                } else {
+                    alert(`Fallo la medición automática de protectores: No se detectaron protectores válidos. Asegúrate de que los protectores sean claros, contrasten bien y estén fuera de la zona del calibrador.`);
+                    console.error("ERROR: No se detectaron protectores.");
+                    validationStatusEl.className = 'validation-status-text status-fail';
+                    validationStatusEl.textContent = 'Fallo la detección';
+                }
+
+            } catch (err) {
+                console.error("ERROR: Error durante el procesamiento de OpenCV para protectores:", err);
+                alert('Ocurrió un error inesperado durante la medición automática de protectores. Consulta la consola (F12) para más detalles.');
+                validationStatusEl.className = 'validation-status-text status-fail';
+                validationStatusEl.textContent = 'Error';
+            } finally {
+                src.delete();
+                gray.delete();
+                blurred.delete();
+                thresh.delete();
+                contours.delete();
+                hierarchy.delete();
+                imageCanvas.parentElement.classList.remove('processing-mode');
+                autoCalibrateButton.disabled = false; 
+                autoMeasureAllButton.disabled = false; 
+            }
+        }
+
+        // --- Función para Añadir Resultados de Medición a la Interfaz ---
+        function addMeasurementResult(id, widthPx, heightPx, widthMM, heightMM) {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'protector-result'; 
+            resultDiv.innerHTML = `
+                <h4>Protector #${id}</h4>
+                <p>Ancho: <span class="result-value pixels-value">${widthPx.toFixed(2)} px</span> / <span class="result-value mm-value">${widthMM.toFixed(2)} mm</span></p>
+                <p>Alto: <span class="result-value pixels-value">${heightPx.toFixed(2)} px</span> / <span class="result-value mm-value">${heightMM.toFixed(2)} mm</span></p>
+                <div class="validation-for-protector">
+                    <p>Estado: <span id="validationStatusP${id}" class="validation-status-text">Pendiente</span></p>
+                </div>
+            `;
+            measurementResultsContainer.appendChild(resultDiv);
+            
+            const validationStatusP = document.getElementById(`validationStatusP${id}`);
+            validateDimensions(widthMM, heightMM, validationStatusP);
+            
+            // Scroll al final para ver los nuevos resultados
+            measurementResultsContainer.scrollTop = measurementResultsContainer.scrollHeight;
+        }
+
+        // --- Función de Validación de Dimensiones (Ahora acepta un elemento de estado para actualizar) ---
+        function validateDimensions(widthMM, heightMM, statusElement) {
+            let statusClass = 'validation-status-text';
+            let statusText = '';
+
+            const minWidth = TOLERANCE_WIDTH_NOMINAL - TOLERENCE_WIDTH_DELTA;
+            const maxWidth = TOLERANCE_WIDTH_NOMINAL + TOLERENCE_WIDTH_DELTA;
+            const minHeight = TOLERANCE_HEIGHT_NOMINAL - TOLERANCE_HEIGHT_DELTA;
+            const maxHeight = TOLERANCE_HEIGHT_NOMINAL + TOLERANCE_HEIGHT_DELTA;
+
+            const isWidthOk = (widthMM >= minWidth && widthMM <= maxWidth);
+            const isHeightOk = (heightMM >= minHeight && heightMM <= maxHeight);
+
+            if (isWidthOk && isHeightOk) {
+                statusClass += ' status-pass';
+                statusText = 'APROBADO';
+            } else {
+                statusClass += ' status-fail';
+                statusText = 'RECHAZADO';
+                let details = [];
+                if (!isWidthOk) {
+                    details.push(`Ancho (${widthMM.toFixed(2)}mm) fuera de [${minWidth.toFixed(2)}-${maxWidth.toFixed(2)}]`);
+                }
+                if (!isHeightOk) {
+                    details.push(`Alto (${heightMM.toFixed(2)}mm) fuera de [${minHeight.toFixed(2)}-${maxHeight.toFixed(2)}]`);
+                }
+                statusText += `: ${details.join('; ')}`;
+            }
+            statusElement.className = statusClass; 
+            statusElement.textContent = statusText;
+        }
+
+        // --- Funciones Auxiliares de Dibujo en Canvas (dibujan en el sistema de coordenadas del contexto, que ya está transformado) ---
+        function drawPoint(pX, pY, color, radius) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            // El radio se especifica en "píxeles de la imagen original" y se escala por el contexto
+            ctx.arc(pX, pY, radius, 0, Math.PI * 2); 
+            ctx.fill();
+        }
+
+        function drawLine(p1X, p1Y, p2X, p2Y, color, lineWidth) {
+            ctx.strokeStyle = color;
+            // El ancho de línea se especifica en "píxeles de la imagen original" y se escala por el contexto
+            ctx.lineWidth = lineWidth; 
+            ctx.beginPath();
+            ctx.moveTo(p1X, p1Y);
+            ctx.lineTo(p2X, p2Y);
+            ctx.stroke();
+        }
+
+        // --- Funciones de Cálculo ---
+        function calculateDistance(p1, p2) {
+            if (!p1 || !p2) return 0;
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function calculateReferenceDistance(p1, p2) {
+            if (p1 && p2) {
+                const pixelDistance = calculateDistance(p1, p2);
+                refPixelsSpan.textContent = pixelDistance.toFixed(2) + ' px';
+
+                const referenceValueMM = parseFloat(referenceMMInput.value); 
+                
+                if (referenceValueMM > 0 && pixelDistance > 0) {
+                    pixelToMMRatio = pixelDistance / referenceValueMM; 
+                    pixelMMRatioSpan.textContent = pixelToMMRatio.toFixed(4) + ' px/mm';
+                    console.log(`DEBUG: Relación Píxel/MM calculada: ${pixelToMMRatio.toFixed(4)}`);
+                } else {
+                    pixelToMMRatio = 0;
+                    pixelMMRatioSpan.textContent = '0.0000 px/mm';
+                    alert('No se pudo calcular la relación píxel/mm. Asegúrate de que el valor de referencia es válido y la distancia en píxeles es mayor a cero.');
+                    console.error("ERROR: No se pudo calcular la relación Píxel/MM.");
+                }
+            }
+        }
+    </script>
+    <script async src="js/opencv.js" type="text/javascript" onload="onOpenCvReady();"></script>
+</head>
+<body class="color-validator-body">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li class="dropdown">
+                        <a href="index.html" class="dropdown-toggle">Inicio</a>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle active" data-area="Herramientas IA">Herramientas IA <i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="inspeccion_blister.html">Inspección Blíster</a></li>
+                            <li><a href="validador_color.html">Validador de Color</a></li>
+                            <li><a href="medicion_dimensional.html" class="active">Medición Dimensional</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <section class="tool-section dimensional-tool">
+                <div class="section-header">
+                    <i class="fas fa-ruler-combined feature-icon"></i>
+                    <h2>Estación Digital de Medición Dimensional de Sleeves</h2>
+                    <p>Suba una imagen con un calibrador digital para calibración automática y medición de protectores.</p>
+                </div>
+
+                <div class="dimensional-grid">
+                    <div class="image-column">
+                        <div class="image-upload-panel panel-card">
+                            <h3 class="panel-title-sub"><i class="fas fa-upload"></i> 1. Cargar Imagen</h3>
+                            <div class="input-group">
+                                <label for="imageUpload" class="button primary-action full-width-button">
+                                    <i class="fas fa-folder-open"></i> Seleccionar Imagen
+                                </label>
+                                <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                                <span id="fileName" class="file-name-display">Ningún archivo seleccionado</span>
+                            </div>
+                            <div id="imageContainer" class="image-display-area">
+                                <canvas id="imageCanvas"></canvas>
+                                <p id="canvas-prompt">Cargue una imagen para empezar a medir.</p>
+                                <div id="opencv-loading-message">Cargando OpenCV.js... Por favor, espere.</div>
+                                <span id="point1Coords" style="display: none;"></span> 
+                                <span id="point2Coords" style="display: none;"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="controls-column">
+                        <div class="measurement-control-panel panel-card">
+                            <h3 class="panel-title-sub"><i class="fas fa-cog"></i> 2. Calibración y Medición Automática</h3>
+                            <div class="control-group">
+                                <h4>Calibración Automática con Calibrador</h4>
+                                <p class="instruction-text">
+                                    <i class="fas fa-microscope"></i> Introduce el valor exacto del calibrador (<span class="highlight">ej. 153.15mm</span>). Luego haz clic en el botón para que el sistema intente detectar y calibrar automáticamente.
+                                </p>
+                                <div class="form-group">
+                                    <label for="referenceMM">Medida de referencia (mm):</label>
+                                    <input type="number" id="referenceMM" value="153.15"> 
+                                </div>
+                                <button id="autoCalibrateButton" class="button secondary-action full-width-button" disabled>
+                                    <i class="fas fa-magic"></i> Calibrar Automáticamente
+                                </button>
+                                <p class="info-text">Píxeles de referencia: <span id="refPixels">0.00</span> px</p>
+                                <p class="info-text">Factor de Escala: <span id="pixelMMRatio">0.0000</span> px/mm</p>
+                            </div>
+                            
+                            <div class="control-group">
+                                <h4>Medir Todos los Protectores Automáticamente</h4>
+                                <p class="instruction-text">
+                                    <i class="fas fa-robot"></i> Una vez calibrado, haz clic en este botón para que el sistema detecte y mida **todos** los protectores en la imagen.
+                                </p>
+                                <button id="autoMeasureAllButton" class="button primary-action full-width-button" disabled>
+                                    <i class="fas fa-play-circle"></i> Medir Todos los Protectores
+                                </button>
+                            </div>
+                            
+                            <div class="control-group">
+                                <h4>Reiniciar</h4>
+                                <button id="clearAllButton" class="button secondary-action full-width-button">
+                                    <i class="fas fa-redo"></i> Limpiar Todo y Reiniciar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="measurement-results-panel panel-card">
+                            <h3 class="panel-title-sub"><i class="fas fa-chart-line"></i> 3. Resultados y Validación</h3>
+                            <div id="measurementResultsContainer" class="results-display">
+                                </div>
+                            <div class="result-item validation-item">
+                                <p>Estado General:</p>
+                                <span id="validationStatus" class="validation-status-text status-pending">Pendiente</span>
+                            </div>
+                            <p class="note info-text" style="margin-top: 20px;">
+                                <i class="fas fa-lightbulb"></i> **Tolerancias:**<br>
+                                Ancho: 92.5mm &plusmn;0.15mm (92.35 - 92.65mm)<br>
+                                Alto: 66.5mm &plusmn;0.15mm (66.35 - 66.65mm)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            &copy; <span id="currentYearDimensional"></span> Grupo Azor México. Todos los derechos reservados.
+        </footer>
+    </div>
+</body>
+</html>
