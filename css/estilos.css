@@ -1,4 +1,4 @@
-/* css/estilos.css (Tu versión base + estilos para Validador de Color al final) */
+/* css/estilos.css */
 :root {
     --azor-blue: #007bff; 
     --azor-blue-dark: #0056b3; 
@@ -17,6 +17,7 @@
     --shadow-sm: 0 2px 4px rgba(0,0,0,0.06);
     --shadow-md: 0 5px 15px rgba(0,0,0,0.1);
     --shadow-lg: 0 10px 30px rgba(0,0,0,0.12);
+    --error-color: var(--danger-color); 
 }
 
 *, *::before, *::after {
@@ -237,6 +238,9 @@ body {
 
 .app-footer { background-color: #212529; color: #adb5bd; text-align: center; padding: 25px 20px; font-size: 0.9rem; flex-shrink: 0; border-top: 1px solid #343a40; }
 .app-footer span#currentYear { font-weight: bold; }
+.app-footer span#currentYearColorValidator { font-weight: bold; } 
+.app-footer span#currentYearInspector { font-weight: bold; }
+
 
 /* === ESTILOS PARA LA PÁGINA DE INSPECCIÓN (inspeccion_blister.html) === */
 .inspector-body .main-content-grid {
@@ -349,19 +353,18 @@ body {
 @keyframes pulseBoxShadow { from { box-shadow: 0 0 0 0px rgba(0, 123, 255, 0.15); } to { box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.3); } }
 
 /* === ESTILOS PARA LA NUEVA HERRAMIENTA: VALIDADOR DE COLOR === */
-/* Asegurarse de que el body para validador de color también tenga overflow hidden si es necesario */
 body.color-validator-body {
     overflow: hidden !important;
 }
 body.color-validator-body .app-container {
-    overflow: hidden; /* El app-container gestiona el scroll si es necesario */
+    overflow: hidden; 
 }
 
-.color-validator-body .main-content { /* Específico para que el contenido del validador de color use el espacio */
+.color-validator-body .main-content { 
     padding: 0; 
-    overflow-y: auto; /* Permitir scroll DENTRO del main-content del validador si es necesario */
+    overflow-y: auto; 
     flex-grow: 1;
-    display: flex; /* Para que .tool-section pueda usar flex-grow */
+    display: flex; 
 }
 .color-validator-tool {
     padding: 20px; 
@@ -369,17 +372,17 @@ body.color-validator-body .app-container {
     flex-grow: 1; 
     display: flex;
     flex-direction: column;
-    width: 100%; /* Asegurar que ocupe el ancho */
+    width: 100%; 
 }
 .color-validator-tool .section-header { margin-bottom: 20px; text-align:center; }
-.color-validator-tool .section-header .feature-icon { font-size: 2.5em; margin-bottom: 10px; }
+.color-validator-tool .section-header .feature-icon { font-size: 2.5em; margin-bottom: 10px; color: var(--azor-blue); }
 .color-validator-tool .section-header h2 { font-size: 1.8em; }
 .color-validator-tool .section-header p { font-size: 0.95em; }
 .color-validator-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
     gap: 20px;
-    align-items: stretch; /* CAMBIO: Para que los paneles intenten tener la misma altura */
+    align-items: stretch; 
     flex-grow: 1; 
     width: 100%;
 }
@@ -387,7 +390,6 @@ body.color-validator-body .app-container {
     background-color: var(--surface-bg); padding: 15px; border-radius: var(--border-radius);
     box-shadow: var(--shadow-sm); border: 1px solid var(--border-color);
     display: flex; flex-direction: column; gap: 12px;
-    /* min-height: 300px; Eliminado para que el flex-grow funcione mejor */
 }
 .panel-title-sub { 
     font-size: 1.1em; color: var(--azor-blue); padding-bottom: 6px;
@@ -404,44 +406,114 @@ body.color-validator-body .app-container {
     flex-shrink: 0;
 }
 #webcam-loading-prompt { position: absolute; color: white; background-color: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px;}
-.captured-image-area { flex-grow: 1; display: flex; flex-direction: column; } /* Para que el canvas pueda crecer */
+.captured-image-area { flex-grow: 1; display: flex; flex-direction: column; } 
 .captured-image-canvas {
     width: 100%; 
-    /* height: auto; No, dejar que el contenedor padre lo defina o aspect ratio */
     max-height: 240px; 
     border: 1px solid var(--border-color); border-radius: var(--border-radius);
     background-color: #f0f0f0; cursor: crosshair; margin-bottom: 10px;
     display: block; 
-    object-fit: contain; /* Para que la imagen se ajuste sin cortarse */
-    flex-shrink: 0; /* Evitar que se encoja demasiado */
+    object-fit: contain; 
+    flex-shrink: 0; 
 }
-#capture-prompt { display: flex; align-items: center; justify-content: center; min-height: 150px; width: 100%; flex-grow: 1;}
+#capture-prompt { display: flex; align-items: center; justify-content: center; min-height: 150px; width: 100%; flex-grow: 1; color: var(--text-secondary); font-style: italic;}
 .color-picker-instructions { text-align: center; font-size: 0.8em; color: var(--text-secondary); flex-shrink: 0;}
 .color-picker-instructions p { margin-bottom: 5px; }
-.color-preview-live-container { display:flex; align-items:center; justify-content: center; gap: 10px; margin-top:5px;}
-#color-preview-box { width: 30px; height: 30px; border: 1px solid var(--border-color); background-color: #eee; border-radius: 4px; }
-#selected-color-value-temp {font-weight: 500;}
 
-.color-analysis-panel .form-group { margin-bottom: auto; } /* Empujar botón de comparar hacia abajo */
+.color-analysis-panel .form-group { margin-bottom: auto; } 
 
 .full-width-button { width: 100%; flex-shrink: 0;}
-.color-comparison-display { display: flex; justify-content: space-around; align-items: flex-start; margin-bottom: 15px; gap: 10px; flex-shrink: 0;}
-.color-box-container { text-align: center; flex: 1; max-width: 150px;}
-.color-box-container p { font-size: 0.85em; font-weight: 500; margin-bottom: 5px; }
-.color-display-box { width: 80px; height: 80px; border: 1px solid var(--border-color); margin: 0 auto 5px auto; border-radius: var(--border-radius); background-color: #f0f0f0; }
-.color-value-text { font-size: 0.75em; color: var(--text-secondary); word-break: break-all; min-height: 2.5em; }
+
+/* Ajustes para alinear cuadros de comparación de color */
+.color-comparison-display { 
+    display: flex; 
+    justify-content: space-around; 
+    align-items: stretch; /* Estirar los contenedores para igualar altura */
+    margin-bottom: 15px; 
+    gap: 15px; /* Espacio entre los dos contenedores de color */
+    flex-shrink: 0;
+}
+.color-box-container { 
+    text-align: center; 
+    flex: 1; /* Que ambos contenedores ocupen espacio equitativo */
+    display: flex;
+    flex-direction: column; /* Para alinear p, div, span verticalmente */
+    align-items: center; /* Centrar elementos hijos horizontalmente */
+    padding: 10px; /* Añadir un poco de padding interno */
+}
+.color-box-container p { /* Títulos "Color de Muestra", "Color Estándar" */
+    font-size: 0.85em; 
+    font-weight: 500; 
+    margin-bottom: 8px; 
+    min-height: 2.2em; /* Altura mínima para los títulos (aprox 2 líneas) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.color-display-box { /* El cuadro de color visual */
+    width: 80px; 
+    height: 80px; 
+    border: 1px solid var(--border-color); 
+    margin-bottom: 8px; /* Espacio consistente debajo del cuadro */
+    border-radius: var(--border-radius); 
+    background-color: #f0f0f0;
+    flex-shrink: 0; /* Para que el cuadro no se encoja */
+}
+.color-value-text { /* Texto HEX y LAB */
+    font-size: 0.75em; 
+    color: var(--text-secondary); 
+    word-break: break-all; /* Para que el texto largo no rompa el layout */
+    min-height: 3em; /* Altura mínima para el texto (aprox 2-3 líneas) */
+    line-height: 1.4;
+    width: 100%; /* Para que el text-align center funcione bien si el texto es corto */
+}
+/* Fin de ajustes para alinear cuadros */
+
 .delta-e-result { text-align: center; margin-top: 10px; flex-shrink: 0;}
 .delta-e-result h4 { font-size: 1em; margin-bottom: 5px; }
 .delta-e-value-text { font-size: 1.6em; font-weight: 700; margin-bottom: 8px; }
 .tolerance-bar-container { width: 100%; height: 18px; background-color: #e0e0e0; border-radius: 9px; overflow: hidden; margin-bottom: 5px; border: 1px solid #c0c0c0; }
 .tolerance-bar-fill { height: 100%; width: 0%; border-radius: 9px; transition: width 0.5s ease-in-out, background-color 0.5s ease; text-align: center; line-height: 18px; color: white; font-size: 0.8em; }
-.tolerance-bar-fill.tolerance-ok { background-color: var(--success-color); }
-.tolerance-bar-fill.tolerance-warning { background-color: var(--warning-color); }
-.tolerance-bar-fill.tolerance-danger { background-color: var(--danger-color); }
-.tolerance-status-text { font-size: 1em; font-weight: bold; margin-top: 5px;}
-.tolerance-status-text.tolerance-ok { color: var(--success-color); }
-.tolerance-status-text.tolerance-warning { color: var(--warning-color); }
-.tolerance-status-text.tolerance-danger { color: var(--danger-color); }
+
+.tolerance-bar-fill.status-ok { background-color: var(--success-color); }
+.tolerance-bar-fill.status-warning { background-color: var(--warning-color); }
+.tolerance-bar-fill.status-danger { background-color: var(--danger-color); }
+
+/* Estilos para el INDICADOR DE ESTADO "SEMÁFORO" (aplicados a #tolerance-status) */
+#tolerance-status { /* Este es el <p id="tolerance-status" class="tolerance-status-text"> */
+    font-weight: bold;
+    margin-top: 10px;
+    padding: 8px 15px;
+    border-radius: var(--border-radius);
+    display: inline-block;
+    min-width: 180px;   
+    text-align: center;
+    line-height: 1.5;  
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    border: 1px solid rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-sm); 
+    color: white; /* Texto blanco por defecto */
+}
+
+#tolerance-status.status-ok {
+    background-color: var(--success-color); 
+    color: white; 
+    border-color: #218838; 
+}
+
+#tolerance-status.status-warning {
+    background-color: var(--warning-color); 
+    color: var(--text-primary); 
+    border-color: #e0a800; 
+}
+
+#tolerance-status.status-danger {
+    background-color: var(--danger-color); 
+    color: white; 
+    border-color: #c82333; 
+}
+/* Fin de estilos para el semáforo */
+
 .color-validator-tool .note { font-size: 0.8em; color: var(--text-secondary); margin-top:10px; text-align: center; flex-shrink: 0;}
 
 /* Responsive */
@@ -475,7 +547,7 @@ body.color-validator-body .app-container {
     .calculator-form, .calculator-results { max-width: 500px; }
 
     .color-validator-grid { grid-template-columns: 1fr; }
-    .color-capture-panel, .color-analysis-panel, .color-results-panel { max-width: 500px; margin-left: auto; margin-right: auto; min-height: auto; /* Permitir que se encojan */ }
+    .color-capture-panel, .color-analysis-panel, .color-results-panel { max-width: 500px; margin-left: auto; margin-right: auto; min-height: auto; }
     #color-webcam-container.webcam-view, .captured-image-canvas { max-height: 220px; }
 
     .inspector-body .main-content-grid { grid-template-columns: 1fr; gap: 10px; padding: 10px; max-height: none; }
@@ -516,5 +588,4 @@ body.color-validator-body .app-container {
     .inspector-body .action-buttons.single-button-centered .button { min-width: 150px; font-size: 0.85rem; padding: 8px 20px; }
     .inspector-body #auditor-image.auditor-image-estilizada { max-width: 70px; } 
     .inspector-body #auditor-message-bubble.auditor-bubble { font-size: 0.75em; max-width: 150px; padding: 6px 10px; min-height: 2.5em;} 
-
 }
