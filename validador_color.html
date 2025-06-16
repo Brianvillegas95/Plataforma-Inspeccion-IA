@@ -255,50 +255,84 @@
             let isCameraCalibrated = false; 
 
             const coloresEstandarAzor = {
-                "narana_web": { nombre: "Naranja Web", hex: "#CF2D00", lab: { L: 45.8, a: 60.8, b: 58.5 } },
-		"3001P": { nombre: "Naranja Ferula", hex: "#FA4F00", lab: { L: 59, a: 63.9, b: 69.6 } },
-		"3001N": { nombre: "114.3001  BLANCO EN POLIPRO", hex: " #D6D3D9", lab: { L:  84.9, a: 45659, b:  -2.6 } },
-		"3002": { nombre: "114.3001  BLANCO EN NYLON", hex: " #C9C8C9", lab: { L:  80.7, a:  0.5, b:  -0.4 } },
-		"3003": { nombre: "114.3002  GRIS CLARO", hex: " #7B7E87", lab: { L:  52.8, a:  0.8, b:  -5.3 } },
-		"3005": { nombre: "114.3003  PLATA", hex: " #A5A5AA", lab: { L:  67.9, a:  1.0, b:  -2.6 } },
-		"3011P": { nombre: "114.3005  AMARILLO CANARIO", hex: " #DEBD43", lab: { L:  77.5, a:  -1.1, b:  63.2 } },
-		"3011N": { nombre: "114.3011  NEGRO", hex: " #2D2D2E", lab: { L: 45795, a:  0.2, b:  -0.6 } },
-		"3015": { nombre: "114.3012  GRIS OBSCURO", hex: " #3C3D43", lab: { L: 45925, a:  1.0, b:  -3.8 } },
-		"3020": { nombre: "114.3015  NEGRO HUMO TRANSLUCIDO (SAN)", hex: " #625B5E", lab: { L:  39.4, a: 45750, b:  -0.7 } },
-		"3022": { nombre: "114.3020  ROJO TRANSLUCIDO (SAN)", hex: " #7E252F", lab: { L: 45745, a:  38.9, b: 45823 } },
-		"3023": { nombre: "114.3022  ROJO (POLIPRO)", hex: " #B72123", lab: { L:  40.0, a:  57.7, b:  38.4 } },
-		"3025": { nombre: "114.3023  ROJO (NYLON)", hex: " #A82429", lab: { L:  37.4, a:  52.6, b: 45688 } },
-		"3029": { nombre: "114.3025  ROJO OBSCURO (POLVO)", hex: " #2696C0", lab: { L:  58.1, a:  -15.9, b:  -30.4 } },
-		"3034": { nombre: "114.3032  AZUL AQUA", hex: " #1C6B98", lab: { L:  42.8, a:  -6.9, b:  -31.0 } },
-		"3036P": { nombre: "114.3034  AZUL PASTEL CLARO", hex: " #2194C9", lab: { L:  57.8, a:  -12.1, b:  -35.9 } },
-		"3036N": { nombre: "114.3036  AZUL ULTRAMAR EN POLIPRO", hex: " #21419B", lab: { L: 45838, a: 45738, b:  -52.4 } },
-		"3039": { nombre: "114.3036  AZUL ULTRAMAR EN NYLON", hex: " #1C44AA", lab: { L:  32.4, a: 45863, b:  -58.4 } },
-		"3042": { nombre: "114.3039  VERDE FLUORESCENTE TRANSLUCIDO", hex: " #A1C29E", lab: { L:  75.2, a:  -18.0, b: 45791 } },
-		"3047": { nombre: "114.3042  VERDE FLUORESCENTE", hex: " #46AA64", lab: { L:  62.5, a:  -44.9, b: 45835 } },
-		"3050P": { nombre: "114.3047  VERDE AQUA", hex: " #B1C5C9", lab: { L:  78.2, a:  -6.0, b:  -4.3 } },
-		"3050N": { nombre: "114.3050  VERDE OBCURO (POLIPRO)", hex: " #3A5D51", lab: { L:  36.6, a:  -15.7, b: 45902 } },
-		"3052": { nombre: "114.3050  VERDE OBCURO (NYLON)", hex: " #394A51", lab: { L: 45746, a:  -4.8, b:  -6.4 } },
-		"3053N": { nombre: "114.3053  AMARILLO FLUORESCENTE (POLIPRO)", hex: " #E2EC5A", lab: { L:  90.3, a:  -21.7, b:  67.3 } },
-		"3055": { nombre: "114.3053  AMARILLO FLUORESCENTE (NYLON)", hex: " #EDE72B", lab: { L:  89.5, a:  -16.8, b:  82.4 } },
-		"3057": { nombre: "114.3055  DORADO", hex: " #95744B", lab: { L:  51.1, a: 45815, b: 45804 } },
-		"3061": { nombre: "114.3057  AMARILLO FLUORESCENTE TRANSLUCIDO", hex: " #D3C95C", lab: { L:  79.8, a:  -10.3, b:  54.7 } },
-		"3062": { nombre: "114.3061  NARANJA FLUORESCENTE", hex: " #FF5617", lab: { L:  59.9, a:  61.9, b:  65.1 } },
-		"3063": { nombre: "114.3062  NARANJA (POLIPRO)", hex: " #DB581B", lab: { L:  54.2, a:  48.7, b:  56.9 } },
-		"3065": { nombre: "114.3063  NARANJA (NYLON)", hex: " #D43A1E", lab: { L:  48.4, a:  58.6, b:  50.6 } },
-		"3066": { nombre: "114.3065  NARANJA FLUORESCENTE TRANSLUCIDO", hex: " #FB6620", lab: { L:  61.8, a:  54.0, b:  63.3 } },
-		"3068": { nombre: "114.3066  NARANJA TRANSLUCIDO (SAN)", hex: " #CE6D20", lab: { L:  56.3, a:  33.4, b:  56.0 } },
-		"3070P": { nombre: "114.3068  MORADO TRANSLUCIDO", hex: " #2B3F9E", lab: { L: 45868, a:  26.0, b:  -54.0 } },
-		"3070N": { nombre: "114.3070  CAFE CHOCOLATE (POLIPRO)", hex: " #443332", lab: { L: 45680, a: 45784, b: 45811 } },
-		"3072": { nombre: "114.3070  CAFE CHOCOLATE (NYLON)", hex: " #41383A", lab: { L: 45801, a: 45751, b:  0.2 } },
-		"3075": { nombre: "114.3072  CAFE TRANSLUCIDO (POLIPRO)", hex: " #624C55", lab: { L:  34.8, a: 45910, b:  -1.8 } },
-		"3076": { nombre: "114.3075  CAFE TRANSLUCIDO (SAN)", hex: " #5A444B", lab: { L:  31.4, a: 45848, b:  -0.6 } },
-		"3077": { nombre: "114.3076  AZUL CLARO TRANSLUCIDO (SAN)", hex: " #1A77B2", lab: { L:  47.8, a:  -4.4, b:  -38.5 } },
-		"3080": { nombre: "114.3077  AZUL (POLIPRO / TPE)", hex: " #243A88", lab: { L: 45715, a:  20.0, b:  -46.2 } },
-                "rojo_logo": { nombre: "Rojo Corty", hex: "#B11C20", lab: { L: 38.3, a: 57.1, b: 37.9 } },
-                "amarillo_resaltador": { nombre: "Amarillo Resaltador", hex: "#FFEB3B", lab: { L: 78.1, a: -29.5, b: 55.1 } },
-                 "verde_producto_eco": { nombre: "Verde Eco Azor", hex: "#4CAF50", lab: { L: 60.32, a: -47.56, b: 46.99 } },
-                "naranja_ferula": { nombre: "Naranja Ferula", hex: "#FA4F00", lab: { L: 59.0, a: 63.9, b: 69.6 } },
-                "verde_fosfo": { nombre: "Verde Fosfo", hex: "#E5F15F", lab: { L: 91.9, a: -22.5, b: 67.1 } }
+                3001P: { nombre: "114.3001  BLANCO EN POLIPRO (USAR FONDO NEGRO)", hex: "#BBBABC", lab: { L: 75.6, a: 0.7, b: -0.9 } }
+		3001N: { nombre: "114.3001  BLANCO EN NYLON (USAR FONDO NEGRO)", hex: "#C2BFBF", lab: { L: 77.6, a: 1.0, b: 0.4 } }
+		3002: { nombre: "114.3002  GRIS CLARO", hex: "#757781", lab: { L: 50.2, a: 45748, b: -5.7 } }
+		3003: { nombre: "114.3003  PLATA", hex: "#959498", lab: { L: 61.5, a: 45658, b: -2.0 } }
+		3005: { nombre: "114.3005  AMARILLO CANARIO", hex: "#DAB639", lab: { L: 75.2, a: 0.4, b: 64.7 } }
+		3011P: { nombre: "114.3011  NEGRO", hex: "#151517", lab: { L: 45875, a: 0.5, b: -1.3 } }
+		3011N: { nombre: "114.3011  NEGRO", hex: "#181719", lab: { L: 45907, a: 1.0, b: -1.2 } }
+		3012: { nombre: "114.3012  GRIS OBSCURO", hex: "#313238", lab: { L: 45920, a: 1.0, b: -3.9 } }
+		3015: { nombre: "114.3015  NEGRO HUMO TRANSLUCIDO (SAN)", hex: "#574C4D", lab: { L: 33.4, a: 45873, b: 45658 } }
+		3020: { nombre: "114.3020  ROJO TRANSLUCIDO (SAN)", hex: "#7F0D16", lab: { L: 45742, a: 45.8, b: 45716 } }
+		3022: { nombre: "114.3022  ROJO (POLIPRO)", hex: "#B70A0B", lab: { L: 38.4, a: 61.4, b: 48.4 } }
+		3023: { nombre: "114.3023  ROJO (NYLON)", hex: "#A40508", lab: { L: 34.0, a: 57.0, b: 44.8 } }
+		3029: { nombre: "114.3029  AZUL FLUORESCENTE", hex: "#0E94BE", lab: { L: 57.1, a: -17.2, b: -30.8 } }
+		3032: { nombre: "114.3032  AZUL AQUA", hex: "#025B8F", lab: { L: 36.9, a: -2.4, b: -35.0 } }
+		3034: { nombre: "114.3034  AZUL PASTEL CLARO", hex: "#1292C4", lab: { L: 56.8, a: -13.8, b: -34.7 } }
+		3036P: { nombre: "114.3036  AZUL ULTRAMAR (POLIPRO)", hex: "#001A85", lab: { L: 45825, a: 37.4, b: -60.1 } }
+		3036N: { nombre: "114.3036  AZUL ULTRAMAR (NYLON)", hex: "#01279D", lab: { L: 45739, a: 38.4, b: -65.6 } }
+		3039: { nombre: "114.3039  VERDE FLUORESCENTE TRANSLUCIDO", hex: "#A7C4A1", lab: { L: 76.2, a: -16.4, b: 45761 } }
+		3042M: { nombre: "114.3042  VERDE FLUORESCENTE (MATE)", hex: "#329C54", lab: { L: 57.2, a: -46.4, b: 45686 } }
+		3042B: { nombre: "114.3042  VERDE FLUORESCENTE (BRILLOSO)", hex: "#39A95A", lab: { L: 61.6, a: -49.0, b: 45869 } }
+		3047: { nombre: "114.3047  VERDE AQUA OHP(USAR FONDO NEGRO)", hex: "#ACBABD", lab: { L: 74.5, a: -4.2, b: -3.2 } }
+		3050P: { nombre: "114.3050  VERDE OBCURO (POLIPRO)", hex: "#1A4535", lab: { L: 26.0, a: -19.5, b: 45693 } }
+		3050N: { nombre: "114.3050  VERDE OBCURO (NYLON)", hex: "#1A4535", lab: { L: 26.0, a: -19.5, b: 45693 } }
+		3052: { nombre: "114.3052  AMARILLO FLUORESCENTE (PARA TPE)", hex: "#CCD046", lab: { L: 81.0, a: -18.2, b: 65.0 } }
+		3053P: { nombre: "114.3053  AMARILLO FLUORESCENTE (POLIPRO)", hex: "#E2E965", lab: { L: 89.6, a: -19.4, b: 62.0 } }
+		3053N: { nombre: "114.3053  AMARILLO FLUORESCENTE (NYLON)", hex: "#E6E128", lab: { L: 87.4, a: -16.9, b: 81.0 } }
+		3055: { nombre: "114.3055  DORADO", hex: "#997B4A", lab: { L: 53.4, a: 45693, b: 31.0 } }
+		3057: { nombre: "114.3057  AMARILLO FLUORESCENTE TRANSLUCIDO", hex: "#DCD063", lab: { L: 82.5, a: -9.6, b: 54.7 } }
+		3061: { nombre: "114.3061  NARANJA FLUORESCENTE", hex: "#FA5000", lab: { L: 58.1, a: 62.3, b: 68.7 } }
+		3062: { nombre: "114.3062  NARANJA (POLIPRO)", hex: "#D74F03", lab: { L: 51.9, a: 50.9, b: 61.5 } }
+		3063: { nombre: "114.3063  NARANJA (NYLON)", hex: "#CD2C05", lab: { L: 45.4, a: 60.6, b: 56.5 } }
+		3065: { nombre: "114.3065  NARANJA FLUORESCENTE TRANSLUCIDO", hex: "#F76202", lab: { L: 60.4, a: 53.9, b: 69.2 } }
+		3066: { nombre: "114.3066  NARANJA TRANSLUCIDO (SAN)", hex: "#C66509", lab: { L: 53.3, a: 33.9, b: 59.8 } }
+		3068: { nombre: "114.3068  MORADO TRANSLUCIDO (SAN)", hex: "#162E99", lab: { L: 25.0, a: 33.3, b: -60.3 } }
+		3070P: { nombre: "114.3070  CAFE CHOCOLATE (POLIPRO)", hex: "#2F1C1B", lab: { L: 45850, a: 45697, b: 45781 } }
+		3070N: { nombre: "114.3070  CAFE CHOCOLATE (NYLON)", hex: "#2F2123", lab: { L: 45791, a: 45664, b: 45717 } }
+		3072: { nombre: "114.3072  CAFE TRANSLUCIDO (POLIPRO)", hex: "#573944", lab: { L: 45896, a: 45703, b: -1.3 } }
+		3075: { nombre: "114.3075  CAFE TRANSLUCIDO (SAN)", hex: "#482A31", lab: { L: 21.0, a: 45672, b: 45748 } }
+		3076: { nombre: "114.3076  AZUL CLARO TRANSLUCIDO (SAN)", hex: "#0376AF", lab: { L: 47.1, a: -6.2, b: -37.9 } }
+		3077: { nombre: "114.3077  AZUL (POLIPRO / TPE)", hex: "#072081", lab: { L: 45826, a: 32.4, b: -55.9 } }
+		3080: { nombre: "114.3080  MORADO ", hex: "#2D2D74", lab: { L: 45830, a: 45922, b: -41.0 } }
+		3084: { nombre: "114.3084  AZUL REY TRANSLUCIDO (SAN)", hex: "#072A8E", lab: { L: 45799, a: 45930, b: -57.7 } }
+		3088: { nombre: "114.3088  VERDE MANZANA TRANSLUCIDO (SAN)", hex: "#7FAE72", lab: { L: 66.5, a: -27.3, b: 45925 } }
+		3089: { nombre: "114.3089  VERDE BANDERA TRANSLUCIDO (SAN)", hex: "#0E594F", lab: { L: 33.6, a: -24.3, b: -0.4 } }
+		3091: { nombre: "114.3091  MAGENTA", hex: "#A30837", lab: { L: 34.5, a: 57.8, b: 45826 } }
+		3093: { nombre: "114.3093  ROSA FLUORESCENTE", hex: "#F10966", lab: { L: 51.7, a: 79.1, b: 45914 } }
+		3098: { nombre: "114.3098  ROSA FLUORESCENTE TRANSLUCIDO", hex: "#E30871", lab: { L: 49.1, a: 76.8, b: 45692 } }
+		3100: { nombre: "114.3100  ROSA TRANSLUCIDO (SAN)", hex: "#E30871", lab: { L: 49.1, a: 76.8, b: 45692 } }
+		3101: { nombre: "114.3101  ROSA TPE Y PP", hex: "#F53CA2", lab: { L: 57.3, a: 75.9, b: -12.7 } }
+		3109: { nombre: "114.3109 AMARILLO BOLIGRAFO", hex: "#E0830C", lab: { L: 63.4, a: 45928, b: 67.8 } }
+		3111: { nombre: "114.3111  VERDE MANZANA", hex: "#6DA235", lab: { L: 61.1, a: -35.5, b: 49.2 } }
+		3114: { nombre: "114.3114 VERDE AQUA", hex: "#10838B", lab: { L: 49.7, a: -25.8, b: -12.7 } }
+		3121: { nombre: "114.3121  NARANJA PASTEL", hex: "#D67D5C", lab: { L: 61.4, a: 45747, b: 32.8 } }
+		3122: { nombre: "114.3122  VERDE PASTEL (USAR FONDO NEGRO)", hex: "#A6B7B0", lab: { L: 73.0, a: -7.2, b: 45809 } }
+		3123: { nombre: "114.3123  ROSA PASTEL", hex: "#ED94B8", lab: { L: 71.3, a: 38.2, b: -4.5 } }
+		3124: { nombre: "114.3124  AMARILLO PASTEL", hex: "#DCBF79", lab: { L: 78.4, a: 45658, b: 39.0 } }
+		3125: { nombre: "114.3125  MORADO PASTEL", hex: "#706DAA", lab: { L: 48.6, a: 45915, b: -32.2 } }
+		3126P: { nombre: "114.3126  AZUL PASTEL (POLIPRO)", hex: "#5E94C4", lab: { L: 59.5, a: -4.2, b: -30.3 } }
+		3126S: { nombre: "114.3126  AZUL PASTEL (SAN)", hex: "#579AC4", lab: { L: 60.9, a: -9.2, b: -28.1 } }
+		3127P: { nombre: "114.3127  MAGENTA VINO (POLIPRO)", hex: "#7C1335", lab: { L: 45895, a: 45.2, b: 45665 } }
+		3127N: { nombre: "114.3127  MAGENTA VINO (NYLON)", hex: "#8F1B39", lab: { L: 31.6, a: 48.7, b: 45850 } }
+		3128: { nombre: "114.3128  AQUA PASTEL", hex: "#86BECB", lab: { L: 73.7, a: -14.9, b: -12.3 } }
+		3129: { nombre: "114.3129  ROSA PASTEL", hex: "#B76372", lab: { L: 52.1, a: 35.4, b: 45875 } }
+		3130: { nombre: "114.3130  HUMO TRANSLUCIDO", hex: "#463F41", lab: { L: 45774, a: 45750, b: -0.1 } }
+		3131: { nombre: "114.3131  ROJO TRANSLUCIDO (POLIPRO)", hex: "#A20B16", lab: { L: 33.9, a: 55.9, b: 38.2 } }
+		3132: { nombre: "114.3132  AZUL REY TRASLUCIDO (POLIPRO)", hex: "#022B9C", lab: { L: 45681, a: 35.5, b: -63.6 } }
+		3133: { nombre: "114.3133  AZUL TRANSLUCIDO (POLIPRO)", hex: "#1B9ABE", lab: { L: 59.0, a: -19.7, b: -27.8 } }
+		3135: { nombre: "114.3135  VERDE MANZANA TRANSLUCIDO (POLIPRO)", hex: "#99B998", lab: { L: 72.1, a: -17.3, b: 45701 } }
+		3136: { nombre: "114.3136  VERDE BANDERA TRANSLUCIDO (POLIPRO)", hex: "#19978B", lab: { L: 56.3, a: -34.8, b: -2.9 } }
+		3137: { nombre: "114.3137  MORADO TRANSLUCIDO (POLIPRO)", hex: "#6158AB", lab: { L: 41.9, a: 25.0, b: -43.5 } }
+		3138: { nombre: "114.3138  NARANJA TRANSLUCIDO (POLIPRO)", hex: "#D69203", lab: { L: 65.6, a: 45793, b: 70.0 } }
+		3139: { nombre: "114.3139  PURPURA TRANSLUCIDO (POLIPRO)", hex: "#3F1E61", lab: { L: 45766, a: 45807, b: -33.8 } }
+		3140: { nombre: "114.3140  NARANJA PASTEL (SAN)", hex: "#CD7A56", lab: { L: 59.5, a: 45928, b: 33.4 } }
+		3141: { nombre: "114.3141  MORADO PASTEL (SAN)", hex: "#7379A2", lab: { L: 51.8, a: 45784, b: -22.7 } }
+		3142: { nombre: "114.3142  AMARILLO PASTEL (SAN)", hex: "#D3B46E", lab: { L: 74.6, a: 45659, b: 39.7 } }
+		3143: { nombre: "114.3143  CAFE PASTEL ", hex: "#8D7261", lab: { L: 50.2, a: 8.0, b: 45760 } }
+		3144: { nombre: "114.3144  VERDE PASTEL (SAN)", hex: "#AAC0B3", lab: { L: 75.8, a: -10.0, b: 4.0 } }
+		3146: { nombre: "114.3146  COBRIZO", hex: "#9B5036", lab: { L: 42.7, a: 45928, b: 29.2 } }
             };
 
             function rgbToHex(r, g, b) {
