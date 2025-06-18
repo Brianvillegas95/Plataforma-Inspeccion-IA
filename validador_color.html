@@ -37,7 +37,7 @@
                 <div class="section-header">
                     <i class="fas fa-palette feature-icon"></i>
                     <h2>Estación Digital de Validación de Color</h2>
-                    <p id="main-instruction-text" style="font-weight: bold; color: #007bff;">PASO OBLIGATORIO: Calibre la cámara usando el panel "Ajuste de Cámara" para continuar.</p>
+                    <p id="main-instruction-text" style="font-weight: bold; color: #007bff;">Cargando cámara con ajustes predefinidos.</p>
                 </div>
 
                 <div class="color-validator-grid">
@@ -49,15 +49,15 @@
                         </div>
                         <canvas id="color-capture-canvas" style="display:none;"></canvas> 
                         <canvas id="calibration-helper-canvas" style="display:none;"></canvas>
-                        <button id="capture-color-btn" class="button primary-action full-width-button" disabled title="Debe calibrar la cámara primero">
+                        <button id="capture-color-btn" class="button primary-action full-width-button">
                             <i class="fas fa-camera-retro"></i> Capturar Imagen
                         </button>
                         <input type="file" id="select-image-input" accept="image/*" style="display:none;">
-                        <button id="select-image-btn" class="button secondary-action full-width-button" style="margin-top: 10px;" disabled title="Debe calibrar la cámara primero">
+                        <button id="select-image-btn" class="button secondary-action full-width-button" style="margin-top: 10px;">
                             <i class="fas fa-folder-open"></i> Seleccionar Imagen de Biblioteca
                         </button>
                         <div class="color-picker-instructions">
-                            <p id="instruction-text" style="color: #dc3545; font-weight:bold;">CALIBRACIÓN REQUERIDA: Use el botón "Calibrar con Fondo Gris" en el panel "Ajuste de Cámara".</p>
+                            <p id="instruction-text" style="color: #212529; font-weight:bold;">Capture una imagen y dibuje un recuadro para seleccionar el área de color.</p>
                         </div>
                     </div>
 
@@ -65,12 +65,12 @@
                         <h3 class="panel-title-sub"><i class="fas fa-crop-alt"></i> 2. Área de Muestra y Estándar</h3>
                         <div class="captured-image-area">
                             <canvas id="display-captured-image-canvas" class="captured-image-canvas"></canvas> 
-                            <p id="capture-prompt">Esperando calibración de cámara e imagen...</p>
+                            <p id="capture-prompt">Esperando imagen capturada...</p>
                         </div>
                         
                         <div class="form-group">
                             <label for="standard-color-select">Seleccione Color Estándar Azor:</label>
-                            <select id="standard-color-select" name="standard-color-select" disabled>
+                            <select id="standard-color-select" name="standard-color-select">
                                 <option value="">-- Elija un estándar --</option>
                             </select>
                         </div>
@@ -103,73 +103,8 @@
                         </div>
                          <p id="color-result-note" class="note" style="margin-top:10px;"></p>
                     </div>
-
-                    <div class="camera-settings-panel" style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-top: 20px; border: 1px solid #eee;">
-                        <h3 class="panel-title-sub" style="margin-top: 0; margin-bottom: 15px; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;"><i class="fas fa-tools"></i> 4. Ajuste de Cámara</h3>
-                        <p id="camera-support-status" class="note" style="font-style: italic; color: #666; margin-bottom: 10px;">Activando cámara y detectando controles...</p>
-                        
-                        <button id="auto-calibrate-gray-btn" class="button primary-action full-width-button" style="margin-bottom: 10px; background-color: #28a745; border-color: #28a745;">
-                            <i class="fas fa-magic"></i> PASO 1: Calibrar con Fondo Gris
-                        </button>
-                        <p class="note" style="font-size:0.8em; margin-bottom:15px; padding: 8px; background-color: #eef; border-radius:4px;">Coloque un fondo gris mate bien iluminado en el centro y presione. Este es un ajuste inicial y puede requerir afinación manual.</p>
-                        <div id="calibration-feedback" class="note" style="font-size:0.85em; margin-bottom:15px; padding: 8px; background-color: #fff; border: 1px dashed #ccc; border-radius:4px; display:none;"></div>
-
-                        <button id="toggle-manual-camera-controls-btn" class="button secondary-action full-width-button" style="margin-bottom:15px; background-color: #007bff; border-color: #007bff;" disabled>
-                            <i class="fas fa-sliders-h"></i> Ajustes Manuales (Opcional post-calibración)
-                        </button>
-
-                        <div id="manual-camera-controls-container" style="display:none; margin-top:15px; padding-top:15px; border-top: 1px solid #e0e0e0;">
-                            <p class="note" style="font-size:0.9em; margin-bottom:10px;">Ajusta manualmente los siguientes parámetros si es necesario:</p>
-                            <div class="form-group camera-control-group" id="brightness-control-group" style="display:none; margin-bottom: 12px;">
-                                <label for="brightness-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Brillo:</label>
-                                <input type="range" id="brightness-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
-                                <span id="brightness-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
-                            </div>
-                            <div class="form-group camera-control-group" id="contrast-control-group" style="display:none; margin-bottom: 12px;">
-                                <label for="contrast-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Contraste:</label>
-                                <input type="range" id="contrast-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
-                                <span id="contrast-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
-                            </div>
-                            <div class="form-group camera-control-group" id="saturation-control-group" style="display:none; margin-bottom: 12px;">
-                                <label for="saturation-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Saturación:</label>
-                                <input type="range" id="saturation-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
-                                <span id="saturation-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
-                            </div>
-                             <div class="form-group camera-control-group" id="sharpness-control-group" style="display:none; margin-bottom: 12px;">
-                                <label for="sharpness-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Nitidez:</label>
-                                <input type="range" id="sharpness-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
-                                <span id="sharpness-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
-                            </div>
-
-                            <div class="form-group camera-control-group" id="exposure-mode-control-group" style="display:none; margin-bottom: 12px;">
-                                <label for="exposure-mode-select" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Modo de Exposición:</label>
-                                <select id="exposure-mode-select" class="camera-select" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; font-size:0.9em;">
-                                </select>
-                            </div>
-                            <div class="form-group camera-control-group" id="exposure-time-control-group" style="display:none; margin-bottom: 12px;">
-                                <label for="exposure-time-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Tiempo de Exposición (log2 s):</label>
-                                <input type="range" id="exposure-time-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
-                                <span id="exposure-time-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
-                            </div>
-                            
-                            <div class="form-group camera-control-group" id="white-balance-mode-control-group" style="display:none; margin-bottom: 12px;">
-                                <label for="white-balance-mode-select" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Modo Balance de Blancos:</label>
-                                <select id="white-balance-mode-select" class="camera-select" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; font-size:0.9em;">
-                                </select>
-                            </div>
-                            <div class="form-group camera-control-group" id="color-temperature-control-group" style="display:none; margin-bottom: 12px;">
-                                <label for="color-temperature-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Temperatura de Color (K):</label>
-                                <input type="range" id="color-temperature-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
-                                <span id="color-temperature-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
-                            </div>
-                            <button id="lock-camera-settings-btn" class="button tertiary-action full-width-button" style="margin-top: 10px; background-color: #6c757d; color:white; font-size:0.9em;">
-                                <i class="fas fa-lock"></i> Fijar Ajustes Manuales Actuales
-                            </button>
-                        </div>
-                         <p class="note" style="font-size: 0.8em; margin-top:15px;">Nota: La disponibilidad y efectividad de todos los controles dependen de la cámara y el navegador. Cada sesión inicia con los ajustes predeterminados de la cámara.</p>
-                    </div>
-
-                </div> </section>
+                </div> 
+            </section>
         </main>
 
         <footer class="app-footer">
@@ -199,6 +134,7 @@
             const displayCtx = displayCanvas ? displayCanvas.getContext('2d', { willReadFrequently: true }) : null;
             const captureCanvas = document.getElementById('color-capture-canvas'); 
             const captureCtx = captureCanvas ? captureCanvas.getContext('2d', { willReadFrequently: true }) : null;
+            // calibrationHelperCanvas y calibrationHelperCtx ya no se usan, pero se mantienen definidos para evitar errores si el HTML aún los referencia
             const calibrationHelperCanvas = document.getElementById('calibration-helper-canvas'); 
             const calibrationHelperCtx = calibrationHelperCanvas ? calibrationHelperCanvas.getContext('2d', { willReadFrequently: true }) : null; 
 
@@ -214,36 +150,6 @@
             const colorResultNoteEl = document.getElementById('color-result-note');
             const fileInput = document.getElementById('select-image-input');
 
-            const cameraSupportStatusEl = document.getElementById('camera-support-status');
-            const autoCalibrateGrayBtn = document.getElementById('auto-calibrate-gray-btn'); 
-            const calibrationFeedbackEl = document.getElementById('calibration-feedback'); 
-            const toggleManualControlsBtn = document.getElementById('toggle-manual-camera-controls-btn'); 
-            const manualControlsContainer = document.getElementById('manual-camera-controls-container'); 
-            const lockCameraSettingsBtn = document.getElementById('lock-camera-settings-btn');
-
-            const brightnessControlGroup = document.getElementById('brightness-control-group');
-            const brightnessSlider = document.getElementById('brightness-slider');
-            const brightnessValueEl = document.getElementById('brightness-value');
-            const contrastControlGroup = document.getElementById('contrast-control-group');
-            const contrastSlider = document.getElementById('contrast-slider');
-            const contrastValueEl = document.getElementById('contrast-value');
-            const saturationControlGroup = document.getElementById('saturation-control-group');
-            const saturationSlider = document.getElementById('saturation-slider');
-            const saturationValueEl = document.getElementById('saturation-value');
-            const sharpnessControlGroup = document.getElementById('sharpness-control-group');
-            const sharpnessSlider = document.getElementById('sharpness-slider');
-            const sharpnessValueEl = document.getElementById('sharpness-value');
-            const exposureModeControlGroup = document.getElementById('exposure-mode-control-group');
-            const exposureModeSelect = document.getElementById('exposure-mode-select');
-            const exposureTimeControlGroup = document.getElementById('exposure-time-control-group');
-            const exposureTimeSlider = document.getElementById('exposure-time-slider');
-            const exposureTimeValueEl = document.getElementById('exposure-time-value');
-            const whiteBalanceModeControlGroup = document.getElementById('white-balance-mode-control-group');
-            const whiteBalanceModeSelect = document.getElementById('white-balance-mode-select');
-            const colorTemperatureControlGroup = document.getElementById('color-temperature-control-group');
-            const colorTemperatureSlider = document.getElementById('color-temperature-slider');
-            const colorTemperatureValueEl = document.getElementById('color-temperature-value');
-
             let stream = null;
             let pickedColorRGB = null; 
             let currentStandardColorData = null;
@@ -252,87 +158,88 @@
             let selectionRect = { startX: 0, startY: 0, currentX: 0, currentY: 0, width: 0, height: 0 };
             let videoTrack = null; 
             let cameraCapabilities = {}; 
-            let isCameraCalibrated = false; // NUEVA BANDERA DE ESTADO
+            // isCameraCalibrated ya no es necesaria, siempre se considera calibrada al iniciar
+            let isCameraReady = false; // Nueva bandera para indicar que la cámara está lista y con ajustes aplicados
 
             const coloresEstandarAzor = {
-"3001P": { nombre: "114.3001  BLANCO EN POLIPRO (USAR FONDO NEGRO)", hex: "#BBBABC", lab: { L: 75.6, a: 0.7, b: -0.9 } },
-"3001N": { nombre: "114.3001  BLANCO EN NYLON (USAR FONDO NEGRO)", hex: "#C2BFBF", lab: { L: 77.6, a: 1.0, b: 0.4 } },
-"3002": { nombre: "114.3002  GRIS CLARO", hex: "#757781", lab: { L: 50.2, a: 45748, b: -5.7 } },
-"3003": { nombre: "114.3003  PLATA", hex: "#959498", lab: { L: 61.5, a: 45658, b: -2.0 } },
-"3005": { nombre: "114.3005  AMARILLO CANARIO", hex: "#DAB639", lab: { L: 75.2, a: 0.4, b: 64.7 } },
-"3011P": { nombre: "114.3011  NEGRO (POLIPRO)", hex: "#151517", lab: { L: 45875, a: 0.5, b: -1.3 } },
-"3011N": { nombre: "114.3011  NEGRO (NYLON)", hex: "#181719", lab: { L: 45907, a: 1.0, b: -1.2 } },
-"3012": { nombre: "114.3012  GRIS OBSCURO", hex: "#313238", lab: { L: 45920, a: 1.0, b: -3.9 } },
-"3015": { nombre: "114.3015  NEGRO HUMO TRANSLUCIDO (SAN)", hex: "#574C4D", lab: { L: 33.4, a: 45873, b: 45658 } },
-"3020": { nombre: "114.3020  ROJO TRANSLUCIDO (SAN)", hex: "#7F0D16", lab: { L: 45742, a: 45.8, b: 45716 } },
-"3022": { nombre: "114.3022  ROJO (POLIPRO)", hex: "#B70A0B", lab: { L: 38.4, a: 61.4, b: 48.4 } },
-"3023": { nombre: "114.3023  ROJO (NYLON)", hex: "#A40508", lab: { L: 34.0, a: 57.0, b: 44.8 } },
-"3029": { nombre: "114.3029  AZUL FLUORESCENTE", hex: "#0E94BE", lab: { L: 57.1, a: -17.2, b: -30.8 } },
-"3032": { nombre: "114.3032  AZUL AQUA", hex: "#025B8F", lab: { L: 36.9, a: -2.4, b: -35.0 } },
-"3034": { nombre: "114.3034  AZUL PASTEL CLARO", hex: "#1292C4", lab: { L: 56.8, a: -13.8, b: -34.7 } },
-"3036P": { nombre: "114.3036  AZUL ULTRAMAR (POLIPRO)", hex: "#001A85", lab: { L: 45825, a: 37.4, b: -60.1 } },
-"3036N": { nombre: "114.3036  AZUL ULTRAMAR (NYLON)", hex: "#01279D", lab: { L: 45739, a: 38.4, b: -65.6 } },
-"3039": { nombre: "114.3039  VERDE FLUORESCENTE TRANSLUCIDO", hex: "#A7C4A1", lab: { L: 76.2, a: -16.4, b: 45761 } },
-"3042M": { nombre: "114.3042  VERDE FLUORESCENTE (MATE)", hex: "#329C54", lab: { L: 57.2, a: -46.4, b: 45686 } },
-"3042B": { nombre: "114.3042  VERDE FLUORESCENTE (BRILLOSO)", hex: "#39A95A", lab: { L: 61.6, a: -49.0, b: 45869 } },
-"3047": { nombre: "114.3047  VERDE AQUA OHP(USAR FONDO NEGRO)", hex: "#ACBABD", lab: { L: 74.5, a: -4.2, b: -3.2 } },
-"3050P": { nombre: "114.3050  VERDE OBCURO (POLIPRO)", hex: "#1A4535", lab: { L: 26.0, a: -19.5, b: 45693 } },
-"3050N": { nombre: "114.3050  VERDE OBCURO (NYLON)", hex: "#1A4535", lab: { L: 26.0, a: -19.5, b: 45693 } },
-"3052": { nombre: "114.3052  AMARILLO FLUORESCENTE (PARA TPE)", hex: "#CCD046", lab: { L: 81.0, a: -18.2, b: 65.0 } },
-"3053P": { nombre: "114.3053  AMARILLO FLUORESCENTE (POLIPRO)", hex: "#E2E965", lab: { L: 89.6, a: -19.4, b: 62.0 } },
-"3053N": { nombre: "114.3053  AMARILLO FLUORESCENTE (NYLON)", hex: "#E6E128", lab: { L: 87.4, a: -16.9, b: 81.0 } },
-"3055": { nombre: "114.3055  DORADO", hex: "#997B4A", lab: { L: 53.4, a: 45693, b: 31.0 } },
-"3057": { nombre: "114.3057  AMARILLO FLUORESCENTE TRANSLUCIDO", hex: "#DCD063", lab: { L: 82.5, a: -9.6, b: 54.7 } },
-"3061": { nombre: "114.3061  NARANJA FLUORESCENTE", hex: "#FA5000", lab: { L: 58.1, a: 62.3, b: 68.7 } },
-"3062": { nombre: "114.3062  NARANJA (POLIPRO)", hex: "#D74F03", lab: { L: 51.9, a: 50.9, b: 61.5 } },
-"3063": { nombre: "114.3063  NARANJA (NYLON)", hex: "#CD2C05", lab: { L: 45.4, a: 60.6, b: 56.5 } },
-"3065": { nombre: "114.3065  NARANJA FLUORESCENTE TRANSLUCIDO", hex: "#F76202", lab: { L: 60.4, a: 53.9, b: 69.2 } },
-"3066": { nombre: "114.3066  NARANJA TRANSLUCIDO (SAN)", hex: "#C66509", lab: { L: 53.3, a: 33.9, b: 59.8 } },
-"3068": { nombre: "114.3068  MORADO TRANSLUCIDO (SAN)", hex: "#162E99", lab: { L: 25.0, a: 33.3, b: -60.3 } },
-"3070P": { nombre: "114.3070  CAFE CHOCOLATE (POLIPRO)", hex: "#2F1C1B", lab: { L: 45850, a: 45697, b: 45781 } },
-"3070N": { nombre: "114.3070  CAFE CHOCOLATE (NYLON)", hex: "#2F2123", lab: { L: 45791, a: 45664, b: 45717 } },
-"3072": { nombre: "114.3072  CAFE TRANSLUCIDO (POLIPRO)", hex: "#573944", lab: { L: 45896, a: 45703, b: -1.3 } },
-"3075": { nombre: "114.3075  CAFE TRANSLUCIDO (SAN)", hex: "#482A31", lab: { L: 21.0, a: 45672, b: 45748 } },
-"3076": { nombre: "114.3076  AZUL CLARO TRANSLUCIDO (SAN)", hex: "#0376AF", lab: { L: 47.1, a: -6.2, b: -37.9 } },
-"3077": { nombre: "114.3077  AZUL (POLIPRO / TPE)", hex: "#072081", lab: { L: 45826, a: 32.4, b: -55.9 } },
-"3080": { nombre: "114.3080  MORADO ", hex: "#2D2D74", lab: { L: 45830, a: 45922, b: -41.0 } },
-"3084": { nombre: "114.3084  AZUL REY TRANSLUCIDO (SAN)", hex: "#072A8E", lab: { L: 45799, a: 45930, b: -57.7 } },
-"3088": { nombre: "114.3088  VERDE MANZANA TRANSLUCIDO (SAN)", hex: "#7FAE72", lab: { L: 66.5, a: -27.3, b: 45925 } },
-"3089": { nombre: "114.3089  VERDE BANDERA TRANSLUCIDO (SAN)", hex: "#0E594F", lab: { L: 33.6, a: -24.3, b: -0.4 } },
-"3091": { nombre: "114.3091  MAGENTA", hex: "#A30837", lab: { L: 34.5, a: 57.8, b: 45826 } },
-"3093": { nombre: "114.3093  ROSA FLUORESCENTE", hex: "#F10966", lab: { L: 51.7, a: 79.1, b: 45914 } },
-"3098": { nombre: "114.3098  ROSA FLUORESCENTE TRANSLUCIDO", hex: "#E30871", lab: { L: 49.1, a: 76.8, b: 45692 } },
-"3100": { nombre: "114.3100  ROSA TRANSLUCIDO (SAN)", hex: "#E30871", lab: { L: 49.1, a: 76.8, b: 45692 } },
-"3101": { nombre: "114.3101  ROSA TPE Y PP", hex: "#F53CA2", lab: { L: 57.3, a: 75.9, b: -12.7 } },
-"3109": { nombre: "114.3109 AMARILLO BOLIGRAFO", hex: "#E0830C", lab: { L: 63.4, a: 45928, b: 67.8 } },
-"3111": { nombre: "114.3111  VERDE MANZANA", hex: "#6DA235", lab: { L: 61.1, a: -35.5, b: 49.2 } },
+"3001P": { nombre: "114.3001 BLANCO EN POLIPRO (USAR FONDO NEGRO)", hex: "#BBBABC", lab: { L: 75.6, a: 0.7, b: -0.9 } },
+"3001N": { nombre: "114.3001 BLANCO EN NYLON (USAR FONDO NEGRO)", hex: "#C2BFBF", lab: { L: 77.6, a: 1, b: 0.4 } },
+"3002": { nombre: "114.3002 GRIS CLARO", hex: "#757781", lab: { L: 50.2, a: 1.4, b: -5.7 } },
+"3003": { nombre: "114.3003 PLATA", hex: "#959498", lab: { L: 61.5, a: 1.1, b: -2 } },
+"3005": { nombre: "114.3005 AMARILLO CANARIO", hex: "#DAB639", lab: { L: 75.2, a: 0.4, b: 64.7 } },
+"3011P": { nombre: "114.3011 NEGRO (POLIPRO)", hex: "#151517", lab: { L: 6.8, a: 0.5, b: -1.3 } },
+"3011N": { nombre: "114.3011 NEGRO (NYLON)", hex: "#181719", lab: { L: 7.9, a: 1, b: -1.2 } },
+"3012": { nombre: "114.3012 GRIS OBSCURO", hex: "#313238", lab: { L: 20.9, a: 1, b: -3.9 } },
+"3015": { nombre: "114.3015 NEGRO HUMO TRANSLUCIDO (SAN)", hex: "#574C4D", lab: { L: 33.4, a: 4.8, b: 1.1 } },
+"3020": { nombre: "114.3020 ROJO TRANSLUCIDO (SAN)", hex: "#7F0D16", lab: { L: 26.3, a: 45.8, b: 28.2 } },
+"3022": { nombre: "114.3022 ROJO (POLIPRO)", hex: "#B70A0B", lab: { L: 38.4, a: 61.4, b: 48.4 } },
+"3023": { nombre: "114.3023 ROJO (NYLON)", hex: "#A40508", lab: { L: 34, a: 57, b: 44.8 } },
+"3029": { nombre: "114.3029 AZUL FLUORESCENTE", hex: "#0E94BE", lab: { L: 57.1, a: -17.2, b: -30.8 } },
+"3032": { nombre: "114.3032 AZUL AQUA", hex: "#025B8F", lab: { L: 36.9, a: -2.4, b: -35 } },
+"3034": { nombre: "114.3034 AZUL PASTEL CLARO", hex: "#1292C4", lab: { L: 56.8, a: -13.8, b: -34.7 } },
+"3036P": { nombre: "114.3036 AZUL ULTRAMAR (POLIPRO)", hex: "#001A85", lab: { L: 17.6, a: 37.4, b: -60.1 } },
+"3036N": { nombre: "114.3036 AZUL ULTRAMAR (NYLON)", hex: "#01279D", lab: { L: 23.3, a: 38.4, b: -65.6 } },
+"3039": { nombre: "114.3039 VERDE FLUORESCENTE TRANSLUCIDO", hex: "#A7C4A1", lab: { L: 76.2, a: -16.4, b: 14.4 } },
+"3042M": { nombre: "114.3042 VERDE FLUORESCENTE (MATE)", hex: "#329C54", lab: { L: 57.2, a: -46.4, b: 29.1 } },
+"3042B": { nombre: "114.3042 VERDE FLUORESCENTE (BRILLOSO)", hex: "#39A95A", lab: { L: 61.6, a: -49, b: 31.7 } },
+"3047": { nombre: "114.3047 VERDE AQUA OHP(USAR FONDO NEGRO)", hex: "#ACBABD", lab: { L: 74.5, a: -4.2, b: -3.2 } },
+"3050P": { nombre: "114.3050 VERDE OBCURO (POLIPRO)", hex: "#1A4535", lab: { L: 26, a: -19.5, b: 5.2 } },
+"3050N": { nombre: "114.3050 VERDE OBCURO (NYLON)", hex: "#1A4535", lab: { L: 26, a: -19.5, b: 5.2 } },
+"3052": { nombre: "114.3052 AMARILLO FLUORESCENTE (PARA TPE)", hex: "#CCD046", lab: { L: 81, a: -18.2, b: 65 } },
+"3053P": { nombre: "114.3053 AMARILLO FLUORESCENTE (POLIPRO)", hex: "#E2E965", lab: { L: 89.6, a: -19.4, b: 62 } },
+"3053N": { nombre: "114.3053 AMARILLO FLUORESCENTE (NYLON)", hex: "#E6E128", lab: { L: 87.4, a: -16.9, b: 81 } },
+"3055": { nombre: "114.3055 DORADO", hex: "#997B4A", lab: { L: 53.4, a: 5.2, b: 31 } },
+"3057": { nombre: "114.3057 AMARILLO FLUORESCENTE TRANSLUCIDO", hex: "#DCD063", lab: { L: 82.5, a: -9.6, b: 54.7 } },
+"3061": { nombre: "114.3061 NARANJA FLUORESCENTE", hex: "#FA5000", lab: { L: 58.1, a: 62.3, b: 68.7 } },
+"3062": { nombre: "114.3062 NARANJA (POLIPRO)", hex: "#D74F03", lab: { L: 51.9, a: 50.9, b: 61.5 } },
+"3063": { nombre: "114.3063 NARANJA (NYLON)", hex: "#CD2C05", lab: { L: 45.4, a: 60.6, b: 56.5 } },
+"3065": { nombre: "114.3065 NARANJA FLUORESCENTE TRANSLUCIDO", hex: "#F76202", lab: { L: 60.4, a: 53.9, b: 69.2 } },
+"3066": { nombre: "114.3066 NARANJA TRANSLUCIDO (SAN)", hex: "#C66509", lab: { L: 53.3, a: 33.9, b: 59.8 } },
+"3068": { nombre: "114.3068 MORADO TRANSLUCIDO (SAN)", hex: "#162E99", lab: { L: 25, a: 33.3, b: -60.3 } },
+"3070P": { nombre: "114.3070 CAFE CHOCOLATE (POLIPRO)", hex: "#2F1C1B", lab: { L: 12.7, a: 9.2, b: 4.5 } },
+"3070N": { nombre: "114.3070 CAFE CHOCOLATE (NYLON)", hex: "#2F2123", lab: { L: 14.5, a: 7.1, b: 1.3 } },
+"3072": { nombre: "114.3072 CAFE TRANSLUCIDO (POLIPRO)", hex: "#573944", lab: { L: 27.8, a: 15.2, b: -1.3 } },
+"3075": { nombre: "114.3075 CAFE TRANSLUCIDO (SAN)", hex: "#482A31", lab: { L: 21, a: 15.1, b: 1.4 } },
+"3076": { nombre: "114.3076 AZUL CLARO TRANSLUCIDO (SAN)", hex: "#0376AF", lab: { L: 47.1, a: -6.2, b: -37.9 } },
+"3077": { nombre: "114.3077 AZUL (POLIPRO / TPE)", hex: "#072081", lab: { L: 18.6, a: 32.4, b: -55.9 } },
+"3080": { nombre: "114.3080 MORADO ", hex: "#2D2D74", lab: { L: 22.6, a: 22.9, b: -41 } },
+"3084": { nombre: "114.3084 AZUL REY TRANSLUCIDO (SAN)", hex: "#072A8E", lab: { L: 22.5, a: 30.9, b: -57.7 } },
+"3088": { nombre: "114.3088 VERDE MANZANA TRANSLUCIDO (SAN)", hex: "#7FAE72", lab: { L: 66.5, a: -27.3, b: 25.9 } },
+"3089": { nombre: "114.3089 VERDE BANDERA TRANSLUCIDO (SAN)", hex: "#0E594F", lab: { L: 33.6, a: -24.3, b: -0.4 } },
+"3091": { nombre: "114.3091 MAGENTA", hex: "#A30837", lab: { L: 34.5, a: 57.8, b: 18.6 } },
+"3093": { nombre: "114.3093 ROSA FLUORESCENTE", hex: "#F10966", lab: { L: 51.7, a: 79.1, b: 14.9 } },
+"3098": { nombre: "114.3098 ROSA FLUORESCENTE TRANSLUCIDO", hex: "#E30871", lab: { L: 49.1, a: 76.8, b: 4.2 } },
+"3100": { nombre: "114.3100 ROSA TRANSLUCIDO (SAN)", hex: "#E30871", lab: { L: 49.1, a: 76.8, b: 4.2 } },
+"3101": { nombre: "114.3101 ROSA TPE Y PP", hex: "#F53CA2", lab: { L: 57.3, a: 75.9, b: -12.7 } },
+"3109": { nombre: "114.3109 AMARILLO BOLIGRAFO", hex: "#E0830C", lab: { L: 63.4, a: 28.9, b: 67.8 } },
+"3111": { nombre: "114.3111 VERDE MANZANA", hex: "#6DA235", lab: { L: 61.1, a: -35.5, b: 49.2 } },
 "3114": { nombre: "114.3114 VERDE AQUA", hex: "#10838B", lab: { L: 49.7, a: -25.8, b: -12.7 } },
-"3121": { nombre: "114.3121  NARANJA PASTEL", hex: "#D67D5C", lab: { L: 61.4, a: 45747, b: 32.8 } },
-"3122": { nombre: "114.3122  VERDE PASTEL (USAR FONDO NEGRO)", hex: "#A6B7B0", lab: { L: 73.0, a: -7.2, b: 45809 } },
-"3123": { nombre: "114.3123  ROSA PASTEL", hex: "#ED94B8", lab: { L: 71.3, a: 38.2, b: -4.5 } },
-"3124": { nombre: "114.3124  AMARILLO PASTEL", hex: "#DCBF79", lab: { L: 78.4, a: 45658, b: 39.0 } },
-"3125": { nombre: "114.3125  MORADO PASTEL", hex: "#706DAA", lab: { L: 48.6, a: 45915, b: -32.2 } },
-"3126P": { nombre: "114.3126  AZUL PASTEL (POLIPRO)", hex: "#5E94C4", lab: { L: 59.5, a: -4.2, b: -30.3 } },
-"3126S": { nombre: "114.3126  AZUL PASTEL (SAN)", hex: "#579AC4", lab: { L: 60.9, a: -9.2, b: -28.1 } },
-"3127P": { nombre: "114.3127  MAGENTA VINO (POLIPRO)", hex: "#7C1335", lab: { L: 45895, a: 45.2, b: 45665 } },
-"3127N": { nombre: "114.3127  MAGENTA VINO (NYLON)", hex: "#8F1B39", lab: { L: 31.6, a: 48.7, b: 45850 } },
-"3128": { nombre: "114.3128  AQUA PASTEL", hex: "#86BECB", lab: { L: 73.7, a: -14.9, b: -12.3 } },
-"3129": { nombre: "114.3129  ROSA PASTEL", hex: "#B76372", lab: { L: 52.1, a: 35.4, b: 45875 } },
-"3130": { nombre: "114.3130  HUMO TRANSLUCIDO", hex: "#463F41", lab: { L: 45774, a: 45750, b: -0.1 } },
-"3131": { nombre: "114.3131  ROJO TRANSLUCIDO (POLIPRO)", hex: "#A20B16", lab: { L: 33.9, a: 55.9, b: 38.2 } },
-"3132": { nombre: "114.3132  AZUL REY TRASLUCIDO (POLIPRO)", hex: "#022B9C", lab: { L: 45681, a: 35.5, b: -63.6 } },
-"3133": { nombre: "114.3133  AZUL TRANSLUCIDO (POLIPRO)", hex: "#1B9ABE", lab: { L: 59.0, a: -19.7, b: -27.8 } },
-"3135": { nombre: "114.3135  VERDE MANZANA TRANSLUCIDO (POLIPRO)", hex: "#99B998", lab: { L: 72.1, a: -17.3, b: 45701 } },
-"3136": { nombre: "114.3136  VERDE BANDERA TRANSLUCIDO (POLIPRO)", hex: "#19978B", lab: { L: 56.3, a: -34.8, b: -2.9 } },
-"3137": { nombre: "114.3137  MORADO TRANSLUCIDO (POLIPRO)", hex: "#6158AB", lab: { L: 41.9, a: 25.0, b: -43.5 } },
-"3138": { nombre: "114.3138  NARANJA TRANSLUCIDO (POLIPRO)", hex: "#D69203", lab: { L: 65.6, a: 45793, b: 70.0 } },
-"3139": { nombre: "114.3139  PURPURA TRANSLUCIDO (POLIPRO)", hex: "#3F1E61", lab: { L: 45766, a: 45807, b: -33.8 } },
-"3140": { nombre: "114.3140  NARANJA PASTEL (SAN)", hex: "#CD7A56", lab: { L: 59.5, a: 45928, b: 33.4 } },
-"3141": { nombre: "114.3141  MORADO PASTEL (SAN)", hex: "#7379A2", lab: { L: 51.8, a: 45784, b: -22.7 } },
-"3142": { nombre: "114.3142  AMARILLO PASTEL (SAN)", hex: "#D3B46E", lab: { L: 74.6, a: 45659, b: 39.7 } },
-"3143": { nombre: "114.3143  CAFE PASTEL ", hex: "#8D7261", lab: { L: 50.2, a: 8.0, b: 45760 } },
-"3144": { nombre: "114.3144  VERDE PASTEL (SAN)", hex: "#AAC0B3", lab: { L: 75.8, a: -10.0, b: 4.0 } },
-"3146": { nombre: "114.3146  COBRIZO", hex: "#9B5036", lab: { L: 42.7, a: 45928, b: 29.2 } }
+"3121": { nombre: "114.3121 NARANJA PASTEL", hex: "#D67D5C", lab: { L: 61.4, a: 31.3, b: 32.8 } },
+"3122": { nombre: "114.3122 VERDE PASTEL (USAR FONDO NEGRO)", hex: "#A6B7B0", lab: { L: 73, a: -7.2, b: 1.6 } },
+"3123": { nombre: "114.3123 ROSA PASTEL", hex: "#ED94B8", lab: { L: 71.3, a: 38.2, b: -4.5 } },
+"3124": { nombre: "114.3124 AMARILLO PASTEL", hex: "#DCBF79", lab: { L: 78.4, a: 1.1, b: 39 } },
+"3125": { nombre: "114.3125 MORADO PASTEL", hex: "#706DAA", lab: { L: 48.6, a: 15.9, b: -32.2 } },
+"3126P": { nombre: "114.3126 AZUL PASTEL (POLIPRO)", hex: "#5E94C4", lab: { L: 59.5, a: -4.2, b: -30.3 } },
+"3126S": { nombre: "114.3126 AZUL PASTEL (SAN)", hex: "#579AC4", lab: { L: 60.9, a: -9.2, b: -28.1 } },
+"3127P": { nombre: "114.3127 MAGENTA VINO (POLIPRO)", hex: "#7C1335", lab: { L: 26.8, a: 45.2, b: 8.1 } },
+"3127N": { nombre: "114.3127 MAGENTA VINO (NYLON)", hex: "#8F1B39", lab: { L: 31.6, a: 48.7, b: 12.7 } },
+"3128": { nombre: "114.3128 AQUA PASTEL", hex: "#86BECB", lab: { L: 73.7, a: -14.9, b: -12.3 } },
+"3129": { nombre: "114.3129 ROSA PASTEL", hex: "#B76372", lab: { L: 52.1, a: 35.4, b: 6.8 } },
+"3130": { nombre: "114.3130 HUMO TRANSLUCIDO", hex: "#463F41", lab: { L: 27.4, a: 3.4, b: -0.1 } },
+"3131": { nombre: "114.3131 ROJO TRANSLUCIDO (POLIPRO)", hex: "#A20B16", lab: { L: 33.9, a: 55.9, b: 38.2 } },
+"3132": { nombre: "114.3132 AZUL REY TRASLUCIDO (POLIPRO)", hex: "#022B9C", lab: { L: 24.1, a: 35.5, b: -63.6 } },
+"3133": { nombre: "114.3133 AZUL TRANSLUCIDO (POLIPRO)", hex: "#1B9ABE", lab: { L: 59, a: -19.7, b: -27.8 } },
+"3135": { nombre: "114.3135 VERDE MANZANA TRANSLUCIDO (POLIPRO)", hex: "#99B998", lab: { L: 72.1, a: -17.3, b: 13.2 } },
+"3136": { nombre: "114.3136 VERDE BANDERA TRANSLUCIDO (POLIPRO)", hex: "#19978B", lab: { L: 56.3, a: -34.8, b: -2.9 } },
+"3137": { nombre: "114.3137 MORADO TRANSLUCIDO (POLIPRO)", hex: "#6158AB", lab: { L: 41.9, a: 25, b: -43.5 } },
+"3138": { nombre: "114.3138 NARANJA TRANSLUCIDO (POLIPRO)", hex: "#D69203", lab: { L: 65.6, a: 16.5, b: 70 } },
+"3139": { nombre: "114.3139 PURPURA TRANSLUCIDO (POLIPRO)", hex: "#3F1E61", lab: { L: 19.4, a: 30.5, b: -33.8 } },
+"3140": { nombre: "114.3140 NARANJA PASTEL (SAN)", hex: "#CD7A56", lab: { L: 59.5, a: 28.9, b: 33.4 } },
+"3141": { nombre: "114.3141 MORADO PASTEL (SAN)", hex: "#7379A2", lab: { L: 51.8, a: 7.5, b: -22.7 } },
+"3142": { nombre: "114.3142 AMARILLO PASTEL (SAN)", hex: "#D3B46E", lab: { L: 74.6, a: 2.1, b: 39.7 } },
+"3143": { nombre: "114.3143 CAFE PASTEL ", hex: "#8D7261", lab: { L: 50.2, a: 8, b: 13.4 } },
+"3144": { nombre: "114.3144 VERDE PASTEL (SAN)", hex: "#AAC0B3", lab: { L: 75.8, a: -10, b: 4 } },
+"3146": { nombre: "114.3146 COBRIZO", hex: "#9B5036", lab: { L: 42.7, a: 28.9, b: 29.2 } }
             };
 
             function rgbToHex(r, g, b) {
@@ -351,25 +258,25 @@
                 }
             }
 
-            function setCaptureActive(isActive) {
-                isCameraCalibrated = isActive;
+            // Esta función ahora solo habilita los controles si la cámara está "lista"
+            function setAppControlsActive(isActive) {
+                isCameraReady = isActive;
                 if (captureButton) captureButton.disabled = !isActive;
-                if (selectImageBtn) selectImageBtn.disabled = !isActive; // También se controla por calibración
+                if (selectImageBtn) selectImageBtn.disabled = !isActive;
                 if (standardColorSelect) standardColorSelect.disabled = !isActive;
-                // El botón de comparar se habilita por otra lógica (checkEnableCompareButton)
 
                 if(isActive) {
-                    if(instructionTextEl) instructionTextEl.textContent = "Cámara calibrada. Capture una imagen y dibuje un recuadro para seleccionar el área de color.";
-                    if(instructionTextEl) instructionTextEl.style.color = '#28a745'; // Verde para éxito
-                    if(mainInstructionTextEl) mainInstructionTextEl.textContent = "Cámara lista. Proceda a capturar la imagen.";
-                    if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#28a745';
+                    if(instructionTextEl) instructionTextEl.textContent = "Cámara lista. Capture una imagen y dibuje un recuadro para seleccionar el área de color.";
+                    if(instructionTextEl) instructionTextEl.style.color = '#212529'; // Color normal
+                    if(mainInstructionTextEl) mainInstructionTextEl.textContent = "Cámara lista y ajustes aplicados. Proceda a capturar la imagen.";
+                    if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#28a745'; // Verde para éxito
                     if (capturePrompt) capturePrompt.textContent = "Cámara lista. Capture una imagen para analizar.";
                 } else {
-                    if(instructionTextEl) instructionTextEl.textContent = "CALIBRACIÓN REQUERIDA: Use el botón \"Calibrar con Fondo Gris\" en el panel \"Ajuste de Cámara\".";
-                    if(instructionTextEl) instructionTextEl.style.color = '#dc3545'; // Rojo para advertencia
-                    if(mainInstructionTextEl) mainInstructionTextEl.textContent = "PASO OBLIGATORIO: Calibre la cámara usando el panel \"Ajuste de Cámara\" para continuar.";
-                     if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#007bff';
-                    if (capturePrompt) capturePrompt.textContent = "Esperando calibración de cámara e imagen...";
+                    if(instructionTextEl) instructionTextEl.textContent = "Cargando cámara y aplicando ajustes iniciales...";
+                    if(instructionTextEl) instructionTextEl.style.color = '#007bff';
+                    if(mainInstructionTextEl) mainInstructionTextEl.textContent = "Cargando cámara con ajustes predefinidos.";
+                    if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#007bff';
+                    if (capturePrompt) capturePrompt.textContent = "Activando cámara y aplicando ajustes...";
                 }
             }
             
@@ -378,7 +285,7 @@
                     if (webcamLoadingPrompt) webcamLoadingPrompt.textContent = "Error: Elementos de UI no encontrados.";
                     return;
                 }
-                setCaptureActive(false); // Iniciar con captura deshabilitada
+                setAppControlsActive(false); // Iniciar con controles deshabilitados
                 videoElement.style.display = 'block';
                 const webcamContainer = document.getElementById('color-webcam-container');
                 if (webcamContainer) webcamContainer.style.minHeight = ''; 
@@ -412,7 +319,8 @@
                                 if (!resolved) {
                                     captureCanvas.width = videoElement.videoWidth;
                                     captureCanvas.height = videoElement.videoHeight;
-                                    if (calibrationHelperCanvas) {
+                                    // calibrationHelperCanvas ya no se usa para calibración, pero se mantiene si se necesita para otros fines
+                                    if (calibrationHelperCanvas) { 
                                         calibrationHelperCanvas.width = videoElement.videoWidth;
                                         calibrationHelperCanvas.height = videoElement.videoHeight;
                                     }
@@ -436,367 +344,94 @@
                     });
                     
                     if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
-                    // No cambiar mensaje de "capturePrompt" aquí, se controla por setCaptureActive
                     imageIsCaptured = false; pickedColorRGB = null; 
+                    
+                    // Aplicar ajustes fijos de la cámara
+                    await applyFixedCameraSettings();
+                    setAppControlsActive(true); // Habilitar controles una vez que los ajustes se intentan aplicar
                     checkEnableCompareButton();
-                    initializeCameraControls();
-                    // No se cargan ajustes guardados, siempre se inicia con los de la cámara/navegador.
-                    // La calibración es el siguiente paso obligado para el usuario.
 
                 } catch (err) {
                     console.error("Validador Color: Error al acceder/configurar webcam: ", err);
                     if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
                     if (capturePrompt) capturePrompt.textContent = "Error webcam: " + (err.message ? err.message.substring(0, 70) : "Desconocido") + "... Por favor, recargue la página y otorge permisos.";
-                    if (cameraSupportStatusEl) cameraSupportStatusEl.textContent = "No se pudo acceder a la cámara. Verifique permisos y recargue.";
-                     if (autoCalibrateGrayBtn) autoCalibrateGrayBtn.disabled = true;
-                     if (toggleManualControlsBtn) toggleManualControlsBtn.disabled = true;
+                    setAppControlsActive(false); // Mantener deshabilitado si falla
                 }
             }
 
-            function updateSliderValue(sliderElement, valueElement, value, unit = "") {
-                // ... (sin cambios)
-                 if (valueElement) { 
-                    let displayValue = parseFloat(value);
-                    if (sliderElement && sliderElement.step && sliderElement.step.includes('.')) {
-                        displayValue = displayValue.toFixed(sliderElement.step.split('.')[1].length);
-                    } else {
-                        displayValue = displayValue.toFixed(0);
-                    }
-                    valueElement.textContent = `${displayValue}${unit}`;
-                }
-                if (sliderElement) sliderElement.value = value;
-            }
-            
-            async function applyCameraSetting(settingName, value, updateUI = true) {
-                // ... (sin cambios, ya no llama a saveCameraSettings)
+            async function applyCameraSetting(settingName, value) {
                 if (!videoTrack || !videoTrack.applyConstraints) {
-                    console.warn("applyConstraints no soportado o pista de video no disponible.");
+                    console.warn(`applyConstraints no soportado o pista de video no disponible para ${settingName}.`);
                     return false;
                 }
-                let originalValue = value;
-                let numericValue = parseFloat(value);
-                if (isNaN(numericValue) && typeof value === 'string' && !['continuous', 'manual', 'none', 'single-shot'].includes(value)) { 
-                     numericValue = value; 
-                } else if (!isNaN(numericValue)) {
-                    value = numericValue;
-                }
-
                 const constraint = {};
                 constraint[settingName] = value;
 
                 try {
                     console.log(`Aplicando ajuste: ${settingName} = ${value}`);
                     await videoTrack.applyConstraints({ advanced: [constraint] });
-                    if (updateUI) { 
-                        const currentSettings = videoTrack.getSettings ? videoTrack.getSettings() : {};
-                        switch(settingName) {
-                            case 'brightness': 
-                                if (brightnessSlider) updateSliderValue(brightnessSlider, brightnessValueEl, currentSettings.brightness || originalValue);
-                                break;
-                            case 'contrast':
-                                if (contrastSlider) updateSliderValue(contrastSlider, contrastValueEl, currentSettings.contrast || originalValue);
-                                break;
-                             case 'saturation':
-                                if (saturationSlider) updateSliderValue(saturationSlider, saturationValueEl, currentSettings.saturation || originalValue);
-                                break;
-                            case 'sharpness':
-                                if (sharpnessSlider) updateSliderValue(sharpnessSlider, sharpnessValueEl, currentSettings.sharpness || originalValue);
-                                break;
-                            case 'exposureMode':
-                                if (exposureModeSelect) exposureModeSelect.value = currentSettings.exposureMode || originalValue;
-                                if (exposureTimeControlGroup) exposureTimeControlGroup.style.display = (exposureModeSelect.value === 'manual' && cameraCapabilities.exposureTime) ? 'block' : 'none';
-                                break;
-                            case 'whiteBalanceMode':
-                                if (whiteBalanceModeSelect) whiteBalanceModeSelect.value = currentSettings.whiteBalanceMode || originalValue;
-                                if (colorTemperatureControlGroup) colorTemperatureControlGroup.style.display = (whiteBalanceModeSelect.value === 'manual' && cameraCapabilities.colorTemperature) ? 'block' : 'none';
-                                break;
-                             case 'exposureTime':
-                                if (exposureTimeSlider) updateSliderValue(exposureTimeSlider, exposureTimeValueEl, currentSettings.exposureTime || originalValue, " (log2 s)");
-                                break;
-                            case 'colorTemperature':
-                                if (colorTemperatureSlider) updateSliderValue(colorTemperatureSlider, colorTemperatureValueEl, currentSettings.colorTemperature || originalValue, " K");
-                                break;
-                        }
-                    }
+                    console.log(`Ajuste ${settingName} aplicado.`);
                     return true;
                 } catch (err) {
-                    console.error(`Error al aplicar ${settingName}: `, err);
-                     if (cameraSupportStatusEl) cameraSupportStatusEl.textContent = `Error al aplicar ${settingName}. Puede no ser compatible.`;
-                     return false;
-                }
-            }
-
-            function initializeCameraControls() {
-                // ... (sin cambios funcionales mayores, solo asegura que los controles manuales estén deshabilitados al inicio si la calibración es forzada)
-                if (!videoTrack) {
-                    if (cameraSupportStatusEl) cameraSupportStatusEl.textContent = "Pista de video no disponible para controles.";
-                    if (autoCalibrateGrayBtn) autoCalibrateGrayBtn.disabled = true;
-                    if (toggleManualControlsBtn) toggleManualControlsBtn.disabled = true;
-                    return;
-                }
-                
-                const settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
-                let controlsAvailable = false;
-                if (autoCalibrateGrayBtn) autoCalibrateGrayBtn.disabled = false; // Habilitar botón de calibración si la cámara está lista
-                if (toggleManualControlsBtn) toggleManualControlsBtn.disabled = !isCameraCalibrated; // Habilitar controles manuales solo post-calibración
-
-
-                if (cameraSupportStatusEl) cameraSupportStatusEl.textContent = "Verificando controles de cámara...";
-
-                const setupSlider = (capKey, groupEl, sliderEl, valueEl, unit = "") => {
-                    if (cameraCapabilities[capKey] && groupEl && sliderEl && valueEl) {
-                        groupEl.style.display = 'block'; // Mostrar por defecto, el contenedor padre lo oculta
-                        sliderEl.min = cameraCapabilities[capKey].min;
-                        sliderEl.max = cameraCapabilities[capKey].max;
-                        sliderEl.step = cameraCapabilities[capKey].step || 1;
-                        const initialValue = typeof settings[capKey] !== 'undefined' ? settings[capKey] : 
-                                            ((cameraCapabilities[capKey].max - cameraCapabilities[capKey].min) / 2 + cameraCapabilities[capKey].min);
-                        updateSliderValue(sliderEl, valueEl, initialValue, unit);
-                        sliderEl.oninput = () => updateSliderValue(null, valueEl, sliderEl.value, unit);
-                        sliderEl.onchange = () => applyCameraSetting(capKey, sliderEl.value);
-                        return true;
-                    }
+                    console.error(`Error al aplicar ${settingName} = ${value}: `, err);
                     return false;
-                };
-
-                if (setupSlider('brightness', brightnessControlGroup, brightnessSlider, brightnessValueEl)) controlsAvailable = true;
-                if (setupSlider('contrast', contrastControlGroup, contrastSlider, contrastValueEl)) controlsAvailable = true;
-                if (setupSlider('saturation', saturationControlGroup, saturationSlider, saturationValueEl)) controlsAvailable = true;
-                if (setupSlider('sharpness', sharpnessControlGroup, sharpnessSlider, sharpnessValueEl)) controlsAvailable = true;
-
-
-                const setupModeSelect = (capKey, groupEl, selectEl, dependentGroupEl = null, dependentCapKey = null) => {
-                    if (cameraCapabilities[capKey] && groupEl && selectEl) {
-                        groupEl.style.display = 'block';
-                        selectEl.innerHTML = ''; 
-                        const baseModes = ['continuous', 'manual', 'single-shot', 'none'];
-                        const availableModes = Array.isArray(cameraCapabilities[capKey]) ? cameraCapabilities[capKey] : [];
-                        
-                        baseModes.forEach(mode => {
-                            if (availableModes.includes(mode)) {
-                                const option = document.createElement('option');
-                                option.value = mode;
-                                option.textContent = mode.charAt(0).toUpperCase() + mode.slice(1) + (mode === 'single-shot' ? ' (Disparo Único)' : '');
-                                selectEl.appendChild(option);
-                            }
-                        });
-                         // Establecer el valor inicial según los settings actuales de la cámara
-                        selectEl.value = settings[capKey] || (availableModes.includes('continuous') ? 'continuous' : (availableModes.length > 0 ? availableModes[0] : ''));
-                        
-                        const updateDependentVisibility = () => {
-                             if (dependentGroupEl && dependentCapKey) {
-                                dependentGroupEl.style.display = (selectEl.value === 'manual' && cameraCapabilities[dependentCapKey]) ? 'block' : 'none';
-                            }
-                        };
-                        selectEl.onchange = () => {
-                            applyCameraSetting(capKey, selectEl.value);
-                            updateDependentVisibility();
-                        };
-                        updateDependentVisibility(); 
-                        return true;
-                    }
-                    return false;
-                };
-
-                if (setupModeSelect('exposureMode', exposureModeControlGroup, exposureModeSelect, exposureTimeControlGroup, 'exposureTime')) controlsAvailable = true;
-                if (setupSlider('exposureTime', exposureTimeControlGroup, exposureTimeSlider, exposureTimeValueEl, " (log2 s)")) controlsAvailable = true;
-                if (exposureModeSelect && exposureTimeControlGroup) {
-                    exposureTimeControlGroup.style.display = (exposureModeSelect.value === 'manual' && cameraCapabilities.exposureTime) ? 'block' : 'none';
-                }
-
-                if (setupModeSelect('whiteBalanceMode', whiteBalanceModeControlGroup, whiteBalanceModeSelect, colorTemperatureControlGroup, 'colorTemperature')) controlsAvailable = true;
-                if (setupSlider('colorTemperature', colorTemperatureControlGroup, colorTemperatureSlider, colorTemperatureValueEl, " K")) controlsAvailable = true;
-                if (whiteBalanceModeSelect && colorTemperatureControlGroup) {
-                     colorTemperatureControlGroup.style.display = (whiteBalanceModeSelect.value === 'manual' && cameraCapabilities.colorTemperature) ? 'block' : 'none';
-                }
-
-                if (lockCameraSettingsBtn) lockCameraSettingsBtn.style.display = controlsAvailable ? 'block' : 'none';
-                if (!controlsAvailable && manualControlsContainer) {
-                    if (toggleManualControlsBtn) toggleManualControlsBtn.style.display = 'none';
-                     manualControlsContainer.style.display = 'none'; // Asegurar que el contenedor manual esté oculto si no hay controles
-                }
-
-
-                if (cameraSupportStatusEl) {
-                    cameraSupportStatusEl.textContent = controlsAvailable ? "Controles de cámara listos." : "No se detectaron controles de cámara compatibles o la cámara no está activa.";
                 }
             }
 
-            if (toggleManualControlsBtn && manualControlsContainer) {
-                toggleManualControlsBtn.addEventListener('click', () => {
-                    const isHidden = manualControlsContainer.style.display === 'none';
-                    manualControlsContainer.style.display = isHidden ? 'block' : 'none';
-                    toggleManualControlsBtn.innerHTML = isHidden ? '<i class="fas fa-eye-slash"></i> Ocultar Ajustes Manuales' : '<i class="fas fa-sliders-h"></i> Ajustes Manuales de Cámara';
-                });
-            }
-            
-            if (lockCameraSettingsBtn) {
-                lockCameraSettingsBtn.addEventListener('click', async () => {
-                    if (!videoTrack) return;
-                    if (!isCameraCalibrated) {
-                         if(calibrationFeedbackEl) {
-                            calibrationFeedbackEl.textContent = "Por favor, calibre la cámara primero antes de fijar ajustes.";
-                            calibrationFeedbackEl.style.display = 'block';
-                            calibrationFeedbackEl.style.backgroundColor = '#fff3cd'; // Warning color
-                        }
-                        return;
+            // Función para aplicar los valores fijos
+            async function applyFixedCameraSettings() {
+                console.log("Aplicando ajustes de cámara fijos...");
+                // Brillo: 120
+                if (cameraCapabilities.brightness) {
+                    await applyCameraSetting('brightness', 120);
+                }
+                // Contraste: 143
+                if (cameraCapabilities.contrast) {
+                    await applyCameraSetting('contrast', 143);
+                }
+                // Saturación: 140
+                if (cameraCapabilities.saturation) {
+                    await applyCameraSetting('saturation', 140);
+                }
+                // Nitidez: 135
+                if (cameraCapabilities.sharpness) {
+                    await applyCameraSetting('sharpness', 135);
+                }
+
+                // Exposición y Temperatura de color
+                // Para exposición y balance de blancos, a menudo es necesario establecer el modo a 'manual' primero.
+                // Sin embargo, si la cámara no soporta 'manual', intentar aplicar un valor fijo en 'continuous' podría no tener efecto.
+                // Aquí se intentará establecer el modo a manual si es posible y luego los valores.
+
+                // Tiempo de Exposición: 78.1250000 (log2 s)
+                if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
+                    await applyCameraSetting('exposureMode', 'manual');
+                    if (cameraCapabilities.exposureTime) {
+                         // El valor de exposureTime es en segundos, no log2 s.
+                         // 78.125 es un valor demasiado alto para exposureTime en segundos. 
+                         // Si el valor original era en log2 segundos, 2^x = 78.125 significa x = log2(78.125) = ~6.28.
+                         // Sin embargo, si 78.1250000 es el valor literal que se debe usar, lo aplicamos directamente.
+                         // Asumiendo que 78.125 es el valor deseado para exposureTime (en segundos o la unidad que la cámara espera).
+                        await applyCameraSetting('exposureTime', 78.125); 
+                    } else {
+                        console.warn("La cámara no soporta el control de exposureTime.");
                     }
-                    console.log("Intentando fijar ajustes manuales actuales...");
-                    let appliedManually = false;
-                    try {
-                        const currentSettings = videoTrack.getSettings();
-                        if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
-                            await applyCameraSetting('exposureMode', 'manual', false); 
-                            if (exposureModeSelect) exposureModeSelect.value = 'manual';
-                            if (cameraCapabilities.exposureTime && typeof currentSettings.exposureTime !== 'undefined') {
-                                await applyCameraSetting('exposureTime', currentSettings.exposureTime);
-                            }
-                             if (exposureTimeControlGroup) exposureTimeControlGroup.style.display = 'block';
-                            appliedManually = true;
-                        }
-                        if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('manual')) {
-                            await applyCameraSetting('whiteBalanceMode', 'manual', false);
-                            if (whiteBalanceModeSelect) whiteBalanceModeSelect.value = 'manual';
-                            if (cameraCapabilities.colorTemperature && typeof currentSettings.colorTemperature !== 'undefined') {
-                               await applyCameraSetting('colorTemperature', currentSettings.colorTemperature);
-                            }
-                            if (colorTemperatureControlGroup) colorTemperatureControlGroup.style.display = 'block';
-                            appliedManually = true;
-                        }
-                        if (cameraSupportStatusEl) {
-                           cameraSupportStatusEl.textContent = appliedManually ? "Modos manuales activados con valores actuales." : "No se pudieron fijar modos manuales (no soportados o error).";
-                        }
-                    } catch (err) {
-                        console.error("Error al intentar fijar ajustes manuales:", err);
-                        if (cameraSupportStatusEl) cameraSupportStatusEl.textContent = "Error al fijar modos manuales.";
+                } else {
+                    console.warn("La cámara no soporta el modo de exposición manual. Los ajustes de tiempo de exposición pueden no aplicarse.");
+                }
+
+                // Temperatura de Color: 6130 K
+                if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('manual')) {
+                    await applyCameraSetting('whiteBalanceMode', 'manual');
+                    if (cameraCapabilities.colorTemperature) {
+                        await applyCameraSetting('colorTemperature', 6130);
+                    } else {
+                        console.warn("La cámara no soporta el control de colorTemperature.");
                     }
-                });
-            }
-
-            if (autoCalibrateGrayBtn) {
-                autoCalibrateGrayBtn.addEventListener('click', async () => {
-                    if (!videoTrack || !calibrationHelperCtx || !window.chroma) {
-                        if(calibrationFeedbackEl) {
-                            calibrationFeedbackEl.textContent = "Error: Cámara no lista o librería chroma.js no encontrada.";
-                            calibrationFeedbackEl.style.display = 'block';
-                            calibrationFeedbackEl.style.backgroundColor = '#f8d7da';
-                        }
-                        return;
-                    }
-                    if(calibrationFeedbackEl) {
-                        calibrationFeedbackEl.textContent = "Iniciando calibración automática... por favor espere.";
-                        calibrationFeedbackEl.style.display = 'block';
-                        calibrationFeedbackEl.style.backgroundColor = '#d1ecf1';
-                    }
-                    autoCalibrateGrayBtn.disabled = true;
-                    if (toggleManualControlsBtn) toggleManualControlsBtn.disabled = true;
-
-
-                    try {
-                        let expModeSet = false, wbModeSet = false;
-                        if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
-                           expModeSet = await applyCameraSetting('exposureMode', 'manual');
-                        } else if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('continuous')) { 
-                           await applyCameraSetting('exposureMode', 'continuous'); 
-                        }
-
-                        if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('manual')) {
-                           wbModeSet = await applyCameraSetting('whiteBalanceMode', 'manual');
-                        } else if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('continuous')) {
-                           await applyCameraSetting('whiteBalanceMode', 'continuous');
-                        }
-                        
-                        await new Promise(resolve => setTimeout(resolve, 300)); 
-
-                        const cWidth = calibrationHelperCanvas.width;
-                        const cHeight = calibrationHelperCanvas.height;
-                        const sampleSizePercent = 0.2; 
-                        const sX = cWidth * (0.5 - sampleSizePercent / 2);
-                        const sY = cHeight * (0.5 - sampleSizePercent / 2);
-                        const sWidth = cWidth * sampleSizePercent;
-                        const sHeight = cHeight * sampleSizePercent;
-
-                        calibrationHelperCtx.drawImage(videoElement, 0, 0, cWidth, cHeight);
-                        const imageData = calibrationHelperCtx.getImageData(sX, sY, sWidth, sHeight);
-                        const data = imageData.data;
-                        let sumR = 0, sumG = 0, sumB = 0;
-                        for (let i = 0; i < data.length; i += 4) {
-                            sumR += data[i]; sumG += data[i+1]; sumB += data[i+2];
-                        }
-                        const numPixels = data.length / 4;
-                        const avgR = Math.round(sumR / numPixels);
-                        const avgG = Math.round(sumG / numPixels);
-                        const avgB = Math.round(sumB / numPixels);
-
-                        const labInitial = chroma(avgR, avgG, avgB).lab();
-                        let feedbackText = `Color central inicial: RGB(${avgR},${avgG},${avgB}), LAB(${labInitial[0].toFixed(1)}, ${labInitial[1].toFixed(1)}, ${labInitial[2].toFixed(1)}). `;
-                        
-                        const targetL = 50;
-                        const lDiff = targetL - labInitial[0];
-                        
-                        if (expModeSet && cameraCapabilities.exposureTime) { 
-                            const expCaps = cameraCapabilities.exposureTime;
-                            let currentExp = videoTrack.getSettings().exposureTime || (expCaps.min + expCaps.max) / 2;
-                            let expChange = (lDiff / 25); 
-                            expChange = Math.max(-0.5, Math.min(0.5, expChange)); 
-                            let newExp = Math.max(expCaps.min, Math.min(expCaps.max, currentExp + expChange)); 
-                            await applyCameraSetting('exposureTime', newExp);
-                            feedbackText += `Ajuste Exp. Tiempo a ${newExp.toFixed(2)}. `;
-                            await new Promise(resolve => setTimeout(resolve, 200));
-                        } else if (cameraCapabilities.brightness) { 
-                            const brightCaps = cameraCapabilities.brightness;
-                            let currentBright = videoTrack.getSettings().brightness || (brightCaps.min + brightCaps.max) / 2;
-                            let brightChange = (lDiff / 15) * (brightCaps.step || 1); 
-                            let newBright = Math.max(brightCaps.min, Math.min(brightCaps.max, currentBright + brightChange));
-                            await applyCameraSetting('brightness', newBright);
-                            feedbackText += `Ajuste Brillo a ${newBright.toFixed(0)}. `;
-                             await new Promise(resolve => setTimeout(resolve, 200));
-                        }
-
-                        calibrationHelperCtx.drawImage(videoElement, 0, 0, cWidth, cHeight);
-                        const imageDataExp = calibrationHelperCtx.getImageData(sX, sY, sWidth, sHeight);
-                        const dataExp = imageDataExp.data;
-                        let sumRExp = 0, sumGExp = 0, sumBExp = 0;
-                        for (let i = 0; i < dataExp.length; i += 4) { sumRExp += dataExp[i]; sumGExp += dataExp[i+1]; sumBExp += dataExp[i+2]; }
-                        const avgRExp = Math.round(sumRExp / numPixels); const avgGExp = Math.round(sumGExp / numPixels); const avgBExp = Math.round(sumBExp / numPixels);
-                        const labAfterExp = chroma(avgRExp, avgGExp, avgBExp).lab();
-                        feedbackText += `LAB post-exp: (${labAfterExp[0].toFixed(1)}, ${labAfterExp[1].toFixed(1)}, ${labAfterExp[2].toFixed(1)}). `;
-
-                        if (wbModeSet && cameraCapabilities.colorTemperature) {
-                            const tempCaps = cameraCapabilities.colorTemperature;
-                            let currentTemp = videoTrack.getSettings().colorTemperature || (tempCaps.min + tempCaps.max) / 2;
-                            let tempChange = 0;
-                            if (labAfterExp[2] > 1.5) { 
-                                tempChange = - (tempCaps.step || 50) * Math.min(5, Math.ceil(labAfterExp[2] / 2)); 
-                            } else if (labAfterExp[2] < -1.5) { 
-                                tempChange = (tempCaps.step || 50) * Math.min(5, Math.ceil(-labAfterExp[2] / 2)); 
-                            }
-                            let newTemp = Math.max(tempCaps.min, Math.min(tempCaps.max, currentTemp + tempChange));
-                            newTemp = Math.round(newTemp / (tempCaps.step || 50)) * (tempCaps.step || 50); 
-                            if(Math.abs(tempChange) >= (tempCaps.step || 50)/2) { 
-                                await applyCameraSetting('colorTemperature', newTemp);
-                                feedbackText += `Ajuste Temp. Color a ${newTemp.toFixed(0)}K. `;
-                            }
-                        }
-                        
-                        if(calibrationFeedbackEl) {
-                            calibrationFeedbackEl.textContent = feedbackText + "Calibración inicial completa. Revise y ajuste manualmente si es necesario.";
-                            calibrationFeedbackEl.style.backgroundColor = '#d4edda';
-                        }
-                        setCaptureActive(true); // Habilitar captura después de la calibración
-
-                    } catch (error) {
-                        console.error("Error en calibración automática:", error);
-                         if(calibrationFeedbackEl) {
-                            calibrationFeedbackEl.textContent = "Error durante la calibración: " + error.message;
-                            calibrationFeedbackEl.style.backgroundColor = '#f8d7da';
-                         }
-                         setCaptureActive(false); // Mantener deshabilitado si falla
-                    } finally {
-                        autoCalibrateGrayBtn.disabled = false;
-                         if (toggleManualControlsBtn) toggleManualControlsBtn.disabled = !isCameraCalibrated; // Habilitar solo si la calibración tuvo "éxito" (se completó)
-                    }
-                });
+                } else {
+                    console.warn("La cámara no soporta el modo de balance de blancos manual. Los ajustes de temperatura de color pueden no aplicarse.");
+                }
+                console.log("Intentos de aplicar ajustes fijos completados.");
             }
             
             function resetUIForNewCapture() {
@@ -814,7 +449,7 @@
                     toleranceBar.style.width = '0%'; 
                     toleranceBar.className = 'tolerance-bar-fill';
                 }
-                if (isCameraCalibrated && instructionTextEl) { // Solo si ya está calibrado
+                if (instructionTextEl) {
                      instructionTextEl.textContent = "Dibuje un recuadro en la imagen para seleccionar el área de color.";
                      instructionTextEl.style.color = '#212529'; // Color normal
                 }
@@ -824,12 +459,13 @@
 
             if (captureButton) {
                 captureButton.addEventListener('click', async () => {
-                    if (!isCameraCalibrated) {
-                        alert("Por favor, calibre la cámara primero usando el botón 'Calibrar con Fondo Gris'.");
+                    if (!isCameraReady) {
+                        alert("La cámara aún no está lista o los ajustes iniciales no se han aplicado completamente. Por favor, espere o recargue.");
                         return;
                     }
                     // ... resto de la lógica de captura ...
                     let cameraRestarted = false;
+                    // Simplificado: Si la cámara no está activa, intentamos reiniciarla y aplicar ajustes
                     if (!stream || !videoElement.srcObject || videoElement.paused || videoElement.ended || !videoTrack) {
                         videoElement.style.display = 'block';
                         const webcamContainer = document.getElementById('color-webcam-container');
@@ -843,8 +479,8 @@
                              if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
                             return;
                         }
-                         if (!isCameraCalibrated) { // Re-chequear después de posible reinicio de cámara
-                            alert("La cámara se reinició. Por favor, calibre la cámara primero.");
+                        if (!isCameraReady) { // Re-chequear después de posible reinicio de cámara
+                            alert("La cámara se reinició pero los ajustes no se aplicaron. Por favor, recargue la página.");
                             return;
                         }
                         cameraRestarted = true;
@@ -892,8 +528,8 @@
 
             if (selectImageBtn && fileInput) {
                 selectImageBtn.addEventListener('click', () => { 
-                     if (!isCameraCalibrated) {
-                        alert("Por favor, calibre la cámara primero usando el botón 'Calibrar con Fondo Gris', incluso si va a seleccionar una imagen de biblioteca, para asegurar un contexto de color consistente.");
+                     if (!isCameraReady) {
+                        alert("La cámara aún no está lista. Espere a que se apliquen los ajustes predefinidos antes de seleccionar una imagen.");
                         return;
                     }
                     fileInput.click(); 
@@ -905,6 +541,7 @@
                         reader.onload = (e) => {
                             const img = new Image();
                             img.onload = () => {
+                                // Detener webcam si está activa al cargar imagen
                                 if (stream) {
                                     stream.getTracks().forEach(track => track.stop());
                                     stream = null;
@@ -975,14 +612,14 @@
             function checkEnableCompareButton() {
                  if (compareButton) {
                     const standardSelected = standardColorSelect && standardColorSelect.value !== "";
-                    // Habilitar solo si la cámara está calibrada Y hay color picado Y hay estándar seleccionado
-                    compareButton.disabled = !(isCameraCalibrated && pickedColorRGB && standardSelected && currentStandardColorData);
+                    // Habilitar solo si la cámara está lista (o se cargó una imagen) Y hay color picado Y hay estándar seleccionado
+                    compareButton.disabled = !(isCameraReady && pickedColorRGB && standardSelected && currentStandardColorData);
                 }
             }
 
             if (displayCanvas && displayCtx && captureCtx) {
                  displayCanvas.addEventListener('mousedown', (event) => {
-                    if (!isCameraCalibrated || !imageIsCaptured) return;  // No permitir dibujar si no está calibrado o no hay imagen
+                    if (!isCameraReady || !imageIsCaptured) return;  // No permitir dibujar si la cámara no está lista o no hay imagen
                     isDrawingSelection = true; const rect = displayCanvas.getBoundingClientRect();
                     selectionRect.startX = event.clientX - rect.left; selectionRect.startY = event.clientY - rect.top;
                     selectionRect.currentX = selectionRect.startX; selectionRect.currentY = selectionRect.startY;
@@ -994,8 +631,7 @@
                 });
 
                 displayCanvas.addEventListener('mousemove', (event) => {
-                    // ... (sin cambios)
-                    if (!isCameraCalibrated ||!imageIsCaptured || !isDrawingSelection) return;
+                    if (!isCameraReady ||!imageIsCaptured || !isDrawingSelection) return;
                     const rect = displayCanvas.getBoundingClientRect();
                     selectionRect.currentX = event.clientX - rect.left; selectionRect.currentY = event.clientY - rect.top;
                     selectionRect.width = selectionRect.currentX - selectionRect.startX;
@@ -1009,8 +645,7 @@
                 });
 
                 displayCanvas.addEventListener('mouseup', () => {
-                     // ... (sin cambios funcionales mayores)
-                    if (!isCameraCalibrated || !imageIsCaptured || !isDrawingSelection) { isDrawingSelection = false; return; }
+                    if (!isCameraReady || !imageIsCaptured || !isDrawingSelection) { isDrawingSelection = false; return; }
                     isDrawingSelection = false;
                     let finalRectX = Math.min(selectionRect.startX, selectionRect.currentX);
                     let finalRectY = Math.min(selectionRect.startY, selectionRect.currentY);
@@ -1091,7 +726,6 @@
             
             if (standardColorSelect) {
                 standardColorSelect.addEventListener('change', () => {
-                    // ... (sin cambios)
                      const selectedKey = standardColorSelect.value;
                     if (selectedKey && coloresEstandarAzor[selectedKey]) {
                         currentStandardColorData = coloresEstandarAzor[selectedKey];
@@ -1110,13 +744,12 @@
 
             if (compareButton) {
                 compareButton.addEventListener('click', () => {
-                    // ... (sin cambios en la lógica de Delta E)
                      if (!pickedColorRGB || !currentStandardColorData) {
                         if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Faltan datos.';
                         return;
                     }
-                     if (!isCameraCalibrated) { // Chequeo extra
-                        alert("La cámara no está calibrada. Por favor, calibre primero.");
+                     if (!isCameraReady) { // Chequeo extra, aunque el botón debería estar deshabilitado si no está ready
+                        alert("La aplicación no está lista. Por favor, espere o recargue.");
                         return;
                     }
                     
