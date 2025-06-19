@@ -52,10 +52,16 @@
                         <button id="capture-color-btn" class="button primary-action full-width-button">
                             <i class="fas fa-camera-retro"></i> Capturar Imagen
                         </button>
-                        <input type="file" id="select-image-input" accept="image/*" style="display:none;">
-                        <button id="select-image-btn" class="button secondary-action full-width-button" style="margin-top: 10px;">
-                            <i class="fas fa-folder-open"></i> Seleccionar Imagen de Biblioteca
-                        </button>
+                        
+                        <div class="camera-manual-focus-panel" style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-top: 20px; border: 1px solid #eee; display: none;" id="manual-focus-container">
+                            <h3 class="panel-title-sub" style="margin-top: 0; margin-bottom: 15px; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;"><i class="fas fa-magnifying-glass-plus"></i> Ajuste de Enfoque Manual</h3>
+                            <div class="form-group camera-control-group" id="focus-control-group" style="display:none; margin-bottom: 12px;">
+                                <label for="focus-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Enfoque:</label>
+                                <input type="range" id="focus-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
+                                <span id="focus-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
+                            </div>
+                            <p class="note" style="font-size: 0.8em; margin-top:15px;">Nota: Si la imagen no es clara utilice la barra en enfoque hasta que la imagen mejore.</p>
+                        </div>
                         <div class="color-picker-instructions">
                             <p id="instruction-text" style="color: #212529; font-weight:bold;">Capture una imagen y dibuje un recuadro para seleccionar el área de color.</p>
                         </div>
@@ -103,6 +109,7 @@
                         </div>
                          <p id="color-result-note" class="note" style="margin-top:10px;"></p>
                     </div>
+
                 </div> 
             </section>
         </main>
@@ -123,7 +130,7 @@
             const videoElement = document.getElementById('color-video-feed');
             const webcamLoadingPrompt = document.getElementById('webcam-loading-prompt');
             const captureButton = document.getElementById('capture-color-btn');
-            const selectImageBtn = document.getElementById('select-image-btn');
+            // const selectImageBtn = document.getElementById('select-image-btn'); // Eliminado
             const standardColorSelect = document.getElementById('standard-color-select');
             const compareButton = document.getElementById('compare-colors-btn');
             const instructionTextEl = document.getElementById('instruction-text');
@@ -134,7 +141,6 @@
             const displayCtx = displayCanvas ? displayCanvas.getContext('2d', { willReadFrequently: true }) : null;
             const captureCanvas = document.getElementById('color-capture-canvas'); 
             const captureCtx = captureCanvas ? captureCanvas.getContext('2d', { willReadFrequently: true }) : null;
-            // calibrationHelperCanvas y calibrationHelperCtx ya no se usan, pero se mantienen definidos para evitar errores si el HTML aún los referencia
             const calibrationHelperCanvas = document.getElementById('calibration-helper-canvas'); 
             const calibrationHelperCtx = calibrationHelperCanvas ? calibrationHelperCanvas.getContext('2d', { willReadFrequently: true }) : null; 
 
@@ -148,7 +154,13 @@
             const toleranceBar = document.getElementById('tolerance-bar');
             const toleranceStatusEl = document.getElementById('tolerance-status'); 
             const colorResultNoteEl = document.getElementById('color-result-note');
-            const fileInput = document.getElementById('select-image-input');
+            // const fileInput = document.getElementById('select-image-input'); // Eliminado
+
+            // Elementos del nuevo control de enfoque
+            const manualFocusContainer = document.getElementById('manual-focus-container');
+            const focusControlGroup = document.getElementById('focus-control-group');
+            const focusSlider = document.getElementById('focus-slider');
+            const focusValueEl = document.getElementById('focus-value');
 
             let stream = null;
             let pickedColorRGB = null; 
@@ -158,8 +170,7 @@
             let selectionRect = { startX: 0, startY: 0, currentX: 0, currentY: 0, width: 0, height: 0 };
             let videoTrack = null; 
             let cameraCapabilities = {}; 
-            // isCameraCalibrated ya no es necesaria, siempre se considera calibrada al iniciar
-            let isCameraReady = false; // Nueva bandera para indicar que la cámara está lista y con ajustes aplicados
+            let isCameraReady = false; 
 
             const coloresEstandarAzor = {
 "3001P": { nombre: "114.3001 BLANCO EN POLIPRO (USAR FONDO NEGRO)", hex: "#BBBABC", lab: { L: 75.6, a: 0.7, b: -0.9 } },
@@ -184,7 +195,7 @@
 "3042B": { nombre: "114.3042 VERDE FLUORESCENTE (BRILLOSO)", hex: "#39A95A", lab: { L: 61.6, a: -49, b: 31.7 } },
 "3047": { nombre: "114.3047 VERDE AQUA OHP(USAR FONDO NEGRO)", hex: "#ACBABD", lab: { L: 74.5, a: -4.2, b: -3.2 } },
 "3050P": { nombre: "114.3050 VERDE OBCURO (POLIPRO)", hex: "#1A4535", lab: { L: 26, a: -19.5, b: 5.2 } },
-"3050N": { nombre: "114.3050 VERDE OBCURO (NYLON)", hex: "#1A4535", lab: { L: 26, a: -19.5, b: 5.2 } },
+"3050N": { nombre: "114.3050 VERDE OBCURO (NYLON)", hex: "#15272D", lab: { L: 14.4, a: -5.4, b: -6.3 } },
 "3052": { nombre: "114.3052 AMARILLO FLUORESCENTE (PARA TPE)", hex: "#CCD046", lab: { L: 81, a: -18.2, b: 65 } },
 "3053P": { nombre: "114.3053 AMARILLO FLUORESCENTE (POLIPRO)", hex: "#E2E965", lab: { L: 89.6, a: -19.4, b: 62 } },
 "3053N": { nombre: "114.3053 AMARILLO FLUORESCENTE (NYLON)", hex: "#E6E128", lab: { L: 87.4, a: -16.9, b: 81 } },
@@ -209,7 +220,7 @@
 "3091": { nombre: "114.3091 MAGENTA", hex: "#A30837", lab: { L: 34.5, a: 57.8, b: 18.6 } },
 "3093": { nombre: "114.3093 ROSA FLUORESCENTE", hex: "#F10966", lab: { L: 51.7, a: 79.1, b: 14.9 } },
 "3098": { nombre: "114.3098 ROSA FLUORESCENTE TRANSLUCIDO", hex: "#E30871", lab: { L: 49.1, a: 76.8, b: 4.2 } },
-"3100": { nombre: "114.3100 ROSA TRANSLUCIDO (SAN)", hex: "#E30871", lab: { L: 49.1, a: 76.8, b: 4.2 } },
+"3100": { nombre: "114.3100 ROSA TRANSLUCIDO (SAN)", hex: "#A51753", lab: { L: 36.4, a: 57.8, b: 3.1 } },
 "3101": { nombre: "114.3101 ROSA TPE Y PP", hex: "#F53CA2", lab: { L: 57.3, a: 75.9, b: -12.7 } },
 "3109": { nombre: "114.3109 AMARILLO BOLIGRAFO", hex: "#E0830C", lab: { L: 63.4, a: 28.9, b: 67.8 } },
 "3111": { nombre: "114.3111 VERDE MANZANA", hex: "#6DA235", lab: { L: 61.1, a: -35.5, b: 49.2 } },
@@ -258,18 +269,17 @@
                 }
             }
 
-            // Esta función ahora solo habilita los controles si la cámara está "lista"
             function setAppControlsActive(isActive) {
                 isCameraReady = isActive;
                 if (captureButton) captureButton.disabled = !isActive;
-                if (selectImageBtn) selectImageBtn.disabled = !isActive;
+                // if (selectImageBtn) selectImageBtn.disabled = !isActive; // Eliminado
                 if (standardColorSelect) standardColorSelect.disabled = !isActive;
 
                 if(isActive) {
                     if(instructionTextEl) instructionTextEl.textContent = "Cámara lista. Capture una imagen y dibuje un recuadro para seleccionar el área de color.";
-                    if(instructionTextEl) instructionTextEl.style.color = '#212529'; // Color normal
+                    if(instructionTextEl) instructionTextEl.style.color = '#212529'; 
                     if(mainInstructionTextEl) mainInstructionTextEl.textContent = "Cámara lista y ajustes aplicados. Proceda a capturar la imagen.";
-                    if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#28a745'; // Verde para éxito
+                    if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#28a745'; 
                     if (capturePrompt) capturePrompt.textContent = "Cámara lista. Capture una imagen para analizar.";
                 } else {
                     if(instructionTextEl) instructionTextEl.textContent = "Cargando cámara y aplicando ajustes iniciales...";
@@ -280,17 +290,30 @@
                 }
             }
             
+            // Helper para actualizar valor en UI
+            function updateSliderValue(sliderElement, valueElement, value, unit = "") {
+                if (valueElement) { 
+                    let displayValue = parseFloat(value);
+                    if (sliderElement && sliderElement.step && sliderElement.step.includes('.')) {
+                        displayValue = displayValue.toFixed(sliderElement.step.split('.')[1].length);
+                    } else {
+                        displayValue = displayValue.toFixed(0);
+                    }
+                    valueElement.textContent = `${displayValue}${unit}`;
+                }
+                if (sliderElement) sliderElement.value = value;
+            }
+
             async function startWebcam() {
                 if (!videoElement || !captureCanvas || !displayCanvas || !webcamLoadingPrompt || !capturePrompt || !displayCtx || !captureCtx) {
                     if (webcamLoadingPrompt) webcamLoadingPrompt.textContent = "Error: Elementos de UI no encontrados.";
                     return;
                 }
-                setAppControlsActive(false); // Iniciar con controles deshabilitados
+                setAppControlsActive(false); 
                 videoElement.style.display = 'block';
                 const webcamContainer = document.getElementById('color-webcam-container');
                 if (webcamContainer) webcamContainer.style.minHeight = ''; 
                 webcamLoadingPrompt.style.display = 'block';
-                capturePrompt.textContent = "Activando cámara...";
                 capturePrompt.style.display = 'block'; 
                 if (displayCtx) displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
 
@@ -319,8 +342,7 @@
                                 if (!resolved) {
                                     captureCanvas.width = videoElement.videoWidth;
                                     captureCanvas.height = videoElement.videoHeight;
-                                    // calibrationHelperCanvas ya no se usa para calibración, pero se mantiene si se necesita para otros fines
-                                    if (calibrationHelperCanvas) { 
+                                    if (calibrationHelperCanvas) { // Aún si no se usa para calibración, se mantiene por si acaso
                                         calibrationHelperCanvas.width = videoElement.videoWidth;
                                         calibrationHelperCanvas.height = videoElement.videoHeight;
                                     }
@@ -346,16 +368,16 @@
                     if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
                     imageIsCaptured = false; pickedColorRGB = null; 
                     
-                    // Aplicar ajustes fijos de la cámara
                     await applyFixedCameraSettings();
-                    setAppControlsActive(true); // Habilitar controles una vez que los ajustes se intentan aplicar
+                    initializeFocusControl(); // Inicializar el control de enfoque aquí
+                    setAppControlsActive(true); 
                     checkEnableCompareButton();
 
                 } catch (err) {
                     console.error("Validador Color: Error al acceder/configurar webcam: ", err);
                     if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
                     if (capturePrompt) capturePrompt.textContent = "Error webcam: " + (err.message ? err.message.substring(0, 70) : "Desconocido") + "... Por favor, recargue la página y otorge permisos.";
-                    setAppControlsActive(false); // Mantener deshabilitado si falla
+                    setAppControlsActive(false); 
                 }
             }
 
@@ -378,62 +400,74 @@
                 }
             }
 
-            // Función para aplicar los valores fijos
             async function applyFixedCameraSettings() {
                 console.log("Aplicando ajustes de cámara fijos...");
-                // Brillo: 120
-                if (cameraCapabilities.brightness) {
-                    await applyCameraSetting('brightness', 120);
-                }
-                // Contraste: 143
-                if (cameraCapabilities.contrast) {
-                    await applyCameraSetting('contrast', 143);
-                }
-                // Saturación: 140
-                if (cameraCapabilities.saturation) {
-                    await applyCameraSetting('saturation', 140);
-                }
-                // Nitidez: 135
-                if (cameraCapabilities.sharpness) {
-                    await applyCameraSetting('sharpness', 135);
-                }
+                if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
+                if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
+                if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
+                if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
 
-                // Exposición y Temperatura de color
-                // Para exposición y balance de blancos, a menudo es necesario establecer el modo a 'manual' primero.
-                // Sin embargo, si la cámara no soporta 'manual', intentar aplicar un valor fijo en 'continuous' podría no tener efecto.
-                // Aquí se intentará establecer el modo a manual si es posible y luego los valores.
-
-                // Tiempo de Exposición: 78.1250000 (log2 s)
+                // Exposición
                 if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
                     await applyCameraSetting('exposureMode', 'manual');
                     if (cameraCapabilities.exposureTime) {
-                         // El valor de exposureTime es en segundos, no log2 s.
-                         // 78.125 es un valor demasiado alto para exposureTime en segundos. 
-                         // Si el valor original era en log2 segundos, 2^x = 78.125 significa x = log2(78.125) = ~6.28.
-                         // Sin embargo, si 78.1250000 es el valor literal que se debe usar, lo aplicamos directamente.
-                         // Asumiendo que 78.125 es el valor deseado para exposureTime (en segundos o la unidad que la cámara espera).
+                        // El valor de exposureTime suele ser en segundos. 78.125 parece un valor alto.
+                        // Si "78.1250000 (log2 s)" significa que el valor a pasar es 2^78.125, eso sería un número enorme.
+                        // Asumiendo que 78.125 es el valor deseado para la propiedad 'exposureTime' directamente:
                         await applyCameraSetting('exposureTime', 78.125); 
-                    } else {
-                        console.warn("La cámara no soporta el control de exposureTime.");
-                    }
-                } else {
-                    console.warn("La cámara no soporta el modo de exposición manual. Los ajustes de tiempo de exposición pueden no aplicarse.");
-                }
+                    } else { console.warn("La cámara no soporta el control de exposureTime."); }
+                } else { console.warn("La cámara no soporta el modo de exposición manual. Los ajustes de tiempo de exposición pueden no aplicarse."); }
 
-                // Temperatura de Color: 6130 K
+                // Temperatura de Color
                 if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('manual')) {
                     await applyCameraSetting('whiteBalanceMode', 'manual');
                     if (cameraCapabilities.colorTemperature) {
                         await applyCameraSetting('colorTemperature', 6130);
-                    } else {
-                        console.warn("La cámara no soporta el control de colorTemperature.");
-                    }
-                } else {
-                    console.warn("La cámara no soporta el modo de balance de blancos manual. Los ajustes de temperatura de color pueden no aplicarse.");
-                }
+                    } else { console.warn("La cámara no soporta el control de colorTemperature."); }
+                } else { console.warn("La cámara no soporta el modo de balance de blancos manual. Los ajustes de temperatura de color pueden no aplicarse."); }
                 console.log("Intentos de aplicar ajustes fijos completados.");
             }
-            
+
+            function initializeFocusControl() {
+                if (cameraCapabilities.focusMode && cameraCapabilities.focusMode.includes('manual') && cameraCapabilities.focusDistance && manualFocusContainer) {
+                    manualFocusContainer.style.display = 'block'; // Mostrar el panel de enfoque
+                    focusControlGroup.style.display = 'block'; // Mostrar el grupo de control
+
+                    const focusCaps = cameraCapabilities.focusDistance;
+                    focusSlider.min = focusCaps.min;
+                    focusSlider.max = focusCaps.max;
+                    focusSlider.step = focusCaps.step || (focusCaps.max - focusCaps.min) / 100; // Un paso más fino si no está definido
+
+                    // Establecer el valor inicial del slider al valor actual del enfoque de la cámara si está disponible,
+                    // o a un valor por defecto (ej. el medio)
+                    const currentSettings = videoTrack.getSettings ? videoTrack.getSettings() : {};
+                    const initialFocusValue = typeof currentSettings.focusDistance !== 'undefined' ? currentSettings.focusDistance :
+                                            ((focusCaps.max - focusCaps.min) / 2 + focusCaps.min);
+                    
+                    updateSliderValue(focusSlider, focusValueEl, initialFocusValue);
+
+                    // Asegurar que el modo de enfoque sea manual antes de permitir el control
+                    applyCameraSetting('focusMode', 'manual').then(success => {
+                        if(success) {
+                            console.log("Modo de enfoque establecido a manual.");
+                            // Aplicar el valor inicial después de asegurar el modo manual
+                            applyCameraSetting('focusDistance', initialFocusValue);
+                        } else {
+                            console.warn("No se pudo establecer el modo de enfoque a manual. El control deslizante podría no funcionar.");
+                            manualFocusContainer.style.display = 'none'; // Ocultar si no se puede controlar
+                        }
+                    });
+
+                    // Event listeners para el slider
+                    focusSlider.oninput = () => updateSliderValue(null, focusValueEl, focusSlider.value); // Actualizar solo el texto mientras se arrastra
+                    focusSlider.onchange = () => applyCameraSetting('focusDistance', parseFloat(focusSlider.value)); // Aplicar ajuste cuando se suelta
+                } else {
+                    if (manualFocusContainer) manualFocusContainer.style.display = 'none'; // Ocultar si no es compatible
+                    console.log("Control de enfoque manual no disponible para esta cámara.");
+                }
+            }
+
+
             function resetUIForNewCapture() {
                 if (capturePrompt) capturePrompt.style.display = 'none'; 
                 imageIsCaptured = true; pickedColorRGB = null; 
@@ -451,7 +485,7 @@
                 }
                 if (instructionTextEl) {
                      instructionTextEl.textContent = "Dibuje un recuadro en la imagen para seleccionar el área de color.";
-                     instructionTextEl.style.color = '#212529'; // Color normal
+                     instructionTextEl.style.color = '#212529'; 
                 }
                 if(colorResultNoteEl) colorResultNoteEl.textContent = '';
                 checkEnableCompareButton();
@@ -463,9 +497,7 @@
                         alert("La cámara aún no está lista o los ajustes iniciales no se han aplicado completamente. Por favor, espere o recargue.");
                         return;
                     }
-                    // ... resto de la lógica de captura ...
                     let cameraRestarted = false;
-                    // Simplificado: Si la cámara no está activa, intentamos reiniciarla y aplicar ajustes
                     if (!stream || !videoElement.srcObject || videoElement.paused || videoElement.ended || !videoTrack) {
                         videoElement.style.display = 'block';
                         const webcamContainer = document.getElementById('color-webcam-container');
@@ -479,7 +511,7 @@
                              if (webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
                             return;
                         }
-                        if (!isCameraReady) { // Re-chequear después de posible reinicio de cámara
+                        if (!isCameraReady) { 
                             alert("La cámara se reinició pero los ajustes no se aplicaron. Por favor, recargue la página.");
                             return;
                         }
@@ -526,6 +558,8 @@
                 });
             }
 
+            // Se eliminó la lógica para el botón de seleccionar imagen y el input de archivo
+            /*
             if (selectImageBtn && fileInput) {
                 selectImageBtn.addEventListener('click', () => { 
                      if (!isCameraReady) {
@@ -541,7 +575,6 @@
                         reader.onload = (e) => {
                             const img = new Image();
                             img.onload = () => {
-                                // Detener webcam si está activa al cargar imagen
                                 if (stream) {
                                     stream.getTracks().forEach(track => track.stop());
                                     stream = null;
@@ -608,18 +641,18 @@
                     }
                 });
             }
+            */
 
             function checkEnableCompareButton() {
                  if (compareButton) {
                     const standardSelected = standardColorSelect && standardColorSelect.value !== "";
-                    // Habilitar solo si la cámara está lista (o se cargó una imagen) Y hay color picado Y hay estándar seleccionado
                     compareButton.disabled = !(isCameraReady && pickedColorRGB && standardSelected && currentStandardColorData);
                 }
             }
 
             if (displayCanvas && displayCtx && captureCtx) {
                  displayCanvas.addEventListener('mousedown', (event) => {
-                    if (!isCameraReady || !imageIsCaptured) return;  // No permitir dibujar si la cámara no está lista o no hay imagen
+                    if (!isCameraReady || !imageIsCaptured) return;  
                     isDrawingSelection = true; const rect = displayCanvas.getBoundingClientRect();
                     selectionRect.startX = event.clientX - rect.left; selectionRect.startY = event.clientY - rect.top;
                     selectionRect.currentX = selectionRect.startX; selectionRect.currentY = selectionRect.startY;
@@ -748,7 +781,7 @@
                         if (deltaEValueEl) deltaEValueEl.textContent = 'Error: Faltan datos.';
                         return;
                     }
-                     if (!isCameraReady) { // Chequeo extra, aunque el botón debería estar deshabilitado si no está ready
+                     if (!isCameraReady) { 
                         alert("La aplicación no está lista. Por favor, espere o recargue.");
                         return;
                     }
