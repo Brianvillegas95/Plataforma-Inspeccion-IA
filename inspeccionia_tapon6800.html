@@ -101,7 +101,6 @@
 
     <script type="text/javascript">
         // --- SECCIÓN DE CONFIGURACIÓN ---
-        // IMPORTANTE: Asegúrate de que esta ruta apunte a tu nuevo modelo ONNX.
         const MODELO_ONNX_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
         const NOMBRES_CLASES = ['Incompleto', 'Rebaba', 'Sin Defecto', 'Punto Alto'];
         const COLORES_CLASES = ['#FFA500', '#FF4500', '#2E8B57', '#FFD700']; // Naranja, Rojo-Naranja, Verde, Amarillo
@@ -155,6 +154,28 @@
             }
         }
 
+        // --- LÓGICA DE AJUSTES DE CÁMARA ---
+        let cameraCapabilities = {};
+        let videoTrack;
+
+        async function applyCameraSetting(setting, value) {
+            try {
+                const constraints = { advanced: [{ [setting]: value }] };
+                await videoTrack.applyConstraints(constraints);
+                console.log(`Ajuste '${setting}' aplicado con valor: ${value}`);
+            } catch (error) {
+                console.error(`Error al aplicar el ajuste '${setting}':`, error);
+            }
+        }
+
+        async function applyFixedCameraSettings() {
+            console.log("Aplicando ajustes de cámara fijos...");
+            if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
+            if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
+            if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
+            if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
+        }
+
         // --- LÓGICA DE IA CON ONNX y YOLOv8 ---
         async function initInspector() {
             setAuditorInspectorSpeech('Inicializando IA...', true, 'loading');
@@ -175,6 +196,17 @@
                     video: { facingMode: "environment" } 
                 });
                 videoElement.srcObject = stream;
+                
+                // --- NUEVO CÓDIGO PARA AJUSTES DE CÁMARA ---
+                videoTrack = stream.getVideoTracks()[0];
+                const capabilities = videoTrack.getCapabilities();
+                if (capabilities) {
+                    cameraCapabilities = capabilities;
+                    console.log("Capacidades de la cámara detectadas:", cameraCapabilities);
+                    await applyFixedCameraSettings(); // Aplicamos los ajustes fijos
+                }
+                // --- FIN DEL NUEVO CÓDIGO ---
+
                 await new Promise((resolve) => { videoElement.onloadedmetadata = resolve; });
 
                 isWebcamActiveInspector = true;
