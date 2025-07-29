@@ -138,7 +138,6 @@
                 else if (status === 'thinking' || status === 'loading') auditorImageInspector.classList.add('status-thinking');
             }
             if (isTypingEffect) {
-                auditorBubbleSpanInspector.classList.add('typing-effect-active');
                 let i = 0;
                 function typeCharacter() {
                     if (i < message.length) {
@@ -154,11 +153,12 @@
             }
         }
 
-        // --- LÓGICA DE AJUSTES DE CÁMARA ---
+        // --- LÓGICA DE AJUSTES DE CÁMARA (LÓGICA MEJORADA) ---
         let cameraCapabilities = {};
         let videoTrack;
 
         async function applyCameraSetting(setting, value) {
+            if (!videoTrack || typeof videoTrack.applyConstraints !== 'function') return;
             try {
                 const constraints = { advanced: [{ [setting]: value }] };
                 await videoTrack.applyConstraints(constraints);
@@ -176,16 +176,15 @@
             if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
         }
 
-        // --- LÓGICA DE IA CON ONNX y YOLOv8 ---
+        // --- LÓGICA DE IA CON ONNX y YOLOv8 (ESTRUCTURA CORREGIDA) ---
         async function initInspector() {
-            setAuditorInspectorSpeech('Inicializando IA...', true, 'loading');
-            labelContainerInspector.innerHTML = "Cargando modelo IA...";
-            captureButtonInspector.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando Modelo...';
+            setAuditorInspectorSpeech('Configurando cámara...', true, 'loading');
+            labelContainerInspector.innerHTML = "Configurando cámara...";
+            captureButtonInspector.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparando...';
             captureButtonInspector.disabled = true;
 
             try {
-                onnxSession = await ort.InferenceSession.create(MODELO_ONNX_PATH);
-                setAuditorInspectorSpeech('Configurando cámara...', false, 'loading');
+                // 1. INICIALIZAR CÁMARA PRIMERO
                 videoElement = document.createElement('video');
                 videoElement.setAttribute('autoplay', '');
                 videoElement.setAttribute('playsinline', '');
@@ -197,20 +196,23 @@
                 });
                 videoElement.srcObject = stream;
                 
-                // --- NUEVO CÓDIGO PARA AJUSTES DE CÁMARA ---
                 videoTrack = stream.getVideoTracks()[0];
-                const capabilities = videoTrack.getCapabilities();
-                if (capabilities) {
-                    cameraCapabilities = capabilities;
-                    console.log("Capacidades de la cámara detectadas:", cameraCapabilities);
-                    await applyFixedCameraSettings(); // Aplicamos los ajustes fijos
-                }
-                // --- FIN DEL NUEVO CÓDIGO ---
-
+                cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+                
                 await new Promise((resolve) => { videoElement.onloadedmetadata = resolve; });
+                
+                // 2. APLICAR AJUSTES DE CÁMARA
+                await applyFixedCameraSettings();
+                console.log("Ajustes de cámara aplicados.");
 
+                // 3. CARGAR MODELO ONNX (DESPUÉS DE QUE LA CÁMARA ESTÉ LISTA)
+                setAuditorInspectorSpeech('Cargando modelo IA...', false, 'loading');
+                labelContainerInspector.innerHTML = "Cargando modelo IA...";
+                onnxSession = await ort.InferenceSession.create(MODELO_ONNX_PATH);
+                console.log("Modelo ONNX cargado exitosamente.");
+
+                // 4. TERMINAR CONFIGURACIÓN DE UI
                 isWebcamActiveInspector = true;
-
                 overlayCanvas = document.createElement('canvas');
                 overlayCtx = overlayCanvas.getContext('2d');
                 webcamContainerInspector.appendChild(overlayCanvas);
@@ -224,13 +226,15 @@
 
             } catch (error) {
                 console.error("Error al inicializar:", error);
-                let errMsg = `Error al cargar el modelo desde "${MODELO_ONNX_PATH}". Verifique la ruta.`;
-                if (error.message && error.message.includes("getUserMedia")) {
+                let errMsg = `Error: ${error.message}`;
+                if (String(error).includes("onnx")) {
+                     errMsg = `Error al cargar el modelo: "${MODELO_ONNX_PATH}". Verifique la ruta y que el archivo no esté corrupto.`;
+                } else if (error.message && error.message.includes("getUserMedia")) {
                     errMsg = "Error de acceso a la cámara. Verifique los permisos.";
                 }
                 errorContainerInspector.innerText = errMsg; 
                 setAuditorInspectorSpeech('¡Error al iniciar IA!', false, 'error');
-                labelContainerInspector.innerHTML = `<span style='color:var(--error-color)'>Fallo Inicialización IA</span>`;
+                labelContainerInspector.innerHTML = `<span style='color:var(--error-color)'>Fallo en Inicialización</span>`;
                 captureButtonInspector.disabled = true;
                 captureButtonInspector.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
                 errorContainerInspector.style.display = 'block'; 
@@ -267,7 +271,6 @@
             window.requestAnimationFrame(loopInspector);
         }
         
-        // ***** FUNCIÓN CON LA NUEVA LÓGICA DE APROBACIÓN Y RESUMEN *****
         function drawBoundingBoxes(outputTensor) {
             const outputData = outputTensor.data;
             const numClasses = NOMBRES_CLASES.length;
@@ -306,13 +309,11 @@
             NOMBRES_CLASES.forEach(nombre => conteoClases[nombre] = 0);
 
             detections.forEach(det => {
-                // Actualizar contadores y estado de aprobación
                 conteoClases[det.label]++;
                 if (det.label !== 'Sin Defecto') {
                     muestreoAprobado = false;
                 }
 
-                // Dibujar la caja delimitadora
                 const [x_center, y_center, width, height] = det.box;
                 const x_ratio = overlayCanvas.width / 640;
                 const y_ratio = overlayCanvas.height / 640;
@@ -332,7 +333,6 @@
                 overlayCtx.fillText(label, x, y > 20 ? y - 5 : 20);
             });
             
-            // --- LÓGICA DE RESUMEN Y ACTUALIZACIÓN DE INTERFAZ ---
             let summaryHtml = '';
             if (detections.length === 0) {
                 summaryHtml = "No se detectaron piezas.";
