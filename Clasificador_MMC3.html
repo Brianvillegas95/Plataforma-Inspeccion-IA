@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clasificador de Férula MMC3 - Grupo Azor</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+
+    <style>
+        .vision-panel #webcam-container {
+            position: relative;
+            background-color: #000;
+        }
+        #video-feed, #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #overlay-canvas {
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="inspector-body">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li class="dropdown">
+                        <a href="index.html" class="dropdown-toggle">Inicio</a>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle active" data-area="Moldeo">Moldeo <i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="Clasificador_MMC21.html" class="active">Clasificador MMC2-1</a></li>
+                            <li><a href="validador_color.html" class="active">Validador de Color</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="main-content-grid"> 
+            <section class="vision-panel">
+                <h2 class="panel-title"><i class="fas fa-eye"></i> Clasificador de ferula MMC3</h2>
+                <div id="webcam-container">
+                    </div>
+                <div id="progress-bar-container" style="display:none;">
+                    <div id="progress-bar"></div>
+                </div>
+                <div class="label-container" id="label-container">Cargando modelo IA...</div>
+                <div class="error-message" id="error-container" style="display: none;"></div>
+            </section>
+
+            <aside class="controls-panel">
+                <h3 class="panel-title"><i class="fas fa-list-ol"></i> Instrucciones</h3>
+                <h4>Instrucciones de Uso:</h4>
+                <ol>
+                    <li>Coloque el objeto a inspeccionar frente a la cámara.</li>
+                    <li>Presione "Analizar Muestra" para iniciar la inspección.</li>
+                    <li>El sistema dibujará cajas sobre los objetos detectados.</li>
+                </ol>
+
+                <div class="action-buttons single-button-centered">
+                    <button id="capture-button" class="button primary-action" disabled>
+                        <i class="fas fa-spinner fa-spin"></i> Cargando Modelo...
+                    </button>
+                </div>
+
+                <div id="auditor-section"> 
+                    <p id="auditor-title">Asistente de Inspección</p>
+                    <div id="auditor-image-container">
+                        <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
+                    </div>
+                    
+                    <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
+                        <span>Preparando sistema de inspección...</span>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <footer class="app-footer">
+            &copy; <span id="currentYearInspector"></span> Grupo Azor México. Todos los derechos reservados.
+        </footer>
+    </div>
+
+    <script type="text/javascript">
+        // --- SECCIÓN DE CONFIGURACIÓN ---
+        const MODELO_ONNX_PATH = "./modelos_ia/clasificador_ferulac3_v1/best.onnx"; 
+        const NOMBRES_CLASES = ['item_129-0200', 'item_129-0371', 'item_129-0466', 'item_129-0472'];
+        const COLORES_CLASES = ['#FFD700', '#00BFFF', '#32CD32', '#FF69B4'];
+        const UMBRAL_CONFIANZA = 0.5;
+
+        // --- REFERENCIAS A ELEMENTOS DEL DOM ---
+        const errorContainerInspector = document.getElementById('error-container');
+        const captureButtonInspector = document.getElementById('capture-button');
+        const labelContainerInspector = document.getElementById('label-container');
+        const webcamContainerInspector = document.getElementById('webcam-container');
+        const auditorImageInspector = document.getElementById('auditor-image'); 
+        const auditorMessageBubbleInspector = document.getElementById('auditor-message-bubble');
+        const auditorBubbleSpanInspector = auditorMessageBubbleInspector ? auditorMessageBubbleInspector.querySelector('span') : null;
+        if(document.getElementById('currentYearInspector')) { 
+            document.getElementById('currentYearInspector').textContent = new Date().getFullYear();
+        }
+
+        // --- VARIABLES DE ESTADO Y DEL MODELO ---
+        let onnxSession;
+        let videoElement, overlayCanvas, overlayCtx;
+        let isWebcamActiveInspector = false;
+        let isAnalyzingInspector = false;
+        let typingTimeoutAuditorInspector;
+
+        // --- LÓGICA DEL ASISTENTE ---
+        function setAuditorInspectorSpeech(message, isTypingEffect = false, status = 'idle') {
+            if (!auditorBubbleSpanInspector) return;
+            clearTimeout(typingTimeoutAuditorInspector);
+            auditorBubbleSpanInspector.textContent = '';
+            auditorBubbleSpanInspector.classList.remove('typing-effect-active');
+            if (auditorImageInspector) {
+                auditorImageInspector.className = 'auditor-image-estilizada'; 
+                if (status === 'ok') auditorImageInspector.classList.add('status-ok');
+                else if (status === 'error') auditorImageInspector.classList.add('status-error');
+                else if (status === 'thinking' || status === 'loading') auditorImageInspector.classList.add('status-thinking');
+            }
+            if (isTypingEffect) {
+                auditorBubbleSpanInspector.classList.add('typing-effect-active');
+                let i = 0;
+                function typeCharacter() {
+                    if (i < message.length) {
+                        auditorBubbleSpanInspector.textContent += message.charAt(i); i++;
+                        typingTimeoutAuditorInspector = setTimeout(typeCharacter, 30); 
+                    } else {
+                        auditorBubbleSpanInspector.classList.remove('typing-effect-active');
+                    }
+                }
+                typeCharacter();
+            } else {
+                auditorBubbleSpanInspector.textContent = message;
+            }
+        }
+
+        // --- LÓGICA DE IA CON ONNX y YOLOv8 ---
+
+        async function initInspector() {
+            setAuditorInspectorSpeech('Inicializando IA...', true, 'loading');
+            labelContainerInspector.innerHTML = "Cargando modelo IA...";
+            captureButtonInspector.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando Modelo...';
+            captureButtonInspector.disabled = true;
+
+            try {
+                onnxSession = await ort.InferenceSession.create(MODELO_ONNX_PATH);
+                setAuditorInspectorSpeech('Configurando cámara...', false, 'loading');
+                videoElement = document.createElement('video');
+                videoElement.setAttribute('autoplay', '');
+                videoElement.setAttribute('playsinline', '');
+                videoElement.style.transform = "scaleX(-1)"; 
+                webcamContainerInspector.appendChild(videoElement);
+
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" } 
+                });
+                videoElement.srcObject = stream;
+                await new Promise((resolve) => { videoElement.onloadedmetadata = resolve; });
+
+                isWebcamActiveInspector = true;
+
+                overlayCanvas = document.createElement('canvas');
+                overlayCtx = overlayCanvas.getContext('2d');
+                webcamContainerInspector.appendChild(overlayCanvas);
+                overlayCanvas.width = videoElement.videoWidth;
+                overlayCanvas.height = videoElement.videoHeight;
+
+                labelContainerInspector.innerHTML = "IA Lista. Presione 'Analizar'.";
+                setAuditorInspectorSpeech('Sistema listo. Coloque la pieza.', true, 'idle');
+                captureButtonInspector.disabled = false;
+                captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Analizar Muestra';
+
+            } catch (error) {
+                console.error("Error al inicializar:", error);
+                let errMsg = `Error al cargar el modelo desde "${MODELO_ONNX_PATH}". Verifique la ruta.`;
+                if (error.message && error.message.includes("getUserMedia")) {
+                    errMsg = "Error de acceso a la cámara. Verifique los permisos.";
+                }
+                errorContainerInspector.innerText = errMsg; 
+                setAuditorInspectorSpeech('¡Error al iniciar IA!', false, 'error');
+                labelContainerInspector.innerHTML = "<span style='color:var(--error-color)'>Fallo Inicialización IA</span>";
+                captureButtonInspector.disabled = true;
+                captureButtonInspector.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
+                errorContainerInspector.style.display = 'block'; 
+            }
+        }
+        
+        async function loopInspector() {
+            if (!isWebcamActiveInspector || !isAnalyzingInspector) return;
+            
+            const modelWidth = 640;
+            const modelHeight = 640;
+            const preprocessedCanvas = document.createElement('canvas');
+            preprocessedCanvas.width = modelWidth;
+            preprocessedCanvas.height = modelHeight;
+            const preprocessedCtx = preprocessedCanvas.getContext('2d');
+            preprocessedCtx.drawImage(videoElement, 0, 0, modelWidth, modelHeight);
+            
+            const imageData = preprocessedCtx.getImageData(0, 0, modelWidth, modelHeight);
+            const { data } = imageData;
+            const float32Data = new Float32Array(3 * modelWidth * modelHeight);
+            for (let i = 0; i < modelWidth * modelHeight; i++) {
+                float32Data[i] = data[i * 4 + 0] / 255.0;
+                float32Data[i + modelWidth * modelHeight] = data[i * 4 + 1] / 255.0;
+                float32Data[i + 2 * modelWidth * modelHeight] = data[i * 4 + 2] / 255.0;
+            }
+
+            const tensor = new ort.Tensor('float32', float32Data, [1, 3, modelHeight, modelWidth]);
+            const feeds = { 'images': tensor };
+
+            const results = await onnxSession.run(feeds);
+            
+            drawBoundingBoxes(results.output0);
+            
+            window.requestAnimationFrame(loopInspector);
+        }
+
+        // ***** FUNCIÓN CORREGIDA *****
+        function drawBoundingBoxes(outputTensor) {
+            const outputData = outputTensor.data;
+            const numClasses = NOMBRES_CLASES.length;
+            const numProposals = outputTensor.dims[2]; // e.g., 8400
+            const detections = [];
+
+            // La salida de YOLOv8 ONNX está transpuesta. La forma es [1, 4_coords + num_clases, num_proposals]
+            // Debemos recorrerla por columna (propuesta) en lugar de por fila.
+            for (let i = 0; i < numProposals; i++) {
+                // Obtener la confianza de la mejor clase para esta propuesta
+                let max_prob = 0;
+                let class_id = -1;
+                for (let j = 0; j < numClasses; j++) {
+                    const prob = outputData[ (4 + j) * numProposals + i ];
+                    if (prob > max_prob) {
+                        max_prob = prob;
+                        class_id = j;
+                    }
+                }
+                
+                // Si la confianza supera el umbral, procesar la detección
+                if (max_prob > UMBRAL_CONFIANZA) {
+                    const x_center = outputData[0 * numProposals + i];
+                    const y_center = outputData[1 * numProposals + i];
+                    const width = outputData[2 * numProposals + i];
+                    const height = outputData[3 * numProposals + i];
+                    
+                    detections.push({
+                        label: NOMBRES_CLASES[class_id],
+                        score: max_prob,
+                        class_id: class_id,
+                        box: [x_center, y_center, width, height]
+                    });
+                }
+            }
+
+            // Dibujar las cajas
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            detections.forEach(det => {
+                const [x_center, y_center, width, height] = det.box;
+                const x_ratio = overlayCanvas.width / 640;
+                const y_ratio = overlayCanvas.height / 640;
+                
+                const x = (x_center - width / 2) * x_ratio;
+                const y = (y_center - height / 2) * y_ratio;
+                const w = width * x_ratio;
+                const h = height * y_ratio;
+                const color = COLORES_CLASES[det.class_id];
+                
+                overlayCtx.strokeStyle = color;
+                overlayCtx.lineWidth = 3;
+                overlayCtx.strokeRect(x, y, w, h);
+
+                overlayCtx.fillStyle = color;
+                overlayCtx.font = '16px sans-serif';
+                const label = `${det.label} (${(det.score * 100).toFixed(1)}%)`;
+                overlayCtx.fillText(label, x, y > 20 ? y - 5 : 20);
+            });
+
+            // Actualizar la interfaz del asistente
+            if (detections.length === 0) {
+                labelContainerInspector.innerHTML = "No se detectaron objetos.";
+                setAuditorInspectorSpeech('No veo ninguna pieza. Intente de nuevo.', false, 'idle');
+            } else {
+                // Ahora muestra el nombre de la primera detección
+                const firstDetection = detections[0];
+                labelContainerInspector.innerHTML = `Detectado: <span style="color:var(--success-color);">${firstDetection.label}</span>`;
+                setAuditorInspectorSpeech(`He detectado un ${firstDetection.label}. ¡Correcto!`, true, 'ok');
+            }
+        }
+        
+        function toggleAnalysisStateInspector() {
+            if (!isWebcamActiveInspector) return;
+            isAnalyzingInspector = !isAnalyzingInspector;
+
+            if (isAnalyzingInspector) {
+                captureButtonInspector.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Análisis';
+                setAuditorInspectorSpeech('IA procesando en tiempo real...', true, 'thinking');
+                loopInspector(); 
+            } else {
+                captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Analizar Muestra';
+                setAuditorInspectorSpeech('Análisis detenido. Listo.', false, 'idle');
+                overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            }
+        }
+        
+        if (captureButtonInspector) {
+            captureButtonInspector.addEventListener('click', toggleAnalysisStateInspector);
+        }
+
+        document.addEventListener('DOMContentLoaded', initInspector);
+    </script>
+</body>
+</html>
