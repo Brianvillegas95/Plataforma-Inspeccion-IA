@@ -12,16 +12,15 @@
         .vision-panel #webcam-container {
             position: relative;
             background-color: #000;
+            min-height: 480px; /* Altura fija para el contenedor */
         }
-        #video-feed, #overlay-canvas {
+        #video-feed, #result-image {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-        }
-        #overlay-canvas {
-            z-index: 10;
+            object-fit: contain; /* Para que la imagen o video se ajuste */
         }
         .summary-list {
             list-style-type: none;
@@ -59,10 +58,7 @@
                 <h2 class="panel-title"><i class="fas fa-eye"></i> Inspección de Tapon 6800</h2>
                 <div id="webcam-container">
                     </div>
-                <div id="progress-bar-container" style="display:none;">
-                    <div id="progress-bar"></div>
-                </div>
-                <div class="label-container" id="label-container">Cargando modelo IA...</div>
+                <div class="label-container" id="label-container">Cargando sistema...</div>
                 <div class="error-message" id="error-container" style="display: none;"></div>
             </section>
 
@@ -70,14 +66,14 @@
                 <h3 class="panel-title"><i class="fas fa-list-ol"></i> Instrucciones</h3>
                 <h4>Instrucciones de Uso:</h4>
                 <ol>
-                    <li>Coloque las piezas a inspeccionar frente a la cámara.</li>
-                    <li>Presione "Analizar Muestra" para iniciar la inspección.</li>
-                    <li>El sistema evaluará el conjunto y mostrará el resultado.</li>
+                    <li>Encuadre las piezas con la cámara.</li>
+                    <li>Presione "Capturar y Analizar" para tomar la foto.</li>
+                    <li>Espere el resultado con los hallazgos.</li>
                 </ol>
 
                 <div class="action-buttons single-button-centered">
                     <button id="capture-button" class="button primary-action" disabled>
-                        <i class="fas fa-spinner fa-spin"></i> Cargando Modelo...
+                        <i class="fas fa-spinner fa-spin"></i> Iniciando Cámara...
                     </button>
                 </div>
 
@@ -104,7 +100,7 @@
         const MODELO_ONNX_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
         const NOMBRES_CLASES = ['Incompleto', 'Rebaba', 'Sin Defecto', 'Punto Alto'];
         const COLORES_CLASES = ['#FFA500', '#FF4500', '#2E8B57', '#FFD700'];
-        const UMBRAL_CONFIANZA = 0.25; // ***** CAMBIO CLAVE: BAJAMOS EL UMBRAL DE 0.5 A 0.25 *****
+        const UMBRAL_CONFIANZA = 0.25;
         const UMBRAL_IOU_NMS = 0.45;
 
         // --- REFERENCIAS A ELEMENTOS DEL DOM ---
@@ -119,13 +115,12 @@
             document.getElementById('currentYearInspector').textContent = new Date().getFullYear();
         }
 
-        // --- VARIABLES DE ESTADO Y DEL MODELO ---
+        // --- VARIABLES DE ESTADO ---
         let onnxSession;
-        let videoElement, overlayCanvas, overlayCtx;
-        let isWebcamActiveInspector = false;
-        let isAnalyzingInspector = false;
-        let typingTimeoutAuditorInspector;
+        let videoElement;
         let stream = null; 
+        let cameraCapabilities = {};
+        let videoTrack;
 
         // --- LÓGICA DEL ASISTENTE ---
         function setAuditorInspectorSpeech(message, isTypingEffect = false, status = 'idle') {
@@ -143,7 +138,7 @@
                 function typeCharacter() {
                     if (i < message.length) {
                         auditorBubbleSpanInspector.textContent += message.charAt(i); i++;
-                        typingTimeoutAuditorInspector = setTimeout(typeCharacter, 30); 
+                        setTimeout(typeCharacter, 30); 
                     }
                 }
                 typeCharacter();
@@ -153,9 +148,6 @@
         }
 
         // --- LÓGICA DE AJUSTES DE CÁMARA ---
-        let cameraCapabilities = {};
-        let videoTrack;
-
         async function applyCameraSetting(settingName, value) {
             if (!videoTrack || !videoTrack.applyConstraints) return;
             try {
@@ -171,37 +163,23 @@
             if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
             if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
             if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
-            if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
-                await applyCameraSetting('exposureMode', 'manual');
-                if (cameraCapabilities.exposureTime) {
-                    await applyCameraSetting('exposureTime', 78.125); 
-                }
-            }
-            if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('manual')) {
-                await applyCameraSetting('whiteBalanceMode', 'manual');
-                if (cameraCapabilities.colorTemperature) {
-                    await applyCameraSetting('colorTemperature', 6130);
-                }
-            }
         }
 
-        // --- LÓGICA DE IA CON ONNX y YOLOv8 ---
-        async function initInspector() {
+        // --- LÓGICA DE INICIALIZACIÓN ---
+        async function init() {
             setAuditorInspectorSpeech('Configurando cámara...', true, 'loading');
-            labelContainerInspector.innerHTML = "Configurando cámara...";
-            captureButtonInspector.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparando...';
-            captureButtonInspector.disabled = true;
-
+            labelContainerInspector.innerHTML = "Iniciando cámara...";
+            
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
 
             try {
-                // 1. INICIALIZAR CÁMARA PRIMERO
+                // 1. INICIALIZAR CÁMARA Y APLICAR AJUSTES
                 videoElement = document.createElement('video');
+                videoElement.setAttribute('id', 'video-feed');
                 videoElement.setAttribute('autoplay', '');
                 videoElement.setAttribute('playsinline', '');
-                videoElement.style.transform = "scaleX(-1)"; 
                 webcamContainerInspector.innerHTML = '';
                 webcamContainerInspector.appendChild(videoElement);
 
@@ -215,39 +193,29 @@
                 
                 await new Promise((resolve) => { videoElement.onloadedmetadata = resolve; });
                 
-                // 2. APLICAR AJUSTES DE CÁMARA
                 await applyFixedCameraSettings();
-                console.log("Ajustes de cámara aplicados.");
 
-                // 3. CARGAR MODELO ONNX
+                // 2. CARGAR MODELO ONNX
                 setAuditorInspectorSpeech('Cargando modelo IA...', false, 'loading');
                 labelContainerInspector.innerHTML = "Cargando modelo IA...";
                 onnxSession = await ort.InferenceSession.create(MODELO_ONNX_PATH);
-                console.log("Modelo ONNX cargado exitosamente.");
 
-                // 4. TERMINAR CONFIGURACIÓN
-                isWebcamActiveInspector = true;
-                overlayCanvas = document.createElement('canvas');
-                overlayCtx = overlayCanvas.getContext('2d');
-                webcamContainerInspector.appendChild(overlayCanvas);
-                overlayCanvas.width = videoElement.videoWidth;
-                overlayCanvas.height = videoElement.videoHeight;
-
-                labelContainerInspector.innerHTML = "IA Lista. Presione 'Analizar'.";
-                setAuditorInspectorSpeech('Sistema listo. Coloque la muestra.', true, 'idle');
+                // 3. HABILITAR BOTÓN
+                labelContainerInspector.innerHTML = "Sistema listo para capturar.";
+                setAuditorInspectorSpeech('Sistema listo. Encuadre las piezas.', true, 'idle');
                 captureButtonInspector.disabled = false;
-                captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Analizar Muestra';
+                captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Capturar y Analizar';
 
             } catch (error) {
                 console.error("Error al inicializar:", error);
                 let errMsg = `Error: ${error.message}`;
                 if (String(error).includes("onnx")) {
-                     errMsg = `Error al cargar el modelo: "${MODELO_ONNX_PATH}". Verifique la ruta y que el archivo no esté corrupto.`;
+                     errMsg = `Error al cargar el modelo: "${MODELO_ONNX_PATH}".`;
                 } else if (error.message && error.message.includes("getUserMedia")) {
                     errMsg = "Error de acceso a la cámara. Verifique los permisos.";
                 }
                 errorContainerInspector.innerText = errMsg; 
-                setAuditorInspectorSpeech('¡Error al iniciar IA!', false, 'error');
+                setAuditorInspectorSpeech('¡Error al iniciar!', false, 'error');
                 labelContainerInspector.innerHTML = `<span style='color:var(--error-color)'>Fallo en Inicialización</span>`;
                 captureButtonInspector.disabled = true;
                 captureButtonInspector.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
@@ -255,18 +223,30 @@
             }
         }
         
-        async function loopInspector() {
-            if (!isWebcamActiveInspector || !isAnalyzingInspector) return;
+        // --- FLUJO DE "CAPTURAR Y ANALIZAR" ---
+        async function captureAndAnalyze() {
+            if (!onnxSession || !videoElement) {
+                alert("El sistema no está listo. Por favor, espere.");
+                return;
+            }
+
+            captureButtonInspector.disabled = true;
+            captureButtonInspector.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando...';
+            setAuditorInspectorSpeech('Procesando imagen...', true, 'thinking');
+            labelContainerInspector.innerHTML = "Analizando la imagen capturada...";
+
+            const modelWidth = 1240; // CAMBIO: Ajustado a la resolución del modelo
+            const modelHeight = 1240; // CAMBIO: Ajustado a la resolución del modelo
+
+            // 1. Capturar la imagen en un canvas
+            const captureCanvas = document.createElement('canvas');
+            captureCanvas.width = modelWidth;
+            captureCanvas.height = modelHeight;
+            const captureCtx = captureCanvas.getContext('2d');
+            captureCtx.drawImage(videoElement, 0, 0, modelWidth, modelHeight);
             
-            const modelWidth = 640;
-            const modelHeight = 640;
-            const preprocessedCanvas = document.createElement('canvas');
-            preprocessedCanvas.width = modelWidth;
-            preprocessedCanvas.height = modelHeight;
-            const preprocessedCtx = preprocessedCanvas.getContext('2d');
-            preprocessedCtx.drawImage(videoElement, 0, 0, modelWidth, modelHeight);
-            
-            const imageData = preprocessedCtx.getImageData(0, 0, modelWidth, modelHeight);
+            // 2. Pre-procesar la imagen para el modelo
+            const imageData = captureCtx.getImageData(0, 0, modelWidth, modelHeight);
             const { data } = imageData;
             const float32Data = new Float32Array(3 * modelWidth * modelHeight);
             for (let i = 0; i < data.length; i += 4) {
@@ -279,22 +259,37 @@
             const tensor = new ort.Tensor('float32', float32Data, [1, 3, modelHeight, modelWidth]);
             const feeds = { 'images': tensor };
 
+            // 3. Ejecutar la inferencia
             const results = await onnxSession.run(feeds);
             
-            drawBoundingBoxes(results.output0);
+            // 4. Dibujar los resultados en la imagen capturada
+            const resultCanvas = document.createElement('canvas');
+            resultCanvas.width = videoElement.videoWidth;
+            resultCanvas.height = videoElement.videoHeight;
+            const resultCtx = resultCanvas.getContext('2d');
+            resultCtx.drawImage(videoElement, 0, 0, resultCanvas.width, resultCanvas.height);
+
+            drawBoundingBoxes(results.output0, resultCtx);
             
-            window.requestAnimationFrame(loopInspector);
+            // 5. Mostrar la imagen con los resultados
+            const resultImage = new Image();
+            resultImage.id = 'result-image';
+            resultImage.src = resultCanvas.toDataURL("image/jpeg");
+            webcamContainerInspector.innerHTML = ''; 
+            webcamContainerInspector.appendChild(resultImage); 
+
+            captureButtonInspector.disabled = false;
+            captureButtonInspector.innerHTML = '<i class="fas fa-redo"></i> Analizar de Nuevo';
         }
-        
+
+        // --- FUNCIONES DE SOPORTE PARA DIBUJO ---
         function nonMaxSuppression(boxes, scores, iouThreshold) {
             const indices = scores.map((_, i) => i);
             indices.sort((a, b) => scores[b] - scores[a]);
-
             const selectedIndices = [];
             while (indices.length > 0) {
                 const currentIndex = indices.shift();
                 selectedIndices.push(currentIndex);
-
                 const remainingIndices = [];
                 for (const index of indices) {
                     const iouValue = iou(boxes[currentIndex], boxes[index]);
@@ -318,7 +313,7 @@
             return interArea / (boxAArea + boxBArea - interArea);
         }
 
-        function drawBoundingBoxes(outputTensor) {
+        function drawBoundingBoxes(outputTensor, ctx) {
             const outputData = outputTensor.data;
             const numClasses = NOMBRES_CLASES.length;
             const numProposals = outputTensor.dims[2];
@@ -355,7 +350,6 @@
             
             const detections = selectedIndices.map(i => rawDetections[i]);
             
-            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
             let muestreoAprobado = true;
             let conteoClases = {};
             NOMBRES_CLASES.forEach(nombre => conteoClases[nombre] = 0);
@@ -367,28 +361,28 @@
                 }
 
                 const [x1, y1, x2, y2] = det.box;
-                const x_ratio = overlayCanvas.width / 640;
-                const y_ratio = overlayCanvas.height / 640;
+                const x_ratio = ctx.canvas.width / 1240; // CAMBIO: Ajustado a la resolución del modelo
+                const y_ratio = ctx.canvas.height / 1240; // CAMBIO: Ajustado a la resolución del modelo
                 const x = x1 * x_ratio;
                 const y = y1 * y_ratio;
                 const w = (x2 - x1) * x_ratio;
                 const h = (y2 - y1) * y_ratio;
                 const color = COLORES_CLASES[det.classId];
                 
-                overlayCtx.strokeStyle = color;
-                overlayCtx.lineWidth = 3;
-                overlayCtx.strokeRect(x, y, w, h);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x, y, w, h);
 
-                overlayCtx.fillStyle = color;
+                ctx.fillStyle = color;
                 const label = `${det.label} (${(det.score * 100).toFixed(0)}%)`;
-                overlayCtx.font = 'bold 16px sans-serif';
-                overlayCtx.fillText(label, x, y > 20 ? y - 5 : 20);
+                ctx.font = 'bold 16px sans-serif';
+                ctx.fillText(label, x, y > 20 ? y - 5 : 20);
             });
             
             let summaryHtml = '';
             if (detections.length === 0) {
-                summaryHtml = "No se detectaron piezas.";
-                setAuditorInspectorSpeech('No veo ninguna pieza. Intente de nuevo.', false, 'idle');
+                summaryHtml = "No se encontraron hallazgos en la muestra.";
+                setAuditorInspectorSpeech('No encontré hallazgos. ¡Todo bien!', false, 'ok');
             } else {
                 let statusMessage, statusColor, auditorStatus, auditorMessage;
 
@@ -419,26 +413,16 @@
             labelContainerInspector.innerHTML = summaryHtml;
         }
         
-        function toggleAnalysisStateInspector() {
-            if (!isWebcamActiveInspector) return;
-            isAnalyzingInspector = !isAnalyzingInspector;
-
-            if (isAnalyzingInspector) {
-                captureButtonInspector.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Análisis';
-                setAuditorInspectorSpeech('Analizando la muestra...', true, 'thinking');
-                loopInspector(); 
+        // --- ASIGNACIÓN DE EVENTOS ---
+        captureButtonInspector.addEventListener('click', () => {
+            if (captureButtonInspector.innerHTML.includes('Analizar de Nuevo')) {
+                init(); // Reinicia el proceso para mostrar el video en vivo de nuevo
             } else {
-                captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Analizar Muestra';
-                setAuditorInspectorSpeech('Análisis detenido. Listo para una nueva muestra.', false, 'idle');
-                overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                captureAndAnalyze();
             }
-        }
+        });
         
-        if (captureButtonInspector) {
-            captureButtonInspector.addEventListener('click', toggleAnalysisStateInspector);
-        }
-
-        document.addEventListener('DOMContentLoaded', initInspector);
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
