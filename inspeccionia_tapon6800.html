@@ -104,7 +104,7 @@
         const MODELO_ONNX_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
         const NOMBRES_CLASES = ['Incompleto', 'Rebaba', 'Sin Defecto', 'Punto Alto'];
         const COLORES_CLASES = ['#FFA500', '#FF4500', '#2E8B57', '#FFD700'];
-        const UMBRAL_CONFIANZA = 0.5;
+        const UMBRAL_CONFIANZA = 0.25; // ***** CAMBIO CLAVE: BAJAMOS EL UMBRAL DE 0.5 A 0.25 *****
         const UMBRAL_IOU_NMS = 0.45;
 
         // --- REFERENCIAS A ELEMENTOS DEL DOM ---
@@ -317,16 +317,11 @@
             const boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1]);
             return interArea / (boxAArea + boxBArea - interArea);
         }
-        
-        // --- FUNCIÓN DE DIBUJO CON DIAGNÓSTICO ---
+
         function drawBoundingBoxes(outputTensor) {
-            console.log("--- Nuevo Frame ---"); // Informa cada vez que se analiza una imagen
             const outputData = outputTensor.data;
             const numClasses = NOMBRES_CLASES.length;
             const numProposals = outputTensor.dims[2];
-
-            // DEBUG: Mostrar información del tensor de salida
-            console.log("Dimensiones del Tensor de Salida:", outputTensor.dims);
 
             const rawDetections = [];
             for (let i = 0; i < numProposals; i++) {
@@ -354,26 +349,10 @@
                 }
             }
 
-            // DEBUG: Ver cuántas detecciones crudas se encontraron ANTES de filtrar
-            console.log(`Detecciones crudas (confianza > ${UMBRAL_CONFIANZA}):`, rawDetections.length);
-            if (rawDetections.length > 0) {
-                console.log("Ejemplo de la primera detección cruda:", rawDetections[0]);
-            }
-
-            if (rawDetections.length === 0) {
-                overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-                labelContainerInspector.innerHTML = "Analizando... (No se detectan objetos)";
-                setAuditorInspectorSpeech('No veo ninguna pieza. Intente de nuevo.', false, 'idle');
-                return; // Salir si no hay nada que procesar
-            }
-
             const boxes = rawDetections.map(d => d.box);
             const scores = rawDetections.map(d => d.score);
             const selectedIndices = nonMaxSuppression(boxes, scores, UMBRAL_IOU_NMS);
             
-            // DEBUG: Ver cuántas detecciones quedaron DESPUÉS de filtrar
-            console.log("Detecciones finales después de filtrar (NMS):", selectedIndices.length);
-
             const detections = selectedIndices.map(i => rawDetections[i]);
             
             overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
