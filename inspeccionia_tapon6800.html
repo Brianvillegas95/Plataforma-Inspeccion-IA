@@ -105,7 +105,7 @@
         const NOMBRES_CLASES = ['Incompleto', 'Rebaba', 'Sin Defecto', 'Punto Alto'];
         const COLORES_CLASES = ['#FFA500', '#FF4500', '#2E8B57', '#FFD700'];
         const UMBRAL_CONFIANZA = 0.5;
-        const UMBRAL_IOU_NMS = 0.45; // Umbral para la Supresión de No Máximos
+        const UMBRAL_IOU_NMS = 0.45;
 
         // --- REFERENCIAS A ELEMENTOS DEL DOM ---
         const errorContainerInspector = document.getElementById('error-container');
@@ -125,7 +125,7 @@
         let isWebcamActiveInspector = false;
         let isAnalyzingInspector = false;
         let typingTimeoutAuditorInspector;
-        let stream = null; // Variable para controlar el stream de la cámara
+        let stream = null; 
 
         // --- LÓGICA DEL ASISTENTE ---
         function setAuditorInspectorSpeech(message, isTypingEffect = false, status = 'idle') {
@@ -152,17 +152,17 @@
             }
         }
 
-        // --- LÓGICA DE AJUSTES DE CÁMARA ---
+        // --- LÓGICA DE AJUSTES DE CÁMARA (LÓGICA MEJORADA DE VALIDADOR_COLOR) ---
         let cameraCapabilities = {};
         let videoTrack;
 
-        async function applyCameraSetting(setting, value) {
-            if (!videoTrack || typeof videoTrack.applyConstraints !== 'function') return;
+        async function applyCameraSetting(settingName, value) {
+            if (!videoTrack || !videoTrack.applyConstraints) return;
             try {
-                const constraints = { advanced: [{ [setting]: value }] };
-                await videoTrack.applyConstraints(constraints);
-            } catch (error) {
-                console.error(`Error al aplicar el ajuste '${setting}':`, error);
+                const constraint = { [settingName]: value };
+                await videoTrack.applyConstraints({ advanced: [constraint] });
+            } catch (err) {
+                console.error(`Error al aplicar ${settingName} = ${value}: `, err);
             }
         }
 
@@ -171,26 +171,38 @@
             if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
             if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
             if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
+            if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
+                await applyCameraSetting('exposureMode', 'manual');
+                if (cameraCapabilities.exposureTime) {
+                    await applyCameraSetting('exposureTime', 78.125); 
+                }
+            }
+            if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('manual')) {
+                await applyCameraSetting('whiteBalanceMode', 'manual');
+                if (cameraCapabilities.colorTemperature) {
+                    await applyCameraSetting('colorTemperature', 6130);
+                }
+            }
         }
 
-        // --- LÓGICA DE IA CON ONNX y YOLOv8 ---
+        // --- LÓGICA DE IA CON ONNX y YOLOv8 (ESTRUCTURA CORREGIDA) ---
         async function initInspector() {
             setAuditorInspectorSpeech('Configurando cámara...', true, 'loading');
             labelContainerInspector.innerHTML = "Configurando cámara...";
             captureButtonInspector.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparando...';
             captureButtonInspector.disabled = true;
 
-            // Detener stream anterior si existe, para forzar reinicio en cada carga
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
 
             try {
+                // 1. INICIALIZAR CÁMARA PRIMERO
                 videoElement = document.createElement('video');
                 videoElement.setAttribute('autoplay', '');
                 videoElement.setAttribute('playsinline', '');
                 videoElement.style.transform = "scaleX(-1)"; 
-                webcamContainerInspector.innerHTML = ''; // Limpiar contenedor
+                webcamContainerInspector.innerHTML = '';
                 webcamContainerInspector.appendChild(videoElement);
 
                 stream = await navigator.mediaDevices.getUserMedia({ 
@@ -203,12 +215,17 @@
                 
                 await new Promise((resolve) => { videoElement.onloadedmetadata = resolve; });
                 
+                // 2. APLICAR AJUSTES DE CÁMARA
                 await applyFixedCameraSettings();
+                console.log("Ajustes de cámara aplicados.");
 
+                // 3. CARGAR MODELO ONNX
                 setAuditorInspectorSpeech('Cargando modelo IA...', false, 'loading');
                 labelContainerInspector.innerHTML = "Cargando modelo IA...";
                 onnxSession = await ort.InferenceSession.create(MODELO_ONNX_PATH);
+                console.log("Modelo ONNX cargado exitosamente.");
 
+                // 4. TERMINAR CONFIGURACIÓN
                 isWebcamActiveInspector = true;
                 overlayCanvas = document.createElement('canvas');
                 overlayCtx = overlayCanvas.getContext('2d');
@@ -225,7 +242,7 @@
                 console.error("Error al inicializar:", error);
                 let errMsg = `Error: ${error.message}`;
                 if (String(error).includes("onnx")) {
-                     errMsg = `Error al cargar el modelo: "${MODELO_ONNX_PATH}". Verifique la ruta.`;
+                     errMsg = `Error al cargar el modelo: "${MODELO_ONNX_PATH}". Verifique la ruta y que el archivo no esté corrupto.`;
                 } else if (error.message && error.message.includes("getUserMedia")) {
                     errMsg = "Error de acceso a la cámara. Verifique los permisos.";
                 }
@@ -269,7 +286,6 @@
             window.requestAnimationFrame(loopInspector);
         }
         
-        // --- FUNCIÓN DE SUPRESIÓN DE NO MÁXIMOS (NMS) ---
         function nonMaxSuppression(boxes, scores, iouThreshold) {
             const indices = scores.map((_, i) => i);
             indices.sort((a, b) => scores[b] - scores[a]);
@@ -302,7 +318,6 @@
             return interArea / (boxAArea + boxBArea - interArea);
         }
 
-        // --- FUNCIÓN DE DIBUJO ACTUALIZADA CON NMS ---
         function drawBoundingBoxes(outputTensor) {
             const outputData = outputTensor.data;
             const numClasses = NOMBRES_CLASES.length;
