@@ -244,8 +244,8 @@
         async function loopInspector() {
             if (!isWebcamActiveInspector || !isAnalyzingInspector) return;
             
-            const modelWidth = 640;
-            const modelHeight = 640;
+            const modelWidth = 1280;
+            const modelHeight = 1280;
             const preprocessedCanvas = document.createElement('canvas');
             preprocessedCanvas.width = modelWidth;
             preprocessedCanvas.height = modelHeight;
@@ -315,8 +315,8 @@
                 }
 
                 const [x_center, y_center, width, height] = det.box;
-                const x_ratio = overlayCanvas.width / 640;
-                const y_ratio = overlayCanvas.height / 640;
+                const x_ratio = overlayCanvas.width / 1280;
+                const y_ratio = overlayCanvas.height / 1280;
                 const x = (x_center - width / 2) * x_ratio;
                 const y = (y_center - height / 2) * y_ratio;
                 const w = width * x_ratio;
