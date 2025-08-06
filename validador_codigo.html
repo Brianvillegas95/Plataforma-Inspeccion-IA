@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código y Etiqueta - Grupo Azor</title>
+    <title>Paso 1: Lector de Código - Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
@@ -33,14 +33,14 @@
         <main class="main-content-grid"> 
             
             <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas fa-barcode"></i> Validador de Código y Etiqueta</h2>
+                <h2 class="panel-title"><i class="fas fa-barcode"></i> Lector de Código de Barras</h2>
                 
                 <div id="display-container" class="display-container-placeholder">
-                    <p>Iniciando cámara...</p>
+                    <p>Sube una imagen para leer el código de barras.</p>
                 </div>
 
                 <div class="label-container" id="status-container">
-                    Cargando sistema...
+                    Esperando imagen...
                 </div>
             </section>
 
@@ -51,13 +51,8 @@
                     <div class="form-group">
                         <label for="producto-select">1. Seleccione el Producto Correcto:</label>
                         <select id="producto-select" disabled>
-                            <option>Cargando...</option>
+                            <option>No disponible en este paso</option>
                         </select>
-                    </div>
-                    
-                    <div class="imagen-referencia-container">
-                        <p>Imagen de Referencia:</p>
-                        <img id="imagen-referencia" src="imagenes/placeholder.png" alt="Imagen del producto seleccionado">
                     </div>
                 </div>
 
@@ -70,7 +65,6 @@
                         <i class="fas fa-upload"></i> Subir Archivo
                     </label>
                     <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
-
                 </div>
 
                 <div id="auditor-section"> 
@@ -80,7 +74,7 @@
                     </div>
                     
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
-                        <span>Iniciando sistema...</span>
+                        <span>¡Hola! Sube una imagen para empezar.</span>
                     </div>
                 </div>
             </aside>
@@ -91,257 +85,80 @@
         </footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/zxing.min.js"></script>
+
     <script type="text/javascript">
+        // Actualizar el año en el pie de página
         if(document.getElementById('currentYear')) { 
             document.getElementById('currentYear').textContent = new Date().getFullYear();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             
-            const productoSelect = document.getElementById('producto-select');
-            const imagenReferencia = document.getElementById('imagen-referencia');
-            const statusContainer = document.getElementById('status-container');
-            const actionButton = document.getElementById('action-button');
+            // Referencias a los elementos HTML
             const uploadButtonInput = document.getElementById('upload-image-input');
-            const auditorBubble = document.querySelector('#auditor-message-bubble span');
             const displayContainer = document.getElementById('display-container');
-            
-            let listaDeProductos = []; 
-            let videoElement; 
+            const statusContainer = document.getElementById('status-container');
+            const auditorBubble = document.querySelector('#auditor-message-bubble span');
 
-            // Pega aquí el ID de la hoja de cálculo donde quieres guardar los registros.
-            const REGISTRO_SHEET_ID = 'AQUI_VA_EL_ID_DE_TU_HOJA_DE_REGISTRO';
-            
-            // --- CAMBIO PLAN B ---
-            const MAX_IMAGE_DIMENSION = 800; // Reducimos la dimensión máxima
-            const IMAGE_QUALITY = 0.7;       // Reducimos la calidad de compresión
+            // --- CÓDIGO CORREGIDO Y ROBUSTO ---
 
-            async function cargarProductos() {
-                statusContainer.textContent = 'Cargando lista de productos...';
-                if(auditorBubble) auditorBubble.textContent = 'Contactando base de datos...';
-                
-                try {
-                    const respuesta = await fetch('/.netlify/functions/leer-sheet-privada');
-                    if (!respuesta.ok) throw new Error('Error de conexión con el robot de lectura.');
+            // Esta función se activa cuando el usuario selecciona un archivo
+            const handleImageUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
 
-                    const datos = await respuesta.json();
-                    listaDeProductos = datos; 
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imageUrl = e.target.result;
                     
-                    productoSelect.innerHTML = '<option value="">-- Seleccione un producto --</option>';
-                    datos.forEach((producto, index) => {
-                        const option = document.createElement('option');
-                        option.textContent = producto[1]; // Columna B: NOMBRE_PRODUCTO
-                        option.value = index; 
-                        productoSelect.appendChild(option);
-                    });
-
-                    productoSelect.disabled = false;
-                    if(auditorBubble) auditorBubble.textContent = '¡Sistema listo! Por favor, selecciona un producto.';
-
-                } catch (error) {
-                    console.error('Error al cargar productos:', error);
-                    statusContainer.textContent = 'Error: No se pudo cargar la lista de productos.';
-                    if(auditorBubble) auditorBubble.textContent = '¡Oh no! No pude cargar la lista de productos.';
-                }
-            }
-
-            async function iniciarCamara() {
-                try {
-                    if (videoElement && videoElement.srcObject) {
-                        videoElement.srcObject.getTracks().forEach(track => track.stop());
-                    }
-                    statusContainer.textContent = 'Accediendo a la cámara...';
+                    // Mostramos el estado "Procesando"
+                    statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
+                    auditorBubble.textContent = "Analizando la imagen, un momento...";
                     
-                    videoElement = document.createElement('video');
-                    videoElement.setAttribute('playsinline', '');
-                    videoElement.setAttribute('autoplay', '');
-                    videoElement.setAttribute('muted', '');
-                    videoElement.style.width = '100%';
-
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                    videoElement.srcObject = stream;
+                    // Creamos un elemento de imagen en memoria
+                    const imageElement = document.createElement('img');
                     
-                    displayContainer.innerHTML = '';
-                    displayContainer.appendChild(videoElement);
-                    
-                    statusContainer.textContent = 'Cámara activa. Seleccione un producto.';
-
-                } catch (err) {
-                    console.error("Error al iniciar la cámara: ", err);
-                    statusContainer.textContent = "Error: No se pudo acceder a la cámara.";
-                    displayContainer.innerHTML = `<p style="color:red; padding: 1rem;">Error de cámara. Revisa los permisos.</p>`;
-                }
-            }
-
-            if (productoSelect) {
-                productoSelect.addEventListener('change', () => {
-                    const selectedIndex = productoSelect.value;
-                    actionButton.disabled = !selectedIndex;
-
-                    if (selectedIndex !== "" && listaDeProductos[selectedIndex]) {
-                        const urlImagen = listaDeProductos[selectedIndex][3]; // Columna D: URL_IMAGEN
-                        if (imagenReferencia) {
-                           imagenReferencia.src = urlImagen ? urlImagen : 'imagenes/placeholder.png';
-                        }
-                    } else if (imagenReferencia) {
-                        imagenReferencia.src = 'imagenes/placeholder.png';
-                    }
-                });
-            }
-            
-            if (actionButton) {
-                actionButton.addEventListener('click', () => {
-                    if (!videoElement || !videoElement.srcObject?.active) {
-                        alert('La cámara no está activa. Refresca la página o revisa los permisos.');
-                        return;
-                    }
-                    
-                    const canvas = document.createElement('canvas');
-                    const videoWidth = videoElement.videoWidth;
-                    const videoHeight = videoElement.videoHeight;
-
-                    let newWidth, newHeight;
-                    if (videoWidth > videoHeight) {
-                        newWidth = MAX_IMAGE_DIMENSION;
-                        newHeight = (videoHeight / videoWidth) * MAX_IMAGE_DIMENSION;
-                    } else {
-                        newHeight = MAX_IMAGE_DIMENSION;
-                        newWidth = (videoWidth / videoHeight) * MAX_IMAGE_DIMENSION;
-                    }
-
-                    canvas.width = newWidth;
-                    canvas.height = newHeight;
-                    const context = canvas.getContext('2d');
-                    context.drawImage(videoElement, 0, 0, newWidth, newHeight);
-                    
-                    const imagenBase64 = canvas.toDataURL('image/jpeg', IMAGE_QUALITY); // <-- CAMBIO PLAN B
-                    
-                    analizarEtiquetaConIA(imagenBase64);
-                });
-            }
-
-            if (uploadButtonInput) {
-                uploadButtonInput.addEventListener('change', (event) => {
-                    const file = event.target.files[0];
-                    if (!file) return;
-
-                    if (!productoSelect.value) {
-                        alert("Por favor, seleccione un producto primero antes de subir una imagen.");
-                        uploadButtonInput.value = "";
-                        return;
-                    }
-
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const img = document.createElement('img');
-                        img.onload = () => {
-                            const canvas = document.createElement('canvas');
-                            const imgWidth = img.width;
-                            const imgHeight = img.height;
-
-                            let newWidth, newHeight;
-                            if (imgWidth > imgHeight) {
-                                newWidth = MAX_IMAGE_DIMENSION;
-                                newHeight = (imgHeight / imgWidth) * MAX_IMAGE_DIMENSION;
-                            } else {
-                                newHeight = MAX_IMAGE_DIMENSION;
-                                newWidth = (imgWidth / imgHeight) * MAX_IMAGE_DIMENSION;
-                            }
-
-                            canvas.width = newWidth;
-                            canvas.height = newHeight;
-                            const context = canvas.getContext('2d');
-                            context.drawImage(img, 0, 0, newWidth, newHeight);
-
-                            const imagenBase64Redimensionada = canvas.toDataURL('image/jpeg', IMAGE_QUALITY); // <-- CAMBIO PLAN B
-
-                            const displayImg = document.createElement('img');
-                            displayImg.src = imagenBase64Redimensionada;
-                            displayImg.style.width = '100%';
-                            displayContainer.innerHTML = '';
-                            displayContainer.appendChild(displayImg);
-                            
-                            analizarEtiquetaConIA(imagenBase64Redimensionada);
-                        };
-                        img.src = e.target.result;
+                    // Cuando el elemento de imagen haya cargado la fuente...
+                    imageElement.onload = () => {
+                        // ...lo mostramos en el contenedor y lo pasamos al decodificador.
+                        // Esta es la forma más robusta para evitar problemas de seguridad del navegador.
+                        displayContainer.innerHTML = '';
+                        imageElement.style.width = '100%';
+                        imageElement.style.height = 'auto';
+                        displayContainer.appendChild(imageElement);
+                        
+                        decodeBarcode(imageElement); // Le pasamos el elemento, no la URL de la imagen
                     };
-                    reader.readAsDataURL(file);
-                });
-            }
+
+                    // Le asignamos la imagen que subió el usuario como fuente
+                    imageElement.src = imageUrl;
+                };
+                reader.readAsDataURL(file);
+            };
             
-            async function analizarEtiquetaConIA(imagenBase64) {
-                statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando con IA... <i class="fas fa-spinner fa-spin"></i></div>`;
-                actionButton.disabled = true;
-                uploadButtonInput.disabled = true;
-                if(auditorBubble) auditorBubble.textContent = "Procesando imagen, un momento...";
+            uploadButtonInput.addEventListener('change', handleImageUpload);
 
-                try {
-                    const respuesta = await fetch('/.netlify/functions/analizar-etiqueta', {
-                        method: 'POST',
-                        body: JSON.stringify({ imagenBase64 })
+            // La función ahora recibe un elemento de imagen HTML
+            const decodeBarcode = (imageElement) => {
+                const codeReader = new zxing.BrowserMultiFormatReader();
+                console.log('Iniciando decodificación desde el elemento de imagen...');
+
+                // Usamos "decodeFromImageElement", que es más confiable para archivos locales
+                codeReader.decodeFromImageElement(imageElement)
+                    .then(result => {
+                        console.log('Código encontrado:', result);
+                        const barcodeText = result.getText();
+                        
+                        statusContainer.innerHTML = `<div class="veredicto-info">Código Leído: <strong>${barcodeText}</strong></div>`;
+                        auditorBubble.textContent = `¡Detecté un código! Es: ${barcodeText}`;
+                    })
+                    .catch(err => {
+                        console.error('Error de decodificación:', err);
+                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras.</div>`;
+                        auditorBubble.textContent = "¡Vaya! No pude encontrar un código. Intenta con una imagen más clara.";
                     });
-                    if (!respuesta.ok) throw new Error('El robot analizador no respondió correctamente.');
-
-                    const resultadoIA = await respuesta.json();
-                    const textoDetectado = (resultadoIA.textoDetectado || '').toUpperCase();
-
-                    const productoSeleccionado = listaDeProductos[productoSelect.value];
-                    const codigoDeBarrasEsperado = productoSeleccionado[0].toUpperCase();
-                    const palabrasClaveEsperadas = productoSeleccionado[2].toUpperCase().split(',').map(p => p.trim());
-
-                    let errores = [];
-                    if (!textoDetectado.includes(codigoDeBarrasEsperado)) {
-                        errores.push("El código de barras no coincide.");
-                    }
-                    palabrasClaveEsperadas.forEach(palabra => {
-                        if (palabra && !textoDetectado.includes(palabra)) {
-                            errores.push(`Falta la palabra clave: "${palabra}".`);
-                        }
-                    });
-
-                    if (errores.length === 0) {
-                        statusContainer.innerHTML = `<div class="veredicto aprobado"><i class="fas fa-check-circle"></i> APROBADO</div>`;
-                        if(auditorBubble) auditorBubble.textContent = "¡Excelente! La etiqueta es correcta.";
-                        guardarRegistro('APROBADO', productoSeleccionado[1], textoDetectado);
-                    } else {
-                        statusContainer.innerHTML = `<div class="veredicto rechazado"><i class="fas fa-times-circle"></i> RECHAZADO</div><p style="text-align: left; margin-top: 10px;">${errores.join('<br>')}</p>`;
-                        if(auditorBubble) auditorBubble.textContent = "¡Atención! Se encontró un error en la etiqueta.";
-                        guardarRegistro('RECHAZADO', productoSeleccionado[1], textoDetectado, errores.join(' '));
-                    }
-
-                } catch (error) {
-                    console.error("Error en el análisis:", error);
-                    statusContainer.innerHTML = `<div class="veredicto rechazado">Error en Análisis</div>`;
-                    if(auditorBubble) auditorBubble.textContent = "¡Uhm! Hubo un problema con el análisis.";
-                } finally {
-                    actionButton.disabled = false;
-                    uploadButtonInput.disabled = false;
-                }
-            }
-
-            async function guardarRegistro(status, nombreProducto, textoLeido, detalleError = 'N/A') {
-                if (!REGISTRO_SHEET_ID || REGISTRO_SHEET_ID === 'AQUI_VA_EL_ID_DE_TU_HOJA_DE_REGISTRO') {
-                    console.warn("El ID de la hoja de registro no está configurado. No se guardará el log.");
-                    return;
-                }
-                const timestamp = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
-                const datosParaSheet = [timestamp, status, nombreProducto, textoLeido.substring(0, 500), detalleError];
-                
-                try {
-                    await fetch('/.netlify/functions/escribir-en-sheet', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            hojaId: REGISTRO_SHEET_ID,
-                            datos: datosParaSheet
-                        })
-                    });
-                } catch (error) {
-                    console.error("No se pudo guardar el registro:", error);
-                }
-            }
-            
-            cargarProductos();
-            iniciarCamara();
+            };
         });
     </script>
 </body>
