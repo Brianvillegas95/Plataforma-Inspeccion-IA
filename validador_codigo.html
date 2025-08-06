@@ -62,7 +62,7 @@
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
-                        <span>¡Hola! Listo para analizar con el motor ZBar.</span>
+                        <span>¡Hola! Listo para analizar con la librería local.</span>
                     </div>
                 </div>
             </aside>
@@ -72,13 +72,11 @@
         </footer>
     </div>
 
-    <script type="module">
-        import * as zbar from 'https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/index.js';
-
-        // --- AJUSTE CRÍTICO DE CONFIGURACIÓN DE NIVEL DE PRODUCCIÓN ---
-        // Le indicamos a la librería la URL base para encontrar sus archivos .wasm
-        // Esto soluciona los errores 404 (Not Found).
-        zbar.locateFile = (path) => `https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/${path}`;
+    <script src="libreria/index.js"></script>
+    
+    <script>
+        // La librería, al ser cargada de esta forma, crea un objeto global "zbar".
+        const { scan } = zbar;
 
         function iniciarApp() {
             if(document.getElementById('currentYear')) { 
@@ -98,7 +96,7 @@
                 reader.onload = (e) => {
                     const imageUrl = e.target.result;
                     statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-                    auditorBubble.textContent = "Analizando con el motor profesional ZBar/WASM...";
+                    auditorBubble.textContent = "Analizando con la librería local...";
                     const imageElement = new Image();
                     imageElement.onload = () => {
                         displayContainer.innerHTML = '';
@@ -122,30 +120,20 @@
                     const context = canvas.getContext('2d');
                     context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
                     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                    console.log(`Imagen preparada para ZBar: ${imageData.width}x${imageData.height}`);
 
-                    const symbols = await zbar.scan(imageData, 'EAN-13');
+                    const symbols = await scan(imageData, 'EAN-13');
 
                     if (symbols.length > 0) {
                         const barcode = symbols[0];
                         const barcodeText = barcode.decode();
-                        console.log('¡ÉXITO! Código encontrado por ZBar:', barcodeText);
-                        
-                        if (barcodeText.startsWith('750')) {
-                             statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Válido (MX): <strong>${barcodeText}</strong></div>`;
-                             auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
-                        } else {
-                             statusContainer.innerHTML = `<div class="veredicto-info">Código Leído (No-MX): <strong>${barcodeText}</strong></div>`;
-                             auditorBubble.textContent = `Detecté un código, pero no es de México: ${barcodeText}`;
-                        }
-
+                        statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Válido (MX): <strong>${barcodeText}</strong></div>`;
+                        auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
                     } else {
-                        console.warn('ZBar no encontró ningún código de barras.');
                         statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
-                        auditorBubble.textContent = "El motor ZBar no pudo encontrar un código. Intente con una foto más directa y sin reflejos.";
+                        auditorBubble.textContent = "El motor no pudo encontrar un código.";
                     }
                 } catch (err) {
-                    console.error('Error catastrófico en el pipeline de decodificación:', err); 
+                    console.error('Error en pipeline de decodificación:', err); 
                     statusContainer.innerHTML = `<div class="veredicto-rechazado">Error en el sistema de lectura.</div>`;
                     auditorBubble.textContent = "Ocurrió un error inesperado en el motor de análisis.";
                 }
