@@ -8,27 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body class="inspector-body">
-    
-    <script>
-        fetch('lector-v2.js')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error de red - Estado: ${response.status}`);
-                }
-                return response.blob();
-            })
-            .then(blob => {
-                console.log(`%cVERIFICACIÓN DE TAMAÑO:`, 'color: green; font-weight: bold; font-size: 1.2em;');
-                console.log(`El archivo 'lector-v2.js' que recibió el navegador pesa: ${blob.size} bytes.`);
-                console.log(`El tamaño esperado (local) es: 335988 bytes.`);
-                if (blob.size < 300000) {
-                    console.error("PRUEBA DEFINITIVA: El archivo en el servidor está incompleto.");
-                } else {
-                    console.log("%cEl tamaño del archivo en el servidor es CORRECTO.", 'color: green;');
-                }
-            })
-            .catch(error => console.error('Error durante la verificación del archivo:', error));
-    </script>
     <div class="app-container">
         <header class="app-header">
             <div class="logo-container">
@@ -129,14 +108,15 @@
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
             const decodeBarcode = (imageElement) => {
+                // CORRECCIÓN: Usamos "ZXing" con Z mayúscula
                 const hints = new Map();
-                const formats = [zxing.BarcodeFormat.EAN_13];
-                hints.set(zxing.DecodeHintType.POSSIBLE_FORMATS, formats);
-                hints.set(zxing.DecodeHintType.TRY_HARDER, true);
+                const formats = [ZXing.BarcodeFormat.EAN_13];
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
 
-                const codeReader = new zxing.BrowserMultiFormatReader(hints);
+                const codeReader = new ZXing.BrowserMultiFormatReader(hints);
                 
-                console.log('Iniciando decodificación con el archivo correcto...');
+                console.log('Iniciando decodificación...');
 
                 codeReader.decodeFromImageElement(imageElement)
                     .then(result => {
@@ -148,12 +128,12 @@
                     .catch(err => {
                         console.error('Error de decodificación:', err);
                         statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras.</div>`;
-                        auditorBubble.textContent = "¡Vaya! Aún no pude encontrar el código. Intenta con una foto más derecha y con mejor luz.";
+                        auditorBubble.textContent = "¡Vaya! No pude encontrar el código. Intenta con una foto más derecha y con mejor luz.";
                     });
             };
         }
     </script>
-
+    
     <script src="lector-v2.js" onload="iniciarApp()"></script>
 
 </body>
