@@ -78,15 +78,15 @@
         </footer>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/zxing.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/zxing.min.js" onload="iniciarApp()"></script>
 
     <script type="text/javascript">
-        if(document.getElementById('currentYear')) { 
-            document.getElementById('currentYear').textContent = new Date().getFullYear();
-        }
+        // HEMOS MOVIDO TODO EL CÓDIGO DENTRO DE ESTA FUNCIÓN
+        function iniciarApp() {
+            if(document.getElementById('currentYear')) { 
+                document.getElementById('currentYear').textContent = new Date().getFullYear();
+            }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            
             const uploadButtonInput = document.getElementById('upload-image-input');
             const displayContainer = document.getElementById('display-container');
             const statusContainer = document.getElementById('status-container');
@@ -117,24 +117,13 @@
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
             const decodeBarcode = (imageElement) => {
-                // --- INICIO DE LA CORRECCIÓN ---
-
-                // 1. Creamos un mapa de "pistas" para el lector.
                 const hints = new Map();
-                
-                // 2. Le decimos los formatos exactos que queremos buscar.
-                // En este caso, solo EAN_13.
                 const formats = [zxing.BarcodeFormat.EAN_13];
                 hints.set(zxing.DecodeHintType.POSSIBLE_FORMATS, formats);
-                
-                // 3. Le pedimos que se esfuerce más en el análisis.
                 hints.set(zxing.DecodeHintType.TRY_HARDER, true);
 
-                // 4. Creamos el lector y le pasamos las pistas.
                 const codeReader = new zxing.BrowserMultiFormatReader(hints);
                 
-                // --- FIN DE LA CORRECCIÓN ---
-
                 console.log('Iniciando decodificación con pistas...');
 
                 codeReader.decodeFromImageElement(imageElement)
@@ -150,7 +139,7 @@
                         auditorBubble.textContent = "¡Vaya! Aún no pude encontrar el código. Intenta con una foto más derecha y con mejor luz.";
                     });
             };
-        });
+        }
     </script>
 </body>
 </html>
