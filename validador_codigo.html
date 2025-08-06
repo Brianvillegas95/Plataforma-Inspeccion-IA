@@ -73,17 +73,13 @@
     </div>
 
     <script src="zbar.js"></script>
-    <script src="zbar.wasm.js"></script>
 
     <script>
-        // Esta variable 'ready' es una Promesa que se crea en zbar.js
-        // y se resuelve cuando el módulo WASM está compilado y listo.
+        // La promesa 'ready' viene de zbar.js y se resuelve cuando todo está listo.
         ready.then(function(zbarInstance) {
             console.log("Motor ZBar/WASM inicializado y listo.");
-            // Una vez listo, pasamos la instancia a nuestra aplicación.
             iniciarApp(zbarInstance);
         }).catch(err => {
-            // Manejo de errores si el WASM no carga
             console.error("Error fatal al inicializar ZBar:", err);
             const statusContainer = document.getElementById('status-container');
             const auditorBubble = document.querySelector('#auditor-message-bubble span');
@@ -91,17 +87,16 @@
             auditorBubble.textContent = "No pude iniciar el motor de análisis. Revisa la consola.";
         });
 
-        // Modificamos la función para que reciba la instancia del escáner
         function iniciarApp(scanner) {
             const uploadButtonInput = document.getElementById('upload-image-input');
             const uploadLabel = document.getElementById('upload-label');
             uploadButtonInput.disabled = false;
-            uploadLabel.classList.remove('is-disabled');
+            uploadLabel.classList.remove('is-disabled'); // ¡Esta línea activará el botón!
 
             const statusContainer = document.getElementById('status-container');
             const auditorBubble = document.querySelector('#auditor-message-bubble span');
             statusContainer.textContent = "Esperando imagen...";
-            auditorBubble.textContent = "¡Hola! Sube una imagen para empezar.";
+            auditorBubble.textContent = "¡Listo! Sube una imagen para empezar.";
 
             if(document.getElementById('currentYear')) { 
                 document.getElementById('currentYear').textContent = new Date().getFullYear();
@@ -112,12 +107,11 @@
             const handleImageUpload = (event) => {
                 const file = event.target.files[0];
                 if (!file) return;
-
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const imageUrl = e.target.result;
                     statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-                    auditorBubble.textContent = "Analizando con la librería local...";
+                    auditorBubble.textContent = "Analizando...";
                     const imageElement = new Image();
                     imageElement.onload = () => {
                         displayContainer.innerHTML = '';
@@ -133,7 +127,6 @@
             
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
-            // La función de decodificación ahora usa la instancia 'scanner'
             async function decodeBarcode(imageElement) {
                 try {
                     const canvas = document.createElement('canvas');
@@ -143,23 +136,20 @@
                     context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
                     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-                    // Usamos el método scan de la instancia que recibimos
                     const symbols = scanner.scan(imageData);
 
                     if (symbols && symbols.length > 0) {
-                        const barcode = symbols[0];
-                        // La librería devuelve el resultado en la propiedad 'data'
-                        const barcodeText = barcode.data; 
+                        const barcodeText = symbols[0].data; 
                         statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
                         auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
                     } else {
                         statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
-                        auditorBubble.textContent = "El motor no pudo encontrar un código.";
+                        auditorBubble.textContent = "No encontré un código en la imagen.";
                     }
                 } catch (err) {
                     console.error('Error en pipeline de decodificación:', err); 
                     statusContainer.innerHTML = `<div class="veredicto-rechazado">Error en el sistema de lectura.</div>`;
-                    auditorBubble.textContent = "Ocurrió un error inesperado en el motor de análisis.";
+                    auditorBubble.textContent = "Ocurrió un error inesperado al analizar.";
                 }
             };
         }
