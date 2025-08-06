@@ -107,11 +107,19 @@
             
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
-            // ===== FUNCIÓN DE DECODIFICACIÓN CORREGIDA Y MEJORADA =====
+            // ===== FUNCIÓN DE DECODIFICACIÓN SÚPER ENFOCADA =====
             const decodeBarcode = (imageElement) => {
                 const hints = new Map();
-                const formats = [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.CODE_128]; // Añadimos CODE_128 por si acaso
+                
+                // --- ¡CAMBIO CLAVE 1: FORZAR FORMATO EAN-13! ---
+                // Gracias a tu pista, le decimos que SOLO busque este formato.
+                const formats = [ZXing.BarcodeFormat.EAN_13];
                 hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+
+                // --- ¡CAMBIO CLAVE 2: AÑADIR PISTA DE ESTÁNDAR! ---
+                // Le decimos que asuma que el código sigue la estructura estándar de EAN-13.
+                hints.set(ZXing.DecodeHintType.ASSUME_GS1, true);
+
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
 
                 const codeReader = new ZXing.BrowserMultiFormatReader(hints);
@@ -123,17 +131,12 @@
                 context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
 
                 const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
-                
-                // --- ¡CAMBIO CLAVE AQUÍ! ---
-                // Usamos HybridBinarizer. Es más robusto contra variaciones de luz.
                 const binarizer = new ZXing.HybridBinarizer(luminanceSource);
-                
                 const binaryBitmap = new ZXing.BinaryBitmap(binarizer);
                 
-                console.log('Iniciando decodificación con binarizador HÍBRIDO...');
+                console.log('Iniciando decodificación SÚPER ENFOCADA (solo EAN-13)...');
 
                 try {
-                    // Le pedimos al lector que decodifique el mapa de bits que preparamos.
                     const result = codeReader.decodeBitmap(binaryBitmap);
                     
                     console.log('Código encontrado:', result);
@@ -141,7 +144,6 @@
                     statusContainer.innerHTML = `<div class="veredicto-info">Código Leído: <strong>${barcodeText}</strong></div>`;
                     auditorBubble.textContent = `¡Detecté un código! Es: ${barcodeText}`;
                 } catch (err) {
-                    // Si el error persiste, lo mostramos en consola para tener más pistas.
                     console.error('Error de decodificación:', err); 
                     statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras.</div>`;
                     auditorBubble.textContent = "¡Vaya! Aún no pude encontrar el código. Intenta con una foto más derecha y con mejor luz.";
