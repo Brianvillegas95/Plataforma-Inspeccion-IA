@@ -72,10 +72,7 @@
         </footer>
     </div>
 
-    <script src="lector-v2.js" onload="iniciarApp()"></script>
-
     <script type="text/javascript">
-        // Volvemos a la estructura con iniciarApp() porque es la correcta para este tipo de archivo.
         function iniciarApp() {
             if(document.getElementById('currentYear')) { 
                 document.getElementById('currentYear').textContent = new Date().getFullYear();
@@ -112,7 +109,6 @@
 
             const decodeBarcode = (imageElement) => {
                 const hints = new Map();
-                // Volvemos a usar el prefijo "zxing." porque la librería creará un objeto global
                 const formats = [zxing.BarcodeFormat.EAN_13];
                 hints.set(zxing.DecodeHintType.POSSIBLE_FORMATS, formats);
                 hints.set(zxing.DecodeHintType.TRY_HARDER, true);
@@ -136,5 +132,8 @@
             };
         }
     </script>
+
+    <script src="lector-v2.js" onload="iniciarApp()"></script>
+
 </body>
 </html>
