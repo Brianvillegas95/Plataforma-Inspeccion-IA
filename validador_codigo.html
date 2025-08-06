@@ -107,8 +107,8 @@
             
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
+            // ===== FUNCIÓN DE DECODIFICACIÓN MEJORADA =====
             const decodeBarcode = (imageElement) => {
-                // CORRECCIÓN: Usamos "ZXing" con Z mayúscula
                 const hints = new Map();
                 const formats = [ZXing.BarcodeFormat.EAN_13];
                 hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
@@ -116,20 +116,39 @@
 
                 const codeReader = new ZXing.BrowserMultiFormatReader(hints);
                 
-                console.log('Iniciando decodificación...');
+                // --- INICIO DE LA MEJORA ---
+                // Creamos un canvas temporal para dibujar la imagen, lo que nos da más control.
+                const canvas = document.createElement('canvas');
+                canvas.width = imageElement.naturalWidth;
+                canvas.height = imageElement.naturalHeight;
+                const context = canvas.getContext('2d');
+                context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
 
-                codeReader.decodeFromImageElement(imageElement)
-                    .then(result => {
-                        console.log('Código encontrado:', result);
-                        const barcodeText = result.getText();
-                        statusContainer.innerHTML = `<div class="veredicto-info">Código Leído: <strong>${barcodeText}</strong></div>`;
-                        auditorBubble.textContent = `¡Detecté un código! Es: ${barcodeText}`;
-                    })
-                    .catch(err => {
-                        console.error('Error de decodificación:', err);
-                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras.</div>`;
-                        auditorBubble.textContent = "¡Vaya! No pude encontrar el código. Intenta con una foto más derecha y con mejor luz.";
-                    });
+                // Creamos la fuente de luminancia desde el canvas.
+                const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+                
+                // ¡Aquí está la magia! Usamos el binarizador alternativo.
+                const binarizer = new ZXing.GlobalHistogramBinarizer(luminanceSource);
+                
+                // Creamos el mapa de bits binario.
+                const binaryBitmap = new ZXing.BinaryBitmap(binarizer);
+                // --- FIN DE LA MEJORA ---
+
+                console.log('Iniciando decodificación con binarizador de histograma...');
+
+                try {
+                    // Le pedimos al lector que decodifique el mapa de bits que preparamos.
+                    const result = codeReader.decodeBitmap(binaryBitmap);
+                    
+                    console.log('Código encontrado:', result);
+                    const barcodeText = result.getText();
+                    statusContainer.innerHTML = `<div class="veredicto-info">Código Leído: <strong>${barcodeText}</strong></div>`;
+                    auditorBubble.textContent = `¡Detecté un código! Es: ${barcodeText}`;
+                } catch (err) {
+                    console.error('Error de decodificación:', err);
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras.</div>`;
+                    auditorBubble.textContent = "¡Vaya! Aún no pude encontrar el código. Intenta con una foto más derecha y con mejor luz.";
+                }
             };
         }
     </script>
