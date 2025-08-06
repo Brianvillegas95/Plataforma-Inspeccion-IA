@@ -16,9 +16,7 @@
             </div>
             <nav class="main-nav">
                 <ul>
-                    <li class="dropdown">
-                        <a href="index.html" class="dropdown-toggle">Inicio</a>
-                    </li>
+                    <li class="dropdown"><a href="index.html" class="dropdown-toggle">Inicio</a></li>
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle active">Herramientas IA<i class="fas fa-angle-down nav-arrow"></i></a>
                         <ul class="dropdown-menu">
@@ -74,66 +72,69 @@
         </footer>
     </div>
 
-    <script type="module">
-        import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from './zxing.min.js';
+    <script src="zxing.browser.min.js" onload="iniciarApp()"></script>
 
-        if(document.getElementById('currentYear')) { 
-            document.getElementById('currentYear').textContent = new Date().getFullYear();
-        }
+    <script type="text/javascript">
+        // Volvemos a la estructura con iniciarApp() porque es la correcta para este tipo de archivo.
+        function iniciarApp() {
+            if(document.getElementById('currentYear')) { 
+                document.getElementById('currentYear').textContent = new Date().getFullYear();
+            }
 
-        const uploadButtonInput = document.getElementById('upload-image-input');
-        const displayContainer = document.getElementById('display-container');
-        const statusContainer = document.getElementById('status-container');
-        const auditorBubble = document.querySelector('#auditor-message-bubble span');
+            const uploadButtonInput = document.getElementById('upload-image-input');
+            const displayContainer = document.getElementById('display-container');
+            const statusContainer = document.getElementById('status-container');
+            const auditorBubble = document.querySelector('#auditor-message-bubble span');
 
-        const handleImageUpload = (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
+            const handleImageUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const imageUrl = e.target.result;
-                statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-                auditorBubble.textContent = "Analizando la imagen, un momento...";
-                const imageElement = document.createElement('img');
-                imageElement.onload = () => {
-                    displayContainer.innerHTML = '';
-                    imageElement.style.width = '100%';
-                    imageElement.style.height = 'auto';
-                    displayContainer.appendChild(imageElement);
-                    decodeBarcode(imageElement);
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imageUrl = e.target.result;
+                    statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
+                    auditorBubble.textContent = "Analizando la imagen, un momento...";
+                    const imageElement = document.createElement('img');
+                    imageElement.onload = () => {
+                        displayContainer.innerHTML = '';
+                        imageElement.style.width = '100%';
+                        imageElement.style.height = 'auto';
+                        displayContainer.appendChild(imageElement);
+                        decodeBarcode(imageElement);
+                    };
+                    imageElement.src = imageUrl;
                 };
-                imageElement.src = imageUrl;
+                reader.readAsDataURL(file);
             };
-            reader.readAsDataURL(file);
-        };
-        
-        uploadButtonInput.addEventListener('change', handleImageUpload);
-
-        const decodeBarcode = (imageElement) => {
-            const hints = new Map();
-            // Nota que ya no usamos "zxing.BarcodeFormat", sino directamente "BarcodeFormat"
-            const formats = [BarcodeFormat.EAN_13];
-            hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
-            hints.set(DecodeHintType.TRY_HARDER, true);
-
-            const codeReader = new BrowserMultiFormatReader(hints);
             
-            console.log('Iniciando decodificación con pistas...');
+            uploadButtonInput.addEventListener('change', handleImageUpload);
 
-            codeReader.decodeFromImageElement(imageElement)
-                .then(result => {
-                    console.log('Código encontrado:', result);
-                    const barcodeText = result.getText();
-                    statusContainer.innerHTML = `<div class="veredicto-info">Código Leído: <strong>${barcodeText}</strong></div>`;
-                    auditorBubble.textContent = `¡Detecté un código! Es: ${barcodeText}`;
-                })
-                .catch(err => {
-                    console.error('Error de decodificación:', err);
-                    statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras.</div>`;
-                    auditorBubble.textContent = "¡Vaya! Aún no pude encontrar el código. Intenta con una foto más derecha y con mejor luz.";
-                });
-        };
+            const decodeBarcode = (imageElement) => {
+                const hints = new Map();
+                // Volvemos a usar el prefijo "zxing." porque la librería creará un objeto global
+                const formats = [zxing.BarcodeFormat.EAN_13];
+                hints.set(zxing.DecodeHintType.POSSIBLE_FORMATS, formats);
+                hints.set(zxing.DecodeHintType.TRY_HARDER, true);
+
+                const codeReader = new zxing.BrowserMultiFormatReader(hints);
+                
+                console.log('Iniciando decodificación con el archivo correcto...');
+
+                codeReader.decodeFromImageElement(imageElement)
+                    .then(result => {
+                        console.log('Código encontrado:', result);
+                        const barcodeText = result.getText();
+                        statusContainer.innerHTML = `<div class="veredicto-info">Código Leído: <strong>${barcodeText}</strong></div>`;
+                        auditorBubble.textContent = `¡Detecté un código! Es: ${barcodeText}`;
+                    })
+                    .catch(err => {
+                        console.error('Error de decodificación:', err);
+                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras.</div>`;
+                        auditorBubble.textContent = "¡Vaya! Aún no pude encontrar el código. Intenta con una foto más derecha y con mejor luz.";
+                    });
+            };
+        }
     </script>
 </body>
 </html>
