@@ -75,26 +75,22 @@
     <script src="libreria/index.js"></script>
     
     <script>
-        // La librería, al ser cargada, crea un objeto global "zbar".
+        // La lógica interna no cambia, ya que el objeto 'zbar' se crea igual
         const { instance, scan } = zbar;
 
-        // --- SOLUCIÓN DE SINCRONIZACIÓN PROFESIONAL ---
-        // Adjuntamos nuestra lógica al evento 'onload' de la instancia de la librería.
-        // Esto asegura que no intentemos usar el escáner antes de que esté 100% inicializado.
         instance.onload = function() {
             console.log("Motor ZBar/WASM inicializado y listo.");
-            // Una vez que la librería está lista, llamamos a la función principal de nuestra app.
             iniciarApp();
         };
 
         function iniciarApp() {
-            // Habilitamos los controles que estaban deshabilitados
+            // Habilitamos los controles
             const uploadButtonInput = document.getElementById('upload-image-input');
             const uploadLabel = document.getElementById('upload-label');
             uploadButtonInput.disabled = false;
             uploadLabel.classList.remove('is-disabled');
 
-            // Actualizamos los mensajes de la UI para indicar que estamos listos
+            // Actualizamos mensajes de UI
             const statusContainer = document.getElementById('status-container');
             const auditorBubble = document.querySelector('#auditor-message-bubble span');
             statusContainer.textContent = "Esperando imagen...";
@@ -139,12 +135,12 @@
                     context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
                     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-                    // La función 'scan' ahora está garantizada a funcionar.
                     const symbols = await scan(imageData, 'EAN-13');
 
-                    if (symbols.length > 0) {
+                    if (symbols && symbols.length > 0) {
                         const barcode = symbols[0];
-                        const barcodeText = barcode.decode();
+                        // Mantenemos la corrección CRÍTICA: accedemos a la propiedad 'data'
+                        const barcodeText = barcode.data;
                         statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
                         auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
                     } else {
@@ -158,9 +154,6 @@
                 }
             };
         }
-        
-        // Ya no iniciamos la app cuando el DOM carga, esperamos a la librería.
-        // document.addEventListener('DOMContentLoaded', iniciarApp);
     </script>
 </body>
 </html>
