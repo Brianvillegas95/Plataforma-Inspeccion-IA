@@ -91,7 +91,7 @@
                 reader.onload = (e) => {
                     const imageUrl = e.target.result;
                     statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-                    auditorBubble.textContent = "Preparando y analizando la imagen...";
+                    auditorBubble.textContent = "Analizando imagen...";
                     const imageElement = document.createElement('img');
                     imageElement.onload = () => {
                         displayContainer.innerHTML = '';
@@ -107,7 +107,7 @@
             
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
-            // ===== FUNCIÓN DE DECODIFICACIÓN CON PRE-PROCESAMIENTO DE IMAGEN =====
+            // ===== FUNCIÓN DE DECODIFICACIÓN CORREGIDA Y SIMPLIFICADA =====
             const decodeBarcode = (imageElement) => {
                 const hints = new Map();
                 const formats = [ZXing.BarcodeFormat.EAN_13];
@@ -115,50 +115,25 @@
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
 
                 const codeReader = new ZXing.BrowserMultiFormatReader(hints);
-                
                 const canvas = document.createElement('canvas');
                 canvas.width = imageElement.naturalWidth;
                 canvas.height = imageElement.naturalHeight;
-                const context = canvas.getContext('2d');
+                
+                // --- ¡CORRECCIÓN CLAVE BASADA EN EL AVISO DEL NAVEGADOR! ---
+                // Añadimos { willReadFrequently: true } para asegurar una lectura de imagen correcta.
+                const context = canvas.getContext('2d', { willReadFrequently: true });
                 context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
 
-                // --- INICIO DEL PRE-PROCESAMIENTO MANUAL ---
-                console.log('Iniciando pre-procesamiento: Escala de grises y contraste...');
-                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
-
-                // 1. Convertimos a escala de grises para simplificar
-                for (let i = 0; i < data.length; i += 4) {
-                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                    data[i] = avg;     // Rojo
-                    data[i + 1] = avg; // Verde
-                    data[i + 2] = avg; // Azul
-                }
-
-                // 2. Aumentamos el contraste al máximo
-                const contrastFactor = 2.0; // Un valor alto para forzar blanco/negro
-                const intercept = 128 * (1 - contrastFactor);
-                for (let i = 0; i < data.length; i += 4) {
-                    let gray = data[i];
-                    gray = gray * contrastFactor + intercept;
-                    // Forzamos que sea o totalmente negro (0) o totalmente blanco (255)
-                    const finalValue = gray > 128 ? 255 : 0;
-                    data[i] = finalValue;
-                    data[i + 1] = finalValue;
-                    data[i + 2] = finalValue;
-                }
+                // --- YA NO NECESITAMOS PRE-PROCESAMIENTO MANUAL ---
+                // Con la corrección del canvas y las fotos de alta calidad,
+                // la librería ZXing debería ser capaz de leer el código sin nuestra ayuda.
+                // Esto es más limpio y eficiente.
                 
-                // Devolvemos la imagen procesada al canvas
-                context.putImageData(imageData, 0, 0);
-                console.log('Pre-procesamiento completo.');
-                // --- FIN DEL PRE-PROCESAMIENTO ---
-
-
                 const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
                 const binarizer = new ZXing.HybridBinarizer(luminanceSource);
                 const binaryBitmap = new ZXing.BinaryBitmap(binarizer);
                 
-                console.log('Iniciando decodificación con imagen pre-procesada...');
+                console.log('Iniciando decodificación con método corregido...');
 
                 try {
                     const result = codeReader.decodeBitmap(binaryBitmap);
@@ -167,10 +142,11 @@
                     const barcodeText = result.getText();
                     statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
                     auditorBubble.textContent = `¡Lo tengo! El código es: ${barcodeText}`;
+
                 } catch (err) {
-                    console.error('Error de decodificación final:', err); 
-                    statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras. Intenta con una foto más nítida.</div>`;
-                    auditorBubble.textContent = "Lo siento, incluso preparando la imagen no lo encontré. ¿Puedes probar con una foto con menos reflejos y más enfocada?";
+                    console.error('Error de decodificación:', err); 
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer el código. Pruebe con otra imagen bien enfocada.</div>`;
+                    auditorBubble.textContent = "Aún no puedo leerlo. Asegúrate de que la foto esté muy bien enfocada y sin reflejos.";
                 }
             };
         }
