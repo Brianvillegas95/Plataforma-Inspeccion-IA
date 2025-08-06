@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código - Grupo Azor</title>
+    <title>Validador de Código Profesional - Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
@@ -12,7 +12,7 @@
         <header class="app-header">
             <div class="logo-container">
                 <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
-                <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
+                <h1>Inspección de Calidad <span class="ia-badge">IA PRO</span></h1>
             </div>
             <nav class="main-nav">
                 <ul>
@@ -31,7 +31,7 @@
             <section class="vision-panel">
                 <h2 class="panel-title"><i class="fas fa-barcode"></i> Lector de Código de Barras</h2>
                 <div id="display-container" class="display-container-placeholder">
-                    <p>Sube una imagen para leer el código de barras.</p>
+                    <p>Suba una imagen para una decodificación de nivel profesional.</p>
                 </div>
                 <div class="label-container" id="status-container">
                     Esperando imagen...
@@ -62,7 +62,7 @@
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
-                        <span>¡Hola! Sube una imagen para empezar.</span>
+                        <span>¡Hola! Listo para analizar con el motor ZBar.</span>
                     </div>
                 </div>
             </aside>
@@ -72,7 +72,11 @@
         </footer>
     </div>
 
-    <script type="text/javascript">
+    <script type="module">
+        // Usamos type="module" para poder usar import, la forma moderna de manejar dependencias.
+        import * as zbar from 'https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/index.js';
+
+        // El resto de la aplicación se encapsula aquí dentro.
         function iniciarApp() {
             if(document.getElementById('currentYear')) { 
                 document.getElementById('currentYear').textContent = new Date().getFullYear();
@@ -91,8 +95,8 @@
                 reader.onload = (e) => {
                     const imageUrl = e.target.result;
                     statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-                    auditorBubble.textContent = "Analizando imagen...";
-                    const imageElement = document.createElement('img');
+                    auditorBubble.textContent = "Analizando con el motor profesional ZBar/WASM...";
+                    const imageElement = new Image(); // Usamos new Image() para un mejor manejo
                     imageElement.onload = () => {
                         displayContainer.innerHTML = '';
                         imageElement.style.width = '100%';
@@ -107,52 +111,52 @@
             
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
-            // ===== FUNCIÓN DE DECODIFICACIÓN CORREGIDA Y SIMPLIFICADA =====
-            const decodeBarcode = (imageElement) => {
-                const hints = new Map();
-                const formats = [ZXing.BarcodeFormat.EAN_13];
-                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-
-                const codeReader = new ZXing.BrowserMultiFormatReader(hints);
-                const canvas = document.createElement('canvas');
-                canvas.width = imageElement.naturalWidth;
-                canvas.height = imageElement.naturalHeight;
-                
-                // --- ¡CORRECCIÓN CLAVE BASADA EN EL AVISO DEL NAVEGADOR! ---
-                // Añadimos { willReadFrequently: true } para asegurar una lectura de imagen correcta.
-                const context = canvas.getContext('2d', { willReadFrequently: true });
-                context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
-
-                // --- YA NO NECESITAMOS PRE-PROCESAMIENTO MANUAL ---
-                // Con la corrección del canvas y las fotos de alta calidad,
-                // la librería ZXing debería ser capaz de leer el código sin nuestra ayuda.
-                // Esto es más limpio y eficiente.
-                
-                const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
-                const binarizer = new ZXing.HybridBinarizer(luminanceSource);
-                const binaryBitmap = new ZXing.BinaryBitmap(binarizer);
-                
-                console.log('Iniciando decodificación con método corregido...');
-
+            // ===== FUNCIÓN DE DECODIFICACIÓN CON ARQUITECTURA PROFESIONAL (ZBAR-WASM) =====
+            async function decodeBarcode(imageElement) {
                 try {
-                    const result = codeReader.decodeBitmap(binaryBitmap);
-                    
-                    console.log('¡ÉXITO! Código encontrado:', result);
-                    const barcodeText = result.getText();
-                    statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
-                    auditorBubble.textContent = `¡Lo tengo! El código es: ${barcodeText}`;
+                    // Capa 2: Preparación en Canvas
+                    const canvas = document.createElement('canvas');
+                    canvas.width = imageElement.naturalWidth;
+                    canvas.height = imageElement.naturalHeight;
+                    const context = canvas.getContext('2d');
+                    context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    console.log(`Imagen preparada para ZBar: ${imageData.width}x${imageData.height}`);
 
+                    // Capa 3: Decodificación con el motor ZBar/WASM
+                    // Esta es la llamada a la nueva y potente librería.
+                    const symbols = await zbar.scan(imageData, 'EAN-13');
+
+                    // Capa 4: Post-procesamiento
+                    if (symbols.length > 0) {
+                        const barcode = symbols[0]; // Tomamos el primer código de barras encontrado
+                        const barcodeText = barcode.decode();
+                        console.log('¡ÉXITO! Código encontrado por ZBar:', barcodeText);
+                        
+                        // Validación de Lógica de Negocio
+                        if (barcodeText.startsWith('750')) {
+                             statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Válido (MX): <strong>${barcodeText}</strong></div>`;
+                             auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
+                        } else {
+                             statusContainer.innerHTML = `<div class="veredicto-info">Código Leído (No-MX): <strong>${barcodeText}</strong></div>`;
+                             auditorBubble.textContent = `Detecté un código, pero no es de México: ${barcodeText}`;
+                        }
+
+                    } else {
+                        console.warn('ZBar no encontró ningún código de barras.');
+                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
+                        auditorBubble.textContent = "El motor ZBar no pudo encontrar un código. Intente con una foto más directa y sin reflejos.";
+                    }
                 } catch (err) {
-                    console.error('Error de decodificación:', err); 
-                    statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer el código. Pruebe con otra imagen bien enfocada.</div>`;
-                    auditorBubble.textContent = "Aún no puedo leerlo. Asegúrate de que la foto esté muy bien enfocada y sin reflejos.";
+                    console.error('Error catastrófico en el pipeline de decodificación:', err); 
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">Error en el sistema de lectura.</div>`;
+                    auditorBubble.textContent = "Ocurrió un error inesperado en el motor de análisis.";
                 }
             };
         }
+        
+        // Iniciar la aplicación una vez que el DOM esté listo.
+        document.addEventListener('DOMContentLoaded', iniciarApp);
     </script>
-    
-    <script src="lector-v2.js" onload="iniciarApp()"></script>
-
 </body>
 </html>
