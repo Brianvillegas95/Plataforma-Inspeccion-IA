@@ -34,11 +34,9 @@
             
             <section class="vision-panel">
                 <h2 class="panel-title"><i class="fas fa-barcode"></i> Lector de Código de Barras</h2>
-                
                 <div id="display-container" class="display-container-placeholder">
                     <p>Sube una imagen para leer el código de barras.</p>
                 </div>
-
                 <div class="label-container" id="status-container">
                     Esperando imagen...
                 </div>
@@ -46,7 +44,6 @@
 
             <aside class="controls-panel">
                 <h3 class="panel-title"><i class="fas fa-list-ol"></i> Controles e Instrucciones</h3>
-                
                 <div class="seleccion-producto-area">
                     <div class="form-group">
                         <label for="producto-select">1. Seleccione el Producto Correcto:</label>
@@ -55,24 +52,20 @@
                         </select>
                     </div>
                 </div>
-
                 <div class="action-buttons">
                     <button id="action-button" class="button primary-action" disabled>
                         <i class="fas fa-camera"></i> Verificar con Cámara
                     </button>
-                    
                     <label for="upload-image-input" class="button secondary-action">
                         <i class="fas fa-upload"></i> Subir Archivo
                     </label>
                     <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
                 </div>
-
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
-                    
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
                         <span>¡Hola! Sube una imagen para empezar.</span>
                     </div>
@@ -88,22 +81,17 @@
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/zxing.min.js"></script>
 
     <script type="text/javascript">
-        // Actualizar el año en el pie de página
         if(document.getElementById('currentYear')) { 
             document.getElementById('currentYear').textContent = new Date().getFullYear();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             
-            // Referencias a los elementos HTML
             const uploadButtonInput = document.getElementById('upload-image-input');
             const displayContainer = document.getElementById('display-container');
             const statusContainer = document.getElementById('status-container');
             const auditorBubble = document.querySelector('#auditor-message-bubble span');
 
-            // --- CÓDIGO CORREGIDO Y ROBUSTO ---
-
-            // Esta función se activa cuando el usuario selecciona un archivo
             const handleImageUpload = (event) => {
                 const file = event.target.files[0];
                 if (!file) return;
@@ -111,27 +99,16 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const imageUrl = e.target.result;
-                    
-                    // Mostramos el estado "Procesando"
                     statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
                     auditorBubble.textContent = "Analizando la imagen, un momento...";
-                    
-                    // Creamos un elemento de imagen en memoria
                     const imageElement = document.createElement('img');
-                    
-                    // Cuando el elemento de imagen haya cargado la fuente...
                     imageElement.onload = () => {
-                        // ...lo mostramos en el contenedor y lo pasamos al decodificador.
-                        // Esta es la forma más robusta para evitar problemas de seguridad del navegador.
                         displayContainer.innerHTML = '';
                         imageElement.style.width = '100%';
                         imageElement.style.height = 'auto';
                         displayContainer.appendChild(imageElement);
-                        
-                        decodeBarcode(imageElement); // Le pasamos el elemento, no la URL de la imagen
+                        decodeBarcode(imageElement);
                     };
-
-                    // Le asignamos la imagen que subió el usuario como fuente
                     imageElement.src = imageUrl;
                 };
                 reader.readAsDataURL(file);
@@ -139,24 +116,38 @@
             
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
-            // La función ahora recibe un elemento de imagen HTML
             const decodeBarcode = (imageElement) => {
-                const codeReader = new zxing.BrowserMultiFormatReader();
-                console.log('Iniciando decodificación desde el elemento de imagen...');
+                // --- INICIO DE LA CORRECCIÓN ---
 
-                // Usamos "decodeFromImageElement", que es más confiable para archivos locales
+                // 1. Creamos un mapa de "pistas" para el lector.
+                const hints = new Map();
+                
+                // 2. Le decimos los formatos exactos que queremos buscar.
+                // En este caso, solo EAN_13.
+                const formats = [zxing.BarcodeFormat.EAN_13];
+                hints.set(zxing.DecodeHintType.POSSIBLE_FORMATS, formats);
+                
+                // 3. Le pedimos que se esfuerce más en el análisis.
+                hints.set(zxing.DecodeHintType.TRY_HARDER, true);
+
+                // 4. Creamos el lector y le pasamos las pistas.
+                const codeReader = new zxing.BrowserMultiFormatReader(hints);
+                
+                // --- FIN DE LA CORRECCIÓN ---
+
+                console.log('Iniciando decodificación con pistas...');
+
                 codeReader.decodeFromImageElement(imageElement)
                     .then(result => {
                         console.log('Código encontrado:', result);
                         const barcodeText = result.getText();
-                        
                         statusContainer.innerHTML = `<div class="veredicto-info">Código Leído: <strong>${barcodeText}</strong></div>`;
                         auditorBubble.textContent = `¡Detecté un código! Es: ${barcodeText}`;
                     })
                     .catch(err => {
                         console.error('Error de decodificación:', err);
                         statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras.</div>`;
-                        auditorBubble.textContent = "¡Vaya! No pude encontrar un código. Intenta con una imagen más clara.";
+                        auditorBubble.textContent = "¡Vaya! Aún no pude encontrar el código. Intenta con una foto más derecha y con mejor luz.";
                     });
             };
         });
