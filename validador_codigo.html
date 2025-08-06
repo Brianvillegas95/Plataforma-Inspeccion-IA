@@ -73,9 +73,10 @@
     </div>
 
     <script src="zbar.js"></script>
+    <script src="zbar.wasm.js"></script>
 
     <script>
-        // La promesa 'ready' viene de zbar.js y se resuelve cuando todo está listo.
+        // La promesa 'ready' de zbar.js ahora será resuelta por zbar.wasm.js
         ready.then(function(zbarInstance) {
             console.log("Motor ZBar/WASM inicializado y listo.");
             iniciarApp(zbarInstance);
