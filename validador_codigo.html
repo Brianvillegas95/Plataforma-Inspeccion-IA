@@ -38,7 +38,7 @@
                 </div>
             </section>
             <aside class="controls-panel">
-                <h3 class="panel-title"><i class="fas fa-list-ol"></i> Controles e Instrucciones</h3>
+                 <h3 class="panel-title"><i class="fas fa-list-ol"></i> Controles e Instrucciones</h3>
                 <div class="seleccion-producto-area">
                     <div class="form-group">
                         <label for="producto-select">1. Seleccione el Producto Correcto:</label>
@@ -73,11 +73,12 @@
     </div>
 
     <script type="module">
-        // Importamos la función 'scan' directamente desde el módulo alojado en la CDN
-        import { scan } from 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/index.js';
+        // CORRECCIÓN: Importamos el módulo "por defecto" y le ponemos un nombre (ej. ZBar)
+        import ZBar from 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/index.js';
 
-        // Como es un módulo moderno, ya no necesitamos la promesa 'ready'. 
-        // Si esta línea se ejecuta, la librería ya está lista.
+        // Ahora, la función 'scan' está dentro del objeto que importamos.
+        const { scan } = ZBar;
+        
         console.log("Motor ZBar/WASM cargado desde CDN y listo.");
         iniciarApp();
 
@@ -130,11 +131,9 @@
                     context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
                     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                     
-                    // La función 'scan' ahora es asíncrona y la usamos con await
                     const symbols = await scan(imageData);
 
                     if (symbols && symbols.length > 0) {
-                        // La nueva librería devuelve el texto en la propiedad 'data'
                         const barcodeText = symbols[0].data; 
                         statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
                         auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
