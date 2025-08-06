@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código (MODO PRUEBA)</title>
+    <title>Validador de Código Profesional - Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
@@ -72,76 +72,83 @@
         </footer>
     </div>
 
-    <script>
-        // PRUEBA 1: CONFIGURACIÓN INICIAL
-        console.log("PRUEBA 1: Creando el objeto 'Module' para configurar la ruta del .wasm.");
-        document.getElementById('status-container').textContent = "PRUEBA 1: Módulo de configuración creado.";
-        
-        var Module = {
-            locateFile: function(path, prefix) {
-                console.log(`PRUEBA 1.1: 'locateFile' buscando '${path}'`);
-                if (path.endsWith('.wasm')) {
-                    console.log("PRUEBA 1.2: Encontrado '.wasm', devolviendo ruta 'zbar.wasm'");
-                    return 'zbar.wasm';
-                }
-                return prefix + path;
+    <script type="module">
+        // Importamos la función 'scan' directamente desde el módulo alojado en la CDN
+        import { scan } from 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/index.js';
+
+        // Como es un módulo moderno, ya no necesitamos la promesa 'ready'. 
+        // Si esta línea se ejecuta, la librería ya está lista.
+        console.log("Motor ZBar/WASM cargado desde CDN y listo.");
+        iniciarApp();
+
+        function iniciarApp() {
+            const uploadButtonInput = document.getElementById('upload-image-input');
+            const uploadLabel = document.getElementById('upload-label');
+            uploadButtonInput.disabled = false;
+            uploadLabel.classList.remove('is-disabled');
+
+            const statusContainer = document.getElementById('status-container');
+            const auditorBubble = document.querySelector('#auditor-message-bubble span');
+            statusContainer.textContent = "Esperando imagen...";
+            auditorBubble.textContent = "¡Listo! Sube una imagen para empezar.";
+
+            if(document.getElementById('currentYear')) { 
+                document.getElementById('currentYear').textContent = new Date().getFullYear();
             }
-        };
-    </script>
 
-    <script id="zbar-js-inline">
-        // PRUEBA 2: EJECUCIÓN DEL SCRIPT zbar.js
-        console.log("PRUEBA 2: Ejecutando script 'zbar.js' (inline). Preparando la promesa 'ready'.");
-        document.getElementById('status-container').textContent = "PRUEBA 2: Listener de 'listo' preparado.";
+            const displayContainer = document.getElementById('display-container');
 
-        var ready = new Promise(function (resolve, reject) {
-            Module.onAbort = function(reason) {
-                console.error("PRUEBA FALLIDA: El runtime de WASM abortó.", reason);
-                document.getElementById('status-container').textContent = "¡FALLO! El runtime de WASM abortó. Revisa la consola.";
-                reject(new Error("WASM Runtime Aborted: " + reason));
+            const handleImageUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imageUrl = e.target.result;
+                    statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
+                    auditorBubble.textContent = "Analizando...";
+                    const imageElement = new Image();
+                    imageElement.onload = () => {
+                        displayContainer.innerHTML = '';
+                        imageElement.style.width = '100%';
+                        imageElement.style.height = 'auto';
+                        displayContainer.appendChild(imageElement);
+                        decodeBarcode(imageElement);
+                    };
+                    imageElement.src = imageUrl;
+                };
+                reader.readAsDataURL(file);
             };
             
-            Module.onRuntimeInitialized = function () {
-                console.log("PRUEBA 4: ¡ÉXITO! 'onRuntimeInitialized' fue llamado. El WASM se ha cargado y compilado.");
-                document.getElementById('status-container').textContent = "PRUEBA 4: ¡WASM listo!";
-                var zbarBindings = {
-                    scan: Module.cwrap("zbar_scan", "number", ["number", "number", "number", "number"]),
-                    set_config: Module.cwrap("zbar_set_config", "number", ["number", "number", "number", "number"]),
-                    get_results: Module.cwrap("zbar_get_results", "number", [])
-                };
-                resolve({ raw: Module, zbar: zbarBindings });
-            }
-        });
-        
-        var ZBar = function () { /* ... contenido de la clase ZBar sin cambios ... */ function a(a) { this.zbar = a } a.prototype.scan = function (a, c) { void 0 === c && (c = null); var b = this.zbar.raw, d = b._malloc(a.data.length); b.HEAPU8.set(a.data, d); var e = 0; c && (e = this.setConfig("ANY", "ENABLE", 0), e = this.setConfig(c, "ENABLE", 1)); b = this.zbar.scan(d, a.width, a.height, e); b || (b = this.getResults()); return b }; a.prototype.getResults = function () { for (var a = this.zbar.raw, c = this.zbar.get_results(), b = new a.VectorSymbols, d = [], e = b.op_get(c, 0); e; e = b.op_get(c, ++i)) { var f = e.get_type_name(), h = e.get_data(), g = []; if (h) for (var k = 0, r = h.length; k < r; k++) g.push(String.fromCharCode(h[k])); d.push({ typeName: f, data: g.join("") }); var i = 0 } return d }; a.prototype.setConfig = function (a, c, b) { var d = this.zbar.raw; a = "string" === typeof a ? d.ZBAR_CFG[a] : a; c = "string" === typeof c ? d.ZBAR_CFG[c] : c; if (void 0 === a || void 0 === c) throw new Error("Invalid config"); return this.zbar.set_config(0, a, c, b) }; return a }();
-        (function () { ready.then(function (a) { return new ZBar(a) }) })();
-        
-        console.log("PRUEBA 2.1: Fin de la ejecución de 'zbar.js'. La promesa 'ready' está esperando a ser resuelta.");
-    </script>
-    
-    <script id="zbar-wasm-js-inline">
-        // PRUEBA 3: EJECUCIÓN DEL SCRIPT zbar.wasm.js
-        console.log("PRUEBA 3: Ejecutando script 'zbar.wasm.js' (inline). Este script debería iniciar la carga y compilación del WASM.");
-        document.getElementById('status-container').textContent = "PRUEBA 3: Iniciando compilación de WASM...";
+            uploadButtonInput.addEventListener('change', handleImageUpload);
 
-        var ZBar = (function() { var _scriptDir = typeof document !== 'undefined' && document.currentScript ? document.currentScript.src : undefined; return ( function(ZBar) { ZBar = ZBar || {}; var Module=ZBar; Module.ready.then(function(a){Module.zbar=a}); return ZBar; } ); })();
-    </script>
+            async function decodeBarcode(imageElement) {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = imageElement.naturalWidth;
+                    canvas.height = imageElement.naturalHeight;
+                    const context = canvas.getContext('2d');
+                    context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // La función 'scan' ahora es asíncrona y la usamos con await
+                    const symbols = await scan(imageData);
 
-    <script id="app-logic">
-        // LÓGICA DE LA APLICACIÓN
-        console.log("LÓGICA: Añadiendo los listeners .then() y .catch() a la promesa 'ready'.");
-        
-        ready.then(function(zbarInstance) {
-            console.log("LÓGICA: ¡ÉXITO! La promesa 'ready' se resolvió. Ejecutando iniciarApp().");
-            document.getElementById('status-container').textContent = "¡ÉXITO! Inicializando la aplicación...";
-            iniciarApp(zbarInstance);
-        }).catch(err => {
-            console.error("LÓGICA: ¡FALLO! La promesa 'ready' fue rechazada.", err);
-            document.getElementById('status-container').textContent = "¡FALLO! La promesa fue rechazada. Revisa la consola.";
-        });
-
-        // ... El resto de tu función iniciarApp y decodeBarcode sin cambios ...
-        function iniciarApp(scanner) { const uploadButtonInput = document.getElementById('upload-image-input'); const uploadLabel = document.getElementById('upload-label'); uploadButtonInput.disabled = false; uploadLabel.classList.remove('is-disabled'); const statusContainer = document.getElementById('status-container'); const auditorBubble = document.querySelector('#auditor-message-bubble span'); statusContainer.textContent = "Esperando imagen..."; auditorBubble.textContent = "¡Listo! Sube una imagen para empezar."; if(document.getElementById('currentYear')) { document.getElementById('currentYear').textContent = new Date().getFullYear(); } const displayContainer = document.getElementById('display-container'); const handleImageUpload = (event) => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { const imageUrl = e.target.result; statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`; auditorBubble.textContent = "Analizando..."; const imageElement = new Image(); imageElement.onload = () => { displayContainer.innerHTML = ''; imageElement.style.width = '100%'; imageElement.style.height = 'auto'; displayContainer.appendChild(imageElement); decodeBarcode(imageElement); }; imageElement.src = imageUrl; }; reader.readAsDataURL(file); }; uploadButtonInput.addEventListener('change', handleImageUpload); async function decodeBarcode(imageElement) { try { const canvas = document.createElement('canvas'); canvas.width = imageElement.naturalWidth; canvas.height = imageElement.naturalHeight; const context = canvas.getContext('2d'); context.drawImage(imageElement, 0, 0, canvas.width, canvas.height); const imageData = context.getImageData(0, 0, canvas.width, canvas.height); const symbols = scanner.scan(imageData); if (symbols && symbols.length > 0) { const barcodeText = symbols[0].data; statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`; auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`; } else { statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`; auditorBubble.textContent = "No encontré un código en la imagen."; } } catch (err) { console.error('Error en pipeline de decodificación:', err); statusContainer.innerHTML = `<div class="veredicto-rechazado">Error en el sistema de lectura.</div>`; auditorBubble.textContent = "Ocurrió un error inesperado al analizar."; } }; }
+                    if (symbols && symbols.length > 0) {
+                        // La nueva librería devuelve el texto en la propiedad 'data'
+                        const barcodeText = symbols[0].data; 
+                        statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
+                        auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
+                    } else {
+                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
+                        auditorBubble.textContent = "No encontré un código en la imagen.";
+                    }
+                } catch (err) {
+                    console.error('Error en pipeline de decodificación:', err); 
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">Error en el sistema de lectura.</div>`;
+                    auditorBubble.textContent = "Ocurrió un error inesperado al analizar.";
+                }
+            };
+        }
     </script>
 </body>
 </html>
