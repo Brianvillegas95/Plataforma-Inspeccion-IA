@@ -73,10 +73,13 @@
     </div>
 
     <script type="module">
-        // Usamos type="module" para poder usar import, la forma moderna de manejar dependencias.
         import * as zbar from 'https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/index.js';
 
-        // El resto de la aplicación se encapsula aquí dentro.
+        // --- AJUSTE CRÍTICO DE CONFIGURACIÓN DE NIVEL DE PRODUCCIÓN ---
+        // Le indicamos a la librería la URL base para encontrar sus archivos .wasm
+        // Esto soluciona los errores 404 (Not Found).
+        zbar.locateFile = (path) => `https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/${path}`;
+
         function iniciarApp() {
             if(document.getElementById('currentYear')) { 
                 document.getElementById('currentYear').textContent = new Date().getFullYear();
@@ -96,7 +99,7 @@
                     const imageUrl = e.target.result;
                     statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
                     auditorBubble.textContent = "Analizando con el motor profesional ZBar/WASM...";
-                    const imageElement = new Image(); // Usamos new Image() para un mejor manejo
+                    const imageElement = new Image();
                     imageElement.onload = () => {
                         displayContainer.innerHTML = '';
                         imageElement.style.width = '100%';
@@ -111,10 +114,8 @@
             
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
-            // ===== FUNCIÓN DE DECODIFICACIÓN CON ARQUITECTURA PROFESIONAL (ZBAR-WASM) =====
             async function decodeBarcode(imageElement) {
                 try {
-                    // Capa 2: Preparación en Canvas
                     const canvas = document.createElement('canvas');
                     canvas.width = imageElement.naturalWidth;
                     canvas.height = imageElement.naturalHeight;
@@ -123,17 +124,13 @@
                     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                     console.log(`Imagen preparada para ZBar: ${imageData.width}x${imageData.height}`);
 
-                    // Capa 3: Decodificación con el motor ZBar/WASM
-                    // Esta es la llamada a la nueva y potente librería.
                     const symbols = await zbar.scan(imageData, 'EAN-13');
 
-                    // Capa 4: Post-procesamiento
                     if (symbols.length > 0) {
-                        const barcode = symbols[0]; // Tomamos el primer código de barras encontrado
+                        const barcode = symbols[0];
                         const barcodeText = barcode.decode();
                         console.log('¡ÉXITO! Código encontrado por ZBar:', barcodeText);
                         
-                        // Validación de Lógica de Negocio
                         if (barcodeText.startsWith('750')) {
                              statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Válido (MX): <strong>${barcodeText}</strong></div>`;
                              auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
@@ -155,7 +152,6 @@
             };
         }
         
-        // Iniciar la aplicación una vez que el DOM esté listo.
         document.addEventListener('DOMContentLoaded', iniciarApp);
     </script>
 </body>
