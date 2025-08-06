@@ -78,10 +78,9 @@
         </footer>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/zxing.min.js" onload="iniciarApp()"></script>
+    <script src="zxing.min.js" onload="iniciarApp()"></script>
 
     <script type="text/javascript">
-        // HEMOS MOVIDO TODO EL CÓDIGO DENTRO DE ESTA FUNCIÓN
         function iniciarApp() {
             if(document.getElementById('currentYear')) { 
                 document.getElementById('currentYear').textContent = new Date().getFullYear();
