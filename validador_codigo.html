@@ -83,41 +83,47 @@
             const auditorBubble = document.querySelector('#auditor-message-bubble span');
             const displayContainer = document.getElementById('display-container');
             
-            // Creamos una URL temporal para la imagen
             const imageUrl = URL.createObjectURL(file);
 
-            // Mostramos la imagen y el estado de procesamiento
             displayContainer.innerHTML = `<img src="${imageUrl}" style="width:100%; height:auto;" />`;
             statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
             auditorBubble.textContent = "Analizando...";
 
-            // 2. Usamos la función principal de QuaggaJS
+            // ---
+            // PUNTO CLAVE: CONFIGURACIÓN AVANZADA Y DEPURACIÓN VISUAL
+            // ---
             Quagga.decodeSingle({
                 src: imageUrl,
-                numOfWorkers: 0,  // Usar 0 para procesar en el hilo principal, mejor para archivos
+                numOfWorkers: 0,
                 decoder: {
-                    // Especificamos que buscamos un código EAN-13
                     readers: ["ean_reader"] 
                 },
-                locate: true, // Ayuda a Quagga a encontrar el código
+                locate: true,
+                // --- NUEVOS PARÁMETROS PARA MEJORAR LA DETECCIÓN ---
+                patchSize: "large",   // Analiza trozos más grandes de la imagen
+                halfSample: false,    // Usa la resolución completa de la imagen para más precisión
+                
+                // --- NUEVO BLOQUE DE DEPURACIÓN VISUAL ---
+                // Quagga dibujará sobre la imagen para mostrarnos qué está viendo.
+                debug: {
+                    drawBoundingBox: true, // Dibuja un cuadro verde si encuentra un posible código
+                    showFrequency: false,  // No necesitamos esto
+                    drawScanline: true,    // Dibuja una línea roja donde está escaneando
+                    showPattern: true      // Muestra los patrones de barras que encuentra
+                }
             }, function(result) {
-                // 3. Esta función se ejecuta cuando Quagga termina
                 if (result && result.codeResult) {
                     const barcodeText = result.codeResult.code;
-                    console.log("¡Código de barras encontrado!", barcodeText);
                     statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
                     auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
                 } else {
-                    console.log("No se pudo decodificar el código de barras.");
                     statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
-                    auditorBubble.textContent = "No encontré un código en la imagen. Intenta con otra.";
+                    auditorBubble.textContent = "No encontré un código. Intenta con otra.";
                 }
-                // Liberamos la URL del objeto para ahorrar memoria
                 URL.revokeObjectURL(imageUrl);
             });
         }
 
-        // --- Inicialización de la aplicación ---
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         const uploadButtonInput = document.getElementById('upload-image-input');
         uploadButtonInput.addEventListener('change', handleImageUpload);
