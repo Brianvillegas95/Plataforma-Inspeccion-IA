@@ -73,6 +73,8 @@
     <script>
         const statusContainer = document.getElementById('status-container');
         const auditorBubble = document.querySelector('#auditor-message-bubble span');
+        // --- LÍNEA AÑADIDA PARA CORREGIR EL ERROR ---
+        const displayContainer = document.getElementById('display-container');
         const displayCanvas = document.getElementById('image-display-canvas');
         const displayCtx = displayCanvas.getContext('2d');
         const uploadButtonInput = document.getElementById('upload-image-input');
@@ -91,13 +93,11 @@
                 originalImage = new Image();
                 originalImage.src = e.target.result;
                 originalImage.onload = () => {
-                    // Ajustamos el tamaño del canvas a la imagen, manteniendo la proporción
                     const aspectRatio = originalImage.width / originalImage.height;
                     const maxWidth = displayContainer.clientWidth;
                     displayCanvas.width = maxWidth;
                     displayCanvas.height = maxWidth / aspectRatio;
                     
-                    // Dibujamos la imagen en el canvas
                     displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
                     
                     uploadPrompt.style.display = 'none';
@@ -109,8 +109,6 @@
             reader.readAsDataURL(file);
         }
         
-        // --- LÓGICA DE DIBUJO Y RECORTE ---
-
         displayCanvas.addEventListener('mousedown', (e) => {
             if (!originalImage) return;
             isDrawing = true;
@@ -125,7 +123,6 @@
             selectionRect.endX = e.clientX - rect.left;
             selectionRect.endY = e.clientY - rect.top;
             
-            // Redibujamos la imagen y el rectángulo de selección
             displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
             displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.8)';
             displayCtx.lineWidth = 2;
@@ -141,29 +138,24 @@
             const width = selectionRect.endX - selectionRect.startX;
             const height = selectionRect.endY - selectionRect.startY;
 
-            // Solo procesamos si el área es de un tamaño razonable
             if (Math.abs(width) < 10 || Math.abs(height) < 10) return;
 
-            // Creamos un canvas temporal para el recorte
             const cropCanvas = document.createElement('canvas');
             const cropCtx = cropCanvas.getContext('2d');
             
-            // Calculamos las coordenadas correctas en la imagen original
             const scaleX = originalImage.width / displayCanvas.width;
             const scaleY = originalImage.height / displayCanvas.height;
 
-            const cropX = selectionRect.startX * scaleX;
-            const cropY = selectionRect.startY * scaleY;
-            const cropWidth = width * scaleX;
-            const cropHeight = height * scaleY;
+            const cropX = Math.min(selectionRect.startX, selectionRect.endX) * scaleX;
+            const cropY = Math.min(selectionRect.startY, selectionRect.endY) * scaleY;
+            const cropWidth = Math.abs(width) * scaleX;
+            const cropHeight = Math.abs(height) * scaleY;
 
             cropCanvas.width = cropWidth;
             cropCanvas.height = cropHeight;
 
-            // Dibujamos SOLO el área seleccionada en el canvas de recorte
             cropCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
             
-            // Convertimos el recorte a Data URI y lo enviamos al motor OCR
             const croppedImageDataUrl = cropCanvas.toDataURL('image/png');
             analyzeCroppedImage(croppedImageDataUrl);
         });
@@ -207,7 +199,6 @@
             }
         }
 
-        // --- Inicialización ---
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         uploadButtonInput.addEventListener('change', handleImageUpload);
     </script>
