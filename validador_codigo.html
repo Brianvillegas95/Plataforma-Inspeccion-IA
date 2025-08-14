@@ -127,13 +127,10 @@
             if (!isDrawing) return;
             isDrawing = false;
             
-            const width = selectionRect.endX - selectionRect.startX;
-            const height = selectionRect.endY - selectionRect.startY;
+            const width = e.clientX - displayCanvas.getBoundingClientRect().left - selectionRect.startX;
+            const height = e.clientY - displayCanvas.getBoundingClientRect().top - selectionRect.startY;
             if (Math.abs(width) < 10 || Math.abs(height) < 10) return;
 
-            // --- INICIO DE LA CADENA DE FILTROS PROFESIONAL ---
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
             const scaleX = originalImage.width / displayCanvas.width;
             const scaleY = originalImage.height / displayCanvas.height;
             const cropX = Math.min(selectionRect.startX, selectionRect.endX) * scaleX;
@@ -141,59 +138,48 @@
             const cropWidth = Math.abs(width) * scaleX;
             const cropHeight = Math.abs(height) * scaleY;
 
+            const tempCanvas = document.createElement('canvas');
             tempCanvas.width = cropWidth;
             tempCanvas.height = cropHeight;
+            const tempCtx = tempCanvas.getContext('2d');
             tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
             
-            // FILTRO 1: Escala de Grises, Contraste y Binarización
-            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-            const data = imageData.data;
-            const contrast = 1.5; // Factor de contraste (1.0 = sin cambio)
-            const threshold = 128; // Umbral para blanco/negro
-
-            for (let i = 0; i < data.length; i += 4) {
-                // Escala de grises
-                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                // Contraste
-                let contrastValue = avg;
-                contrastValue = (contrast * (contrastValue - 128)) + 128;
-                contrastValue = Math.max(0, Math.min(255, contrastValue));
-                // Binarización
-                const finalValue = contrastValue > threshold ? 255 : 0;
-                data[i] = data[i+1] = data[i+2] = finalValue;
-            }
-            tempCtx.putImageData(imageData, 0, 0);
-
-            // FILTRO 2: Reescalado a mayor tamaño
-            const upscaleFactor = 2;
-            const finalCanvas = document.createElement('canvas');
-            finalCanvas.width = tempCanvas.width * upscaleFactor;
-            finalCanvas.height = tempCanvas.height * upscaleFactor;
-            const finalCtx = finalCanvas.getContext('2d');
-            finalCtx.imageSmoothingEnabled = false;
-            finalCtx.drawImage(tempCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
-            
-            const processedImageDataUrl = finalCanvas.toDataURL('image/png');
-            // --- FIN DE LA CADENA DE FILTROS ---
-
-            analyzeImage(processedImageDataUrl);
+            const croppedImageDataUrl = tempCanvas.toDataURL('image/png');
+            analyzeImage(croppedImageDataUrl);
         });
         
+        // --- FUNCIÓN CLAVE: Corrector de errores comunes de OCR ---
+        function ocrCorrection(text) {
+            return text.replace(/S/g, '5')
+                       .replace(/s/g, '5')
+                       .replace(/O/g, '0')
+                       .replace(/o/g, '0')
+                       .replace(/Z/g, '2')
+                       .replace(/z/g, '2')
+                       .replace(/I/g, '1')
+                       .replace(/l/g, '1')
+                       .replace(/B/g, '8');
+        }
+
         async function analyzeImage(imageDataUrl) {
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando área procesada... <i class="fas fa-spinner fa-spin"></i></div>`;
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando área... <i class="fas fa-spinner fa-spin"></i></div>`;
             auditorBubble.textContent = "Procesando con IA...";
 
             const worker = await Tesseract.createWorker('eng');
-            await worker.setParameters({
-                tessedit_char_whitelist: '0123456789',
-            });
+            // Quitamos la whitelist para permitir que Tesseract vea letras (y así poder corregirlas)
+            // await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
             
             const { data: { text } } = await worker.recognize(imageDataUrl);
             await worker.terminate();
+            
+            console.log('Texto extraído (antes de corrección):', text);
 
-            const cleanedText = text.replace(/\D/g, '');
-            console.log('Texto extraído (post-procesamiento):', text);
-            console.log('Texto limpiado:', cleanedText);
+            // Aplicamos nuestra corrección inteligente
+            const correctedText = ocrCorrection(text);
+            console.log('Texto corregido:', correctedText);
+
+            const cleanedText = correctedText.replace(/\D/g, '');
+            console.log('Texto limpiado (solo números):', cleanedText);
             
             let finalCode = null;
             const prefix1 = '75014287';
