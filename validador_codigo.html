@@ -12,7 +12,7 @@
             position: relative;
             background: #000;
             border: 1px solid #ddd;
-            overflow: hidden; /* Oculta partes de la imagen/canvas que se salgan */
+            overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -21,12 +21,14 @@
             max-width: 100%;
             height: auto;
         }
+        #image-display-canvas.cropping-enabled {
+            cursor: crosshair;
+        }
         #scanner-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            display: none; /* Oculto por defecto, se muestra cuando hay una imagen */
+            display: none; 
         }
-        /* La "luz rojita" del escáner */
         #scanner-overlay .scanner-line {
             position: absolute;
             top: 50%;
@@ -102,7 +104,6 @@
 
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <script>
-        // --- Referencias a Elementos del DOM ---
         const statusContainer = document.getElementById('status-container');
         const auditorBubble = document.querySelector('#auditor-message-bubble span');
         const scannerContainer = document.getElementById('scanner-container');
@@ -113,13 +114,11 @@
         const scannerInput = document.getElementById('scanner-input');
         const scannerOverlay = document.getElementById('scanner-overlay');
 
-        // --- Estado de la aplicación ---
         let originalImage = null;
         let isDrawing = false;
         let selectionRect = {};
         let isCroppingEnabled = false;
 
-        // --- Manejadores de Eventos Principales ---
         scannerInput.addEventListener('change', (event) => {
             const code = event.target.value.trim();
             if (code.length > 5) {
@@ -143,7 +142,6 @@
             reader.readAsDataURL(file);
         });
         
-        // --- Lógica de la Interfaz y Flujo de Análisis ---
         function displayImageForAnalysis(image) {
             const aspectRatio = image.naturalWidth / image.naturalHeight;
             const maxWidth = scannerContainer.clientWidth;
@@ -151,8 +149,8 @@
             displayCanvas.height = maxWidth / aspectRatio;
             displayCtx.drawImage(image, 0, 0, displayCanvas.width, displayCanvas.height);
             uploadPrompt.style.display = 'none';
-            scannerOverlay.style.display = 'block';
-            disableCropping(); // Desactivar el modo de recorte por defecto
+            scannerOverlay.style.display = 'block'; // Mostrar la línea roja para el modo automático
+            disableCropping();
         }
 
         async function processImageWithHybridReader(image) {
@@ -168,26 +166,26 @@
                         return;
                     }
                 } catch (error) { console.warn('BarcodeDetector falló:', error); }
-            } else {
-                console.warn('BarcodeDetector no es compatible.');
-            }
+            } else { console.warn('BarcodeDetector no es compatible.'); }
             
-            // --- Si el intento automático falla, activamos el modo de selección manual ---
-            statusContainer.innerHTML = `<div class="veredicto-advertencia">Análisis automático fallido.</div>`;
-            auditorBubble.textContent = "Por favor, dibuja un recuadro sobre el número para un análisis detallado.";
+            // --- INICIO DE MEJORA: Flujo de Interfaz Mejorado ---
+            // Si el intento automático falla, ocultamos la línea roja y damos una instrucción clara.
+            scannerOverlay.style.display = 'none';
+            statusContainer.innerHTML = `<div class="veredicto-advertencia">Falló. <strong>Ahora, haz clic y arrastra sobre el código para seleccionarlo.</strong></div>`;
+            auditorBubble.textContent = "El modo automático falló. Por favor, ayúdame seleccionando el área del código.";
             enableCropping();
+            // --- FIN DE MEJORA ---
         }
 
-        // --- Lógica de Recorte Manual (para el respaldo de OCR) ---
         function enableCropping() {
             isCroppingEnabled = true;
-            displayCanvas.classList.add('ready-to-crop');
+            displayCanvas.classList.add('cropping-enabled');
         }
 
         function disableCropping() {
             isCroppingEnabled = false;
             isDrawing = false;
-            displayCanvas.classList.remove('ready-to-crop');
+            displayCanvas.classList.remove('cropping-enabled');
         }
 
         displayCanvas.addEventListener('mousedown', (e) => {
@@ -204,7 +202,6 @@
             selectionRect.endX = e.clientX - rect.left;
             selectionRect.endY = e.clientY - rect.top;
             
-            // Redibujar la imagen y luego el recuadro
             displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
             displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
             displayCtx.lineWidth = 2;
@@ -224,15 +221,13 @@
             const cropWidth = Math.abs(selectionRect.endX - selectionRect.startX) * scaleX;
             const cropHeight = Math.abs(selectionRect.endY - selectionRect.startY) * scaleY;
 
-            if (cropWidth < 20 || cropHeight < 10) return; // Ignorar selecciones muy pequeñas
+            if (cropWidth < 20 || cropHeight < 10) return;
             
             statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando selección con OCR... <i class="fas fa-spinner fa-spin"></i></div>`;
             auditorBubble.textContent = "Aplicando OCR en el área seleccionada...";
 
-            // Crear un canvas temporal con el recorte en alta resolución
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = cropWidth;
-            tempCanvas.height = cropHeight;
+            tempCanvas.width = cropWidth; tempCanvas.height = cropHeight;
             const tempCtx = tempCanvas.getContext('2d');
             tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
 
@@ -251,7 +246,6 @@
             }
         });
 
-        // --- Funciones de Validación y Resultados (sin cambios) ---
         function validateAndCorrectOCR(ocrText) {
             const prefixes = ['75014287', '75014497'];
             const LEVENSHTEIN_THRESHOLD = 2;
