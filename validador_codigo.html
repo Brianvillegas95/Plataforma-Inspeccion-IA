@@ -83,7 +83,6 @@
         function updateProgress(status, progress) {
             const message = `${status} ${Math.round(progress * 100)}%`;
             statusContainer.innerHTML = `<div class="veredicto-pensando">${message} <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = status;
         }
 
         async function handleImageUpload(event) {
@@ -91,62 +90,88 @@
             if (!file) return;
 
             const imageUrl = URL.createObjectURL(file);
-            displayContainer.innerHTML = `<img src="${imageUrl}" style="width:100%; height:auto;" />`;
+            const imageElement = new Image();
+            imageElement.src = imageUrl;
+            
+            imageElement.onload = async () => {
+                displayContainer.innerHTML = '';
+                imageElement.style.width = '100%';
+                imageElement.style.height = 'auto';
+                displayContainer.appendChild(imageElement);
 
-            updateProgress('Inicializando motor OCR...', 0);
+                updateProgress('Pre-procesando imagen...', 0);
 
-            const worker = await Tesseract.createWorker('eng', 1, {
-                logger: m => {
-                    if (m.status === 'recognizing text') {
-                        updateProgress('Reconociendo texto...', m.progress);
-                    }
+                // --- PIPELINE DE PRE-PROCESAMIENTO DE IMAGEN ---
+                const canvas = document.createElement('canvas');
+                canvas.width = imageElement.naturalWidth;
+                canvas.height = imageElement.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(imageElement, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    const value = avg > 128 ? 255 : 0; // Binarización
+                    data[i] = value;
+                    data[i + 1] = value;
+                    data[i + 2] = value;
                 }
-            });
+                ctx.putImageData(imageData, 0, 0);
+                const processedImageUrl = canvas.toDataURL('image/png');
+                // ----------------------------------------------------
 
-            // ---
-            // PUNTO CLAVE: INSTRUCCIÓN DIRECTA AL MOTOR DE IA
-            // Forzamos a Tesseract a que solo pueda "ver" números.
-            // ---
-            await worker.setParameters({
-                tessedit_char_whitelist: '0123456789',
-            });
+                updateProgress('Inicializando motor OCR...', 25);
 
-            const { data: { text } } = await worker.recognize(file);
-            
-            // La limpieza ahora es redundante, pero la mantenemos por seguridad.
-            const cleanedText = text.replace(/\D/g, '');
-            console.log('Texto extraído (solo números permitidos):', text);
-            console.log('Texto limpiado:', cleanedText);
-            
-            let finalCode = null;
-            const prefix1 = '75014287';
-            const prefix2 = '75014497';
-            
-            let index = cleanedText.indexOf(prefix1);
-            if (index > -1) {
-                finalCode = cleanedText.substring(index, index + 13);
-            } else {
-                index = cleanedText.indexOf(prefix2);
+                const worker = await Tesseract.createWorker('eng', 1, {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            updateProgress('Reconociendo texto...', 50 + (m.progress * 50));
+                        }
+                    }
+                });
+
+                await worker.setParameters({
+                    tessedit_char_whitelist: '0123456789',
+                    tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
+                });
+
+                // Enviamos la imagen YA PROCESADA a Tesseract
+                const { data: { text } } = await worker.recognize(processedImageUrl);
+                
+                const cleanedText = text.replace(/\D/g, '');
+                console.log('Texto extraído:', text);
+                console.log('Texto limpiado:', cleanedText);
+                
+                let finalCode = null;
+                const prefix1 = '75014287';
+                const prefix2 = '75014497';
+                
+                let index = cleanedText.indexOf(prefix1);
                 if (index > -1) {
                     finalCode = cleanedText.substring(index, index + 13);
+                } else {
+                    index = cleanedText.indexOf(prefix2);
+                    if (index > -1) {
+                        finalCode = cleanedText.substring(index, index + 13);
+                    }
                 }
-            }
-            
-            if (finalCode && finalCode.length === 13) {
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
-                auditorBubble.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
-            } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código conocido.</div>`;
-                auditorBubble.textContent = "No encontré un código con el formato esperado.";
-            }
+                
+                if (finalCode && finalCode.length === 13) {
+                    statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
+                    auditorBubble.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
+                } else {
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código conocido.</div>`;
+                    auditorBubble.textContent = "No encontré un código con el formato esperado.";
+                }
 
-            await worker.terminate();
-            URL.revokeObjectURL(imageUrl);
+                await worker.terminate();
+                URL.revokeObjectURL(imageUrl);
+            };
         }
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         uploadButtonInput.addEventListener('change', handleImageUpload);
-        console.log("Aplicación lista. Versión final con Whitelist de Tesseract.");
+        console.log("Aplicación lista. Versión final con Pre-procesamiento de Imagen y OCR Optimizado.");
     </script>
 </body>
 </html>
