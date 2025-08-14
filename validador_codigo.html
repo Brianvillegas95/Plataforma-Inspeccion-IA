@@ -74,10 +74,11 @@
     </div>
 
     <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/zxing.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/index.min.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     
     <script>
+        // --- Referencias a Elementos del DOM ---
         const statusContainer = document.getElementById('status-container');
         const auditorBubble = document.querySelector('#auditor-message-bubble span');
         const scannerContainer = document.getElementById('scanner-container');
@@ -99,13 +100,14 @@
                 originalImage.src = e.target.result;
                 originalImage.onload = () => {
                     displayImage(originalImage);
-                    if (typeof cv !== 'undefined') {
+                    // Asegurarse de que OpenCV.js esté cargado antes de usarlo.
+                    if (typeof cv !== 'undefined' && cv.Mat) {
                         processImageWithComputerVision(originalImage);
                     } else {
                         statusContainer.innerHTML = `<div class="veredicto-pensando">Cargando motor de IA... Por favor espere.</div>`;
                         // Reintentar hasta que OpenCV esté listo
                         const interval = setInterval(() => {
-                            if (typeof cv !== 'undefined') {
+                            if (typeof cv !== 'undefined' && cv.Mat) {
                                 clearInterval(interval);
                                 processImageWithComputerVision(originalImage);
                             }
@@ -127,76 +129,79 @@
             auditorBubble.textContent = "Iniciando análisis de visión...";
             statusContainer.innerHTML = `<div class="veredicto-pensando">Detectando área del código de barras... <i class="fas fa-spinner fa-spin"></i></div>`;
             
-            // Paso 1: Usar OpenCV para encontrar la región del código de barras
-            const src = cv.imread(image);
-            const gray = new cv.Mat();
-            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+            try {
+                const src = cv.imread(image);
+                const gray = new cv.Mat();
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-            const gradX = new cv.Mat(); const gradY = new cv.Mat();
-            cv.Scharr(gray, gradX, cv.CV_32F, 1, 0);
-            cv.Scharr(gray, gradY, cv.CV_32F, 0, 1);
-            
-            const gradient = new cv.Mat();
-            cv.subtract(gradX, gradY, gradient);
-            cv.convertScaleAbs(gradient, gradient);
+                const gradX = new cv.Mat(); const gradY = new cv.Mat();
+                cv.Scharr(gray, gradX, cv.CV_32F, 1, 0);
+                cv.Scharr(gray, gradY, cv.CV_32F, 0, 1);
+                
+                const gradient = new cv.Mat();
+                cv.subtract(gradX, gradY, gradient);
+                cv.convertScaleAbs(gradient, gradient);
 
-            const blurred = new cv.Mat();
-            cv.blur(gradient, blurred, new cv.Size(9, 9));
-            
-            const thresh = new cv.Mat();
-            cv.threshold(blurred, thresh, 225, 255, cv.THRESH_BINARY);
-            
-            const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
-            const closed = new cv.Mat();
-            cv.morphologyEx(thresh, closed, cv.MORPH_CLOSE, kernel);
+                const blurred = new cv.Mat();
+                cv.blur(gradient, blurred, new cv.Size(9, 9));
+                
+                const thresh = new cv.Mat();
+                cv.threshold(blurred, thresh, 225, 255, cv.THRESH_BINARY);
+                
+                const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
+                const closed = new cv.Mat();
+                cv.morphologyEx(thresh, closed, cv.MORPH_CLOSE, kernel);
 
-            cv.erode(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
-            cv.dilate(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
+                cv.erode(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
+                cv.dilate(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
 
-            const contours = new cv.MatVector();
-            const hierarchy = new cv.Mat();
-            cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                const contours = new cv.MatVector();
+                const hierarchy = new cv.Mat();
+                cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-            if (contours.size() === 0) {
-                auditorBubble.textContent = "No se detectó un área de código. Intentando en la imagen completa.";
-                await decodeFromFullImage(image); // Fallback si no se encuentra el contorno
-                return;
-            }
-
-            // Encontrar el contorno más grande
-            let maxArea = 0; let bestContour = null;
-            for (let i = 0; i < contours.size(); ++i) {
-                const cnt = contours.get(i);
-                const area = cv.contourArea(cnt);
-                if (area > maxArea) {
-                    maxArea = area;
-                    bestContour = cnt;
+                if (contours.size() === 0) {
+                    auditorBubble.textContent = "No se detectó un área de código. Intentando en la imagen completa.";
+                    await decodeFromFullImage(image);
+                    src.delete(); gray.delete(); gradX.delete(); gradY.delete(); gradient.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete();
+                    return;
                 }
+
+                let maxArea = 0; let bestContour = contours.get(0);
+                for (let i = 0; i < contours.size(); ++i) {
+                    const cnt = contours.get(i);
+                    const area = cv.contourArea(cnt);
+                    if (area > maxArea) {
+                        maxArea = area;
+                        bestContour = cnt;
+                    }
+                }
+
+                const rect = cv.boundingRect(bestContour);
+                const croppedCanvas = document.createElement('canvas');
+                croppedCanvas.width = rect.width;
+                croppedCanvas.height = rect.height;
+                const cropCtx = croppedCanvas.getContext('2d');
+                cropCtx.drawImage(image, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
+
+                displayCtx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
+                displayCtx.lineWidth = 4;
+                const scaleX = displayCanvas.width / image.naturalWidth;
+                const scaleY = displayCanvas.height / image.naturalHeight;
+                displayCtx.strokeRect(rect.x * scaleX, rect.y * scaleY, rect.width * scaleX, rect.height * scaleY);
+
+                src.delete(); gray.delete(); gradX.delete(); gradY.delete(); gradient.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete();
+
+                auditorBubble.textContent = "Área detectada. Decodificando...";
+                await decodeFromCroppedImage(croppedCanvas);
+
+            } catch(e) {
+                console.error("Error en el procesamiento con OpenCV:", e);
+                auditorBubble.textContent = "Error en visión IA. Intentando en la imagen completa.";
+                await decodeFromFullImage(image);
             }
-
-            // Paso 2: Recortar la región encontrada
-            const rect = cv.boundingRect(bestContour);
-            const croppedCanvas = document.createElement('canvas');
-            croppedCanvas.width = rect.width;
-            croppedCanvas.height = rect.height;
-            const cropCtx = croppedCanvas.getContext('2d');
-            cropCtx.drawImage(image, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
-
-            // Visualizar el recorte para depuración
-            displayCtx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
-            displayCtx.lineWidth = 4;
-            displayCtx.strokeRect(rect.x / (image.naturalWidth / displayCanvas.width), rect.y / (image.naturalHeight / displayCanvas.height), rect.width / (image.naturalWidth / displayCanvas.width), rect.height / (image.naturalHeight / displayCanvas.height));
-
-            // Liberar memoria de OpenCV
-            src.delete(); gray.delete(); gradX.delete(); gradY.delete(); gradient.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete();
-
-            // Paso 3: Decodificar la imagen recortada
-            auditorBubble.textContent = "Área detectada. Decodificando...";
-            await decodeFromCroppedImage(croppedCanvas);
         }
 
         async function decodeFromCroppedImage(croppedImage) {
-            // Intento A: ZXing en el recorte
             try {
                 const result = await codeReader.decodeFromImageElement(croppedImage);
                 if (result) {
@@ -205,21 +210,21 @@
                 }
             } catch (error) {}
 
-            // Intento B: Tesseract en el recorte
             try {
                 const worker = await Tesseract.createWorker('eng', 1);
                 await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
                 const { data: { text } } = await worker.recognize(croppedImage);
                 await worker.terminate();
                 const finalCode = validateAndCorrectOCR(text.replace(/\s/g, ''));
-                displayFinalResult(finalCode, "Visión IA + OCR");
-                return;
+                if(finalCode) {
+                    displayFinalResult(finalCode, "Visión IA + OCR");
+                    return;
+                }
             } catch (error) {}
 
-            displayFinalResult(null); // Falla final
+            displayFinalResult(null);
         }
         
-        // Fallback si OpenCV no encuentra contornos
         async function decodeFromFullImage(image) {
             try {
                 const result = await codeReader.decodeFromImageElement(image);
@@ -231,8 +236,6 @@
             displayFinalResult(null);
         }
 
-
-        // --- FUNCIONES AUXILIARES ---
         function displayImage(image) {
             const aspectRatio = image.naturalWidth / image.naturalHeight;
             const maxWidth = scannerContainer.clientWidth;
