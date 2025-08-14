@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código Profesional - Grupo Azor</title>
+    <title>Validador de Código con Selección Manual - Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
@@ -28,33 +28,32 @@
             </nav>
         </header>
         <main class="main-content-grid"> 
-            <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas fa-align-left"></i> Lector de Caracteres (OCR)</h2>
+            <section class="vision-panel" id="image-display-panel">
+                <h2 class="panel-title"><i class="fas fa-image"></i> Imagen Cargada y Resultado</h2>
                 <div id="display-container" class="display-container-placeholder">
-                    <p>Suba una imagen para una lectura de nivel profesional.</p>
+                    <p>Sube una imagen para empezar.</p>
                 </div>
                 <div class="label-container" id="status-container">
                     Esperando imagen...
                 </div>
             </section>
-            <aside class="controls-panel">
-                 <h3 class="panel-title"><i class="fas fa-list-ol"></i> Controles e Instrucciones</h3>
-                <div class="seleccion-producto-area">
-                    <div class="form-group">
-                        <label for="producto-select">1. Seleccione el Producto Correcto:</label>
-                        <select id="producto-select" disabled>
-                            <option>No disponible en este paso</option>
-                        </select>
-                    </div>
+            <aside class="controls-panel" id="selection-panel">
+                 <h3 class="panel-title"><i class="fas fa-crop-alt"></i> Área de Selección y Controles</h3>
+                
+                <div class="captured-image-area" style="border: 2px dashed #007bff; padding: 5px; min-height: 250px;">
+                    <canvas id="selection-canvas" class="captured-image-canvas" style="cursor: crosshair;"></canvas>
+                    <p id="selection-prompt" style="text-align: center;">Aquí aparecerá la imagen para que selecciones el área del código.</p>
                 </div>
+
                 <div class="action-buttons">
-                    <button id="action-button" class="button primary-action" disabled>
-                        <i class="fas fa-camera"></i> Verificar con Cámara
-                    </button>
                     <label id="upload-label" for="upload-image-input" class="button secondary-action">
-                        <i class="fas fa-upload"></i> Subir Archivo
+                        <i class="fas fa-upload"></i> 1. Subir Archivo
                     </label>
                     <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
+                    
+                    <button id="leer-seleccion-btn" class="button primary-action" disabled>
+                        <i class="fas fa-align-left"></i> 2. Leer Área Seleccionada
+                    </button>
                 </div>
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
@@ -62,7 +61,7 @@
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
-                        <span>¡Listo! Sube una imagen para empezar el análisis.</span>
+                        <span id="auditor-span">¡Listo! Sube una imagen para empezar.</span>
                     </div>
                 </div>
             </aside>
@@ -75,116 +74,181 @@
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     
     <script>
+        // --- INICIO DE LA NUEVA LÓGICA CON SELECCIÓN MANUAL ---
+        
+        // Elementos de la UI
         const statusContainer = document.getElementById('status-container');
-        const auditorBubble = document.querySelector('#auditor-message-bubble span');
+        const auditorSpan = document.getElementById('auditor-span');
         const displayContainer = document.getElementById('display-container');
         const uploadButtonInput = document.getElementById('upload-image-input');
+        const readSelectionButton = document.getElementById('leer-seleccion-btn');
+        const selectionPrompt = document.getElementById('selection-prompt');
+
+        // Canvas para la selección
+        const selectionCanvas = document.getElementById('selection-canvas');
+        const selectionCtx = selectionCanvas.getContext('2d');
+
+        // Variables de estado
+        let sourceImage = null; // Guardará la imagen original en alta resolución
+        let selectionRect = { startX: 0, startY: 0, currentX: 0, currentY: 0 };
+        let isDrawing = false;
+        let isSelectionMade = false;
 
         function updateProgress(status, progress) {
             const message = `${status} ${Math.round(progress * 100)}%`;
             statusContainer.innerHTML = `<div class="veredicto-pensando">${message} <i class="fas fa-spinner fa-spin"></i></div>`;
         }
 
-        async function preprocessImage(imageElement) {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-            const originalWidth = imageElement.naturalWidth;
-            const originalHeight = imageElement.naturalHeight;
-
-            // AJUSTE: Hacemos el recorte vertical más grande para ser más tolerantes.
-            const cropY = originalHeight * 0.25; // Empezar desde el 25%
-            const cropHeight = originalHeight * 0.50; // Recortar un 50% de la altura total
-
-            canvas.width = originalWidth;
-            canvas.height = cropHeight;
-
-            ctx.drawImage(imageElement, 0, cropY, originalWidth, cropHeight, 0, 0, originalWidth, cropHeight);
-            
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            
-            // CAMBIO CLAVE: Implementamos binarización en lugar de solo contraste.
-            // Forzamos cada pixel a ser blanco o negro puro.
-            const threshold = 160; // Umbral. Ajustable. Un valor más alto hace que más pixeles se vuelvan negros.
-
-            for (let i = 0; i < data.length; i += 4) {
-                // Convertimos a escala de grises
-                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                // Aplicamos el umbral de binarización
-                const value = avg > threshold ? 255 : 0; // Si es más oscuro que el umbral -> negro, si no -> blanco
-                data[i] = value;
-                data[i + 1] = value;
-                data[i + 2] = value;
-            }
-            ctx.putImageData(imageData, 0, 0);
-            
-            return canvas.toDataURL('image/png');
-        }
-
-        async function handleImageUpload(event) {
+        // Paso 1: Cargar la imagen y prepararla para la selección
+        function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
+            // Reiniciar estado
+            readSelectionButton.disabled = true;
+            isSelectionMade = false;
+            statusContainer.innerHTML = 'Esperando selección...';
+
             const imageUrl = URL.createObjectURL(file);
-            const imageElement = new Image();
-            imageElement.src = imageUrl;
-            
-            imageElement.onload = async () => {
+            sourceImage = new Image();
+            sourceImage.src = imageUrl;
+
+            sourceImage.onload = () => {
+                // Mostrar la imagen original en el panel izquierdo
                 displayContainer.innerHTML = '';
-                const displayImage = imageElement.cloneNode();
-                displayImage.style.width = '100%';
-                displayImage.style.height = 'auto';
-                displayContainer.appendChild(displayImage);
+                displayContainer.appendChild(sourceImage);
+                sourceImage.style.width = '100%';
+                sourceImage.style.height = 'auto';
 
-                updateProgress('Pre-procesando imagen...', 0);
+                // Configurar el canvas de selección en el panel derecho
+                const parentWidth = selectionCanvas.parentElement.clientWidth;
+                const aspectRatio = sourceImage.naturalWidth / sourceImage.naturalHeight;
+                selectionCanvas.width = parentWidth;
+                selectionCanvas.height = parentWidth / aspectRatio;
                 
-                const processedImageUrl = await preprocessImage(imageElement);
-
-                updateProgress('Inicializando motor OCR...', 25);
-
-                const worker = await Tesseract.createWorker('eng', 1, {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            updateProgress('Reconociendo texto...', 50 + (m.progress * 50));
-                        }
-                    }
-                });
-
-                await worker.setParameters({
-                    tessedit_char_whitelist: '0123456789',
-                    tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
-                });
-
-                const { data: { text } } = await worker.recognize(processedImageUrl);
+                selectionCtx.drawImage(sourceImage, 0, 0, selectionCanvas.width, selectionCanvas.height);
                 
-                // AJUSTE: Limpiamos espacios y saltos de línea para más robustez
-                const cleanedText = text.replace(/[\s\n]/g, '');
-                
-                // AJUSTE: Añadimos logs más claros para depuración
-                console.log('Texto extraído por OCR:', text);
-                console.log('Texto limpiado (sin espacios):', cleanedText);
-                
-                const regex = /(75014287\d{5}|75014497\d{5})/;
-                const match = cleanedText.match(regex);
-                const finalCode = match ? match[0] : null;
-                
-                if (finalCode) {
-                    statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
-                    auditorBubble.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
-                } else {
-                    statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código conocido.</div>`;
-                    auditorBubble.textContent = "No encontré un código con el formato esperado. Revisa la consola (F12) para más detalles.";
-                }
-
-                await worker.terminate();
-                URL.revokeObjectURL(imageUrl);
+                selectionPrompt.style.display = 'none';
+                auditorSpan.textContent = "¡Excelente! Ahora dibuja un recuadro sobre el código de barras.";
             };
         }
 
+        // Lógica para dibujar el rectángulo de selección
+        selectionCanvas.addEventListener('mousedown', (e) => {
+            if (!sourceImage) return;
+            isDrawing = true;
+            const rect = selectionCanvas.getBoundingClientRect();
+            selectionRect.startX = e.clientX - rect.left;
+            selectionRect.startY = e.clientY - rect.top;
+            
+            // Reiniciar para nueva selección
+            isSelectionMade = false;
+            readSelectionButton.disabled = true;
+        });
+
+        selectionCanvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const rect = selectionCanvas.getBoundingClientRect();
+            selectionRect.currentX = e.clientX - rect.left;
+            selectionRect.currentY = e.clientY - rect.top;
+
+            // Dibujar la imagen y el rectángulo encima
+            selectionCtx.drawImage(sourceImage, 0, 0, selectionCanvas.width, selectionCanvas.height);
+            selectionCtx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
+            selectionCtx.lineWidth = 2;
+            const width = selectionRect.currentX - selectionRect.startX;
+            const height = selectionRect.currentY - selectionRect.startY;
+            selectionCtx.strokeRect(selectionRect.startX, selectionRect.startY, width, height);
+        });
+
+        selectionCanvas.addEventListener('mouseup', () => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            const width = Math.abs(selectionRect.currentX - selectionRect.startX);
+            const height = Math.abs(selectionRect.currentY - selectionRect.startY);
+
+            if (width > 10 && height > 10) { // Solo habilita si la selección es de un tamaño razonable
+                isSelectionMade = true;
+                readSelectionButton.disabled = false;
+                auditorSpan.textContent = "¡Área seleccionada! Haz clic en el botón para leer el código.";
+            } else {
+                 auditorSpan.textContent = "El área es muy pequeña. Intenta de nuevo.";
+            }
+        });
+        
+        // Paso 2: Realizar OCR solo en el área seleccionada
+        async function performOcrOnSelection() {
+            if (!sourceImage || !isSelectionMade) {
+                alert("Por favor, sube una imagen y selecciona un área primero.");
+                return;
+            }
+
+            readSelectionButton.disabled = true; // Deshabilitar mientras procesa
+            auditorSpan.textContent = "Procesando el área que seleccionaste...";
+            updateProgress('Inicializando motor OCR...', 0);
+
+            // Calcular las coordenadas de la selección en la imagen original (alta resolución)
+            const scaleX = sourceImage.naturalWidth / selectionCanvas.width;
+            const scaleY = sourceImage.naturalHeight / selectionCanvas.height;
+
+            const cropX = Math.min(selectionRect.startX, selectionRect.currentX) * scaleX;
+            const cropY = Math.min(selectionRect.startY, selectionRect.currentY) * scaleY;
+            const cropWidth = Math.abs(selectionRect.currentX - selectionRect.startX) * scaleX;
+            const cropHeight = Math.abs(selectionRect.currentY - selectionRect.startY) * scaleY;
+
+            // Crear un canvas temporal con el área recortada
+            const cropCanvas = document.createElement('canvas');
+            cropCanvas.width = cropWidth;
+            cropCanvas.height = cropHeight;
+            const cropCtx = cropCanvas.getContext('2d');
+            cropCtx.drawImage(sourceImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+            
+            const croppedImageUrl = cropCanvas.toDataURL('image/png');
+
+            // Enviar la imagen recortada y limpia al OCR
+            const worker = await Tesseract.createWorker('eng', 1, {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        updateProgress('Reconociendo texto...', 50 + (m.progress * 50));
+                    }
+                }
+            });
+
+            await worker.setParameters({
+                tessedit_char_whitelist: '0123456789',
+                tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
+            });
+
+            const { data: { text } } = await worker.recognize(croppedImageUrl);
+            
+            const cleanedText = text.replace(/[\s\n]/g, '');
+            console.log('Texto extraído (del área seleccionada):', text);
+            console.log('Texto limpiado:', cleanedText);
+
+            const regex = /(75014287\d{5}|75014497\d{5})/;
+            const match = cleanedText.match(regex);
+            const finalCode = match ? match[0] : null;
+            
+            if (finalCode) {
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
+                auditorSpan.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
+            } else {
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código conocido en el área seleccionada.</div>`;
+                auditorSpan.textContent = "No encontré un código con el formato esperado. Intenta seleccionar el área con más precisión.";
+            }
+
+            await worker.terminate();
+            readSelectionButton.disabled = false; // Habilitar de nuevo por si quiere reintentar
+        }
+
+        // Asignar eventos a los botones
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         uploadButtonInput.addEventListener('change', handleImageUpload);
-        console.log("Aplicación lista. Versión con Binarización y Recorte Tolerante.");
+        readSelectionButton.addEventListener('click', performOcrOnSelection);
+        
+        console.log("Aplicación lista. Versión con selección manual de área.");
+
     </script>
 </body>
 </html>
