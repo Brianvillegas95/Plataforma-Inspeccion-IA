@@ -8,6 +8,20 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         #image-display-canvas.ready-to-crop { cursor: crosshair; }
+        /* Estilos para el nuevo campo de texto del escáner */
+        .scanner-input-container {
+            margin-top: 15px;
+            padding: 0 20px;
+            text-align: center;
+        }
+        #scanner-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Asegura que el padding no afecte el ancho total */
+        }
     </style>
 </head>
 <body class="inspector-body">
@@ -32,30 +46,35 @@
         </header>
         <main class="main-content-grid">
             <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas fa-crop-alt"></i> 1. Seleccione el Área del Código</h2>
+                <h2 class="panel-title"><i class="fas fa-camera"></i> 1. Capture o Suba una Imagen</h2>
                 <div id="display-container" class="display-container-placeholder">
                     <canvas id="image-display-canvas"></canvas>
                     <p id="upload-prompt">Suba una imagen para comenzar...</p>
                 </div>
                 <div class="label-container" id="status-container">
-                    Esperando imagen...
+                    Esperando imagen o escaneo...
                 </div>
             </section>
             <aside class="controls-panel">
-                 <h3 class="panel-title"><i class="fas fa-list-ol"></i> 2. Controles y Resultado</h3>
+                 <h3 class="panel-title"><i class="fas fa-cogs"></i> 2. Controles y Resultado</h3>
                 <div class="action-buttons">
-                    <label id="upload-label" for="upload-image-input" class="button secondary-action">
-                        <i class="fas fa-upload"></i> Subir Nueva Imagen
+                    <label id="upload-label" for="upload-image-input" class="button primary-action"> <i class="fas fa-upload"></i> Subir Nueva Imagen
                     </label>
                     <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
                 </div>
-                <div id="auditor-section">
+
+                <div class="scanner-input-container">
+                    <label for="scanner-input" style="display:block; margin-bottom: 5px; color: #555;">O use la pistola escáner:</label>
+                    <input type="text" id="scanner-input" placeholder="Esperando escaneo...">
+                </div>
+                
+                <div id="auditor-section" style="margin-top: 20px;">
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                        <span id="auditor-text">Suba una imagen y luego seleccione el área del código.</span>
+                        <span id="auditor-text">Use la cámara o la pistola escáner para verificar un código.</span>
                     </div>
                 </div>
             </aside>
@@ -68,29 +87,105 @@
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     
     <script>
+        // --- Referencias a Elementos del DOM ---
         const statusContainer = document.getElementById('status-container');
         const auditorBubble = document.querySelector('#auditor-message-bubble span');
-        const displayContainer = document.getElementById('display-container');
         const displayCanvas = document.getElementById('image-display-canvas');
-        const displayCtx = displayCanvas.getContext('2d', { willReadFrequently: true });
+        const displayCtx = displayCanvas.getContext('2d');
         const uploadButtonInput = document.getElementById('upload-image-input');
         const uploadPrompt = document.getElementById('upload-prompt');
-
-        let originalImage = null;
-        let isDrawing = false;
-        let selectionRect = {};
-        let isAnalyzing = false;
+        const scannerInput = document.getElementById('scanner-input');
         
+        let originalImage = null;
+
         /**
-         * COMENTARIO DE MEJORA: Algoritmo de Distancia de Levenshtein.
-         * Esta función calcula el número mínimo de ediciones (inserciones, eliminaciones o
-         * sustituciones) necesarias para cambiar una cadena por otra. La usaremos para
-         * comparar el prefijo leído por el OCR con nuestros prefijos conocidos y permitir
-         * un pequeño margen de error.
-         * @param {string} s1 La primera cadena.
-         * @param {string} s2 La segunda cadena.
-         * @returns {number} La distancia de Levenshtein entre las dos cadenas.
+         * COMENTARIO DE IMPLEMENTACIÓN: Lógica de la Pistola Escáner.
+         * Escuchamos el evento 'change' en el campo de texto. Las pistolas escáner
+         * típicamente escriben los números y envían una señal de 'Enter', lo que
+         * dispara este evento. Es una forma muy simple y efectiva de integrarlas.
          */
+        scannerInput.addEventListener('change', (event) => {
+            const code = event.target.value.trim();
+            if (code.length > 5) { // Una validación simple para evitar disparos accidentales
+                console.log('Código recibido de la pistola escáner:', code);
+                displayFinalResult(code);
+                event.target.value = ''; // Limpiar para el siguiente escaneo
+                event.target.blur();   // Quitar el foco
+            }
+        });
+
+        /**
+         * COMENTARIO DE IMPLEMENTACIÓN: Lógica de Carga de Imagen.
+         * Esta función ahora inicia el nuevo flujo de análisis en cascada.
+         */
+        uploadButtonInput.addEventListener('change', (event) => {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                originalImage = new Image();
+                originalImage.src = e.target.result;
+                originalImage.onload = () => {
+                    displayCanvas.width = originalImage.width;
+                    displayCanvas.height = originalImage.height;
+                    displayCtx.drawImage(originalImage, 0, 0);
+                    uploadPrompt.style.display = 'none';
+                    processImageWithHybridReader(originalImage);
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+
+        /**
+         * COMENTARIO DE IMPLEMENTACIÓN: Lógica de Lector Híbrido (Cascada).
+         * Esta es la nueva función principal que orquesta los intentos de lectura.
+         */
+        async function processImageWithHybridReader(image) {
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando lector de código de barras... <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = "Intento 1: Analizando las líneas del código...";
+
+            // --- INTENTO #1: LECTOR DE LÍNEAS (BarcodeDetector) ---
+            try {
+                // BarcodeDetector es una API nativa del navegador, súper rápida.
+                const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
+                const barcodes = await barcodeDetector.detect(image);
+
+                if (barcodes.length > 0) {
+                    const detectedCode = barcodes[0].rawValue;
+                    console.log('Código detectado por LECTOR DE LÍNEAS:', detectedCode);
+                    displayFinalResult(detectedCode, "Lector de Líneas (Alta Fiabilidad)");
+                    return; // ¡Éxito! Terminamos el proceso.
+                }
+            } catch (error) {
+                console.warn('El Lector de Líneas (BarcodeDetector) no está disponible o falló:', error);
+            }
+
+            // --- INTENTO #2: LECTOR DE NÚMEROS (OCR con Tesseract.js) como respaldo ---
+            auditorBubble.textContent = "Respaldo: Analizando los números con OCR...";
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Lector de líneas falló. Usando OCR de respaldo... <i class="fas fa-spinner fa-spin"></i></div>`;
+            console.log('Lector de Líneas no encontró un código. Pasando a OCR...');
+
+            const worker = await Tesseract.createWorker('eng', 1, { logger: m => console.log(m) });
+            await worker.setParameters({
+                tessedit_char_whitelist: '0123456789',
+                tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
+            });
+
+            const { data: { text } } = await worker.recognize(image);
+            await worker.terminate();
+            const cleanedText = text.replace(/\s/g, '');
+            console.log('Texto extraído por OCR:', cleanedText);
+            
+            // Reutilizamos la lógica de corrección de prefijo con Levenshtein
+            const finalCode = validateAndCorrectOCR(cleanedText);
+
+            if (finalCode) {
+                 displayFinalResult(finalCode, "Lector de Números (OCR)");
+            } else {
+                 displayFinalResult(null); // Falla final
+            }
+        }
+        
+        // La lógica de Levenshtein se mantiene para el respaldo de OCR
         function levenshteinDistance(s1, s2) {
             const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
             for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
@@ -98,208 +193,66 @@
             for (let j = 1; j <= s2.length; j += 1) {
                 for (let i = 1; i <= s1.length; i += 1) {
                     const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-                    track[j][i] = Math.min(
-                        track[j][i - 1] + 1, // deletion
-                        track[j - 1][i] + 1, // insertion
-                        track[j - 1][i - 1] + indicator, // substitution
-                    );
+                    track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
                 }
             }
             return track[s2.length][s1.length];
         }
 
-        function getCoords(event) {
-            const rect = displayCanvas.getBoundingClientRect();
-            let x, y;
-            if (event.touches && event.touches.length > 0) {
-                x = event.touches[0].clientX - rect.left;
-                y = event.touches[0].clientY - rect.top;
-            } else {
-                x = event.clientX - rect.left;
-                y = event.clientY - rect.top;
-            }
-            return { x, y };
-        }
-
-        function redrawCanvas() {
-            if (!originalImage) return;
-            displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
-            displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
-            if (isDrawing) {
-                displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
-                displayCtx.lineWidth = 3;
-                const width = selectionRect.endX - selectionRect.startX;
-                const height = selectionRect.endY - selectionRect.startY;
-                displayCtx.strokeRect(selectionRect.startX, selectionRect.startY, width, height);
-            }
-        }
-
-        function startDrawing(e) {
-            if (!originalImage || isAnalyzing) return;
-            e.preventDefault();
-            isDrawing = true;
-            const { x, y } = getCoords(e);
-            selectionRect.startX = x;
-            selectionRect.startY = y;
-        }
-
-        function drawSelection(e) {
-            if (!isDrawing || !originalImage || isAnalyzing) return;
-            e.preventDefault();
-            const { x, y } = getCoords(e);
-            selectionRect.endX = x;
-            selectionRect.endY = y;
-            redrawCanvas();
-        }
-        
-        async function endDrawingAndAnalyze(e) {
-            if (!isDrawing || !originalImage || isAnalyzing) return;
-            e.preventDefault();
-            isDrawing = false;
-            
-            const { x, y } = getCoords(e.changedTouches ? e.changedTouches[0] : e);
-            selectionRect.endX = x;
-            selectionRect.endY = y;
-
-            const width = selectionRect.endX - selectionRect.startX;
-            const height = selectionRect.endY - selectionRect.startY;
-
-            if (Math.abs(width) < 20 || Math.abs(height) < 20) {
-                redrawCanvas(); return;
-            }
-            
-            isAnalyzing = true;
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando selección... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "¡Analizando! Realizando ajuste fino de imagen...";
-
-            await new Promise(resolve => setTimeout(resolve, 50));
-            const processedImageDataUrl = await preprocessImage();
-            await analyzeImageWithOCR(processedImageDataUrl);
-            isAnalyzing = false;
-        }
-        
-        async function preprocessImage() {
-            auditorBubble.textContent = "Aplicando filtros adaptativos...";
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            const scaleX = originalImage.naturalWidth / displayCanvas.width;
-            const scaleY = originalImage.naturalHeight / displayCanvas.height;
-            const cropX = Math.min(selectionRect.startX, selectionRect.endX) * scaleX;
-            const cropY = Math.min(selectionRect.startY, selectionRect.endY) * scaleY;
-            const cropWidth = Math.abs(selectionRect.endX - selectionRect.startX) * scaleX;
-            const cropHeight = Math.abs(selectionRect.endY - selectionRect.startY) * scaleY;
-            
-            tempCanvas.width = cropWidth; tempCanvas.height = cropHeight;
-            tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-            
-            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-            const data = imageData.data;
-            const contrastFactor = 2.5;
-            
-            let totalLuminance = 0;
-            for (let i = 0; i < data.length; i += 4) {
-                totalLuminance += (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-            }
-            const averageLuminance = totalLuminance / (data.length / 4);
-
-            for (let i = 0; i < data.length; i += 4) {
-                const avg = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-                const contrastAdjusted = (contrastFactor * (avg - 128)) + 128;
-                const finalValue = contrastAdjusted > averageLuminance ? 255 : 0;
-                data[i] = data[i + 1] = data[i + 2] = finalValue;
-            }
-            tempCtx.putImageData(imageData, 0, 0);
-
-            const upscaleFactor = 2;
-            const finalCanvas = document.createElement('canvas');
-            finalCanvas.width = tempCanvas.width * upscaleFactor; finalCanvas.height = tempCanvas.height * upscaleFactor;
-            const finalCtx = finalCanvas.getContext('2d');
-            finalCtx.imageSmoothingEnabled = false;
-            finalCtx.drawImage(tempCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
-            
-            return finalCanvas.toDataURL('image/png');
-        }
-        
-        async function analyzeImageWithOCR(imageDataUrl) {
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando motor IA... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Analizando con el motor OCR y corrigiendo errores...";
-            
-            const worker = await Tesseract.createWorker('eng', 1, { logger: m => console.log(m) });
-            await worker.setParameters({
-                tessedit_char_whitelist: '0123456789',
-                tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
-            });
-            
-            const { data: { text } } = await worker.recognize(imageDataUrl);
-            await worker.terminate();
-            const cleanedText = text.replace(/\s/g, '');
-            console.log('Texto extraído (motor eng optimizado):', text);
-            console.log('Texto limpiado:', cleanedText);
-            
-            // --- INICIO DE MEJORA: LÓGICA DE CORRECCIÓN DE PREFIJO ---
-            let finalCode = null;
+        function validateAndCorrectOCR(ocrText) {
             const prefixes = ['75014287', '75014497'];
-            const LEVENSHTEIN_THRESHOLD = 2; // Permitir hasta 2 errores en el prefijo.
+            const LEVENSHTEIN_THRESHOLD = 2;
 
-            // Buscamos una subcadena de 13 dígitos...
-            for (let i = 0; i <= cleanedText.length - 13; i++) {
-                const substring13 = cleanedText.substring(i, i + 13);
-                const potentialPrefix = substring13.substring(0, 8); // Extraemos su prefijo potencial.
-                
-                // ...y lo comparamos con nuestros prefijos conocidos.
+            for (let i = 0; i <= ocrText.length - 13; i++) {
+                const substring13 = ocrText.substring(i, i + 13);
+                const potentialPrefix = substring13.substring(0, 8);
                 for (const knownPrefix of prefixes) {
-                    const distance = levenshteinDistance(potentialPrefix, knownPrefix);
-                    
-                    // Si el prefijo leído es "suficientemente parecido" al prefijo correcto...
-                    if (distance <= LEVENSHTEIN_THRESHOLD) {
-                        // ...lo corregimos y construimos el código final.
-                        finalCode = knownPrefix + substring13.substring(8);
-                        console.log(`Prefijo corregido: ${potentialPrefix} -> ${knownPrefix}. Distancia: ${distance}`);
-                        break; 
+                    if (levenshteinDistance(potentialPrefix, knownPrefix) <= LEVENSHTEIN_THRESHOLD) {
+                        return knownPrefix + substring13.substring(8);
                     }
                 }
-                if (finalCode) break;
             }
-            // --- FIN DE MEJORA ---
+            return null; // No se encontró un código corregible
+        }
 
-            if (finalCode) {
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
-                auditorBubble.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
+        /**
+         * COMENTARIO DE IMPLEMENTACIÓN: Función Centralizada de Resultados.
+         * Toda la lógica (pistola, lector de líneas, OCR) llama a esta función
+         * para mostrar el resultado final, manteniendo la consistencia.
+         */
+        function displayFinalResult(code, method = "Pistola Escáner") {
+            if (code) {
+                // Añadimos una validación final de dígito verificador
+                const isValidEAN = validateEAN13Checksum(code);
+                const validityText = isValidEAN ? '<span style="color: green;">(EAN-13 Válido)</span>' : '<span style="color: red;">(EAN-13 Inválido)</span>';
+                
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${code}</strong> ${validityText}</div><small>Método: ${method}</small>`;
+                auditorBubble.textContent = `¡Lectura exitosa! El código es: ${code}`;
             } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código conocido en el área.</div>`;
-                auditorBubble.textContent = "No encontré un código válido. Intenta con una selección más precisa.";
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código válido en la imagen.</div>`;
+                auditorBubble.textContent = "No pude encontrar un código. Por favor, intenta de nuevo o usa la pistola escáner.";
             }
         }
-
-        function handleImageUpload(event) {
-            const file = event.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                originalImage = new Image();
-                originalImage.src = e.target.result;
-                originalImage.onload = () => {
-                    const aspectRatio = originalImage.naturalWidth / originalImage.naturalHeight;
-                    const maxWidth = displayContainer.clientWidth;
-                    displayCanvas.width = maxWidth; displayCanvas.height = maxWidth / aspectRatio;
-                    displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
-                    uploadPrompt.style.display = 'none';
-                    displayCanvas.classList.add('ready-to-crop');
-                    statusContainer.textContent = 'Imagen cargada. Por favor, dibuje un recuadro sobre el código de barras.';
-                    auditorBubble.textContent = "¡Excelente! Ahora dibuja el área a analizar.";
-                };
-            };
-            reader.readAsDataURL(file);
+        
+        /**
+         * COMENTARIO DE IMPLEMENTACIÓN: Validador de Dígito de Control EAN-13.
+         * Esta función matemática verifica si un código de 13 dígitos es matemáticamente
+         * correcto según el estándar EAN-13. Es un filtro final excelente.
+         */
+        function validateEAN13Checksum(code) {
+            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) {
+                return false;
+            }
+            const digits = code.split('').map(Number);
+            const checksum = digits.pop();
+            let sum = 0;
+            for (let i = 0; i < 12; i++) {
+                sum += i % 2 === 0 ? digits[i] : digits[i] * 3;
+            }
+            const calculatedChecksum = (10 - (sum % 10)) % 10;
+            return checksum === calculatedChecksum;
         }
 
-        displayCanvas.addEventListener('mousedown', startDrawing);
-        displayCanvas.addEventListener('mousemove', drawSelection);
-        displayCanvas.addEventListener('mouseup', endDrawingAndAnalyze);
-        displayCanvas.addEventListener('mouseleave', () => { if (isDrawing) { isDrawing = false; redrawCanvas(); } });
-        displayCanvas.addEventListener('touchstart', startDrawing);
-        displayCanvas.addEventListener('touchmove', drawSelection);
-        displayCanvas.addEventListener('touchend', endDrawingAndAnalyze);
-        uploadButtonInput.addEventListener('change', handleImageUpload);
         document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>
 </body>
