@@ -103,40 +103,39 @@
                 }
             });
 
+            // ---
+            // PUNTO CLAVE: INSTRUCCIÓN DIRECTA AL MOTOR DE IA
+            // Forzamos a Tesseract a que solo pueda "ver" números.
+            // ---
+            await worker.setParameters({
+                tessedit_char_whitelist: '0123456789',
+            });
+
             const { data: { text } } = await worker.recognize(file);
             
+            // La limpieza ahora es redundante, pero la mantenemos por seguridad.
             const cleanedText = text.replace(/\D/g, '');
-            console.log('Texto extraído:', text);
-            console.log('Texto limpiado (solo números):', cleanedText);
+            console.log('Texto extraído (solo números permitidos):', text);
+            console.log('Texto limpiado:', cleanedText);
             
-            // ---
-            // PUNTO CLAVE: ALGORITMO DE BÚSQUEDA POR PREFIJO ESPECÍFICO
-            // ---
             let finalCode = null;
             const prefix1 = '75014287';
             const prefix2 = '75014497';
             
-            // 1. Buscamos el prefijo primario
             let index = cleanedText.indexOf(prefix1);
             if (index > -1) {
-                // Si se encuentra, extraemos los 13 dígitos
                 finalCode = cleanedText.substring(index, index + 13);
             } else {
-                // 2. Si no, buscamos el prefijo secundario
                 index = cleanedText.indexOf(prefix2);
                 if (index > -1) {
-                    // Si se encuentra, extraemos los 13 dígitos
                     finalCode = cleanedText.substring(index, index + 13);
                 }
             }
             
-            // 3. Verificamos que el código extraído tenga 13 dígitos
             if (finalCode && finalCode.length === 13) {
-                console.log("Código encontrado por prefijo:", finalCode);
                 statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
                 auditorBubble.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
             } else {
-                console.log("No se encontró ningún código con los prefijos conocidos.");
                 statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código conocido.</div>`;
                 auditorBubble.textContent = "No encontré un código con el formato esperado.";
             }
@@ -147,7 +146,7 @@
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         uploadButtonInput.addEventListener('change', handleImageUpload);
-        console.log("Aplicación lista. Versión final con búsqueda por prefijo.");
+        console.log("Aplicación lista. Versión final con Whitelist de Tesseract.");
     </script>
 </body>
 </html>
