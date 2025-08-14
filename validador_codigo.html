@@ -74,23 +74,27 @@
 
     <script type="module">
         // ---
-        // PUNTO CLAVE 1: IMPORTACIÓN CORREGIDA Y ROBUSTA
-        // Se importa directamente la función 'scan' desde el archivo de módulo ES (.mjs)
-        // Esto es más específico y menos propenso a errores que la importación anterior.
+        // PUNTO CLAVE 1: IMPORTACIÓN CORREGIDA
+        // Apuntamos al archivo 'index.js', que sí existe en la CDN.
+        // Se importa el objeto 'ZBar' por defecto que contiene todas las funciones.
         // ---
-        import { scan } from 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/index.mjs';
+        import ZBar from 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/index.js';
 
-        console.log("Motor ZBar/WASM cargado correctamente como módulo ES.");
+        // Extraemos la función 'scan' del objeto importado.
+        const { scan } = ZBar;
+
+        console.log("Motor ZBar/WASM cargado correctamente desde index.js.");
         iniciarApp();
 
         function iniciarApp() {
             const uploadButtonInput = document.getElementById('upload-image-input');
             const uploadLabel = document.getElementById('upload-label');
-            uploadButtonInput.disabled = false;
-            uploadLabel.classList.remove('is-disabled');
-
             const statusContainer = document.getElementById('status-container');
             const auditorBubble = document.querySelector('#auditor-message-bubble span');
+
+            // Habilitamos los controles ahora que el script se cargó correctamente.
+            uploadButtonInput.disabled = false;
+            uploadLabel.classList.remove('is-disabled');
             statusContainer.textContent = "Esperando imagen...";
             auditorBubble.textContent = "¡Listo! Sube una imagen para empezar.";
 
@@ -126,27 +130,16 @@
             /**
              * ---
              * PUNTO CLAVE 2: FUNCIÓN DE PREPROCESAMIENTO DE IMAGEN
-             * Mejora drásticamente la capacidad de detección del lector de códigos.
-             * 1. Convierte la imagen a escala de grises.
-             * 2. Aumenta el contraste para que las barras negras y los espacios blancos se distingan mejor.
+             * Se mantiene sin cambios, es crucial para mejorar la detección.
              * ---
-             * @param {CanvasRenderingContext2D} context - El contexto 2D del canvas con la imagen.
-             * @param {number} width - El ancho del canvas.
-             * @param {number} height - El alto del canvas.
              */
             function preprocessImage(context, width, height) {
                 const imageData = context.getImageData(0, 0, width, height);
                 const data = imageData.data;
                 for (let i = 0; i < data.length; i += 4) {
-                    // 1. Escala de grises (usando la fórmula de luminosidad, más precisa que el promedio)
                     const lightness = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
-                    
-                    // 2. Aumento de contraste (binarización)
                     const value = lightness > 128 ? 255 : 0;
-                    
-                    data[i]     = value; // Rojo
-                    data[i + 1] = value; // Verde
-                    data[i + 2] = value; // Azul
+                    data[i] = value; data[i + 1] = value; data[i + 2] = value;
                 }
                 context.putImageData(imageData, 0, 0);
             }
@@ -156,8 +149,6 @@
                     const canvas = document.createElement('canvas');
                     canvas.width = imageElement.naturalWidth;
                     canvas.height = imageElement.naturalHeight;
-                    
-                    // --- PUNTO CLAVE 3: OPTIMIZACIÓN DEL CONTEXTO DEL CANVAS ---
                     const context = canvas.getContext('2d', { willReadFrequently: true });
                     context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
                     
