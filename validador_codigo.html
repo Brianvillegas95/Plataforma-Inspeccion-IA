@@ -82,10 +82,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
     <script>
-        // --- CONFIGURACIÓN ---
         const VALID_PREFIXES = ['75014287', '75014497'];
 
-        // --- REFERENCIAS AL DOM ---
         const uploadInput = document.getElementById('upload-image-input');
         const imageDisplay = document.getElementById('image-display');
         const uploadPrompt = document.getElementById('upload-prompt');
@@ -99,7 +97,6 @@
         let cropper = null;
         let analysisWorker = null;
 
-        // --- MANEJO DE EVENTOS ---
         uploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -126,7 +123,7 @@
             if (!cropper) return;
             analyzeSelectionBtn.disabled = true;
             analyzeSelectionBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando...`;
-            debugSection.style.display = 'none'; // Oculta la depuración anterior
+            debugSection.style.display = 'none';
             const croppedCanvas = cropper.getCroppedCanvas();
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
             updateAuditor("Iniciando análisis profundo. Aplicando filtros avanzados...");
@@ -137,7 +134,6 @@
             analysisWorker.postMessage({ imageData: imageData });
         });
 
-        // --- LÓGICA DE PROCESAMIENTO ---
         async function startAutomaticDetection(imageElement) {
             updateAuditor("Iniciando análisis rápido con el motor nativo...");
             updateStatus('pensando', 'Detectando código automáticamente...');
@@ -177,62 +173,97 @@
                     'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
                 );
 
+                const VALID_PREFIXES = ['75014287', '75014497'];
+
+                // --- NUEVA FUNCIÓN DE RECONSTRUCCIÓN BASADA EN TU CORAZONADA ---
+                function reconstructEAN13FromOCR(ocrText) {
+                    if (!ocrText) return null;
+                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Deja solo números
+                    
+                    for (const prefix of VALID_PREFIXES) {
+                        let startIndex = cleanedText.indexOf(prefix);
+                        if (startIndex !== -1) {
+                            // Encontramos un prefijo, ahora veamos si podemos formar un EAN-13 completo
+                            if (startIndex + 13 <= cleanedText.length) {
+                                const candidate = cleanedText.substring(startIndex, startIndex + 13);
+                                if (validateEAN13Checksum(candidate)) {
+                                    return candidate; // ¡Éxito! Encontramos un código válido.
+                                }
+                            }
+                        }
+                    }
+                    return null; // No se pudo reconstruir un código válido
+                }
+
+                function validateEAN13Checksum(code) {
+                    if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
+                    const digits = code.split('').map(Number);
+                    const checksum = digits.pop();
+                    let sum = 0;
+                    for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
+                    const calculatedChecksum = (10 - (sum % 10)) % 10;
+                    return checksum === calculatedChecksum;
+                }
+                
+                // --- FUNCIÓN PARA CONVERTIR MAT A IMAGEDATA (SOLUCIONA EL ERROR) ---
+                function matToImageData(mat) {
+                    // Convierte un Mat de OpenCV (escala de grises) a un objeto ImageData RGBA
+                    const matRGBA = new cv.Mat();
+                    cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
+                    const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
+                    matRGBA.delete();
+                    return imageData;
+                }
+
                 self.onmessage = async (e) => {
                     const { imageData } = e.data;
                     await waitForOpenCV();
-                    self.postMessage({ status: 'update', message: 'Worker: OpenCV listo.' });
                     const src = cv.matFromImageData(imageData);
                     const results = [];
                     
-                    let claheMat = new cv.Mat();
-                    cv.cvtColor(src, claheMat, cv.COLOR_RGBA2GRAY, 0);
-                    const clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
-                    clahe.apply(claheMat, claheMat);
-                    self.postMessage({ status: 'update', message: 'Worker: Contraste mejorado.' });
+                    let gray = new cv.Mat();
+                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                    
+                    let blurred = new cv.Mat();
+                    cv.medianBlur(gray, blurred, 3);
 
-                    let denoisedMat = new cv.Mat();
-                    cv.medianBlur(claheMat, denoisedMat, 3);
-                    self.postMessage({ status: 'update', message: 'Worker: Ruido reducido.' });
+                    let sharpened = new cv.Mat();
+                    let gaussian = new cv.Mat();
+                    cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
+                    cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
+                    
+                    let binary = new cv.Mat();
+                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    
+                    const imageDataForDecoders = matToImageData(binary);
+                    
+                    // Intento 1: ZXing (lector de barras)
+                    try {
+                        const codeReader = new self.ZXing.BrowserMultiFormatReader();
+                        const result = await codeReader.decodeFromImageData(imageDataForDecoders);
+                        if(result) results.push({ code: result.getText(), method: "IA Avanzada + ZXing" });
+                    } catch(err) { /* ZXing falla silenciosamente */ }
 
-                    let sharpenedMat = new cv.Mat();
-                    let gaussianBlur = new cv.Mat();
-                    cv.GaussianBlur(denoisedMat, gaussianBlur, new cv.Size(0, 0), 3);
-                    cv.addWeighted(denoisedMat, 1.5, gaussianBlur, -0.5, 0, sharpenedMat);
-                    self.postMessage({ status: 'update', message: 'Worker: Filtro de nitidez aplicado.' });
-                    
-                    let binaryOtsu = new cv.Mat();
-                    cv.threshold(sharpenedMat, binaryOtsu, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-                    
-                    let binaryAdaptive = new cv.Mat();
-                    cv.adaptiveThreshold(sharpenedMat, binaryAdaptive, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
-                    self.postMessage({ status: 'update', message: 'Worker: Binarización completada.' });
-                    
-                    const processedMats = [sharpenedMat, binaryOtsu, binaryAdaptive];
-                    
-                    for (const mat of processedMats) {
-                        const code = await decodeWithZXing(mat);
-                        if (code && results.every(r => r.code !== code)) {
-                             results.push({ code: code, method: "IA Avanzada + ZXing" });
-                        }
-                    }
-
+                    // Intento 2: Tesseract OCR con reconstrucción inteligente
                     if (results.length === 0) {
-                        self.postMessage({ status: 'update', message: 'Worker: ZXing falló. Intentando con OCR...' });
-                        const code = await decodeWithTesseract(binaryOtsu);
-                        if (code) {
-                            results.push({ code: code, method: "IA Avanzada + OCR" });
-                        }
+                        self.postMessage({ status: 'update', message: 'Worker: ZXing falló. Intentando con reconstrucción OCR...' });
+                        try {
+                            const worker = await self.Tesseract.createWorker('eng');
+                            await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+                            const { data: { text } } = await worker.recognize(imageDataForDecoders);
+                            await worker.terminate();
+
+                            const reconstructedCode = reconstructEAN13FromOCR(text);
+                            if (reconstructedCode) {
+                                results.push({ code: reconstructedCode, method: "IA + Reconstrucción OCR" });
+                            }
+                        } catch(err) { /* Tesseract puede fallar */ }
                     }
                     
-                    // CAMBIO: Preparar la imagen de depuración para enviarla de vuelta
-                    const debugCanvas = new OffscreenCanvas(binaryOtsu.cols, binaryOtsu.rows);
-                    cv.imshow(debugCanvas, binaryOtsu);
-                    const debugImageData = debugCanvas.getContext('2d').getImageData(0, 0, debugCanvas.cols, debugCanvas.rows);
+                    const debugImageData = matToImageData(binary);
 
-                    // Limpieza de memoria de OpenCV
-                    src.delete(); claheMat.delete(); denoisedMat.delete(); sharpenedMat.delete(); gaussianBlur.delete(); binaryOtsu.delete(); binaryAdaptive.delete(); clahe.delete();
+                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete();
 
-                    // Se envía el resultado Y la imagen de depuración. El último argumento es una optimización.
                     self.postMessage({ 
                         status: 'done', 
                         result: results.length > 0 ? results[0] : null,
@@ -241,16 +272,6 @@
                 };
                 
                 function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
-                
-                async function decodeWithZXing(mat) { try { const canvas = new OffscreenCanvas(mat.cols, mat.rows); cv.imshow(canvas, mat); const r = new self.ZXing.BrowserMultiFormatReader(); const result = await r.decodeFromCanvas(canvas); return result.getText(); } catch (e) { return null; } }
-                
-                async function decodeWithTesseract(mat) {
-                    try {
-                        const canvas = new OffscreenCanvas(mat.cols, mat.rows); cv.imshow(canvas, mat); const w = await self.Tesseract.createWorker('eng');
-                        await w.setParameters({ tessedit_char_whitelist: '0123456789', tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE });
-                        const { data: { text } } = await w.recognize(canvas); await w.terminate(); return text.replace(/\\s/g, '');
-                    } catch (e) { return null; }
-                }
             `;
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             analysisWorker = new Worker(URL.createObjectURL(blob));
@@ -261,7 +282,6 @@
                 } else if (status === 'done') {
                     console.log("Main: El Worker ha finalizado el análisis.", result);
                     
-                    // CAMBIO: Si se recibe una imagen de depuración, se muestra.
                     if (debugImageData) {
                         debugSection.style.display = 'block';
                         debugCanvas.width = debugImageData.width;
@@ -277,7 +297,6 @@
             };
         }
 
-        // --- FUNCIONES DE UI Y UTILIDAD ---
         function displayFinalResult(result) {
             if (result && isValidCode(result.code)) {
                 const cleanCode = result.code.match(/\d{13}/)[0];
@@ -317,7 +336,7 @@
             statusContainer.innerHTML = "Esperando imagen...";
             analyzeSelectionBtn.style.display = 'none';
             analyzeSelectionBtn.disabled = true;
-            debugSection.style.display = 'none'; // Oculta la depuración al reiniciar
+            debugSection.style.display = 'none';
             updateAuditor("Listo para iniciar la verificación automática.");
         }
 
