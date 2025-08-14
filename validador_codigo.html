@@ -86,69 +86,68 @@
             auditorBubble.textContent = status;
         }
 
-        function handleImageUpload(event) {
+        async function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const imageUrl = e.target.result;
-                const imageElement = new Image();
-                imageElement.src = imageUrl;
-                
-                imageElement.onload = async () => {
-                    displayContainer.innerHTML = '';
-                    displayContainer.appendChild(imageElement);
+            const imageUrl = URL.createObjectURL(file);
+            displayContainer.innerHTML = `<img src="${imageUrl}" style="width:100%; height:auto;" />`;
 
-                    updateProgress('Inicializando motor OCR...', 0);
+            updateProgress('Inicializando motor OCR...', 0);
 
-                    const worker = await Tesseract.createWorker('eng', 1, {
-                        logger: m => {
-                            if (m.status === 'recognizing text') {
-                                updateProgress('Reconociendo texto...', m.progress);
-                            }
-                        }
-                    });
-                    
-                    // ---
-                    // PUNTO CLAVE: DEFINIMOS LA REGIÓN DE INTERÉS (ROI)
-                    // Le decimos a Tesseract que solo analice la mitad inferior de la imagen.
-                    // ---
-                    const rectangle = { 
-                        top: imageElement.naturalHeight / 2, 
-                        left: 0, 
-                        width: imageElement.naturalWidth, 
-                        height: imageElement.naturalHeight / 2 
-                    };
-
-                    // Pasamos el rectángulo como una opción a 'recognize'
-                    const { data: { text } } = await worker.recognize(file, { rectangle });
-                    
-                    const cleanedText = text.replace(/\D/g, '');
-                    console.log('Texto extraído (solo de la parte inferior):', text);
-                    console.log('Texto limpiado (solo números):', cleanedText);
-                    
-                    const barcodeRegex = /750\d{10}/;
-                    const match = cleanedText.match(barcodeRegex);
-
-                    if (match) {
-                        const barcode = match[0];
-                        statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcode}</strong></div>`;
-                        auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcode}`;
-                    } else {
-                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código EAN-13.</div>`;
-                        auditorBubble.textContent = "No encontré el código en la parte inferior de la imagen.";
+            const worker = await Tesseract.createWorker('eng', 1, {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        updateProgress('Reconociendo texto...', m.progress);
                     }
+                }
+            });
 
-                    await worker.terminate();
-                };
-            };
-            reader.readAsDataURL(file);
+            const { data: { text } } = await worker.recognize(file);
+            
+            const cleanedText = text.replace(/\D/g, '');
+            console.log('Texto extraído:', text);
+            console.log('Texto limpiado (solo números):', cleanedText);
+            
+            // ---
+            // PUNTO CLAVE: ALGORITMO DE BÚSQUEDA POR PREFIJO ESPECÍFICO
+            // ---
+            let finalCode = null;
+            const prefix1 = '75014287';
+            const prefix2 = '75014497';
+            
+            // 1. Buscamos el prefijo primario
+            let index = cleanedText.indexOf(prefix1);
+            if (index > -1) {
+                // Si se encuentra, extraemos los 13 dígitos
+                finalCode = cleanedText.substring(index, index + 13);
+            } else {
+                // 2. Si no, buscamos el prefijo secundario
+                index = cleanedText.indexOf(prefix2);
+                if (index > -1) {
+                    // Si se encuentra, extraemos los 13 dígitos
+                    finalCode = cleanedText.substring(index, index + 13);
+                }
+            }
+            
+            // 3. Verificamos que el código extraído tenga 13 dígitos
+            if (finalCode && finalCode.length === 13) {
+                console.log("Código encontrado por prefijo:", finalCode);
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
+                auditorBubble.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
+            } else {
+                console.log("No se encontró ningún código con los prefijos conocidos.");
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código conocido.</div>`;
+                auditorBubble.textContent = "No encontré un código con el formato esperado.";
+            }
+
+            await worker.terminate();
+            URL.revokeObjectURL(imageUrl);
         }
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         uploadButtonInput.addEventListener('change', handleImageUpload);
-        console.log("Aplicación lista. Versión final con ROI de Tesseract.js.");
+        console.log("Aplicación lista. Versión final con búsqueda por prefijo.");
     </script>
 </body>
 </html>
