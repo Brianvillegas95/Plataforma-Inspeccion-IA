@@ -29,9 +29,9 @@
         </header>
         <main class="main-content-grid"> 
             <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas fa-barcode"></i> Lector de Código de Barras</h2>
+                <h2 class="panel-title"><i class="fas fa-align-left"></i> Lector de Caracteres (OCR)</h2>
                 <div id="display-container" class="display-container-placeholder">
-                    <p>Suba una imagen para una decodificación de nivel profesional.</p>
+                    <p>Suba una imagen para una lectura de nivel profesional.</p>
                 </div>
                 <div class="label-container" id="status-container">
                     Esperando imagen...
@@ -62,7 +62,7 @@
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
-                        <span>¡Listo! Sube una imagen para empezar.</span>
+                        <span>¡Listo! Sube una imagen para empezar el análisis.</span>
                     </div>
                 </div>
             </aside>
@@ -72,70 +72,74 @@
         </footer>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     
     <script>
-        // ---
-        // PUNTO CLAVE: Usamos el flujo de control manual de Quagga (init -> onDetected -> start)
-        // ---
-        function handleImageUpload(event) {
+        const statusContainer = document.getElementById('status-container');
+        const auditorBubble = document.querySelector('#auditor-message-bubble span');
+        const displayContainer = document.getElementById('display-container');
+        const uploadButtonInput = document.getElementById('upload-image-input');
+
+        // Función para mostrar el progreso en tiempo real en la UI
+        function updateProgress(status, progress) {
+            const message = `${status} ${Math.round(progress * 100)}%`;
+            statusContainer.innerHTML = `<div class="veredicto-pensando">${message} <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = status;
+        }
+
+        async function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const dataUrl = e.target.result;
-                const statusContainer = document.getElementById('status-container');
-                const auditorBubble = document.querySelector('#auditor-message-bubble span');
+            // Mostramos la imagen inmediatamente
+            const imageUrl = URL.createObjectURL(file);
+            displayContainer.innerHTML = `<img src="${imageUrl}" style="width:100%; height:auto;" />`;
 
-                document.getElementById('display-container').innerHTML = `<img src="${dataUrl}" style="width:100%; height:auto;" />`;
-                statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-                auditorBubble.textContent = "Analizando...";
-                
-                let detectionOccurred = false;
+            updateProgress('Inicializando motor OCR...', 0);
 
-                // 1. Definimos la configuración para la imagen
-                const config = {
-                    src: dataUrl,
-                    numOfWorkers: 0,
-                    locate: false, // Lo desactivamos para simplificar
-                    decoder: {
-                        readers: ["ean_reader"]
+            // 1. Creamos un "trabajador" de Tesseract.
+            // Le pasamos una función 'logger' para capturar su progreso.
+            const worker = await Tesseract.createWorker('eng', 1, {
+                logger: m => {
+                    console.log(m); // Mantenemos el log en consola
+                    if (m.status === 'recognizing text') {
+                        updateProgress('Reconociendo texto...', m.progress);
                     }
-                };
+                }
+            });
 
-                // 2. Registramos el "escucha" para un resultado exitoso.
-                // Esta función SOLO se ejecutará si Quagga encuentra un código.
-                Quagga.onDetected(function(result) {
-                    if (detectionOccurred) return; // Evita que se ejecute múltiples veces
-                    detectionOccurred = true;
+            // 2. Ejecutamos el reconocimiento.
+            const { data: { text } } = await worker.recognize(file);
+            console.log('Texto extraído:', text);
 
-                    Quagga.stop(); // Detenemos el motor de Quagga
+            // 3. Limpiamos y buscamos el código de barras.
+            // Primero, eliminamos todos los espacios y saltos de línea del texto.
+            const cleanedText = text.replace(/\s/g, '');
+            
+            // Usamos una expresión regular para encontrar 750 seguido de 10 dígitos.
+            const barcodeRegex = /750\d{10}/;
+            const match = cleanedText.match(barcodeRegex);
 
-                    const barcodeText = result.codeResult.code;
-                    console.log("¡ÉXITO! Código detectado:", barcodeText);
-                    statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
-                    auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
-                });
-                
-                // 3. Inicializamos Quagga con nuestra configuración.
-                Quagga.decodeSingle(config, function(result) {
-                    // Este callback ahora solo nos sirve para saber cuándo termina el proceso.
-                    // Si 'onDetected' no se disparó, significa que no se encontró nada.
-                    if (!detectionOccurred) {
-                        Quagga.stop(); // Detenemos el motor de Quagga
-                        console.log("Proceso terminado. No se detectó ningún código.");
-                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
-                        auditorBubble.textContent = "No encontré un código en la imagen.";
-                    }
-                });
-            };
-            reader.readAsDataURL(file);
+            if (match) {
+                const barcode = match[0];
+                console.log('¡Código EAN-13 encontrado!', barcode);
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcode}</strong></div>`;
+                auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcode}`;
+            } else {
+                console.log('No se encontró un código con el formato esperado.');
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código EAN-13.</div>`;
+                auditorBubble.textContent = "Leí el texto, pero no encontré el código.";
+            }
+
+            // 4. Terminamos el "trabajador" para liberar recursos.
+            await worker.terminate();
+            URL.revokeObjectURL(imageUrl); // Liberamos memoria
         }
 
+        // --- Inicialización de la aplicación ---
         document.getElementById('currentYear').textContent = new Date().getFullYear();
-        document.getElementById('upload-image-input').addEventListener('change', handleImageUpload);
-        console.log("Aplicación lista. Versión final con control manual de Quagga.");
+        uploadButtonInput.addEventListener('change', handleImageUpload);
+        console.log("Aplicación lista con motor Tesseract.js OCR.");
     </script>
 </body>
 </html>
