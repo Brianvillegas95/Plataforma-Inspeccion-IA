@@ -86,52 +86,69 @@
             auditorBubble.textContent = status;
         }
 
-        async function handleImageUpload(event) {
+        function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            const imageUrl = URL.createObjectURL(file);
-            displayContainer.innerHTML = `<img src="${imageUrl}" style="width:100%; height:auto;" />`;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imageUrl = e.target.result;
+                const imageElement = new Image();
+                imageElement.src = imageUrl;
+                
+                imageElement.onload = async () => {
+                    displayContainer.innerHTML = '';
+                    displayContainer.appendChild(imageElement);
 
-            updateProgress('Inicializando motor OCR...', 0);
+                    updateProgress('Inicializando motor OCR...', 0);
 
-            const worker = await Tesseract.createWorker('eng', 1, {
-                logger: m => {
-                    if (m.status === 'recognizing text') {
-                        updateProgress('Reconociendo texto...', m.progress);
+                    const worker = await Tesseract.createWorker('eng', 1, {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                updateProgress('Reconociendo texto...', m.progress);
+                            }
+                        }
+                    });
+                    
+                    // ---
+                    // PUNTO CLAVE: DEFINIMOS LA REGIÓN DE INTERÉS (ROI)
+                    // Le decimos a Tesseract que solo analice la mitad inferior de la imagen.
+                    // ---
+                    const rectangle = { 
+                        top: imageElement.naturalHeight / 2, 
+                        left: 0, 
+                        width: imageElement.naturalWidth, 
+                        height: imageElement.naturalHeight / 2 
+                    };
+
+                    // Pasamos el rectángulo como una opción a 'recognize'
+                    const { data: { text } } = await worker.recognize(file, { rectangle });
+                    
+                    const cleanedText = text.replace(/\D/g, '');
+                    console.log('Texto extraído (solo de la parte inferior):', text);
+                    console.log('Texto limpiado (solo números):', cleanedText);
+                    
+                    const barcodeRegex = /750\d{10}/;
+                    const match = cleanedText.match(barcodeRegex);
+
+                    if (match) {
+                        const barcode = match[0];
+                        statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcode}</strong></div>`;
+                        auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcode}`;
+                    } else {
+                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código EAN-13.</div>`;
+                        auditorBubble.textContent = "No encontré el código en la parte inferior de la imagen.";
                     }
-                }
-            });
 
-            const { data: { text } } = await worker.recognize(file);
-            
-            // ---
-            // PUNTO CLAVE: Limpieza robusta del texto.
-            // .replace(/\D/g, '') elimina CUALQUIER COSA que NO sea un dígito (letras, espacios, puntuación).
-            // ---
-            const cleanedText = text.replace(/\D/g, '');
-            console.log('Texto extraído:', text);
-            console.log('Texto limpiado (solo números):', cleanedText);
-            
-            const barcodeRegex = /750\d{10}/;
-            const match = cleanedText.match(barcodeRegex);
-
-            if (match) {
-                const barcode = match[0];
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcode}</strong></div>`;
-                auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcode}`;
-            } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código EAN-13.</div>`;
-                auditorBubble.textContent = "Leí el texto, pero no encontré el código.";
-            }
-
-            await worker.terminate();
-            URL.revokeObjectURL(imageUrl);
+                    await worker.terminate();
+                };
+            };
+            reader.readAsDataURL(file);
         }
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         uploadButtonInput.addEventListener('change', handleImageUpload);
-        console.log("Aplicación lista con motor Tesseract.js OCR (versión pulida).");
+        console.log("Aplicación lista. Versión final con ROI de Tesseract.js.");
     </script>
 </body>
 </html>
