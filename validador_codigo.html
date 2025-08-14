@@ -73,13 +73,14 @@
     </div>
 
     <script type="module">
-        // CORRECCIÓN: Importamos el módulo "por defecto" y le ponemos un nombre (ej. ZBar)
-        import ZBar from 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/index.js';
+        // ---
+        // PUNTO CLAVE 1: IMPORTACIÓN CORREGIDA Y ROBUSTA
+        // Se importa directamente la función 'scan' desde el archivo de módulo ES (.mjs)
+        // Esto es más específico y menos propenso a errores que la importación anterior.
+        // ---
+        import { scan } from 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/index.mjs';
 
-        // Ahora, la función 'scan' está dentro del objeto que importamos.
-        const { scan } = ZBar;
-        
-        console.log("Motor ZBar/WASM cargado desde CDN y listo.");
+        console.log("Motor ZBar/WASM cargado correctamente como módulo ES.");
         iniciarApp();
 
         function iniciarApp() {
@@ -122,28 +123,65 @@
             
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
+            /**
+             * ---
+             * PUNTO CLAVE 2: FUNCIÓN DE PREPROCESAMIENTO DE IMAGEN
+             * Mejora drásticamente la capacidad de detección del lector de códigos.
+             * 1. Convierte la imagen a escala de grises.
+             * 2. Aumenta el contraste para que las barras negras y los espacios blancos se distingan mejor.
+             * ---
+             * @param {CanvasRenderingContext2D} context - El contexto 2D del canvas con la imagen.
+             * @param {number} width - El ancho del canvas.
+             * @param {number} height - El alto del canvas.
+             */
+            function preprocessImage(context, width, height) {
+                const imageData = context.getImageData(0, 0, width, height);
+                const data = imageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    // 1. Escala de grises (usando la fórmula de luminosidad, más precisa que el promedio)
+                    const lightness = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+                    
+                    // 2. Aumento de contraste (binarización)
+                    const value = lightness > 128 ? 255 : 0;
+                    
+                    data[i]     = value; // Rojo
+                    data[i + 1] = value; // Verde
+                    data[i + 2] = value; // Azul
+                }
+                context.putImageData(imageData, 0, 0);
+            }
+
             async function decodeBarcode(imageElement) {
                 try {
                     const canvas = document.createElement('canvas');
                     canvas.width = imageElement.naturalWidth;
                     canvas.height = imageElement.naturalHeight;
-                    const context = canvas.getContext('2d');
+                    
+                    // --- PUNTO CLAVE 3: OPTIMIZACIÓN DEL CONTEXTO DEL CANVAS ---
+                    const context = canvas.getContext('2d', { willReadFrequently: true });
                     context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
+                    
+                    console.log("Aplicando preprocesamiento de imagen (escala de grises y contraste)...");
+                    preprocessImage(context, canvas.width, canvas.height);
+                                    
                     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                     
+                    console.log("Iniciando escaneo con zbar.wasm...");
                     const symbols = await scan(imageData);
 
                     if (symbols && symbols.length > 0) {
                         const barcodeText = symbols[0].data; 
+                        console.log('¡Éxito!', symbols);
                         statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
                         auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
                     } else {
+                        console.log('No se encontraron códigos de barras.');
                         statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
-                        auditorBubble.textContent = "No encontré un código en la imagen.";
+                        auditorBubble.textContent = "No encontré un código. Intenta con una foto más nítida y bien iluminada.";
                     }
                 } catch (err) {
-                    console.error('Error en pipeline de decodificación:', err); 
-                    statusContainer.innerHTML = `<div class="veredicto-rechazado">Error en el sistema de lectura.</div>`;
+                    console.error('Error en el pipeline de decodificación:', err); 
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">Error crítico en el sistema de lectura.</div>`;
                     auditorBubble.textContent = "Ocurrió un error inesperado al analizar.";
                 }
             };
