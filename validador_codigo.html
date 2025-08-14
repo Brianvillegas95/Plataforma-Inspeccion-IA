@@ -7,19 +7,38 @@
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        #image-display-canvas { max-width: 100%; height: auto; } /* Añadido para asegurar responsividad */
-        .scanner-input-container {
-            margin-top: 15px;
-            padding: 0 20px;
-            text-align: center;
+        /* --- ESTILOS PARA LA NUEVA INTERFAZ DE ESCÁNER --- */
+        #scanner-container {
+            position: relative;
+            background: #000;
+            border: 1px solid #ddd;
+            overflow: hidden; /* Oculta partes de la imagen/canvas que se salgan */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #image-display-canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        #scanner-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: none; /* Oculto por defecto, se muestra cuando hay una imagen */
+        }
+        /* La "luz rojita" del escáner */
+        #scanner-overlay .scanner-line {
+            position: absolute;
+            top: 50%;
+            left: 5%;
+            right: 5%;
+            height: 2px;
+            background: rgba(255, 0, 0, 0.7);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.9);
         }
         #scanner-input {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
+            width: 100%; padding: 10px; font-size: 16px; border: 1px solid #ccc;
+            border-radius: 5px; box-sizing: border-box;
         }
     </style>
 </head>
@@ -45,10 +64,11 @@
         </header>
         <main class="main-content-grid">
             <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas fa-camera"></i> 1. Capture o Suba una Imagen</h2>
-                <div id="display-container" class="display-container-placeholder">
+                <h2 class="panel-title"><i class="fas-solid fa-barcode"></i> 1. Escáner de Código</h2>
+                <div id="scanner-container">
                     <canvas id="image-display-canvas"></canvas>
-                    <p id="upload-prompt">Suba una imagen para comenzar...</p>
+                    <div id="scanner-overlay"><div class="scanner-line"></div></div>
+                    <p id="upload-prompt">Cargue una imagen para escanear...</p>
                 </div>
                 <div class="label-container" id="status-container">
                     Esperando imagen o escaneo...
@@ -58,50 +78,51 @@
                  <h3 class="panel-title"><i class="fas fa-cogs"></i> 2. Controles y Resultado</h3>
                 <div class="action-buttons">
                     <label id="upload-label" for="upload-image-input" class="button primary-action">
-                        <i class="fas fa-upload"></i> Subir Nueva Imagen
+                        <i class="fas fa-camera"></i> Cargar Imagen para Escaneo
                     </label>
                     <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
                 </div>
-
-                <div class="scanner-input-container">
+                <div style="margin-top: 15px; padding: 0 20px; text-align: center;">
                     <label for="scanner-input" style="display:block; margin-bottom: 5px; color: #555;">O use la pistola escáner:</label>
                     <input type="text" id="scanner-input" placeholder="Esperando escaneo...">
                 </div>
-                
                 <div id="auditor-section" style="margin-top: 20px;">
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                        <span id="auditor-text">Use la cámara o la pistola escáner para verificar un código.</span>
+                        <span id="auditor-text">Cargue una imagen para iniciar la verificación.</span>
                     </div>
                 </div>
             </aside>
         </main>
-        <footer class="app-footer">
-            &copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.
-        </footer>
+        <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
     </div>
 
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-    
     <script>
+        // --- Referencias a Elementos del DOM ---
         const statusContainer = document.getElementById('status-container');
         const auditorBubble = document.querySelector('#auditor-message-bubble span');
-        const displayContainer = document.getElementById('display-container'); // Contenedor de la imagen
+        const scannerContainer = document.getElementById('scanner-container');
         const displayCanvas = document.getElementById('image-display-canvas');
         const displayCtx = displayCanvas.getContext('2d');
         const uploadButtonInput = document.getElementById('upload-image-input');
         const uploadPrompt = document.getElementById('upload-prompt');
         const scannerInput = document.getElementById('scanner-input');
-        
-        let originalImage = null;
+        const scannerOverlay = document.getElementById('scanner-overlay');
 
+        // --- Estado de la aplicación ---
+        let originalImage = null;
+        let isDrawing = false;
+        let selectionRect = {};
+        let isCroppingEnabled = false;
+
+        // --- Manejadores de Eventos Principales ---
         scannerInput.addEventListener('change', (event) => {
             const code = event.target.value.trim();
             if (code.length > 5) {
-                console.log('Código recibido de la pistola escáner:', code);
                 displayFinalResult(code);
                 event.target.value = '';
                 event.target.blur();
@@ -111,99 +132,129 @@
         uploadButtonInput.addEventListener('change', (event) => {
             const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = (e) => {
                 originalImage = new Image();
                 originalImage.src = e.target.result;
                 originalImage.onload = () => {
-                    // --- INICIO DE CORRECCIÓN: Ajuste de tamaño de imagen ---
-                    // Se calcula la proporción de la imagen y se ajusta el canvas al ancho del contenedor.
-                    // Esto evita que la imagen se vea enorme y rompa el diseño.
-                    const aspectRatio = originalImage.naturalWidth / originalImage.naturalHeight;
-                    const maxWidth = displayContainer.clientWidth;
-                    displayCanvas.width = maxWidth;
-                    displayCanvas.height = maxWidth / aspectRatio;
-                    // Dibujamos la imagen escalada en el canvas para la visualización.
-                    displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
-                    // --- FIN DE CORRECCIÓN ---
-
-                    uploadPrompt.style.display = 'none';
-                    // Pasamos el objeto de imagen original (en alta resolución) para el análisis.
+                    displayImageForAnalysis(originalImage);
                     processImageWithHybridReader(originalImage);
                 };
             };
             reader.readAsDataURL(file);
         });
+        
+        // --- Lógica de la Interfaz y Flujo de Análisis ---
+        function displayImageForAnalysis(image) {
+            const aspectRatio = image.naturalWidth / image.naturalHeight;
+            const maxWidth = scannerContainer.clientWidth;
+            displayCanvas.width = maxWidth;
+            displayCanvas.height = maxWidth / aspectRatio;
+            displayCtx.drawImage(image, 0, 0, displayCanvas.width, displayCanvas.height);
+            uploadPrompt.style.display = 'none';
+            scannerOverlay.style.display = 'block';
+            disableCropping(); // Desactivar el modo de recorte por defecto
+        }
 
         async function processImageWithHybridReader(image) {
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando lector de código de barras... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Intento 1: Analizando las líneas del código...";
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Intento automático... <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = "Analizando con el lector de alta velocidad...";
 
-            // Verificamos si 'BarcodeDetector' existe en el navegador antes de usarlo.
             if ('BarcodeDetector' in window) {
                 try {
                     const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
                     const barcodes = await barcodeDetector.detect(image);
-
                     if (barcodes.length > 0) {
-                        const detectedCode = barcodes[0].rawValue;
-                        console.log('Código detectado por LECTOR DE LÍNEAS:', detectedCode);
-                        displayFinalResult(detectedCode, "Lector de Líneas (Alta Fiabilidad)");
+                        displayFinalResult(barcodes[0].rawValue, "Lector de Líneas (Automático)");
                         return;
-                    } else {
-                         // Si el lector funciona pero no encuentra nada, lo informamos y pasamos al respaldo.
-                        console.log('Lector de Líneas no encontró un código EAN-13. Pasando a OCR...');
-                        auditorBubble.textContent = "Intento 1 fallido. Usando respaldo OCR...";
                     }
-                } catch (error) {
-                    console.warn('El Lector de Líneas (BarcodeDetector) falló durante la ejecución:', error);
-                }
+                } catch (error) { console.warn('BarcodeDetector falló:', error); }
             } else {
-                // --- INICIO DE MEJORA: Informar al usuario sobre la incompatibilidad ---
-                console.warn('BarcodeDetector no es compatible con este navegador.');
-                auditorBubble.textContent = "Lector de líneas no compatible en este navegador. Usando respaldo OCR.";
-                // --- FIN DE MEJORA ---
+                console.warn('BarcodeDetector no es compatible.');
             }
-
-            // --- INTENTO #2: LECTOR DE NÚMEROS (OCR con Tesseract.js) ---
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Usando OCR de respaldo... <i class="fas fa-spinner fa-spin"></i></div>`;
             
-            const worker = await Tesseract.createWorker('eng', 1, { logger: m => console.log(m) });
-            await worker.setParameters({
-                tessedit_char_whitelist: '0123456789',
-                tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
-            });
+            // --- Si el intento automático falla, activamos el modo de selección manual ---
+            statusContainer.innerHTML = `<div class="veredicto-advertencia">Análisis automático fallido.</div>`;
+            auditorBubble.textContent = "Por favor, dibuja un recuadro sobre el número para un análisis detallado.";
+            enableCropping();
+        }
 
-            const { data: { text } } = await worker.recognize(image);
+        // --- Lógica de Recorte Manual (para el respaldo de OCR) ---
+        function enableCropping() {
+            isCroppingEnabled = true;
+            displayCanvas.classList.add('ready-to-crop');
+        }
+
+        function disableCropping() {
+            isCroppingEnabled = false;
+            isDrawing = false;
+            displayCanvas.classList.remove('ready-to-crop');
+        }
+
+        displayCanvas.addEventListener('mousedown', (e) => {
+            if (!isCroppingEnabled) return;
+            isDrawing = true;
+            const rect = displayCanvas.getBoundingClientRect();
+            selectionRect.startX = e.clientX - rect.left;
+            selectionRect.startY = e.clientY - rect.top;
+        });
+
+        displayCanvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing || !isCroppingEnabled) return;
+            const rect = displayCanvas.getBoundingClientRect();
+            selectionRect.endX = e.clientX - rect.left;
+            selectionRect.endY = e.clientY - rect.top;
+            
+            // Redibujar la imagen y luego el recuadro
+            displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
+            displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
+            displayCtx.lineWidth = 2;
+            const width = selectionRect.endX - selectionRect.startX;
+            const height = selectionRect.endY - selectionRect.startY;
+            displayCtx.strokeRect(selectionRect.startX, selectionRect.startY, width, height);
+        });
+
+        displayCanvas.addEventListener('mouseup', async (e) => {
+            if (!isDrawing || !isCroppingEnabled) return;
+            disableCropping();
+
+            const scaleX = originalImage.naturalWidth / displayCanvas.width;
+            const scaleY = originalImage.naturalHeight / displayCanvas.height;
+            const cropX = Math.min(selectionRect.startX, selectionRect.endX) * scaleX;
+            const cropY = Math.min(selectionRect.startY, selectionRect.endY) * scaleY;
+            const cropWidth = Math.abs(selectionRect.endX - selectionRect.startX) * scaleX;
+            const cropHeight = Math.abs(selectionRect.endY - selectionRect.startY) * scaleY;
+
+            if (cropWidth < 20 || cropHeight < 10) return; // Ignorar selecciones muy pequeñas
+            
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando selección con OCR... <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = "Aplicando OCR en el área seleccionada...";
+
+            // Crear un canvas temporal con el recorte en alta resolución
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = cropWidth;
+            tempCanvas.height = cropHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+            const worker = await Tesseract.createWorker('eng', 1);
+            await worker.setParameters({ tessedit_char_whitelist: '0123456789', tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE });
+            const { data: { text } } = await worker.recognize(tempCanvas);
             await worker.terminate();
+
             const cleanedText = text.replace(/\s/g, '');
-            console.log('Texto extraído por OCR:', cleanedText);
-            
             const finalCode = validateAndCorrectOCR(cleanedText);
 
             if (finalCode) {
-                 displayFinalResult(finalCode, "Lector de Números (OCR)");
+                 displayFinalResult(finalCode, "Análisis Detallado (OCR)");
             } else {
                  displayFinalResult(null);
             }
-        }
-        
-        function levenshteinDistance(s1, s2) {
-            const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
-            for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
-            for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
-            for (let j = 1; j <= s2.length; j += 1) {
-                for (let i = 1; i <= s1.length; i += 1) {
-                    const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-                    track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
-                }
-            }
-            return track[s2.length][s1.length];
-        }
+        });
 
+        // --- Funciones de Validación y Resultados (sin cambios) ---
         function validateAndCorrectOCR(ocrText) {
             const prefixes = ['75014287', '75014497'];
             const LEVENSHTEIN_THRESHOLD = 2;
-
             for (let i = 0; i <= ocrText.length - 13; i++) {
                 const substring13 = ocrText.substring(i, i + 13);
                 const potentialPrefix = substring13.substring(0, 8);
@@ -217,30 +268,39 @@
         }
 
         function displayFinalResult(code, method = "Pistola Escáner") {
-            if (code) {
-                const isValidEAN = validateEAN13Checksum(code);
-                const validityText = isValidEAN ? '<span style="color: green;">(EAN-13 Válido)</span>' : '<span style="color: red;">(EAN-13 Inválido)</span>';
-                
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${code}</strong> ${validityText}</div><small>Método: ${method}</small>`;
+            if (code && validateEAN13Checksum(code)) {
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${code}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${method}</small>`;
                 auditorBubble.textContent = `¡Lectura exitosa! El código es: ${code}`;
+            } else if (code) {
+                 statusContainer.innerHTML = `<div class="veredicto-rechazado">Código Leído: <strong>${code}</strong> <span style="color: red;">(Inválido)</span></div><small>Método: ${method}</small>`;
+                 auditorBubble.textContent = `Código ${code} tiene un dígito verificador incorrecto.`;
             } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código válido en la imagen.</div>`;
-                auditorBubble.textContent = "No pude encontrar un código. Por favor, intenta de nuevo o usa la pistola escáner.";
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código válido.</div>`;
+                auditorBubble.textContent = "No pude encontrar un código. Por favor, intenta de nuevo.";
             }
         }
-        
+
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) {
-                return false;
-            }
+            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
-            for (let i = 0; i < 12; i++) {
-                sum += i % 2 === 0 ? digits[i] : digits[i] * 3;
-            }
+            for (let i = 0; i < 12; i++) { sum += i % 2 === 0 ? digits[i] : digits[i] * 3; }
             const calculatedChecksum = (10 - (sum % 10)) % 10;
             return checksum === calculatedChecksum;
+        }
+
+        function levenshteinDistance(s1, s2) {
+            const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+            for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
+            for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
+            for (let j = 1; j <= s2.length; j += 1) {
+                for (let i = 1; i <= s1.length; i += 1) {
+                    const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+                    track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
+                }
+            }
+            return track[s2.length][s1.length];
         }
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
