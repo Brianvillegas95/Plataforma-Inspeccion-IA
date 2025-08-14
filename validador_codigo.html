@@ -88,9 +88,8 @@
         const scannerInput = document.getElementById('scanner-input');
 
         let originalImage = null;
-        let codeReader; // Se inicializará cuando las librerías estén listas
+        let codeReader;
 
-        // --- MANEJADORES DE EVENTOS ---
         uploadButtonInput.addEventListener('change', (event) => {
             const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
@@ -111,7 +110,6 @@
         });
 
         function waitForLibrariesAndProcess(image) {
-            // Asegurarse de que TODAS las librerías estén cargadas.
             if (typeof cv !== 'undefined' && cv.Mat && typeof ZXing !== 'undefined') {
                 if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
                 processImageWithComputerVision(image);
@@ -127,117 +125,107 @@
             }
         }
 
-        // --- FLUJO DE ANÁLISIS CON VISIÓN POR COMPUTADORA ---
         async function processImageWithComputerVision(image) {
             auditorBubble.textContent = "Iniciando análisis de visión...";
             statusContainer.innerHTML = `<div class="veredicto-pensando">Detectando área del código de barras... <i class="fas fa-spinner fa-spin"></i></div>`;
             
             try {
-                const src = cv.imread(image);
-                const gray = new cv.Mat();
+                let src = cv.imread(image);
+                let gray = new cv.Mat();
                 cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-                const gradX = new cv.Mat();
-                cv.Sobel(gray, gradX, cv.CV_32F, 1, 0, -1);
-                const gradY = new cv.Mat();
-                cv.Sobel(gray, gradY, cv.CV_32F, 0, 1, -1);
+                let gradX = new cv.Mat(); cv.Sobel(gray, gradX, cv.CV_32F, 1, 0, -1);
+                let gradY = new cv.Mat(); cv.Sobel(gray, gradY, cv.CV_32F, 0, 1, -1);
                 
-                const gradient = new cv.Mat();
-                cv.subtract(gradX, gradY, gradient);
-                cv.convertScaleAbs(gradient, gradient);
-
-                const blurred = new cv.Mat();
-                cv.blur(gradient, blurred, new cv.Size(9, 9));
+                let gradient = new cv.Mat(); cv.subtract(gradX, gradY, gradient); cv.convertScaleAbs(gradient, gradient);
+                let blurred = new cv.Mat(); cv.blur(gradient, blurred, new cv.Size(9, 9));
+                let thresh = new cv.Mat(); cv.threshold(blurred, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                 
-                const thresh = new cv.Mat();
-                // --- INICIO DE CORRECCIÓN: Uso de Umbral Adaptativo (Otsu) ---
-                // Este método calcula el umbral óptimo automáticamente basado en el histograma de la imagen,
-                // haciéndolo mucho más robusto a diferentes condiciones de iluminación.
-                cv.threshold(blurred, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-                // --- FIN DE CORRECCIÓN ---
-                
-                const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
-                const closed = new cv.Mat();
-                cv.morphologyEx(thresh, closed, cv.MORPH_CLOSE, kernel);
+                let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
+                let closed = new cv.Mat(); cv.morphologyEx(thresh, closed, cv.MORPH_CLOSE, kernel);
 
                 cv.erode(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
                 cv.dilate(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
 
-                const contours = new cv.MatVector();
-                const hierarchy = new cv.Mat();
+                let contours = new cv.MatVector(); let hierarchy = new cv.Mat();
                 cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
                 if (contours.size() === 0) {
-                    auditorBubble.textContent = "No se detectó un área de código. Intentando en la imagen completa.";
-                    await decodeFromFullImage(image);
-                    src.delete(); gray.delete(); gradX.delete(); gradY.delete(); gradient.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete();
-                    return;
+                    throw new Error("No se encontraron contornos de código de barras.");
                 }
 
                 let maxArea = 0; let bestContour = contours.get(0);
                 for (let i = 0; i < contours.size(); ++i) {
                     const cnt = contours.get(i);
                     const area = cv.contourArea(cnt);
-                    if (area > maxArea) {
-                        maxArea = area;
-                        bestContour = cnt;
-                    }
+                    if (area > maxArea) { maxArea = area; bestContour = cnt; }
                 }
 
                 const rect = cv.boundingRect(bestContour);
-                const croppedCanvas = document.createElement('canvas');
-                croppedCanvas.width = rect.width;
-                croppedCanvas.height = rect.height;
-                const cropCtx = croppedCanvas.getContext('2d');
-                cropCtx.drawImage(image, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
+                
+                // --- INICIO DE LA NUEVA CADENA DE MEJORA DE IMAGEN ---
+                auditorBubble.textContent = "Área detectada. Mejorando imagen para lectura...";
+                statusContainer.innerHTML = `<div class="veredicto-pensando">Mejorando calidad de imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
 
-                displayCtx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
-                displayCtx.lineWidth = 4;
+                // Recortar la región de la imagen original (mat)
+                let croppedMat = src.roi(rect);
+                
+                // 1. Ampliación (Upscaling) para mayor detalle
+                let upscaledMat = new cv.Mat();
+                let newSize = new cv.Size(croppedMat.cols * 2, croppedMat.rows * 2);
+                cv.resize(croppedMat, upscaledMat, newSize, 0, 0, cv.INTER_CUBIC);
+
+                // 2. Convertir a escala de grises
+                cv.cvtColor(upscaledMat, upscaledMat, cv.COLOR_RGBA2GRAY);
+
+                // 3. Aumento de nitidez (Unsharp Masking)
+                let blurredForSharp = new cv.Mat();
+                cv.GaussianBlur(upscaledMat, blurredForSharp, new cv.Size(0, 0), 3);
+                cv.addWeighted(upscaledMat, 1.5, blurredForSharp, -0.5, 0, upscaledMat);
+
+                // 4. Binarización con umbral adaptativo
+                cv.adaptiveThreshold(upscaledMat, upscaledMat, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
+
+                // Convertir la Mat final de OpenCV a un Canvas para los lectores
+                const enhancedCanvas = document.createElement('canvas');
+                cv.imshow(enhancedCanvas, upscaledMat);
+                // --- FIN DE LA CADENA DE MEJORA ---
+
+                // Visualizar el recuadro verde
                 const scaleX = displayCanvas.width / image.naturalWidth;
                 const scaleY = displayCanvas.height / image.naturalHeight;
+                displayCtx.strokeStyle = 'rgba(0, 255, 0, 0.9)'; displayCtx.lineWidth = 4;
                 displayCtx.strokeRect(rect.x * scaleX, rect.y * scaleY, rect.width * scaleX, rect.height * scaleY);
 
-                src.delete(); gray.delete(); gradX.delete(); gradY.delete(); gradient.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete();
+                // Liberar toda la memoria de OpenCV
+                src.delete(); gray.delete(); gradX.delete(); gradY.delete(); gradient.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete(); croppedMat.delete(); upscaledMat.delete(); blurredForSharp.delete();
 
-                auditorBubble.textContent = "Área detectada. Decodificando...";
-                await decodeFromCroppedImage(croppedCanvas);
+                auditorBubble.textContent = "Imagen mejorada. Decodificando...";
+                await decodeFromEnhancedImage(enhancedCanvas);
 
             } catch(e) {
-                console.error("Error en el procesamiento con OpenCV:", e);
-                auditorBubble.textContent = "Error en visión IA. Intentando en la imagen completa.";
+                console.error("Fallo en la visión IA:", e);
+                auditorBubble.textContent = "Análisis de visión fallido. Intentando en la imagen completa.";
                 await decodeFromFullImage(image);
             }
         }
 
-        async function decodeFromCroppedImage(croppedImage) {
+        async function decodeFromEnhancedImage(enhancedImage) {
             try {
-                const result = await codeReader.decodeFromImageElement(croppedImage);
+                const result = await codeReader.decodeFromImageElement(enhancedImage);
                 if (result) {
-                    displayFinalResult(result.getText(), "Visión IA + ZXing");
+                    displayFinalResult(result.getText(), "Visión IA Pro + ZXing");
                     return;
                 }
             } catch (error) {}
-
-            try {
-                const worker = await Tesseract.createWorker('eng', 1);
-                await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
-                const { data: { text } } = await worker.recognize(croppedImage);
-                await worker.terminate();
-                const finalCode = validateAndCorrectOCR(text.replace(/\s/g, ''));
-                if(finalCode) {
-                    displayFinalResult(finalCode, "Visión IA + OCR");
-                    return;
-                }
-            } catch (error) {}
-
             displayFinalResult(null);
         }
         
         async function decodeFromFullImage(image) {
-            try {
+             try {
                 const result = await codeReader.decodeFromImageElement(image);
                 if (result) {
-                    displayFinalResult(result.getText(), "Lector de Líneas (Completo)");
+                    displayFinalResult(result.getText(), "Lector de Líneas (Respaldo)");
                     return;
                 }
             } catch (error) {}
@@ -247,8 +235,7 @@
         function displayImage(image) {
             const aspectRatio = image.naturalWidth / image.naturalHeight;
             const maxWidth = scannerContainer.clientWidth;
-            displayCanvas.width = maxWidth;
-            displayCanvas.height = maxWidth / aspectRatio;
+            displayCanvas.width = maxWidth; displayCanvas.height = maxWidth / aspectRatio;
             displayCtx.drawImage(image, 0, 0, displayCanvas.width, displayCanvas.height);
             uploadPrompt.style.display = 'none';
         }
@@ -274,34 +261,6 @@
             for (let i = 0; i < 12; i++) { sum += i % 2 === 0 ? digits[i] : digits[i] * 3; }
             const calculatedChecksum = (10 - (sum % 10)) % 10;
             return checksum === calculatedChecksum;
-        }
-
-        function validateAndCorrectOCR(ocrText) {
-            const prefixes = ['75014287', '75014497'];
-            const LEVENSHTEIN_THRESHOLD = 2;
-            for (let i = 0; i <= ocrText.length - 13; i++) {
-                const substring13 = ocrText.substring(i, i + 13);
-                const potentialPrefix = substring13.substring(0, 8);
-                for (const knownPrefix of prefixes) {
-                    if (levenshteinDistance(potentialPrefix, knownPrefix) <= LEVENSHTEIN_THRESHOLD) {
-                        return knownPrefix + substring13.substring(8);
-                    }
-                }
-            }
-            return null;
-        }
-
-        function levenshteinDistance(s1, s2) {
-            const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
-            for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
-            for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
-            for (let j = 1; j <= s2.length; j += 1) {
-                for (let i = 1; i <= s1.length; i += 1) {
-                    const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-                    track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
-                }
-            }
-            return track[s2.length][s1.length];
         }
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
