@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código Profesional - IA Vision Pro</title>
+    <title>Validador de Código Profesional - IA Vision Max</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
@@ -89,7 +90,9 @@
 
         let originalImage = null;
         let codeReader;
+        const VALID_PREFIXES = ['75014287', '75014497'];
 
+        // --- MANEJADORES DE EVENTOS ---
         uploadButtonInput.addEventListener('change', (event) => {
             const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
@@ -125,34 +128,30 @@
             }
         }
 
+        // --- FLUJO DE ANÁLISIS CON VISIÓN POR COMPUTADORA ---
         async function processImageWithComputerVision(image) {
             auditorBubble.textContent = "Iniciando análisis de visión...";
             statusContainer.innerHTML = `<div class="veredicto-pensando">Detectando área del código de barras... <i class="fas fa-spinner fa-spin"></i></div>`;
             
             try {
+                // Paso 1: Detección del área con OpenCV
                 let src = cv.imread(image);
                 let gray = new cv.Mat();
                 cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-
+                // ... (resto del pipeline de detección)
                 let gradX = new cv.Mat(); cv.Sobel(gray, gradX, cv.CV_32F, 1, 0, -1);
                 let gradY = new cv.Mat(); cv.Sobel(gray, gradY, cv.CV_32F, 0, 1, -1);
-                
                 let gradient = new cv.Mat(); cv.subtract(gradX, gradY, gradient); cv.convertScaleAbs(gradient, gradient);
                 let blurred = new cv.Mat(); cv.blur(gradient, blurred, new cv.Size(9, 9));
                 let thresh = new cv.Mat(); cv.threshold(blurred, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-                
                 let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
                 let closed = new cv.Mat(); cv.morphologyEx(thresh, closed, cv.MORPH_CLOSE, kernel);
-
                 cv.erode(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
                 cv.dilate(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
-
                 let contours = new cv.MatVector(); let hierarchy = new cv.Mat();
                 cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                if (contours.size() === 0) {
-                    throw new Error("No se encontraron contornos de código de barras.");
-                }
+                if (contours.size() === 0) throw new Error("No se encontraron contornos de código de barras.");
 
                 let maxArea = 0; let bestContour = contours.get(0);
                 for (let i = 0; i < contours.size(); ++i) {
@@ -160,97 +159,109 @@
                     const area = cv.contourArea(cnt);
                     if (area > maxArea) { maxArea = area; bestContour = cnt; }
                 }
-
                 const rect = cv.boundingRect(bestContour);
                 
-                // --- INICIO DE LA NUEVA CADENA DE MEJORA DE IMAGEN ---
+                // Paso 2: Mejora de la imagen recortada
                 auditorBubble.textContent = "Área detectada. Mejorando imagen para lectura...";
                 statusContainer.innerHTML = `<div class="veredicto-pensando">Mejorando calidad de imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-
-                // Recortar la región de la imagen original (mat)
-                let croppedMat = src.roi(rect);
                 
-                // 1. Ampliación (Upscaling) para mayor detalle
-                let upscaledMat = new cv.Mat();
+                // MEJORA: Enderezar (Deskew) la imagen
+                let minAreaRect = cv.minAreaRect(bestContour);
+                let center = minAreaRect.center;
+                let angle = minAreaRect.angle;
+                if (minAreaRect.size.width < minAreaRect.size.height) { angle = angle + 90; }
+                let M = cv.getRotationMatrix2D(center, angle, 1);
+                let rotated = new cv.Mat();
+                cv.warpAffine(src, rotated, M, src.size(), cv.INTER_CUBIC, cv.BORDER_REPLICATE);
+                
+                let croppedMat = rotated.roi(rect);
+
+                // Cadena de mejora de imagen
+                cv.cvtColor(croppedMat, croppedMat, cv.COLOR_RGBA2GRAY, 0);
                 let newSize = new cv.Size(croppedMat.cols * 2, croppedMat.rows * 2);
-                cv.resize(croppedMat, upscaledMat, newSize, 0, 0, cv.INTER_CUBIC);
-
-                // 2. Convertir a escala de grises
-                cv.cvtColor(upscaledMat, upscaledMat, cv.COLOR_RGBA2GRAY);
-
-                // 3. Aumento de nitidez (Unsharp Masking)
+                cv.resize(croppedMat, croppedMat, newSize, 0, 0, cv.INTER_CUBIC);
                 let blurredForSharp = new cv.Mat();
-                cv.GaussianBlur(upscaledMat, blurredForSharp, new cv.Size(0, 0), 3);
-                cv.addWeighted(upscaledMat, 1.5, blurredForSharp, -0.5, 0, upscaledMat);
+                cv.GaussianBlur(croppedMat, blurredForSharp, new cv.Size(0, 0), 3);
+                cv.addWeighted(croppedMat, 1.5, blurredForSharp, -0.5, 0, croppedMat);
+                cv.adaptiveThreshold(croppedMat, croppedMat, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
 
-                // 4. Binarización con umbral adaptativo
-                cv.adaptiveThreshold(upscaledMat, upscaledMat, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
-
-                // Convertir la Mat final de OpenCV a un Canvas para los lectores
                 const enhancedCanvas = document.createElement('canvas');
-                cv.imshow(enhancedCanvas, upscaledMat);
-                // --- FIN DE LA CADENA DE MEJORA ---
-
+                cv.imshow(enhancedCanvas, croppedMat);
+                
                 // Visualizar el recuadro verde
                 const scaleX = displayCanvas.width / image.naturalWidth;
                 const scaleY = displayCanvas.height / image.naturalHeight;
                 displayCtx.strokeStyle = 'rgba(0, 255, 0, 0.9)'; displayCtx.lineWidth = 4;
                 displayCtx.strokeRect(rect.x * scaleX, rect.y * scaleY, rect.width * scaleX, rect.height * scaleY);
+                
+                // Liberar memoria de OpenCV
+                src.delete(); gray.delete(); gradX.delete(); gradY.delete(); gradient.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete(); M.delete(); rotated.delete(); croppedMat.delete(); blurredForSharp.delete();
 
-                // Liberar toda la memoria de OpenCV
-                src.delete(); gray.delete(); gradX.delete(); gradY.delete(); gradient.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete(); croppedMat.delete(); upscaledMat.delete(); blurredForSharp.delete();
-
+                // Paso 3: Decodificación exhaustiva en cascada
                 auditorBubble.textContent = "Imagen mejorada. Decodificando...";
-                await decodeFromEnhancedImage(enhancedCanvas);
+                await exhaustiveDecode(enhancedCanvas);
 
             } catch(e) {
                 console.error("Fallo en la visión IA:", e);
                 auditorBubble.textContent = "Análisis de visión fallido. Intentando en la imagen completa.";
-                await decodeFromFullImage(image);
+                await decodeFromFullImage(image); // Fallback final
             }
         }
 
-        async function decodeFromEnhancedImage(enhancedImage) {
+        async function exhaustiveDecode(enhancedImage) {
+            let foundCode = null;
+
+            // Motor 1: ZXing
             try {
                 const result = await codeReader.decodeFromImageElement(enhancedImage);
-                if (result) {
-                    displayFinalResult(result.getText(), "Visión IA Pro + ZXing");
-                    return;
+                let code = result.getText();
+                if (isValidCode(code)) {
+                    foundCode = { code, method: "Visión IA + ZXing" };
                 }
             } catch (error) {}
-            displayFinalResult(null);
+
+            // Motor 2: BarcodeDetector (si no se encontró con ZXing)
+            if (!foundCode && 'BarcodeDetector' in window) {
+                try {
+                    const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
+                    const barcodes = await barcodeDetector.detect(enhancedImage);
+                    if (barcodes.length > 0 && isValidCode(barcodes[0].rawValue)) {
+                        foundCode = { code: barcodes[0].rawValue, method: "Visión IA + Lector Nativo" };
+                    }
+                } catch (error) {}
+            }
+            
+            // Motor 3: Tesseract OCR (si todo lo demás falla)
+            if (!foundCode) {
+                 try {
+                    const worker = await Tesseract.createWorker('eng', 1);
+                    await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+                    const { data: { text } } = await worker.recognize(enhancedImage);
+                    await worker.terminate();
+                    let code = validateAndCorrectOCR(text.replace(/\s/g, ''));
+                    if (isValidCode(code)) {
+                        foundCode = { code: code, method: "Visión IA + OCR" };
+                    }
+                } catch (error) {}
+            }
+
+            if (foundCode) {
+                displayFinalResult(foundCode.code, foundCode.method);
+            } else {
+                displayFinalResult(null);
+            }
         }
         
-        async function decodeFromFullImage(image) {
-             try {
-                const result = await codeReader.decodeFromImageElement(image);
-                if (result) {
-                    displayFinalResult(result.getText(), "Lector de Líneas (Respaldo)");
-                    return;
-                }
-            } catch (error) {}
-            displayFinalResult(null);
-        }
+        async function decodeFromFullImage(image) { /* ... (código de respaldo sin cambios) ... */ }
+        function displayImage(image) { /* ... (código sin cambios) ... */ }
+        function displayFinalResult(code, method) { /* ... (código sin cambios) ... */ }
+        function levenshteinDistance(s1, s2) { /* ... (código sin cambios) ... */ }
 
-        function displayImage(image) {
-            const aspectRatio = image.naturalWidth / image.naturalHeight;
-            const maxWidth = scannerContainer.clientWidth;
-            displayCanvas.width = maxWidth; displayCanvas.height = maxWidth / aspectRatio;
-            displayCtx.drawImage(image, 0, 0, displayCanvas.width, displayCanvas.height);
-            uploadPrompt.style.display = 'none';
-        }
-
-        function displayFinalResult(code, method = "Pistola Escáner") {
-            if (code && validateEAN13Checksum(code)) {
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${code}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${method}</small>`;
-                auditorBubble.textContent = `¡Lectura automática exitosa! El código es: ${code}`;
-            } else if (code) {
-                 statusContainer.innerHTML = `<div class="veredicto-rechazado">Código Leído: <strong>${code}</strong> <span style="color: red;">(Inválido)</span></div><small>Método: ${method}</small>`;
-                 auditorBubble.textContent = `Código ${code} tiene un dígito verificador incorrecto.`;
-            } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código válido.</div>`;
-                auditorBubble.textContent = "La IA no pudo decodificar el código. Intente con otra imagen.";
-            }
+        // --- FUNCIONES DE VALIDACIÓN MEJORADAS ---
+        function isValidCode(code) {
+            if (!code || typeof code !== 'string' || code.length !== 13) return false;
+            const hasPrefix = VALID_PREFIXES.some(prefix => code.startsWith(prefix));
+            return hasPrefix && validateEAN13Checksum(code);
         }
 
         function validateEAN13Checksum(code) {
@@ -262,8 +273,61 @@
             const calculatedChecksum = (10 - (sum % 10)) % 10;
             return checksum === calculatedChecksum;
         }
+        
+        function validateAndCorrectOCR(ocrText) {
+            for (let i = 0; i <= ocrText.length - 13; i++) {
+                const substring13 = ocrText.substring(i, i + 13);
+                const potentialPrefix = substring13.substring(0, 8);
+                for (const knownPrefix of VALID_PREFIXES) {
+                    if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) {
+                        return knownPrefix + substring13.substring(8);
+                    }
+                }
+            }
+            return null;
+        }
 
+        // --- CÓDIGO REPETIDO (para asegurar completitud) ---
         document.getElementById('currentYear').textContent = new Date().getFullYear();
+        function displayImage(image) {
+            const aspectRatio = image.naturalWidth / image.naturalHeight;
+            const maxWidth = scannerContainer.clientWidth;
+            displayCanvas.width = maxWidth; displayCanvas.height = maxWidth / aspectRatio;
+            displayCtx.drawImage(image, 0, 0, displayCanvas.width, displayCanvas.height);
+            uploadPrompt.style.display = 'none';
+        }
+        async function decodeFromFullImage(image) {
+            try {
+                const result = await codeReader.decodeFromImageElement(image);
+                if (result && isValidCode(result.getText())) {
+                    displayFinalResult(result.getText(), "Lector de Líneas (Respaldo)");
+                    return;
+                }
+            } catch (error) {}
+            displayFinalResult(null);
+        }
+        function displayFinalResult(code, method = "Pistola Escáner") {
+            if (code) { // La validación ya se hizo antes
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${code}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${method}</small>`;
+                auditorBubble.textContent = `¡Lectura automática exitosa! El código es: ${code}`;
+            } else {
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código válido.</div>`;
+                auditorBubble.textContent = "La IA no pudo decodificar el código. Intente con otra imagen.";
+            }
+        }
+        function levenshteinDistance(s1, s2) {
+            const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+            for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
+            for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
+            for (let j = 1; j <= s2.length; j += 1) {
+                for (let i = 1; i <= s1.length; i += 1) {
+                    const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+                    track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
+                }
+            }
+            return track[s2.length][s1.length];
+        }
+
     </script>
 </body>
 </html>
