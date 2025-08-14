@@ -7,8 +7,7 @@
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        #image-display-canvas.ready-to-crop { cursor: crosshair; }
-        /* Estilos para el nuevo campo de texto del escáner */
+        #image-display-canvas { max-width: 100%; height: auto; } /* Añadido para asegurar responsividad */
         .scanner-input-container {
             margin-top: 15px;
             padding: 0 20px;
@@ -20,7 +19,7 @@
             font-size: 16px;
             border: 1px solid #ccc;
             border-radius: 5px;
-            box-sizing: border-box; /* Asegura que el padding no afecte el ancho total */
+            box-sizing: border-box;
         }
     </style>
 </head>
@@ -58,7 +57,8 @@
             <aside class="controls-panel">
                  <h3 class="panel-title"><i class="fas fa-cogs"></i> 2. Controles y Resultado</h3>
                 <div class="action-buttons">
-                    <label id="upload-label" for="upload-image-input" class="button primary-action"> <i class="fas fa-upload"></i> Subir Nueva Imagen
+                    <label id="upload-label" for="upload-image-input" class="button primary-action">
+                        <i class="fas fa-upload"></i> Subir Nueva Imagen
                     </label>
                     <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
                 </div>
@@ -87,9 +87,9 @@
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     
     <script>
-        // --- Referencias a Elementos del DOM ---
         const statusContainer = document.getElementById('status-container');
         const auditorBubble = document.querySelector('#auditor-message-bubble span');
+        const displayContainer = document.getElementById('display-container'); // Contenedor de la imagen
         const displayCanvas = document.getElementById('image-display-canvas');
         const displayCtx = displayCanvas.getContext('2d');
         const uploadButtonInput = document.getElementById('upload-image-input');
@@ -98,26 +98,16 @@
         
         let originalImage = null;
 
-        /**
-         * COMENTARIO DE IMPLEMENTACIÓN: Lógica de la Pistola Escáner.
-         * Escuchamos el evento 'change' en el campo de texto. Las pistolas escáner
-         * típicamente escriben los números y envían una señal de 'Enter', lo que
-         * dispara este evento. Es una forma muy simple y efectiva de integrarlas.
-         */
         scannerInput.addEventListener('change', (event) => {
             const code = event.target.value.trim();
-            if (code.length > 5) { // Una validación simple para evitar disparos accidentales
+            if (code.length > 5) {
                 console.log('Código recibido de la pistola escáner:', code);
                 displayFinalResult(code);
-                event.target.value = ''; // Limpiar para el siguiente escaneo
-                event.target.blur();   // Quitar el foco
+                event.target.value = '';
+                event.target.blur();
             }
         });
 
-        /**
-         * COMENTARIO DE IMPLEMENTACIÓN: Lógica de Carga de Imagen.
-         * Esta función ahora inicia el nuevo flujo de análisis en cascada.
-         */
         uploadButtonInput.addEventListener('change', (event) => {
             const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
@@ -125,45 +115,58 @@
                 originalImage = new Image();
                 originalImage.src = e.target.result;
                 originalImage.onload = () => {
-                    displayCanvas.width = originalImage.width;
-                    displayCanvas.height = originalImage.height;
-                    displayCtx.drawImage(originalImage, 0, 0);
+                    // --- INICIO DE CORRECCIÓN: Ajuste de tamaño de imagen ---
+                    // Se calcula la proporción de la imagen y se ajusta el canvas al ancho del contenedor.
+                    // Esto evita que la imagen se vea enorme y rompa el diseño.
+                    const aspectRatio = originalImage.naturalWidth / originalImage.naturalHeight;
+                    const maxWidth = displayContainer.clientWidth;
+                    displayCanvas.width = maxWidth;
+                    displayCanvas.height = maxWidth / aspectRatio;
+                    // Dibujamos la imagen escalada en el canvas para la visualización.
+                    displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
+                    // --- FIN DE CORRECCIÓN ---
+
                     uploadPrompt.style.display = 'none';
+                    // Pasamos el objeto de imagen original (en alta resolución) para el análisis.
                     processImageWithHybridReader(originalImage);
                 };
             };
             reader.readAsDataURL(file);
         });
 
-        /**
-         * COMENTARIO DE IMPLEMENTACIÓN: Lógica de Lector Híbrido (Cascada).
-         * Esta es la nueva función principal que orquesta los intentos de lectura.
-         */
         async function processImageWithHybridReader(image) {
             statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando lector de código de barras... <i class="fas fa-spinner fa-spin"></i></div>`;
             auditorBubble.textContent = "Intento 1: Analizando las líneas del código...";
 
-            // --- INTENTO #1: LECTOR DE LÍNEAS (BarcodeDetector) ---
-            try {
-                // BarcodeDetector es una API nativa del navegador, súper rápida.
-                const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
-                const barcodes = await barcodeDetector.detect(image);
+            // Verificamos si 'BarcodeDetector' existe en el navegador antes de usarlo.
+            if ('BarcodeDetector' in window) {
+                try {
+                    const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
+                    const barcodes = await barcodeDetector.detect(image);
 
-                if (barcodes.length > 0) {
-                    const detectedCode = barcodes[0].rawValue;
-                    console.log('Código detectado por LECTOR DE LÍNEAS:', detectedCode);
-                    displayFinalResult(detectedCode, "Lector de Líneas (Alta Fiabilidad)");
-                    return; // ¡Éxito! Terminamos el proceso.
+                    if (barcodes.length > 0) {
+                        const detectedCode = barcodes[0].rawValue;
+                        console.log('Código detectado por LECTOR DE LÍNEAS:', detectedCode);
+                        displayFinalResult(detectedCode, "Lector de Líneas (Alta Fiabilidad)");
+                        return;
+                    } else {
+                         // Si el lector funciona pero no encuentra nada, lo informamos y pasamos al respaldo.
+                        console.log('Lector de Líneas no encontró un código EAN-13. Pasando a OCR...');
+                        auditorBubble.textContent = "Intento 1 fallido. Usando respaldo OCR...";
+                    }
+                } catch (error) {
+                    console.warn('El Lector de Líneas (BarcodeDetector) falló durante la ejecución:', error);
                 }
-            } catch (error) {
-                console.warn('El Lector de Líneas (BarcodeDetector) no está disponible o falló:', error);
+            } else {
+                // --- INICIO DE MEJORA: Informar al usuario sobre la incompatibilidad ---
+                console.warn('BarcodeDetector no es compatible con este navegador.');
+                auditorBubble.textContent = "Lector de líneas no compatible en este navegador. Usando respaldo OCR.";
+                // --- FIN DE MEJORA ---
             }
 
-            // --- INTENTO #2: LECTOR DE NÚMEROS (OCR con Tesseract.js) como respaldo ---
-            auditorBubble.textContent = "Respaldo: Analizando los números con OCR...";
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Lector de líneas falló. Usando OCR de respaldo... <i class="fas fa-spinner fa-spin"></i></div>`;
-            console.log('Lector de Líneas no encontró un código. Pasando a OCR...');
-
+            // --- INTENTO #2: LECTOR DE NÚMEROS (OCR con Tesseract.js) ---
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Usando OCR de respaldo... <i class="fas fa-spinner fa-spin"></i></div>`;
+            
             const worker = await Tesseract.createWorker('eng', 1, { logger: m => console.log(m) });
             await worker.setParameters({
                 tessedit_char_whitelist: '0123456789',
@@ -175,17 +178,15 @@
             const cleanedText = text.replace(/\s/g, '');
             console.log('Texto extraído por OCR:', cleanedText);
             
-            // Reutilizamos la lógica de corrección de prefijo con Levenshtein
             const finalCode = validateAndCorrectOCR(cleanedText);
 
             if (finalCode) {
                  displayFinalResult(finalCode, "Lector de Números (OCR)");
             } else {
-                 displayFinalResult(null); // Falla final
+                 displayFinalResult(null);
             }
         }
         
-        // La lógica de Levenshtein se mantiene para el respaldo de OCR
         function levenshteinDistance(s1, s2) {
             const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
             for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
@@ -212,17 +213,11 @@
                     }
                 }
             }
-            return null; // No se encontró un código corregible
+            return null;
         }
 
-        /**
-         * COMENTARIO DE IMPLEMENTACIÓN: Función Centralizada de Resultados.
-         * Toda la lógica (pistola, lector de líneas, OCR) llama a esta función
-         * para mostrar el resultado final, manteniendo la consistencia.
-         */
         function displayFinalResult(code, method = "Pistola Escáner") {
             if (code) {
-                // Añadimos una validación final de dígito verificador
                 const isValidEAN = validateEAN13Checksum(code);
                 const validityText = isValidEAN ? '<span style="color: green;">(EAN-13 Válido)</span>' : '<span style="color: red;">(EAN-13 Inválido)</span>';
                 
@@ -234,11 +229,6 @@
             }
         }
         
-        /**
-         * COMENTARIO DE IMPLEMENTACIÓN: Validador de Dígito de Control EAN-13.
-         * Esta función matemática verifica si un código de 13 dígitos es matemáticamente
-         * correcto según el estándar EAN-13. Es un filtro final excelente.
-         */
         function validateEAN13Checksum(code) {
             if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) {
                 return false;
