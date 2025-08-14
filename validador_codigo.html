@@ -85,7 +85,6 @@
             statusContainer.innerHTML = `<div class="veredicto-pensando">${message} <i class="fas fa-spinner fa-spin"></i></div>`;
         }
 
-        // --- NUEVO: PIPELINE DE PRE-PROCESAMIENTO DE IMAGEN MEJORADO ---
         async function preprocessImage(imageElement) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -93,37 +92,35 @@
             const originalWidth = imageElement.naturalWidth;
             const originalHeight = imageElement.naturalHeight;
 
-            // 1. Recorte (Crop): Nos enfocamos en la franja central donde está el código.
-            // Ajusta estos valores si el código está más arriba o abajo en tus imágenes.
-            const cropY = originalHeight * 0.3; // Empezar a recortar desde el 30% superior
-            const cropHeight = originalHeight * 0.4; // Recortar un 40% de la altura total
+            // AJUSTE: Hacemos el recorte vertical más grande para ser más tolerantes.
+            const cropY = originalHeight * 0.25; // Empezar desde el 25%
+            const cropHeight = originalHeight * 0.50; // Recortar un 50% de la altura total
 
             canvas.width = originalWidth;
             canvas.height = cropHeight;
 
-            // Dibuja solo la parte recortada de la imagen en el canvas
             ctx.drawImage(imageElement, 0, cropY, originalWidth, cropHeight, 0, 0, originalWidth, cropHeight);
-
-            // 2. Escala de grises y Aumento de Contraste
+            
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
-            const contrast = 1.5; // Factor de contraste (ajústalo si es necesario, >1 aumenta contraste)
-            const factor = (259 * (contrast * 255 + 255)) / (255 * (259 - contrast * 255));
+            
+            // CAMBIO CLAVE: Implementamos binarización en lugar de solo contraste.
+            // Forzamos cada pixel a ser blanco o negro puro.
+            const threshold = 160; // Umbral. Ajustable. Un valor más alto hace que más pixeles se vuelvan negros.
 
             for (let i = 0; i < data.length; i += 4) {
+                // Convertimos a escala de grises
                 const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                let gray = (factor * (avg - 128) + 128);
-                gray = Math.max(0, Math.min(255, gray)); // Asegurarse que esté en el rango 0-255
-                data[i] = gray;
-                data[i + 1] = gray;
-                data[i + 2] = gray;
+                // Aplicamos el umbral de binarización
+                const value = avg > threshold ? 255 : 0; // Si es más oscuro que el umbral -> negro, si no -> blanco
+                data[i] = value;
+                data[i + 1] = value;
+                data[i + 2] = value;
             }
             ctx.putImageData(imageData, 0, 0);
             
-            // Devuelve la URL de la imagen ya procesada
             return canvas.toDataURL('image/png');
         }
-        // -----------------------------------------------------------------
 
         async function handleImageUpload(event) {
             const file = event.target.files[0];
@@ -135,14 +132,13 @@
             
             imageElement.onload = async () => {
                 displayContainer.innerHTML = '';
-                const displayImage = imageElement.cloneNode(); // Muestra la imagen original
+                const displayImage = imageElement.cloneNode();
                 displayImage.style.width = '100%';
                 displayImage.style.height = 'auto';
                 displayContainer.appendChild(displayImage);
 
                 updateProgress('Pre-procesando imagen...', 0);
                 
-                // MODIFICADO: Llamamos a nuestra nueva función de pre-procesamiento
                 const processedImageUrl = await preprocessImage(imageElement);
 
                 updateProgress('Inicializando motor OCR...', 25);
@@ -157,29 +153,28 @@
 
                 await worker.setParameters({
                     tessedit_char_whitelist: '0123456789',
-                    // MODIFICADO: PSM.SINGLE_LINE es ideal para una línea de texto recortada
                     tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
                 });
 
-                // Enviamos la imagen YA PROCESADA a Tesseract
                 const { data: { text } } = await worker.recognize(processedImageUrl);
                 
-                const cleanedText = text.replace(/\s/g, ''); // Solo quitamos espacios
-                console.log('Texto extraído:', text);
-                console.log('Texto limpiado:', cleanedText);
+                // AJUSTE: Limpiamos espacios y saltos de línea para más robustez
+                const cleanedText = text.replace(/[\s\n]/g, '');
                 
-                // --- MODIFICADO: Lógica de búsqueda con Expresiones Regulares ---
+                // AJUSTE: Añadimos logs más claros para depuración
+                console.log('Texto extraído por OCR:', text);
+                console.log('Texto limpiado (sin espacios):', cleanedText);
+                
                 const regex = /(75014287\d{5}|75014497\d{5})/;
                 const match = cleanedText.match(regex);
                 const finalCode = match ? match[0] : null;
-                // -------------------------------------------------------------
                 
                 if (finalCode) {
                     statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
                     auditorBubble.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
                 } else {
                     statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código conocido.</div>`;
-                    auditorBubble.textContent = "No encontré un código con el formato esperado.";
+                    auditorBubble.textContent = "No encontré un código con el formato esperado. Revisa la consola (F12) para más detalles.";
                 }
 
                 await worker.terminate();
@@ -189,7 +184,7 @@
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         uploadButtonInput.addEventListener('change', handleImageUpload);
-        console.log("Aplicación lista. Versión final con Pre-procesamiento AVANZADO y OCR Optimizado.");
+        console.log("Aplicación lista. Versión con Binarización y Recorte Tolerante.");
     </script>
 </body>
 </html>
