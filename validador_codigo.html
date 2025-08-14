@@ -7,10 +7,7 @@
     <link rel="stylesheet" href="css/estilos.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* Cuando el canvas está listo para dibujar, cambiamos el cursor */
-        #image-display-canvas.ready-to-crop {
-            cursor: crosshair;
-        }
+        #image-display-canvas.ready-to-crop { cursor: crosshair; }
     </style>
 </head>
 <body class="inspector-body">
@@ -73,7 +70,6 @@
     <script>
         const statusContainer = document.getElementById('status-container');
         const auditorBubble = document.querySelector('#auditor-message-bubble span');
-        // --- LÍNEA AÑADIDA PARA CORREGIR EL ERROR ---
         const displayContainer = document.getElementById('display-container');
         const displayCanvas = document.getElementById('image-display-canvas');
         const displayCtx = displayCanvas.getContext('2d');
@@ -97,7 +93,6 @@
                     const maxWidth = displayContainer.clientWidth;
                     displayCanvas.width = maxWidth;
                     displayCanvas.height = maxWidth / aspectRatio;
-                    
                     displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
                     
                     uploadPrompt.style.display = 'none';
@@ -140,9 +135,6 @@
 
             if (Math.abs(width) < 10 || Math.abs(height) < 10) return;
 
-            const cropCanvas = document.createElement('canvas');
-            const cropCtx = cropCanvas.getContext('2d');
-            
             const scaleX = originalImage.width / displayCanvas.width;
             const scaleY = originalImage.height / displayCanvas.height;
 
@@ -150,14 +142,22 @@
             const cropY = Math.min(selectionRect.startY, selectionRect.endY) * scaleY;
             const cropWidth = Math.abs(width) * scaleX;
             const cropHeight = Math.abs(height) * scaleY;
-
-            cropCanvas.width = cropWidth;
-            cropCanvas.height = cropHeight;
-
-            cropCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
             
-            const croppedImageDataUrl = cropCanvas.toDataURL('image/png');
-            analyzeCroppedImage(croppedImageDataUrl);
+            // --- PUNTO CLAVE: REESCALADO DE ALTA CALIDAD ---
+            const upscaleFactor = 3; // Hacemos la imagen 3 veces más grande
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = cropWidth * upscaleFactor;
+            tempCanvas.height = cropHeight * upscaleFactor;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // Desactivamos el suavizado de imagen para mantener los bordes nítidos (importante para OCR)
+            tempCtx.imageSmoothingEnabled = false;
+
+            // Dibujamos la imagen pequeña del recorte, estirándola en el canvas grande
+            tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, tempCanvas.width, tempCanvas.height);
+            
+            const upscaledImageDataUrl = tempCanvas.toDataURL('image/png');
+            analyzeCroppedImage(upscaledImageDataUrl);
         });
         
         async function analyzeCroppedImage(imageDataUrl) {
@@ -173,7 +173,7 @@
             await worker.terminate();
 
             const cleanedText = text.replace(/\D/g, '');
-            console.log('Texto extraído del recorte:', text);
+            console.log('Texto extraído del recorte reescalado:', text);
             console.log('Texto limpiado:', cleanedText);
             
             let finalCode = null;
