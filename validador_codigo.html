@@ -6,7 +6,7 @@
     <title>Validador de Código Profesional - Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    </head>
+</head>
 <body class="inspector-body">
     <div class="app-container">
         <header class="app-header">
@@ -34,7 +34,7 @@
                     <p>Suba una imagen para una decodificación de nivel profesional.</p>
                 </div>
                 <div class="label-container" id="status-container">
-                    Inicializando motor de lectura...
+                    Esperando imagen...
                 </div>
             </section>
             <aside class="controls-panel">
@@ -51,10 +51,10 @@
                     <button id="action-button" class="button primary-action" disabled>
                         <i class="fas fa-camera"></i> Verificar con Cámara
                     </button>
-                    <label id="upload-label" for="upload-image-input" class="button secondary-action is-disabled">
+                    <label id="upload-label" for="upload-image-input" class="button secondary-action">
                         <i class="fas fa-upload"></i> Subir Archivo
                     </label>
-                    <input type="file" id="upload-image-input" accept="image/*" style="display: none;" disabled>
+                    <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
                 </div>
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
@@ -62,7 +62,7 @@
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
-                        <span>Cargando motor de análisis...</span>
+                        <span>¡Listo! Sube una imagen para empezar.</span>
                     </div>
                 </div>
             </aside>
@@ -72,110 +72,124 @@
         </footer>
     </div>
 
-    <script type="module">
-        import ZBar from 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/index.js';
-
-        async function main() {
-            try {
-                // ---
-                // PUNTO CLAVE: ESPECIFICAR LA RUTA DEL ARCHIVO .wasm
-                // Le decimos a ZBar exactamente dónde encontrar su motor de WebAssembly.
-                // ---
-                const ZBarModule = await ZBar({
-                    locateFile: () => 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/zbar.wasm'
-                }); 
-                
-                const { scan } = ZBarModule;
-                console.log("Motor ZBar/WASM inicializado completamente. La aplicación está lista.");
-                iniciarApp(scan);
-
-            } catch (error) {
-                console.error("Error fatal al inicializar ZBar.wasm:", error);
-                const statusContainer = document.getElementById('status-container');
-                if (statusContainer) {
-                    statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo cargar el motor de lectura. Revise la consola.</div>`;
-                }
-            }
+    <script>
+        // ---
+        // PUNTO CLAVE 1: CARGA DINÁMICA DE SCRIPTS
+        // Esta función carga una biblioteca de JS solo cuando la necesitamos.
+        // Devuelve una "promesa" que nos avisa cuando la carga ha terminado.
+        // ---
+        function loadScript(url) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.onload = resolve; // La promesa se resuelve con éxito
+                script.onerror = reject; // La promesa se rechaza si hay un error
+                document.head.appendChild(script);
+            });
         }
 
-        main();
+        // Variable global para guardar el módulo de ZBar una vez cargado
+        let ZBarModule = null;
 
-        function iniciarApp(scan) {
-            const uploadButtonInput = document.getElementById('upload-image-input');
-            const uploadLabel = document.getElementById('upload-label');
+        async function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
             const statusContainer = document.getElementById('status-container');
             const auditorBubble = document.querySelector('#auditor-message-bubble span');
-
-            uploadButtonInput.disabled = false;
-            uploadLabel.classList.remove('is-disabled');
-            statusContainer.textContent = "Esperando imagen...";
-            auditorBubble.textContent = "¡Listo! Sube una imagen para empezar.";
-
-            if(document.getElementById('currentYear')) { 
-                document.getElementById('currentYear').textContent = new Date().getFullYear();
-            }
-
             const displayContainer = document.getElementById('display-container');
 
-            const handleImageUpload = (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const imageUrl = e.target.result;
-                    statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-                    auditorBubble.textContent = "Analizando...";
-                    const imageElement = new Image();
-                    imageElement.onload = () => {
-                        displayContainer.innerHTML = '';
-                        imageElement.style.width = '100%';
-                        imageElement.style.height = 'auto';
-                        displayContainer.appendChild(imageElement);
-                        decodeBarcode(imageElement, scan);
-                    };
-                    imageElement.src = imageUrl;
-                };
-                reader.readAsDataURL(file);
-            };
-            
-            uploadButtonInput.addEventListener('change', handleImageUpload);
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Cargando motor de lectura... <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = "Inicializando componentes...";
 
-            function preprocessImage(context, width, height) {
-                const imageData = context.getImageData(0, 0, width, height);
-                const data = imageData.data;
-                for (let i = 0; i < data.length; i += 4) {
-                    const lightness = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
-                    const value = lightness > 128 ? 255 : 0;
-                    data[i] = value; data[i + 1] = value; data[i + 2] = value;
+            // ---
+            // PUNTO CLAVE 2: TU IDEA EN ACCIÓN
+            // Solo si no lo hemos cargado antes, cargamos la biblioteca AHORA.
+            // ---
+            if (!ZBarModule) {
+                try {
+                    await loadScript('https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/index.js');
+                    console.log("Biblioteca ZBar cargada dinámicamente.");
+
+                    // La biblioteca ahora existe en el objeto 'window'. La inicializamos.
+                    ZBarModule = await window.ZBar({
+                        locateFile: () => 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/zbar.wasm'
+                    });
+                    console.log("Motor ZBar/WASM inicializado.");
+
+                } catch (error) {
+                    console.error("No se pudo cargar o inicializar ZBar:", error);
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">Error al cargar el motor de lectura.</div>`;
+                    return;
                 }
-                context.putImageData(imageData, 0, 0);
             }
 
-            async function decodeBarcode(imageElement, scanFunction) {
-                try {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = imageElement.naturalWidth;
-                    canvas.height = imageElement.naturalHeight;
-                    const context = canvas.getContext('2d', { willReadFrequently: true });
-                    context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
-                    preprocessImage(context, canvas.width, canvas.height);
-                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                    const symbols = await scanFunction(imageData);
-                    if (symbols && symbols.length > 0) {
-                        const barcodeText = symbols[0].data; 
-                        statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
-                        auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
-                    } else {
-                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
-                        auditorBubble.textContent = "No encontré un código. Intenta con una foto más nítida.";
-                    }
-                } catch (err) {
-                    console.error('Error en pipeline de decodificación:', err); 
-                    statusContainer.innerHTML = `<div class="veredicto-rechazado">Error crítico en el sistema de lectura.</div>`;
-                    auditorBubble.textContent = "Ocurrió un error inesperado al analizar.";
-                }
+            // Ahora, con el motor ya listo, procesamos la imagen.
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imageUrl = e.target.result;
+                statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
+                auditorBubble.textContent = "Analizando...";
+                const imageElement = new Image();
+                imageElement.onload = async () => {
+                    displayContainer.innerHTML = '';
+                    imageElement.style.width = '100%';
+                    imageElement.style.height = 'auto';
+                    displayContainer.appendChild(imageElement);
+                    
+                    // Extraemos la función 'scan' y decodificamos
+                    const { scan } = ZBarModule;
+                    await decodeBarcode(imageElement, scan);
+                };
+                imageElement.src = imageUrl;
             };
+            reader.readAsDataURL(file);
         }
+
+        function preprocessImage(context, width, height) {
+            const imageData = context.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const lightness = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+                const value = lightness > 128 ? 255 : 0;
+                data[i] = value; data[i + 1] = value; data[i + 2] = value;
+            }
+            context.putImageData(imageData, 0, 0);
+        }
+
+        async function decodeBarcode(imageElement, scanFunction) {
+            const statusContainer = document.getElementById('status-container');
+            const auditorBubble = document.querySelector('#auditor-message-bubble span');
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = imageElement.naturalWidth;
+                canvas.height = imageElement.naturalHeight;
+                const context = canvas.getContext('2d', { willReadFrequently: true });
+                context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
+                preprocessImage(context, canvas.width, canvas.height);
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                const symbols = await scanFunction(imageData);
+                if (symbols && symbols.length > 0) {
+                    const barcodeText = symbols[0].data; 
+                    statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
+                    auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
+                } else {
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
+                    auditorBubble.textContent = "No encontré un código. Intenta con una foto más nítida.";
+                }
+            } catch (err) {
+                console.error('Error en pipeline de decodificación:', err); 
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">Error crítico en el sistema de lectura.</div>`;
+                auditorBubble.textContent = "Ocurrió un error inesperado al analizar.";
+            }
+        }
+
+        // --- Inicialización de la aplicación ---
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+        const uploadButtonInput = document.getElementById('upload-image-input');
+        uploadButtonInput.addEventListener('change', handleImageUpload);
+        console.log("Aplicación lista. Esperando la carga de una imagen para inicializar el lector.");
+
     </script>
 </body>
 </html>
