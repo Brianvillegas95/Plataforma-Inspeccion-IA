@@ -80,6 +80,33 @@
         let isDrawing = false;
         let selectionRect = {};
         let isAnalyzing = false;
+        
+        /**
+         * COMENTARIO DE MEJORA: Algoritmo de Distancia de Levenshtein.
+         * Esta función calcula el número mínimo de ediciones (inserciones, eliminaciones o
+         * sustituciones) necesarias para cambiar una cadena por otra. La usaremos para
+         * comparar el prefijo leído por el OCR con nuestros prefijos conocidos y permitir
+         * un pequeño margen de error.
+         * @param {string} s1 La primera cadena.
+         * @param {string} s2 La segunda cadena.
+         * @returns {number} La distancia de Levenshtein entre las dos cadenas.
+         */
+        function levenshteinDistance(s1, s2) {
+            const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+            for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
+            for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
+            for (let j = 1; j <= s2.length; j += 1) {
+                for (let i = 1; i <= s1.length; i += 1) {
+                    const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+                    track[j][i] = Math.min(
+                        track[j][i - 1] + 1, // deletion
+                        track[j - 1][i] + 1, // insertion
+                        track[j - 1][i - 1] + indicator, // substitution
+                    );
+                }
+            }
+            return track[s2.length][s1.length];
+        }
 
         function getCoords(event) {
             const rect = displayCanvas.getBoundingClientRect();
@@ -138,8 +165,7 @@
             const height = selectionRect.endY - selectionRect.startY;
 
             if (Math.abs(width) < 20 || Math.abs(height) < 20) {
-                redrawCanvas();
-                return;
+                redrawCanvas(); return;
             }
             
             isAnalyzing = true;
@@ -147,55 +173,36 @@
             auditorBubble.textContent = "¡Analizando! Realizando ajuste fino de imagen...";
 
             await new Promise(resolve => setTimeout(resolve, 50));
-
             const processedImageDataUrl = await preprocessImage();
-            
             await analyzeImageWithOCR(processedImageDataUrl);
-            
             isAnalyzing = false;
         }
-
-        /**
-         * COMENTARIO DE MEJORA: Pipeline de Preprocesamiento con UMBRAL ADAPTATIVO.
-         * Esta es la versión más avanzada. Para mejorar la precisión con imágenes reales
-         * que tienen brillos o diferentes iluminaciones, hemos implementado un umbral adaptativo.
-         * 1. Recorte preciso de la selección.
-         * 2. Se calcula el brillo (luminancia) promedio de toda el área seleccionada.
-         * 3. Este promedio se usa como un umbral dinámico. Cualquier píxel más oscuro que el promedio
-         * se convierte en negro, y cualquier píxel más claro se convierte en blanco.
-         * 4. Se sigue aplicando un factor de contraste para acentuar la diferencia antes del paso final.
-         * Este método es significativamente más robusto que usar un umbral fijo.
-         */
+        
         async function preprocessImage() {
             auditorBubble.textContent = "Aplicando filtros adaptativos...";
-            
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
             
             const scaleX = originalImage.naturalWidth / displayCanvas.width;
             const scaleY = originalImage.naturalHeight / displayCanvas.height;
-
             const cropX = Math.min(selectionRect.startX, selectionRect.endX) * scaleX;
             const cropY = Math.min(selectionRect.startY, selectionRect.endY) * scaleY;
             const cropWidth = Math.abs(selectionRect.endX - selectionRect.startX) * scaleX;
             const cropHeight = Math.abs(selectionRect.endY - selectionRect.startY) * scaleY;
-
-            tempCanvas.width = cropWidth;
-            tempCanvas.height = cropHeight;
+            
+            tempCanvas.width = cropWidth; tempCanvas.height = cropHeight;
             tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
             
             const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
             const data = imageData.data;
             const contrastFactor = 2.5;
             
-            // --- Etapa 1: Calcular luminancia promedio (Umbral adaptativo) ---
             let totalLuminance = 0;
             for (let i = 0; i < data.length; i += 4) {
                 totalLuminance += (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
             }
             const averageLuminance = totalLuminance / (data.length / 4);
 
-            // --- Etapa 2: Aplicar contraste y binarización con el umbral adaptativo ---
             for (let i = 0; i < data.length; i += 4) {
                 const avg = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
                 const contrastAdjusted = (contrastFactor * (avg - 128)) + 128;
@@ -204,11 +211,9 @@
             }
             tempCtx.putImageData(imageData, 0, 0);
 
-            // --- Etapa 3: Escalado final ---
             const upscaleFactor = 2;
             const finalCanvas = document.createElement('canvas');
-            finalCanvas.width = tempCanvas.width * upscaleFactor;
-            finalCanvas.height = tempCanvas.height * upscaleFactor;
+            finalCanvas.width = tempCanvas.width * upscaleFactor; finalCanvas.height = tempCanvas.height * upscaleFactor;
             const finalCtx = finalCanvas.getContext('2d');
             finalCtx.imageSmoothingEnabled = false;
             finalCtx.drawImage(tempCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
@@ -218,7 +223,7 @@
         
         async function analyzeImageWithOCR(imageDataUrl) {
             statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando motor IA... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Analizando con el motor OCR optimizado...";
+            auditorBubble.textContent = "Analizando con el motor OCR y corrigiendo errores...";
             
             const worker = await Tesseract.createWorker('eng', 1, { logger: m => console.log(m) });
             await worker.setParameters({
@@ -228,25 +233,36 @@
             
             const { data: { text } } = await worker.recognize(imageDataUrl);
             await worker.terminate();
-            
             const cleanedText = text.replace(/\s/g, '');
             console.log('Texto extraído (motor eng optimizado):', text);
             console.log('Texto limpiado:', cleanedText);
             
+            // --- INICIO DE MEJORA: LÓGICA DE CORRECCIÓN DE PREFIJO ---
             let finalCode = null;
             const prefixes = ['75014287', '75014497'];
-            
-            for (const prefix of prefixes) {
-                let index = cleanedText.indexOf(prefix);
-                if (index > -1) {
-                    const potentialCode = cleanedText.substring(index, index + 13);
-                    if (potentialCode.length === 13) {
-                         finalCode = potentialCode;
-                         break;
+            const LEVENSHTEIN_THRESHOLD = 2; // Permitir hasta 2 errores en el prefijo.
+
+            // Buscamos una subcadena de 13 dígitos...
+            for (let i = 0; i <= cleanedText.length - 13; i++) {
+                const substring13 = cleanedText.substring(i, i + 13);
+                const potentialPrefix = substring13.substring(0, 8); // Extraemos su prefijo potencial.
+                
+                // ...y lo comparamos con nuestros prefijos conocidos.
+                for (const knownPrefix of prefixes) {
+                    const distance = levenshteinDistance(potentialPrefix, knownPrefix);
+                    
+                    // Si el prefijo leído es "suficientemente parecido" al prefijo correcto...
+                    if (distance <= LEVENSHTEIN_THRESHOLD) {
+                        // ...lo corregimos y construimos el código final.
+                        finalCode = knownPrefix + substring13.substring(8);
+                        console.log(`Prefijo corregido: ${potentialPrefix} -> ${knownPrefix}. Distancia: ${distance}`);
+                        break; 
                     }
                 }
+                if (finalCode) break;
             }
-            
+            // --- FIN DE MEJORA ---
+
             if (finalCode) {
                 statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
                 auditorBubble.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
@@ -257,9 +273,7 @@
         }
 
         function handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
+            const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
                 originalImage = new Image();
@@ -267,10 +281,8 @@
                 originalImage.onload = () => {
                     const aspectRatio = originalImage.naturalWidth / originalImage.naturalHeight;
                     const maxWidth = displayContainer.clientWidth;
-                    displayCanvas.width = maxWidth;
-                    displayCanvas.height = maxWidth / aspectRatio;
+                    displayCanvas.width = maxWidth; displayCanvas.height = maxWidth / aspectRatio;
                     displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
-                    
                     uploadPrompt.style.display = 'none';
                     displayCanvas.classList.add('ready-to-crop');
                     statusContainer.textContent = 'Imagen cargada. Por favor, dibuje un recuadro sobre el código de barras.';
@@ -283,19 +295,11 @@
         displayCanvas.addEventListener('mousedown', startDrawing);
         displayCanvas.addEventListener('mousemove', drawSelection);
         displayCanvas.addEventListener('mouseup', endDrawingAndAnalyze);
-        displayCanvas.addEventListener('mouseleave', () => {
-            if (isDrawing) {
-                isDrawing = false;
-                redrawCanvas();
-            }
-        });
-
+        displayCanvas.addEventListener('mouseleave', () => { if (isDrawing) { isDrawing = false; redrawCanvas(); } });
         displayCanvas.addEventListener('touchstart', startDrawing);
         displayCanvas.addEventListener('touchmove', drawSelection);
         displayCanvas.addEventListener('touchend', endDrawingAndAnalyze);
-
         uploadButtonInput.addEventListener('change', handleImageUpload);
-        
         document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>
 </body>
