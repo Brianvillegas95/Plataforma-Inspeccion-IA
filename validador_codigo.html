@@ -3,300 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código PRO - IA Vision Max v2.0</title>
+    <title>Validador de Código Profesional - IA Vision Max</title>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/estilos.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
-    <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/index.min.js"></script>
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-
-    <style>
-        /* Estilos Generales y de Interfaz */
-        :root {
-            --color-primario: #005A9C;
-            --color-secundario: #00AEEF;
-            --color-fondo: #f4f7f9;
-            --color-panel: #ffffff;
-            --color-texto: #333;
-            --color-exito: #28a745;
-            --color-fallo: #dc3545;
-            --color-espera: #ffc107;
-            --sombra-panel: 0 4px 15px rgba(0, 0, 0, 0.08);
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            background-color: var(--color-fondo);
-            color: var(--color-texto);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        .app-container {
-            width: 100%;
-            max-width: 1200px;
-            background: var(--color-panel);
-            border-radius: 16px;
-            box-shadow: var(--sombra-panel);
-            overflow: hidden;
-        }
-        .app-header {
-            background: linear-gradient(90deg, var(--color-primario) 0%, var(--color-secundario) 100%);
-            color: white;
-            padding: 15px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .logo-container h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-        .ia-badge {
-            background: white;
-            color: var(--color-primario);
-            padding: 3px 8px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            margin-left: 10px;
-        }
-        main {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 20px;
-            padding: 20px;
-        }
-        /* Paneles de Visión y Controles */
-        .panel {
-            background: #fff;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: var(--sombra-panel);
-        }
-        .panel-title {
-            margin-top: 0;
-            margin-bottom: 20px;
-            font-size: 18px;
-            color: var(--color-primario);
-            border-bottom: 2px solid var(--color-fondo);
-            padding-bottom: 10px;
-        }
-        .vision-panel {
-            min-height: 400px;
-        }
-        .image-container {
-            width: 100%;
-            min-height: 350px;
-            background-color: #e9ecef;
-            border-radius: 8px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            overflow: hidden;
-        }
-        #image-display {
-            display: block;
-            max-width: 100%;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        #upload-prompt {
-            text-align: center;
-            color: #6c757d;
-        }
-        /* Botones y Controles */
-        .button {
-            display: inline-block;
-            width: 100%;
-            padding: 12px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            text-align: center;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            box-sizing: border-box;
-        }
-        .primary-action {
-            background-color: var(--color-primario);
-            color: white;
-        }
-        .primary-action:hover {
-            background-color: #004a80;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0, 90, 156, 0.3);
-        }
-        #analyze-selection-btn {
-            background-color: var(--color-secundario);
-            display: none; /* Oculto inicialmente */
-            margin-top: 10px;
-        }
-        #analyze-selection-btn:hover {
-            background-color: #0095c7;
-        }
-        #analyze-selection-btn:disabled {
-            background-color: #a0a0a0;
-            cursor: not-allowed;
-        }
-        /* Asistente de Inspección (Auditor) */
-        .auditor-section {
-            margin-top: 20px;
-            background: var(--color-fondo);
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .auditor-bubble {
-            background: white;
-            padding: 15px;
-            border-radius: 12px;
-            margin-top: 15px;
-            font-size: 15px;
-            line-height: 1.5;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            min-height: 70px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .auditor-icon {
-            font-size: 24px;
-            margin-right: 12px;
-            color: var(--color-primario);
-        }
-        /* Veredictos y Estados */
-        .veredicto {
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-            font-weight: bold;
-            text-align: center;
-        }
-        .veredicto-aprobado {
-            background-color: #e9f7ec;
-            color: #1d7b3a;
-            border: 1px solid #a3d9b1;
-        }
-        .veredicto-rechazado {
-            background-color: #fdeaea;
-            color: #c93434;
-            border: 1px solid #f5b9b9;
-        }
-        .veredicto-pensando {
-            background-color: #fff8e1;
-            color: #b58c11;
-            border: 1px solid #ffecb3;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .fa-spinner {
-            animation: spin 1s linear infinite;
-        }
-        /* Estilos para Cropper.js */
-        .cropper-container {
-            background: #e9ecef;
-        }
-        /* Responsividad */
-        @media (max-width: 992px) {
-            main {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
 </head>
-<body>
+<body class="inspector-body">
     <div class="app-container">
         <header class="app-header">
             <div class="logo-container">
-                <h1>Validador de Código <span class="ia-badge">PRO v2.0</span></h1>
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>Inspección de Calidad <span class="ia-badge">IA PRO</span></h1>
             </div>
+            <nav class="main-nav">
+                 <ul>
+                    <li class="dropdown"><a href="index.html" class="dropdown-toggle">Inicio</a></li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle active">Herramientas IA<i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="validador_color.html">Validador de Color</a></li>
+                            <li><a href="validador_codigo.html" class="active">Validador de Código</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
         </header>
-        <main>
-            <section class="panel vision-panel">
-                <h2 class="panel-title"><i class="fa-solid fa-image"></i> 1. Visualizador de Imagen</h2>
-                <div class="image-container" id="image-container">
-                    <img id="image-display" src="">
-                    <p id="upload-prompt"><i class="fa-solid fa-arrow-up-from-bracket"></i> Sube una imagen para empezar...</p>
+        <main class="main-content-grid">
+            <section class="vision-panel">
+                <h2 class="panel-title"><i class="fas fa-eye"></i> 1. Análisis de Imagen con IA</h2>
+                <div id="scanner-container">
+                    <img id="image-display" style="display: block; max-width: 100%; opacity: 0;">
+                    <p id="upload-prompt" style="position: absolute; color: #888;">Suba una imagen para un análisis automático...</p>
+                </div>
+                <div class="label-container" id="status-container">
+                    Esperando imagen...
                 </div>
             </section>
-
-            <aside class="panel controls-panel">
-                <h3 class="panel-title"><i class="fa-solid fa-cogs"></i> 2. Controles y Resultado</h3>
-                
-                <label for="upload-image-input" class="button primary-action"><i class="fa-solid fa-upload"></i> Subir Imagen</label>
-                <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
-                
-                <button id="analyze-selection-btn" class="button" disabled>
-                    <i class="fa-solid fa-magnifying-glass-chart"></i> Analizar Selección
-                </button>
-
-                <div style="margin-top: 15px; padding: 10px 0; text-align: center;">
-                    <label for="scanner-input" style="display:block; margin-bottom: 5px; color: #555;">O use la pistola escáner:</label>
-                    <input type="text" id="scanner-input" placeholder="Esperando escaneo..." style="width: 100%; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;">
+            <aside class="controls-panel">
+                 <h3 class="panel-title"><i class="fas fa-cogs"></i> 2. Controles y Resultado</h3>
+                <div class="action-buttons">
+                    <label for="upload-image-input" class="button primary-action"><i class="fas fa-upload"></i> Subir Imagen para Analizar</label>
+                    <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
+                    
+                    <button id="analyze-selection-btn" class="button" style="display: none; margin-top: 10px; background-color: #28a745;">
+                        <i class="fas fa-search"></i> Analizar Selección
+                    </button>
                 </div>
-
-                <div class="auditor-section">
-                    <p id="auditor-title"><strong>Asistente de Inspección IA</strong></p>
-                    <div id="auditor-message-bubble" class="auditor-bubble">
-                        <span id="auditor-text">Listo para iniciar la verificación.</span>
+                <div style="margin-top: 15px; padding: 0 20px; text-align: center;">
+                    <label for="scanner-input" style="display:block; margin-bottom: 5px; color: #555;">O use la pistola escáner:</label>
+                    <input type="text" id="scanner-input" placeholder="Esperando escaneo...">
+                </div>
+                <div id="auditor-section" style="margin-top: 20px;">
+                    <p id="auditor-title">Asistente de Inspección</p>
+                    <div id="auditor-image-container">
+                        <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
+                    </div>
+                    <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
+                        <span id="auditor-text">Listo para iniciar la verificación automática.</span>
                     </div>
                 </div>
-
-                 <div id="status-container"></div>
             </aside>
         </main>
+        <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
     </div>
+
+    <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/index.min.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
     <script>
         // --- CONFIGURACIÓN ---
-        // Lista de prefijos de 8 dígitos válidos para los códigos de barras.
         const VALID_PREFIXES = ['75014287', '75014497'];
 
-        // --- REFERENCIAS A ELEMENTOS DEL DOM ---
+        // --- REFERENCIAS AL DOM ---
         const uploadInput = document.getElementById('upload-image-input');
         const imageDisplay = document.getElementById('image-display');
-        const imageContainer = document.getElementById('image-container');
         const uploadPrompt = document.getElementById('upload-prompt');
         const analyzeSelectionBtn = document.getElementById('analyze-selection-btn');
         const scannerInput = document.getElementById('scanner-input');
         const statusContainer = document.getElementById('status-container');
         const auditorText = document.getElementById('auditor-text');
         
-        let cropper = null; // Instancia del editor de imágenes Cropper.js.
-        let analysisWorker = null; // El Web Worker para procesamiento en segundo plano.
+        let cropper = null;
+        let analysisWorker = null;
 
-        // --- INICIALIZACIÓN Y MANEJO DE EVENTOS ---
-        
-        // Evento que se dispara cuando el usuario selecciona un archivo de imagen.
+        // --- MANEJO DE EVENTOS ---
         uploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = (e) => {
-                resetUI(); // Reinicia la interfaz a su estado inicial.
+                resetUI();
                 imageDisplay.src = e.target.result;
                 imageDisplay.style.opacity = '1';
                 uploadPrompt.style.display = 'none';
-
-                // Inicia el primer paso del análisis automático.
                 startAutomaticDetection(imageDisplay);
             };
             reader.readAsDataURL(file);
         });
         
-        // Evento para la entrada de la pistola escáner.
         scannerInput.addEventListener('change', (event) => {
             const code = event.target.value.trim();
             if (code.length > 5) {
@@ -305,125 +114,74 @@
             }
         });
 
-        // Evento para el botón de "Analizar Selección".
         analyzeSelectionBtn.addEventListener('click', () => {
             if (!cropper) return;
             analyzeSelectionBtn.disabled = true;
-            analyzeSelectionBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Analizando...`;
-            
-            // Obtiene la región recortada como un canvas y la envía al Web Worker.
+            analyzeSelectionBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando...`;
             const croppedCanvas = cropper.getCroppedCanvas();
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            
             updateAuditor("Enviando selección a los motores de IA. Aplicando filtros avanzados...");
-            
-            // Crea el Worker si no existe.
             if (!analysisWorker) {
                 setupWorker();
             }
-            // Envía la imagen al Worker para su procesamiento.
             analysisWorker.postMessage({ imageData: imageData });
         });
 
         // --- LÓGICA DE PROCESAMIENTO ---
-
-        /**
-         * PASO 1: Intenta una detección rápida y nativa en toda la imagen.
-         * @param {HTMLImageElement} imageElement - La imagen a analizar.
-         */
         async function startAutomaticDetection(imageElement) {
             updateAuditor("Iniciando análisis rápido con el motor nativo del navegador...");
             updateStatus('pensando', 'Detectando código automáticamente...');
-
-            // Usa la API nativa BarcodeDetector si está disponible.
             if ('BarcodeDetector' in window) {
                 try {
                     const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
                     const barcodes = await barcodeDetector.detect(imageElement);
-                    
                     if (barcodes.length > 0) {
                         for (const barcode of barcodes) {
                             if (isValidCode(barcode.rawValue)) {
                                 displayFinalResult({ code: barcode.rawValue, method: "Lector Nativo (Rápido)" });
-                                return; // Éxito, terminamos.
+                                return;
                             }
                         }
                     }
-                } catch (error) {
-                    console.error("Error en el detector nativo:", error);
-                }
+                } catch (error) { console.error("Error en detector nativo:", error); }
             }
-            
-            // Si el detector nativo falla o no encuentra un código válido...
-            // PASO 2: Inicia la selección manual.
             promptManualSelection();
         }
 
-        /**
-         * PASO 2: Pide al usuario que seleccione el área del código de barras.
-         */
         function promptManualSelection() {
-            updateAuditor("El análisis rápido no encontró un código. Por favor, selecciona el área del código de barras para un análisis profundo.");
-            statusContainer.innerHTML = ""; // Limpia el estado anterior.
-            
-            // Destruye cualquier instancia anterior de Cropper.
-            if (cropper) {
-                cropper.destroy();
-            }
-            // Inicializa Cropper.js en la imagen.
+            updateAuditor("Análisis rápido fallido. Por favor, selecciona el área del código para un análisis profundo.");
+            statusContainer.innerHTML = "Selecciona el área del código de barras.";
+            if (cropper) { cropper.destroy(); }
             cropper = new Cropper(imageDisplay, {
-                viewMode: 1,
-                autoCrop: false,
-                background: false,
-                zoomable: false,
-                movable: false,
-                crop: () => {
-                    // Habilita el botón de análisis solo cuando el usuario ha hecho una selección.
-                    analyzeSelectionBtn.disabled = false;
-                }
+                viewMode: 1, autoCrop: false, background: false, zoomable: false, movable: false,
+                crop: () => { analyzeSelectionBtn.disabled = false; }
             });
             analyzeSelectionBtn.style.display = 'block';
         }
 
-        /**
-         * Configura el Web Worker y define qué hacer cuando recibe un mensaje.
-         */
         function setupWorker() {
-            // El código del Worker se define aquí como un string y se carga como un Blob.
-            // Esto evita tener que crear un archivo JS separado.
             const workerCode = `
-                // --- INICIO DEL CÓDIGO DEL WEB WORKER ---
-                
-                // Importa las librerías necesarias dentro del worker.
                 self.importScripts(
                     'https://docs.opencv.org/4.9.0/opencv.js',
                     'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/index.min.js',
                     'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
                 );
 
-                // Función principal que se ejecuta al recibir un mensaje.
                 self.onmessage = async (e) => {
                     const { imageData } = e.data;
-                    
-                    // Espera a que OpenCV esté listo.
                     await waitForOpenCV();
-                    
                     const src = cv.matFromImageData(imageData);
-                    const results = []; // Almacenará los posibles códigos encontrados.
-
-                    // --- Cadena de Procesamiento de Imagen ---
+                    const results = [];
                     
-                    // 1. Mejora de Contraste (CLAHE)
                     let claheMat = new cv.Mat();
                     cv.cvtColor(src, claheMat, cv.COLOR_RGBA2GRAY, 0);
                     const clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
                     clahe.apply(claheMat, claheMat);
 
-                    // 2. Reducción de Ruido
                     let denoisedMat = new cv.Mat();
-                    cv.fastNlMeansDenoising(claheMat, denoisedMat, 10, 7, 21);
+                    // FIX: Se reemplaza la función que daba error por cv.medianBlur.
+                    cv.medianBlur(claheMat, denoisedMat, 5);
 
-                    // 3. Multi-Binarización: Crear varias versiones para maximizar la detección.
                     let binaryOtsu = new cv.Mat();
                     cv.threshold(denoisedMat, binaryOtsu, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
@@ -432,183 +190,90 @@
 
                     const processedMats = [claheMat, denoisedMat, binaryOtsu, binaryAdaptive];
                     
-                    // Intenta decodificar cada imagen procesada con ZXing.
                     for (const mat of processedMats) {
                         const code = await decodeWithZXing(mat);
                         if (code) results.push({ code: code, method: "IA Avanzada + ZXing" });
                     }
 
-                    // Si después de todos los intentos con ZXing no hay un código válido, usar OCR como último recurso.
                     if (results.length === 0) {
-                        self.postMessage({ status: 'update', message: 'ZXing falló. Intentando con Reconocimiento Óptico de Caracteres (OCR)...' });
-                        const code = await decodeWithTesseract(binaryOtsu); // Usamos la mejor imagen binarizada para OCR.
+                        self.postMessage({ status: 'update', message: 'ZXing falló. Intentando con OCR...' });
+                        const code = await decodeWithTesseract(binaryOtsu);
                         if (code) results.push({ code: code, method: "IA Avanzada + OCR" });
                     }
                     
-                    // Limpieza de memoria de OpenCV.
-                    src.delete(); claheMat.delete(); denoisedMat.delete(); binaryOtsu.delete(); binaryAdaptive.delete();
-                    clahe.delete();
+                    src.delete(); claheMat.delete(); denoisedMat.delete(); binaryOtsu.delete(); binaryAdaptive.delete(); clahe.delete();
 
-                    // Envía el primer resultado válido encontrado de vuelta al hilo principal.
-                    if (results.length > 0) {
-                        self.postMessage({ status: 'done', result: results[0] });
-                    } else {
-                        self.postMessage({ status: 'done', result: null });
-                    }
+                    self.postMessage({ status: 'done', result: results.length > 0 ? results[0] : null });
                 };
                 
-                // Función para esperar a que el módulo de OpenCV esté cargado y listo.
-                function waitForOpenCV() {
-                    return new Promise(resolve => {
-                        const interval = setInterval(() => {
-                            if (typeof cv !== 'undefined' && cv.Mat) {
-                                clearInterval(interval);
-                                resolve();
-                            }
-                        }, 100);
-                    });
-                }
+                function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
                 
-                // Intenta decodificar una imagen (en formato Mat de OpenCV) con ZXing.
-                async function decodeWithZXing(mat) {
-                    try {
-                        const canvas = new OffscreenCanvas(mat.cols, mat.rows);
-                        cv.imshow(canvas, mat);
-                        const codeReader = new self.ZXing.BrowserMultiFormatReader();
-                        const result = await codeReader.decodeFromCanvas(canvas);
-                        return result.getText();
-                    } catch (e) {
-                        return null;
-                    }
-                }
+                async function decodeWithZXing(mat) { try { const canvas = new OffscreenCanvas(mat.cols, mat.rows); cv.imshow(canvas, mat); const r = new self.ZXing.BrowserMultiFormatReader(); const result = await r.decodeFromCanvas(canvas); return result.getText(); } catch (e) { return null; } }
                 
-                // Intenta decodificar con Tesseract OCR.
-                async function decodeWithTesseract(mat) {
-                    try {
-                        const canvas = new OffscreenCanvas(mat.cols, mat.rows);
-                        cv.imshow(canvas, mat);
-                        const worker = await self.Tesseract.createWorker('eng');
-                        await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
-                        const { data: { text } } = await worker.recognize(canvas);
-                        await worker.terminate();
-                        return text.replace(/\\s/g, ''); // Limpia espacios en blanco.
-                    } catch(e) {
-                        return null;
-                    }
-                }
-                // --- FIN DEL CÓDIGO DEL WEB WORKER ---
+                async function decodeWithTesseract(mat) { try { const canvas = new OffscreenCanvas(mat.cols, mat.rows); cv.imshow(canvas, mat); const w = await self.Tesseract.createWorker('eng'); await w.setParameters({ tessedit_char_whitelist: '0123456789' }); const { data: { text } } = await w.recognize(canvas); await w.terminate(); return text.replace(/\\s/g, ''); } catch(e) { return null; } }
             `;
-            
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             analysisWorker = new Worker(URL.createObjectURL(blob));
-
-            // Maneja los mensajes que llegan DESDE el worker.
             analysisWorker.onmessage = (e) => {
                 const { status, message, result } = e.data;
                 if (status === 'update') {
                     updateAuditor(message);
                 } else if (status === 'done') {
                     displayFinalResult(result);
-                    // Restablece el botón para un nuevo análisis.
                     analyzeSelectionBtn.disabled = false;
-                    analyzeSelectionBtn.innerHTML = `<i class="fa-solid fa-magnifying-glass-chart"></i> Analizar Selección`;
+                    analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
                 }
             };
         }
 
-        // --- FUNCIONES DE UTILIDAD Y UI ---
-        
-        /**
-         * Muestra el resultado final en la interfaz.
-         * @param {object|null} result - El objeto de resultado con {code, method} o null si falló.
-         */
+        // --- FUNCIONES DE UI Y UTILIDAD ---
         function displayFinalResult(result) {
             if (result && isValidCode(result.code)) {
-                const cleanCode = result.code.trim();
-                updateStatus('aprobado', `Código Leído: <strong>${cleanCode}</strong> <br><small>Método: ${result.method}</small>`);
-                updateAuditor(`¡Verificación exitosa! El código ${cleanCode} es válido.`);
-                
-                // Dibuja un recuadro verde sobre el código si Cropper está activo.
-                if (cropper) {
-                    const cropBoxData = cropper.getData();
-                    // Esta es una simplificación. Para un recuadro real necesitarías otro canvas superpuesto.
-                    cropper.disable(); // Bloquea el editor para mostrar el resultado.
-                }
-
+                const cleanCode = result.code.match(/\d{13}/)[0];
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${result.method}</small>`;
+                updateAuditor(`¡Lectura exitosa! El código es: ${cleanCode}`);
+                if (cropper) { cropper.destroy(); cropper = null; }
             } else {
-                updateStatus('rechazado', 'No se pudo leer un código válido. Por favor, intente con otra imagen o una selección más precisa.');
-                updateAuditor("La IA no pudo decodificar un código válido. ¿La imagen es clara? ¿La selección es correcta?");
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código válido. Intente con otra imagen o una selección más precisa.</div>`;
+                updateAuditor("La IA no pudo decodificar el código. Intente de nuevo.");
             }
         }
         
-        /**
-         * Valida un código de barras.
-         * @param {string} code - El código a validar.
-         * @returns {boolean} - True si el código es válido.
-         */
         function isValidCode(code) {
             if (!code || typeof code !== 'string') return false;
-            
-            // Busca la primera secuencia de 13 dígitos en el texto (útil para OCR).
-            const match = code.match(/\\d{13}/);
+            const match = code.match(/\d{13}/);
             if (!match) return false;
             const ean13Code = match[0];
-            
-            // Verifica el prefijo y el checksum.
             const hasPrefix = VALID_PREFIXES.some(prefix => ean13Code.startsWith(prefix));
             return hasPrefix && validateEAN13Checksum(ean13Code);
         }
 
-        /**
-         * Valida el dígito de control de un código EAN-13.
-         * @param {string} code - El código de 13 dígitos.
-         * @returns {boolean} - True si el checksum es correcto.
-         */
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
+            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
-            for (let i = 0; i < 12; i++) {
-                sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3);
-            }
+            for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
             const calculatedChecksum = (10 - (sum % 10)) % 10;
             return checksum === calculatedChecksum;
         }
 
-        /**
-         * Reinicia la interfaz a su estado original para una nueva imagen.
-         */
         function resetUI() {
-            if (cropper) {
-                cropper.destroy();
-                cropper = null;
-            }
+            if (cropper) { cropper.destroy(); cropper = null; }
             imageDisplay.src = "";
             imageDisplay.style.opacity = '0';
             uploadPrompt.style.display = 'block';
-            statusContainer.innerHTML = "";
+            statusContainer.innerHTML = "Esperando imagen...";
             analyzeSelectionBtn.style.display = 'none';
             analyzeSelectionBtn.disabled = true;
-            updateAuditor("Listo para iniciar la verificación.");
+            updateAuditor("Listo para iniciar la verificación automática.");
         }
 
-        /**
-         * Actualiza el mensaje del asistente de IA.
-         * @param {string} text - El mensaje a mostrar.
-         */
-        function updateAuditor(text) {
-            auditorText.innerHTML = `<i class="fa-solid fa-robot auditor-icon"></i> ${text}`;
-        }
+        function updateAuditor(text) { auditorText.textContent = text; }
         
-        /**
-         * Muestra un mensaje de estado en el panel de resultados.
-         * @param {'aprobado'|'rechazado'|'pensando'} type - El tipo de estado.
-         * @param {string} message - El mensaje HTML a mostrar.
-         */
-        function updateStatus(type, message) {
-            statusContainer.innerHTML = `<div class="veredicto veredicto-${type}">${message}</div>`;
-        }
+        function updateStatus(type, message) { statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`; }
+        
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>
-</body>
+    </body>
 </html>
