@@ -80,7 +80,6 @@
         const displayContainer = document.getElementById('display-container');
         const uploadButtonInput = document.getElementById('upload-image-input');
 
-        // Función para mostrar el progreso en tiempo real en la UI
         function updateProgress(status, progress) {
             const message = `${status} ${Math.round(progress * 100)}%`;
             statusContainer.innerHTML = `<div class="veredicto-pensando">${message} <i class="fas fa-spinner fa-spin"></i></div>`;
@@ -91,55 +90,48 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            // Mostramos la imagen inmediatamente
             const imageUrl = URL.createObjectURL(file);
             displayContainer.innerHTML = `<img src="${imageUrl}" style="width:100%; height:auto;" />`;
 
             updateProgress('Inicializando motor OCR...', 0);
 
-            // 1. Creamos un "trabajador" de Tesseract.
-            // Le pasamos una función 'logger' para capturar su progreso.
             const worker = await Tesseract.createWorker('eng', 1, {
                 logger: m => {
-                    console.log(m); // Mantenemos el log en consola
                     if (m.status === 'recognizing text') {
                         updateProgress('Reconociendo texto...', m.progress);
                     }
                 }
             });
 
-            // 2. Ejecutamos el reconocimiento.
             const { data: { text } } = await worker.recognize(file);
-            console.log('Texto extraído:', text);
-
-            // 3. Limpiamos y buscamos el código de barras.
-            // Primero, eliminamos todos los espacios y saltos de línea del texto.
-            const cleanedText = text.replace(/\s/g, '');
             
-            // Usamos una expresión regular para encontrar 750 seguido de 10 dígitos.
+            // ---
+            // PUNTO CLAVE: Limpieza robusta del texto.
+            // .replace(/\D/g, '') elimina CUALQUIER COSA que NO sea un dígito (letras, espacios, puntuación).
+            // ---
+            const cleanedText = text.replace(/\D/g, '');
+            console.log('Texto extraído:', text);
+            console.log('Texto limpiado (solo números):', cleanedText);
+            
             const barcodeRegex = /750\d{10}/;
             const match = cleanedText.match(barcodeRegex);
 
             if (match) {
                 const barcode = match[0];
-                console.log('¡Código EAN-13 encontrado!', barcode);
                 statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcode}</strong></div>`;
                 auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcode}`;
             } else {
-                console.log('No se encontró un código con el formato esperado.');
                 statusContainer.innerHTML = `<div class="veredicto-rechazado">No se encontró un código EAN-13.</div>`;
                 auditorBubble.textContent = "Leí el texto, pero no encontré el código.";
             }
 
-            // 4. Terminamos el "trabajador" para liberar recursos.
             await worker.terminate();
-            URL.revokeObjectURL(imageUrl); // Liberamos memoria
+            URL.revokeObjectURL(imageUrl);
         }
 
-        // --- Inicialización de la aplicación ---
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         uploadButtonInput.addEventListener('change', handleImageUpload);
-        console.log("Aplicación lista con motor Tesseract.js OCR.");
+        console.log("Aplicación lista con motor Tesseract.js OCR (versión pulida).");
     </script>
 </body>
 </html>
