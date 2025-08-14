@@ -79,7 +79,6 @@
         let originalImage = null;
         let isDrawing = false;
         let selectionRect = {};
-        // Variable para evitar ejecuciones múltiples
         let isAnalyzing = false;
 
         function handleImageUpload(event) {
@@ -128,7 +127,7 @@
         displayCanvas.addEventListener('mouseup', async (e) => {
             if (!isDrawing || !originalImage || isAnalyzing) return;
             isDrawing = false;
-            isAnalyzing = true; // Bloqueamos nuevas interacciones
+            isAnalyzing = true; 
 
             const width = e.clientX - displayCanvas.getBoundingClientRect().left - selectionRect.startX;
             const height = e.clientY - displayCanvas.getBoundingClientRect().top - selectionRect.startY;
@@ -139,10 +138,8 @@
             statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
             auditorBubble.textContent = "Aplicando filtros de imagen...";
             
-            // Usamos un setTimeout para que la UI se actualice antes del procesamiento pesado
             await new Promise(resolve => setTimeout(resolve, 50));
 
-            // --- CADENA DE FILTROS DE IMAGEN DE GRADO INDUSTRIAL ---
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
             const scaleX = originalImage.width / displayCanvas.width;
@@ -158,7 +155,7 @@
             
             const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
             const data = imageData.data;
-            const contrast = 2.0; const threshold = 128;
+            const contrast = 2.5; const threshold = 128;
 
             for (let i = 0; i < data.length; i += 4) {
                 const avg = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
@@ -168,7 +165,7 @@
             }
             tempCtx.putImageData(imageData, 0, 0);
 
-            const upscaleFactor = 2;
+            const upscaleFactor = 3;
             const finalCanvas = document.createElement('canvas');
             finalCanvas.width = tempCanvas.width * upscaleFactor;
             finalCanvas.height = tempCanvas.height * upscaleFactor;
@@ -179,22 +176,17 @@
             const processedImageDataUrl = finalCanvas.toDataURL('image/png');
             
             await analyzeImage(processedImageDataUrl);
-            isAnalyzing = false; // Desbloqueamos para la siguiente captura
+            isAnalyzing = false;
         });
         
         async function analyzeImage(imageDataUrl) {
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando IA especializada... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Usando motor numérico...";
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando IA... <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = "Usando motor estándar optimizado...";
 
-            // --- CAMBIO DE "CEREBRO" DE IA ---
-            const worker = await Tesseract.createWorker('digits', 1, {
-                logger: m => console.log(m),
-                // Ruta al repositorio de modelos de datos de Tesseract
-                langPath: 'https://tessdata.projectnaptha.com/4.0.0_fast',
-                // Le decimos que el idioma 'digits' es el que debe cargar
-                corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
+            // --- CORRECCIÓN: Volvemos al motor 'eng' estándar, que siempre está disponible ---
+            const worker = await Tesseract.createWorker('eng', 1, {
+                logger: m => console.log(m)
             });
-            // Adicionalmente, forzamos el whitelist por si el modelo 'digits' no es suficiente
             await worker.setParameters({
                 tessedit_char_whitelist: '0123456789',
             });
@@ -203,7 +195,7 @@
             await worker.terminate();
             
             const cleanedText = text.replace(/\D/g, '');
-            console.log('Texto extraído (motor digits):', text);
+            console.log('Texto extraído (motor eng):', text);
             console.log('Texto limpiado:', cleanedText);
             
             let finalCode = null;
