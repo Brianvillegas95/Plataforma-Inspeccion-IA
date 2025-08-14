@@ -82,46 +82,52 @@
             const statusContainer = document.getElementById('status-container');
             const auditorBubble = document.querySelector('#auditor-message-bubble span');
             const displayContainer = document.getElementById('display-container');
-            
-            const imageUrl = URL.createObjectURL(file);
-
-            displayContainer.innerHTML = `<img src="${imageUrl}" style="width:100%; height:auto;" />`;
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Analizando...";
 
             // ---
-            // PUNTO CLAVE: CONFIGURACIÓN AVANZADA Y DEPURACIÓN VISUAL
+            // PUNTO CLAVE: CAMBIO A FileReader y readAsDataURL
+            // Esto convierte la imagen a un formato de texto (base64) que es 100% compatible.
             // ---
-            Quagga.decodeSingle({
-                src: imageUrl,
-                numOfWorkers: 0,
-                decoder: {
-                    readers: ["ean_reader"] 
-                },
-                locate: true,
-                // --- NUEVOS PARÁMETROS PARA MEJORAR LA DETECCIÓN ---
-                patchSize: "large",   // Analiza trozos más grandes de la imagen
-                halfSample: false,    // Usa la resolución completa de la imagen para más precisión
-                
-                // --- NUEVO BLOQUE DE DEPURACIÓN VISUAL ---
-                // Quagga dibujará sobre la imagen para mostrarnos qué está viendo.
-                debug: {
-                    drawBoundingBox: true, // Dibuja un cuadro verde si encuentra un posible código
-                    showFrequency: false,  // No necesitamos esto
-                    drawScanline: true,    // Dibuja una línea roja donde está escaneando
-                    showPattern: true      // Muestra los patrones de barras que encuentra
-                }
-            }, function(result) {
-                if (result && result.codeResult) {
-                    const barcodeText = result.codeResult.code;
-                    statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
-                    auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
-                } else {
-                    statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
-                    auditorBubble.textContent = "No encontré un código. Intenta con otra.";
-                }
-                URL.revokeObjectURL(imageUrl);
-            });
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const dataUrl = e.target.result;
+
+                // Mostramos la imagen y el estado de procesamiento
+                displayContainer.innerHTML = `<img src="${dataUrl}" style="width:100%; height:auto;" />`;
+                statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
+                auditorBubble.textContent = "Analizando...";
+
+                Quagga.decodeSingle({
+                    src: dataUrl, // Usamos el Data URI como fuente
+                    numOfWorkers: 0,
+                    decoder: {
+                        readers: ["ean_reader"] 
+                    },
+                    locate: true,
+                    patchSize: "large",
+                    halfSample: false,
+                    debug: {
+                        drawBoundingBox: true,
+                        showFrequency: false,
+                        drawScanline: true,
+                        showPattern: true
+                    }
+                }, function(result) {
+                    if (result && result.codeResult) {
+                        const barcodeText = result.codeResult.code;
+                        console.log("¡Código de barras encontrado!", barcodeText);
+                        statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
+                        auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
+                    } else {
+                        console.log("No se pudo decodificar el código de barras.");
+                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
+                        auditorBubble.textContent = "No encontré un código. Intenta con otra.";
+                    }
+                });
+            };
+
+            // Le pedimos al lector de archivos que inicie la conversión a Data URI
+            reader.readAsDataURL(file);
         }
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
