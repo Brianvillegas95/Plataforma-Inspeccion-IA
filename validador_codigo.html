@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Validador de Código Profesional - Grupo Azor</title>
-    <link rel="stylesheet" href="css/estilos.css"> 
+    <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         #image-display-canvas.ready-to-crop { cursor: crosshair; }
@@ -30,7 +30,7 @@
                 </ul>
             </nav>
         </header>
-        <main class="main-content-grid"> 
+        <main class="main-content-grid">
             <section class="vision-panel">
                 <h2 class="panel-title"><i class="fas fa-crop-alt"></i> 1. Seleccione el Área del Código</h2>
                 <div id="display-container" class="display-container-placeholder">
@@ -49,12 +49,12 @@
                     </label>
                     <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
                 </div>
-                <div id="auditor-section"> 
+                <div id="auditor-section">
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
-                    <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
+                    <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
                         <span id="auditor-text">Suba una imagen y luego seleccione el área del código.</span>
                     </div>
                 </div>
@@ -68,104 +68,193 @@
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     
     <script>
+        // --- INICIO DE MEJORAS ---
+
+        // Referencias a elementos del DOM para un acceso más limpio
         const statusContainer = document.getElementById('status-container');
         const auditorBubble = document.querySelector('#auditor-message-bubble span');
         const displayContainer = document.getElementById('display-container');
         const displayCanvas = document.getElementById('image-display-canvas');
-        const displayCtx = displayCanvas.getContext('2d');
+        const displayCtx = displayCanvas.getContext('2d', { willReadFrequently: true }); // willReadFrequently para optimizar lecturas
         const uploadButtonInput = document.getElementById('upload-image-input');
         const uploadPrompt = document.getElementById('upload-prompt');
 
+        // Estado de la aplicación
         let originalImage = null;
         let isDrawing = false;
         let selectionRect = {};
         let isAnalyzing = false;
 
-        function handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                originalImage = new Image();
-                originalImage.src = e.target.result;
-                originalImage.onload = () => {
-                    const aspectRatio = originalImage.width / originalImage.height;
-                    const maxWidth = displayContainer.clientWidth;
-                    displayCanvas.width = maxWidth;
-                    displayCanvas.height = maxWidth / aspectRatio;
-                    displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
-                    uploadPrompt.style.display = 'none';
-                    displayCanvas.classList.add('ready-to-crop');
-                    statusContainer.innerHTML = 'Imagen cargada. Por favor, dibuje un recuadro sobre el código de barras.';
-                    auditorBubble.textContent = "¡Excelente! Ahora dibuja el área a analizar.";
-                };
-            };
-            reader.readAsDataURL(file);
+        /**
+         * COMENTARIO DE MEJORA: Función centralizada para obtener coordenadas.
+         * Unifica la lógica para eventos de mouse y táctiles, haciendo el código más limpio
+         * y fácil de mantener. Previene la duplicación de código en los manejadores de eventos.
+         * @param {Event} event - El evento de mouse o táctil.
+         * @returns {{x: number, y: number}} Coordenadas relativas al canvas.
+         */
+        function getCoords(event) {
+            const rect = displayCanvas.getBoundingClientRect();
+            let x, y;
+            if (event.touches && event.touches.length > 0) {
+                x = event.touches[0].clientX - rect.left;
+                y = event.touches[0].clientY - rect.top;
+            } else {
+                x = event.clientX - rect.left;
+                y = event.clientY - rect.top;
+            }
+            return { x, y };
+        }
+
+        /**
+         * Dibuja la imagen original en el canvas y, si existe, el rectángulo de selección.
+         */
+        function redrawCanvas() {
+            if (!originalImage) return;
+            displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+            displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
+            if (isDrawing) {
+                displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
+                displayCtx.lineWidth = 3;
+                const width = selectionRect.endX - selectionRect.startX;
+                const height = selectionRect.endY - selectionRect.startY;
+                displayCtx.strokeRect(selectionRect.startX, selectionRect.startY, width, height);
+            }
+        }
+
+        /**
+         * Inicia el proceso de selección.
+         * @param {Event} e - Evento mousedown o touchstart.
+         */
+        function startDrawing(e) {
+            if (!originalImage || isAnalyzing) return;
+            e.preventDefault(); // Previene comportamientos por defecto como el scroll en móviles.
+            isDrawing = true;
+            const { x, y } = getCoords(e);
+            selectionRect.startX = x;
+            selectionRect.startY = y;
+        }
+
+        /**
+         * Dibuja el rectángulo de selección mientras se mueve el cursor/dedo.
+         * @param {Event} e - Evento mousemove o touchmove.
+         */
+        function drawSelection(e) {
+            if (!isDrawing || !originalImage || isAnalyzing) return;
+            e.preventDefault();
+            const { x, y } = getCoords(e);
+            selectionRect.endX = x;
+            selectionRect.endY = y;
+            redrawCanvas();
         }
         
-        displayCanvas.addEventListener('mousedown', (e) => {
-            if (!originalImage || isAnalyzing) return;
-            isDrawing = true;
-            const rect = displayCanvas.getBoundingClientRect();
-            selectionRect.startX = e.clientX - rect.left;
-            selectionRect.startY = e.clientY - rect.top;
-        });
-
-        displayCanvas.addEventListener('mousemove', (e) => {
+        /**
+         * Finaliza la selección y comienza el análisis de la imagen.
+         * @param {Event} e - Evento mouseup o touchend.
+         */
+        async function endDrawingAndAnalyze(e) {
             if (!isDrawing || !originalImage || isAnalyzing) return;
-            const rect = displayCanvas.getBoundingClientRect();
-            selectionRect.endX = e.clientX - rect.left;
-            selectionRect.endY = e.clientY - rect.top;
-            displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
-            displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.8)';
-            displayCtx.lineWidth = 2;
+            e.preventDefault();
+            isDrawing = false;
+            
+            const { x, y } = getCoords(e.changedTouches ? e.changedTouches[0] : e);
+            selectionRect.endX = x;
+            selectionRect.endY = y;
+
             const width = selectionRect.endX - selectionRect.startX;
             const height = selectionRect.endY - selectionRect.startY;
-            displayCtx.strokeRect(selectionRect.startX, selectionRect.startY, width, height);
-        });
 
-        displayCanvas.addEventListener('mouseup', async (e) => {
-            if (!isDrawing || !originalImage || isAnalyzing) return;
-            isDrawing = false;
-            isAnalyzing = true; 
-
-            const width = e.clientX - displayCanvas.getBoundingClientRect().left - selectionRect.startX;
-            const height = e.clientY - displayCanvas.getBoundingClientRect().top - selectionRect.startY;
-            if (Math.abs(width) < 10 || Math.abs(height) < 10) {
-                isAnalyzing = false; return;
+            // Ignorar selecciones muy pequeñas
+            if (Math.abs(width) < 20 || Math.abs(height) < 20) {
+                redrawCanvas(); // Limpia el recuadro si era inválido
+                return;
             }
-
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Aplicando filtros de imagen...";
             
+            isAnalyzing = true;
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando selección... <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = "¡Entendido! Preparando la imagen para análisis...";
+
+            // Pequeña demora para asegurar que la UI se actualice
             await new Promise(resolve => setTimeout(resolve, 50));
 
+            // Extraer y procesar la imagen seleccionada
+            const processedImageDataUrl = await preprocessImage();
+            
+            // Analizar la imagen procesada
+            await analyzeImageWithOCR(processedImageDataUrl);
+            
+            isAnalyzing = false;
+        }
+
+        /**
+         * COMENTARIO DE MEJORA: Pipeline de Preprocesamiento de Imagen.
+         * Esta función es clave para mejorar la precisión del OCR. Aplica una serie de
+         * filtros a la imagen recortada antes de enviarla a Tesseract.js.
+         * 1. Recorte preciso usando la escala original de la imagen.
+         * 2. Conversión a escala de grises para simplificar datos.
+         * 3. Filtro de Nitidez (Sharpen): Acentúa los bordes de los números, crucial para OCR.
+         * 4. Binarización (Blanco y Negro): Crea una imagen de alto contraste.
+         * 5. Escalado: Aumenta la resolución de la imagen procesada, lo que a menudo ayuda a Tesseract.
+         * @returns {string} La imagen procesada como un Data URL en formato PNG.
+         */
+        async function preprocessImage() {
+            auditorBubble.textContent = "Aplicando filtros de imagen avanzados...";
+            
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
-            const scaleX = originalImage.width / displayCanvas.width;
-            const scaleY = originalImage.height / displayCanvas.height;
+            
+            const scaleX = originalImage.naturalWidth / displayCanvas.width;
+            const scaleY = originalImage.naturalHeight / displayCanvas.height;
+
             const cropX = Math.min(selectionRect.startX, selectionRect.endX) * scaleX;
             const cropY = Math.min(selectionRect.startY, selectionRect.endY) * scaleY;
-            const cropWidth = Math.abs(width) * scaleX;
-            const cropHeight = Math.abs(height) * scaleY;
+            const cropWidth = Math.abs(selectionRect.endX - selectionRect.startX) * scaleX;
+            const cropHeight = Math.abs(selectionRect.endY - selectionRect.startY) * scaleY;
 
             tempCanvas.width = cropWidth;
             tempCanvas.height = cropHeight;
             tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
             
-            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-            const data = imageData.data;
-            const contrast = 2.5; const threshold = 128;
+            let imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            let data = imageData.data;
 
-            for (let i = 0; i < data.length; i += 4) {
-                const avg = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-                let contrastValue = (contrast * (avg - 128)) + 128;
-                const finalValue = contrastValue > threshold ? 255 : 0;
-                data[i] = data[i+1] = data[i+2] = finalValue;
+            // --- Etapa 1: Escala de grises y Nitidez (Convolución) ---
+            const sharpenedData = new Uint8ClampedArray(data.length);
+            const weights = [ 0, -1,  0, -1,  5, -1,  0, -1,  0 ]; // Kernel de nitidez
+            const side = Math.round(Math.sqrt(weights.length));
+            const halfSide = Math.floor(side / 2);
+
+            for (let y = 0; y < tempCanvas.height; y++) {
+                for (let x = 0; x < tempCanvas.width; x++) {
+                    const dstOff = (y * tempCanvas.width + x) * 4;
+                    let r = 0, g = 0, b = 0;
+                    for (let cy = 0; cy < side; cy++) {
+                        for (let cx = 0; cx < side; cx++) {
+                            const scy = y + cy - halfSide;
+                            const scx = x + cx - halfSide;
+                            if (scy >= 0 && scy < tempCanvas.height && scx >= 0 && scx < tempCanvas.width) {
+                                const srcOff = (scy * tempCanvas.width + scx) * 4;
+                                const wt = weights[cy * side + cx];
+                                r += data[srcOff] * wt;
+                                g += data[srcOff + 1] * wt;
+                                b += data[srcOff + 2] * wt;
+                            }
+                        }
+                    }
+                    const avg = (r * 0.299 + g * 0.587 + b * 0.114);
+                    sharpenedData[dstOff] = sharpenedData[dstOff + 1] = sharpenedData[dstOff + 2] = avg;
+                    sharpenedData[dstOff + 3] = 255;
+                }
+            }
+            
+            // --- Etapa 2: Binarización (Blanco/Negro) ---
+            for (let i = 0; i < sharpenedData.length; i += 4) {
+                 const finalValue = sharpenedData[i] > 128 ? 255 : 0; // Umbral simple
+                 data[i] = data[i + 1] = data[i + 2] = finalValue;
             }
             tempCtx.putImageData(imageData, 0, 0);
 
-            const upscaleFactor = 3;
+            // --- Etapa 3: Escalado final ---
+            const upscaleFactor = 2;
             const finalCanvas = document.createElement('canvas');
             finalCanvas.width = tempCanvas.width * upscaleFactor;
             finalCanvas.height = tempCanvas.height * upscaleFactor;
@@ -173,56 +262,112 @@
             finalCtx.imageSmoothingEnabled = false;
             finalCtx.drawImage(tempCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
             
-            const processedImageDataUrl = finalCanvas.toDataURL('image/png');
-            
-            await analyzeImage(processedImageDataUrl);
-            isAnalyzing = false;
-        });
+            return finalCanvas.toDataURL('image/png');
+        }
         
-        async function analyzeImage(imageDataUrl) {
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando IA... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Usando motor estándar optimizado...";
-
-            // --- CORRECCIÓN: Volvemos al motor 'eng' estándar, que siempre está disponible ---
-            const worker = await Tesseract.createWorker('eng', 1, {
-                logger: m => console.log(m)
-            });
+        /**
+         * COMENTARIO DE MEJORA: Función de análisis OCR con Tesseract.js.
+         * Se ha optimizado la configuración del trabajador de Tesseract:
+         * 1. Se sigue usando el motor 'eng' por su fiabilidad y disponibilidad.
+         * 2. Se añade `tessedit_pageseg_mode` a `PSM.SINGLE_LINE`. Esto le indica a Tesseract
+         * que trate la imagen como una única línea de texto uniforme, lo que es perfecto
+         * para códigos de barras y acelera el reconocimiento.
+         * 3. La lógica de validación por prefijos se mantiene intacta.
+         * @param {string} imageDataUrl - La imagen (ya procesada) para analizar.
+         */
+        async function analyzeImageWithOCR(imageDataUrl) {
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando motor IA... <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = "Analizando con el motor OCR optimizado...";
+            
+            const worker = await Tesseract.createWorker('eng', 1, { logger: m => console.log(m) });
             await worker.setParameters({
                 tessedit_char_whitelist: '0123456789',
+                tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE, // Optimización clave
             });
             
             const { data: { text } } = await worker.recognize(imageDataUrl);
             await worker.terminate();
             
-            const cleanedText = text.replace(/\D/g, '');
-            console.log('Texto extraído (motor eng):', text);
+            const cleanedText = text.replace(/\s/g, ''); // Solo quitamos espacios
+            console.log('Texto extraído (motor eng optimizado):', text);
             console.log('Texto limpiado:', cleanedText);
             
             let finalCode = null;
-            const prefix1 = '75014287';
-            const prefix2 = '75014497';
+            const prefixes = ['75014287', '75014497']; // Lista de prefijos válidos
             
-            let index = cleanedText.indexOf(prefix1);
-            if (index > -1) {
-                finalCode = cleanedText.substring(index, index + 13);
-            } else {
-                index = cleanedText.indexOf(prefix2);
+            for (const prefix of prefixes) {
+                let index = cleanedText.indexOf(prefix);
                 if (index > -1) {
                     finalCode = cleanedText.substring(index, index + 13);
+                    if (finalCode.length === 13) break; // Código válido encontrado
+                    else finalCode = null; // Fragmento incorrecto
                 }
             }
             
-            if (finalCode && finalCode.length === 13) {
+            if (finalCode) {
                 statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
                 auditorBubble.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
             } else {
                 statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código conocido en el área.</div>`;
-                auditorBubble.textContent = "No encontré un código válido en tu selección.";
+                auditorBubble.textContent = "No encontré un código válido. Intenta con una selección más precisa.";
             }
         }
 
-        document.getElementById('currentYear').textContent = new Date().getFullYear();
+        /**
+         * Maneja la carga de una nueva imagen desde el input.
+         * @param {Event} event - El evento 'change' del input de archivo.
+         */
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                originalImage = new Image();
+                originalImage.src = e.target.result;
+                originalImage.onload = () => {
+                    const aspectRatio = originalImage.naturalWidth / originalImage.naturalHeight;
+                    const maxWidth = displayContainer.clientWidth;
+                    displayCanvas.width = maxWidth;
+                    displayCanvas.height = maxWidth / aspectRatio;
+                    displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
+                    
+                    uploadPrompt.style.display = 'none';
+                    displayCanvas.classList.add('ready-to-crop');
+                    statusContainer.textContent = 'Imagen cargada. Por favor, dibuje un recuadro sobre el código de barras.';
+                    auditorBubble.textContent = "¡Excelente! Ahora dibuja el área a analizar.";
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- Asignación de Eventos ---
+        
+        // Eventos de Mouse
+        displayCanvas.addEventListener('mousedown', startDrawing);
+        displayCanvas.addEventListener('mousemove', drawSelection);
+        displayCanvas.addEventListener('mouseup', endDrawingAndAnalyze);
+        displayCanvas.addEventListener('mouseleave', () => { // Cancela si el mouse sale
+            if (isDrawing) {
+                isDrawing = false;
+                redrawCanvas();
+            }
+        });
+
+        // COMENTARIO DE MEJORA: Añadido soporte para eventos táctiles.
+        // Esto asegura que la aplicación sea completamente funcional en dispositivos móviles.
+        // Se mapean los eventos táctiles a las funciones de dibujo existentes.
+        displayCanvas.addEventListener('touchstart', startDrawing);
+        displayCanvas.addEventListener('touchmove', drawSelection);
+        displayCanvas.addEventListener('touchend', endDrawingAndAnalyze);
+
+        // Evento para el botón de subir imagen
         uploadButtonInput.addEventListener('change', handleImageUpload);
+        
+        // Inicialización al cargar la página
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // --- FIN DE MEJORAS ---
     </script>
 </body>
 </html>
