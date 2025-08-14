@@ -120,7 +120,8 @@
             analyzeSelectionBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando...`;
             const croppedCanvas = cropper.getCroppedCanvas();
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Enviando selección a los motores de IA. Aplicando filtros avanzados...");
+            updateAuditor("Iniciando análisis profundo. Aplicando filtros avanzados...");
+            console.log("Main: Enviando imagen recortada al Web Worker.");
             if (!analysisWorker) {
                 setupWorker();
             }
@@ -129,7 +130,7 @@
 
         // --- LÓGICA DE PROCESAMIENTO ---
         async function startAutomaticDetection(imageElement) {
-            updateAuditor("Iniciando análisis rápido con el motor nativo del navegador...");
+            updateAuditor("Iniciando análisis rápido con el motor nativo...");
             updateStatus('pensando', 'Detectando código automáticamente...');
             if ('BarcodeDetector' in window) {
                 try {
@@ -170,38 +171,59 @@
                 self.onmessage = async (e) => {
                     const { imageData } = e.data;
                     await waitForOpenCV();
+                    self.postMessage({ status: 'update', message: 'Worker: OpenCV listo.' });
                     const src = cv.matFromImageData(imageData);
                     const results = [];
                     
+                    // --- CADENA DE PROCESAMIENTO DE IMAGEN MEJORADA ---
+
+                    // 1. Escala de grises y mejora de contraste (CLAHE)
                     let claheMat = new cv.Mat();
                     cv.cvtColor(src, claheMat, cv.COLOR_RGBA2GRAY, 0);
                     const clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
                     clahe.apply(claheMat, claheMat);
+                    self.postMessage({ status: 'update', message: 'Worker: Contraste mejorado.' });
 
+                    // 2. Reducción de ruido sutil
                     let denoisedMat = new cv.Mat();
-                    // FIX: Se reemplaza la función que daba error por cv.medianBlur.
-                    cv.medianBlur(claheMat, denoisedMat, 5);
+                    cv.medianBlur(claheMat, denoisedMat, 3); // Ajustado a 3 para ser menos agresivo
+                    self.postMessage({ status: 'update', message: 'Worker: Ruido reducido.' });
 
+                    // 3. Filtro de Nitidez (Unsharp Masking) - ¡NUEVO!
+                    let sharpenedMat = new cv.Mat();
+                    let gaussianBlur = new cv.Mat();
+                    cv.GaussianBlur(denoisedMat, gaussianBlur, new cv.Size(0, 0), 3);
+                    cv.addWeighted(denoisedMat, 1.5, gaussianBlur, -0.5, 0, sharpenedMat);
+                    self.postMessage({ status: 'update', message: 'Worker: Filtro de nitidez aplicado.' });
+                    
+                    // 4. Binarización (crear versiones en blanco y negro)
                     let binaryOtsu = new cv.Mat();
-                    cv.threshold(denoisedMat, binaryOtsu, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    cv.threshold(sharpenedMat, binaryOtsu, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
                     let binaryAdaptive = new cv.Mat();
-                    cv.adaptiveThreshold(denoisedMat, binaryAdaptive, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
-
-                    const processedMats = [claheMat, denoisedMat, binaryOtsu, binaryAdaptive];
+                    cv.adaptiveThreshold(sharpenedMat, binaryAdaptive, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
+                    self.postMessage({ status: 'update', message: 'Worker: Binarización completada.' });
+                    
+                    // Se intentará decodificar sobre la imagen con nitidez y las binarizadas.
+                    const processedMats = [sharpenedMat, binaryOtsu, binaryAdaptive];
                     
                     for (const mat of processedMats) {
                         const code = await decodeWithZXing(mat);
-                        if (code) results.push({ code: code, method: "IA Avanzada + ZXing" });
+                        if (code && results.every(r => r.code !== code)) { // Evitar duplicados
+                             results.push({ code: code, method: "IA Avanzada + ZXing" });
+                        }
                     }
 
                     if (results.length === 0) {
-                        self.postMessage({ status: 'update', message: 'ZXing falló. Intentando con OCR...' });
+                        self.postMessage({ status: 'update', message: 'Worker: ZXing falló. Intentando con OCR...' });
                         const code = await decodeWithTesseract(binaryOtsu);
-                        if (code) results.push({ code: code, method: "IA Avanzada + OCR" });
+                        if (code) {
+                            results.push({ code: code, method: "IA Avanzada + OCR" });
+                        }
                     }
                     
-                    src.delete(); claheMat.delete(); denoisedMat.delete(); binaryOtsu.delete(); binaryAdaptive.delete(); clahe.delete();
+                    // Limpieza de memoria de OpenCV
+                    src.delete(); claheMat.delete(); denoisedMat.delete(); sharpenedMat.delete(); gaussianBlur.delete(); binaryOtsu.delete(); binaryAdaptive.delete(); clahe.delete();
 
                     self.postMessage({ status: 'done', result: results.length > 0 ? results[0] : null });
                 };
@@ -210,15 +232,33 @@
                 
                 async function decodeWithZXing(mat) { try { const canvas = new OffscreenCanvas(mat.cols, mat.rows); cv.imshow(canvas, mat); const r = new self.ZXing.BrowserMultiFormatReader(); const result = await r.decodeFromCanvas(canvas); return result.getText(); } catch (e) { return null; } }
                 
-                async function decodeWithTesseract(mat) { try { const canvas = new OffscreenCanvas(mat.cols, mat.rows); cv.imshow(canvas, mat); const w = await self.Tesseract.createWorker('eng'); await w.setParameters({ tessedit_char_whitelist: '0123456789' }); const { data: { text } } = await w.recognize(canvas); await w.terminate(); return text.replace(/\\s/g, ''); } catch(e) { return null; } }
+                async function decodeWithTesseract(mat) {
+                    try {
+                        const canvas = new OffscreenCanvas(mat.cols, mat.rows);
+                        cv.imshow(canvas, mat);
+                        const w = await self.Tesseract.createWorker('eng');
+                        // Parámetros de Tesseract optimizados
+                        await w.setParameters({
+                            tessedit_char_whitelist: '0123456789',
+                            tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE 
+                        });
+                        const { data: { text } } = await w.recognize(canvas);
+                        await w.terminate();
+                        return text.replace(/\\s/g, '');
+                    } catch (e) {
+                        return null;
+                    }
+                }
             `;
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             analysisWorker = new Worker(URL.createObjectURL(blob));
             analysisWorker.onmessage = (e) => {
                 const { status, message, result } = e.data;
                 if (status === 'update') {
-                    updateAuditor(message);
+                    // Imprime los mensajes de depuración en la consola
+                    console.log(message);
                 } else if (status === 'done') {
+                    console.log("Main: El Worker ha finalizado el análisis.", result);
                     displayFinalResult(result);
                     analyzeSelectionBtn.disabled = false;
                     analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
@@ -232,7 +272,7 @@
                 const cleanCode = result.code.match(/\d{13}/)[0];
                 statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${result.method}</small>`;
                 updateAuditor(`¡Lectura exitosa! El código es: ${cleanCode}`);
-                if (cropper) { cropper.destroy(); cropper = null; }
+                if (cropper) { cropper.destroy(); cropper = null; analyzeSelectionBtn.style.display = 'none';}
             } else {
                 statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código válido. Intente con otra imagen o una selección más precisa.</div>`;
                 updateAuditor("La IA no pudo decodificar el código. Intente de nuevo.");
