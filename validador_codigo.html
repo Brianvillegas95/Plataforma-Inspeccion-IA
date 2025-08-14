@@ -73,26 +73,40 @@
     </div>
 
     <script type="module">
-        // ---
-        // PUNTO CLAVE 1: IMPORTACIÓN CORREGIDA
-        // Apuntamos al archivo 'index.js', que sí existe en la CDN.
-        // Se importa el objeto 'ZBar' por defecto que contiene todas las funciones.
-        // ---
         import ZBar from 'https://cdn.jsdelivr.net/npm/zbar.wasm@2.1.0/dist/index.js';
 
-        // Extraemos la función 'scan' del objeto importado.
-        const { scan } = ZBar;
+        // ---
+        // PUNTO CLAVE: INICIALIZACIÓN ASÍNCRONA
+        // Creamos una función 'async main' para poder usar 'await'.
+        // 'await ZBar()' pausa el código hasta que la librería esté 100% lista.
+        // ---
+        async function main() {
+            try {
+                // Esperamos a que ZBar se inicialice y nos devuelva el módulo con las funciones.
+                const ZBarModule = await ZBar(); 
+                const { scan } = ZBarModule;
 
-        console.log("Motor ZBar/WASM cargado correctamente desde index.js.");
-        iniciarApp();
+                console.log("Motor ZBar/WASM inicializado completamente. La aplicación está lista.");
+                iniciarApp(scan); // Le pasamos la función 'scan' a nuestra aplicación.
 
-        function iniciarApp() {
+            } catch (error) {
+                console.error("Error fatal al inicializar ZBar.wasm:", error);
+                const statusContainer = document.getElementById('status-container');
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo cargar el motor de lectura.</div>`;
+            }
+        }
+
+        // Ejecutamos la función principal para empezar todo el proceso.
+        main();
+
+        // Modificamos iniciarApp para que reciba la función 'scan' ya lista.
+        function iniciarApp(scan) {
             const uploadButtonInput = document.getElementById('upload-image-input');
             const uploadLabel = document.getElementById('upload-label');
             const statusContainer = document.getElementById('status-container');
             const auditorBubble = document.querySelector('#auditor-message-bubble span');
 
-            // Habilitamos los controles ahora que el script se cargó correctamente.
+            // Ahora sí, habilitamos los controles porque ZBar está listo.
             uploadButtonInput.disabled = false;
             uploadLabel.classList.remove('is-disabled');
             statusContainer.textContent = "Esperando imagen...";
@@ -118,7 +132,7 @@
                         imageElement.style.width = '100%';
                         imageElement.style.height = 'auto';
                         displayContainer.appendChild(imageElement);
-                        decodeBarcode(imageElement);
+                        decodeBarcode(imageElement, scan); // Pasamos 'scan' a la función de decodificación
                     };
                     imageElement.src = imageUrl;
                 };
@@ -127,12 +141,6 @@
             
             uploadButtonInput.addEventListener('change', handleImageUpload);
 
-            /**
-             * ---
-             * PUNTO CLAVE 2: FUNCIÓN DE PREPROCESAMIENTO DE IMAGEN
-             * Se mantiene sin cambios, es crucial para mejorar la detección.
-             * ---
-             */
             function preprocessImage(context, width, height) {
                 const imageData = context.getImageData(0, 0, width, height);
                 const data = imageData.data;
@@ -144,7 +152,8 @@
                 context.putImageData(imageData, 0, 0);
             }
 
-            async function decodeBarcode(imageElement) {
+            // Modificamos decodeBarcode para que también reciba la función 'scan'
+            async function decodeBarcode(imageElement, scanFunction) {
                 try {
                     const canvas = document.createElement('canvas');
                     canvas.width = imageElement.naturalWidth;
@@ -152,26 +161,22 @@
                     const context = canvas.getContext('2d', { willReadFrequently: true });
                     context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
                     
-                    console.log("Aplicando preprocesamiento de imagen (escala de grises y contraste)...");
                     preprocessImage(context, canvas.width, canvas.height);
                                     
                     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                     
-                    console.log("Iniciando escaneo con zbar.wasm...");
-                    const symbols = await scan(imageData);
+                    const symbols = await scanFunction(imageData);
 
                     if (symbols && symbols.length > 0) {
                         const barcodeText = symbols[0].data; 
-                        console.log('¡Éxito!', symbols);
                         statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
                         auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
                     } else {
-                        console.log('No se encontraron códigos de barras.');
                         statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
-                        auditorBubble.textContent = "No encontré un código. Intenta con una foto más nítida y bien iluminada.";
+                        auditorBubble.textContent = "No encontré un código. Intenta con una foto más nítida.";
                     }
                 } catch (err) {
-                    console.error('Error en el pipeline de decodificación:', err); 
+                    console.error('Error en pipeline de decodificación:', err); 
                     statusContainer.innerHTML = `<div class="veredicto-rechazado">Error crítico en el sistema de lectura.</div>`;
                     auditorBubble.textContent = "Ocurrió un error inesperado al analizar.";
                 }
