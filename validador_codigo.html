@@ -79,6 +79,8 @@
         let originalImage = null;
         let isDrawing = false;
         let selectionRect = {};
+        // Variable para evitar ejecuciones múltiples
+        let isAnalyzing = false;
 
         function handleImageUpload(event) {
             const file = event.target.files[0];
@@ -103,7 +105,7 @@
         }
         
         displayCanvas.addEventListener('mousedown', (e) => {
-            if (!originalImage) return;
+            if (!originalImage || isAnalyzing) return;
             isDrawing = true;
             const rect = displayCanvas.getBoundingClientRect();
             selectionRect.startX = e.clientX - rect.left;
@@ -111,7 +113,7 @@
         });
 
         displayCanvas.addEventListener('mousemove', (e) => {
-            if (!isDrawing) return;
+            if (!isDrawing || !originalImage || isAnalyzing) return;
             const rect = displayCanvas.getBoundingClientRect();
             selectionRect.endX = e.clientX - rect.left;
             selectionRect.endY = e.clientY - rect.top;
@@ -123,14 +125,26 @@
             displayCtx.strokeRect(selectionRect.startX, selectionRect.startY, width, height);
         });
 
-        displayCanvas.addEventListener('mouseup', (e) => {
-            if (!isDrawing) return;
+        displayCanvas.addEventListener('mouseup', async (e) => {
+            if (!isDrawing || !originalImage || isAnalyzing) return;
             isDrawing = false;
-            
+            isAnalyzing = true; // Bloqueamos nuevas interacciones
+
             const width = e.clientX - displayCanvas.getBoundingClientRect().left - selectionRect.startX;
             const height = e.clientY - displayCanvas.getBoundingClientRect().top - selectionRect.startY;
-            if (Math.abs(width) < 10 || Math.abs(height) < 10) return;
+            if (Math.abs(width) < 10 || Math.abs(height) < 10) {
+                isAnalyzing = false; return;
+            }
 
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = "Aplicando filtros de imagen...";
+            
+            // Usamos un setTimeout para que la UI se actualice antes del procesamiento pesado
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            // --- CADENA DE FILTROS DE IMAGEN DE GRADO INDUSTRIAL ---
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
             const scaleX = originalImage.width / displayCanvas.width;
             const scaleY = originalImage.height / displayCanvas.height;
             const cropX = Math.min(selectionRect.startX, selectionRect.endX) * scaleX;
@@ -138,48 +152,59 @@
             const cropWidth = Math.abs(width) * scaleX;
             const cropHeight = Math.abs(height) * scaleY;
 
-            const tempCanvas = document.createElement('canvas');
             tempCanvas.width = cropWidth;
             tempCanvas.height = cropHeight;
-            const tempCtx = tempCanvas.getContext('2d');
             tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
             
-            const croppedImageDataUrl = tempCanvas.toDataURL('image/png');
-            analyzeImage(croppedImageDataUrl);
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const data = imageData.data;
+            const contrast = 2.0; const threshold = 128;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const avg = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                let contrastValue = (contrast * (avg - 128)) + 128;
+                const finalValue = contrastValue > threshold ? 255 : 0;
+                data[i] = data[i+1] = data[i+2] = finalValue;
+            }
+            tempCtx.putImageData(imageData, 0, 0);
+
+            const upscaleFactor = 2;
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = tempCanvas.width * upscaleFactor;
+            finalCanvas.height = tempCanvas.height * upscaleFactor;
+            const finalCtx = finalCanvas.getContext('2d');
+            finalCtx.imageSmoothingEnabled = false;
+            finalCtx.drawImage(tempCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+            
+            const processedImageDataUrl = finalCanvas.toDataURL('image/png');
+            
+            await analyzeImage(processedImageDataUrl);
+            isAnalyzing = false; // Desbloqueamos para la siguiente captura
         });
         
-        // --- FUNCIÓN CLAVE: Corrector de errores comunes de OCR ---
-        function ocrCorrection(text) {
-            return text.replace(/S/g, '5')
-                       .replace(/s/g, '5')
-                       .replace(/O/g, '0')
-                       .replace(/o/g, '0')
-                       .replace(/Z/g, '2')
-                       .replace(/z/g, '2')
-                       .replace(/I/g, '1')
-                       .replace(/l/g, '1')
-                       .replace(/B/g, '8');
-        }
-
         async function analyzeImage(imageDataUrl) {
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando área... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Procesando con IA...";
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando IA especializada... <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = "Usando motor numérico...";
 
-            const worker = await Tesseract.createWorker('eng');
-            // Quitamos la whitelist para permitir que Tesseract vea letras (y así poder corregirlas)
-            // await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+            // --- CAMBIO DE "CEREBRO" DE IA ---
+            const worker = await Tesseract.createWorker('digits', 1, {
+                logger: m => console.log(m),
+                // Ruta al repositorio de modelos de datos de Tesseract
+                langPath: 'https://tessdata.projectnaptha.com/4.0.0_fast',
+                // Le decimos que el idioma 'digits' es el que debe cargar
+                corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
+            });
+            // Adicionalmente, forzamos el whitelist por si el modelo 'digits' no es suficiente
+            await worker.setParameters({
+                tessedit_char_whitelist: '0123456789',
+            });
             
             const { data: { text } } = await worker.recognize(imageDataUrl);
             await worker.terminate();
             
-            console.log('Texto extraído (antes de corrección):', text);
-
-            // Aplicamos nuestra corrección inteligente
-            const correctedText = ocrCorrection(text);
-            console.log('Texto corregido:', correctedText);
-
-            const cleanedText = correctedText.replace(/\D/g, '');
-            console.log('Texto limpiado (solo números):', cleanedText);
+            const cleanedText = text.replace(/\D/g, '');
+            console.log('Texto extraído (motor digits):', text);
+            console.log('Texto limpiado:', cleanedText);
             
             let finalCode = null;
             const prefix1 = '75014287';
