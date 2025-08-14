@@ -6,6 +6,14 @@
     <title>Validador de Código Profesional - Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Estilos para el canvas de depuración */
+        #debug-canvas-container canvas {
+            width: 100%;
+            border: 2px solid red;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body class="inspector-body">
     <div class="app-container">
@@ -33,6 +41,7 @@
                 <div id="display-container" class="display-container-placeholder">
                     <p>Suba una imagen para una decodificación de nivel profesional.</p>
                 </div>
+                <div id="debug-canvas-container"></div>
                 <div class="label-container" id="status-container">
                     Esperando imagen...
                 </div>
@@ -76,65 +85,62 @@
     
     <script>
         function handleImageUpload(event) {
+            console.log("Se seleccionó un archivo. Iniciando handleImageUpload...");
             const file = event.target.files[0];
             if (!file) return;
 
-            const statusContainer = document.getElementById('status-container');
-            const auditorBubble = document.querySelector('#auditor-message-bubble span');
-            const displayContainer = document.getElementById('display-container');
-
-            // ---
-            // PUNTO CLAVE: CAMBIO A FileReader y readAsDataURL
-            // Esto convierte la imagen a un formato de texto (base64) que es 100% compatible.
-            // ---
             const reader = new FileReader();
-
             reader.onload = function(e) {
                 const dataUrl = e.target.result;
+                console.log("La imagen se ha leído como Data URI. Llamando a Quagga...");
+                
+                document.getElementById('display-container').innerHTML = `<img src="${dataUrl}" style="width:100%; height:auto;" />`;
+                document.getElementById('status-container').innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
+                document.getElementById('debug-canvas-container').innerHTML = ''; // Limpiamos el canvas anterior
 
-                // Mostramos la imagen y el estado de procesamiento
-                displayContainer.innerHTML = `<img src="${dataUrl}" style="width:100%; height:auto;" />`;
-                statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen... <i class="fas fa-spinner fa-spin"></i></div>`;
-                auditorBubble.textContent = "Analizando...";
+                // ---
+                // PUNTO CLAVE 1: "Escucha" de diagnóstico
+                // Esta función se ejecutará si Quagga empieza a procesar la imagen.
+                // ---
+                Quagga.onProcessed(function(result) {
+                    console.log("¡Quagga está procesando la imagen!", result);
+                    const drawingCtx = Quagga.canvas.ctx.overlay;
+                    const drawingCanvas = Quagga.canvas.dom.overlay;
+                    if (result) {
+                        // Dibuja el canvas de depuración para que lo veamos
+                        const debugCanvasContainer = document.getElementById('debug-canvas-container');
+                        if(debugCanvasContainer.children.length === 0) {
+                           drawingCanvas.style.width = "100%";
+                           debugCanvasContainer.appendChild(drawingCanvas);
+                           console.log("Canvas de depuración visual añadido a la página.");
+                        }
+                    }
+                });
 
                 Quagga.decodeSingle({
-                    src: dataUrl, // Usamos el Data URI como fuente
+                    src: dataUrl,
                     numOfWorkers: 0,
-                    decoder: {
-                        readers: ["ean_reader"] 
-                    },
+                    decoder: { readers: ["ean_reader"] },
                     locate: true,
                     patchSize: "large",
                     halfSample: false,
-                    debug: {
-                        drawBoundingBox: true,
-                        showFrequency: false,
-                        drawScanline: true,
-                        showPattern: true
-                    }
                 }, function(result) {
+                    console.log("Callback de decodeSingle ejecutado. Resultado:", result);
                     if (result && result.codeResult) {
-                        const barcodeText = result.codeResult.code;
-                        console.log("¡Código de barras encontrado!", barcodeText);
-                        statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${barcodeText}</strong></div>`;
-                        auditorBubble.textContent = `¡Lectura exitosa! El código es: ${barcodeText}`;
+                        document.getElementById('status-container').innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${result.codeResult.code}</strong></div>`;
                     } else {
-                        console.log("No se pudo decodificar el código de barras.");
-                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
-                        auditorBubble.textContent = "No encontré un código. Intenta con otra.";
+                        document.getElementById('status-container').innerHTML = `<div class="veredicto-rechazado">No se pudo decodificar el código de barras.</div>`;
                     }
+                    // Detenemos el listener para que no interfiera con futuras subidas
+                    Quagga.offProcessed();
                 });
             };
-
-            // Le pedimos al lector de archivos que inicie la conversión a Data URI
             reader.readAsDataURL(file);
         }
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
-        const uploadButtonInput = document.getElementById('upload-image-input');
-        uploadButtonInput.addEventListener('change', handleImageUpload);
-        console.log("Aplicación lista con QuaggaJS. Esperando imagen.");
-
+        document.getElementById('upload-image-input').addEventListener('change', handleImageUpload);
+        console.log("Aplicación lista para prueba de diagnóstico. Esperando imagen.");
     </script>
 </body>
 </html>
