@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código Profesional - IA Vision</title>
+    <title>Validador de Código Profesional - IA Vision Pro</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
@@ -78,7 +78,6 @@
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     
     <script>
-        // --- Referencias a Elementos del DOM ---
         const statusContainer = document.getElementById('status-container');
         const auditorBubble = document.querySelector('#auditor-message-bubble span');
         const scannerContainer = document.getElementById('scanner-container');
@@ -89,7 +88,7 @@
         const scannerInput = document.getElementById('scanner-input');
 
         let originalImage = null;
-        const codeReader = new ZXing.BrowserMultiFormatReader();
+        let codeReader; // Se inicializará cuando las librerías estén listas
 
         // --- MANEJADORES DE EVENTOS ---
         uploadButtonInput.addEventListener('change', (event) => {
@@ -100,19 +99,7 @@
                 originalImage.src = e.target.result;
                 originalImage.onload = () => {
                     displayImage(originalImage);
-                    // Asegurarse de que OpenCV.js esté cargado antes de usarlo.
-                    if (typeof cv !== 'undefined' && cv.Mat) {
-                        processImageWithComputerVision(originalImage);
-                    } else {
-                        statusContainer.innerHTML = `<div class="veredicto-pensando">Cargando motor de IA... Por favor espere.</div>`;
-                        // Reintentar hasta que OpenCV esté listo
-                        const interval = setInterval(() => {
-                            if (typeof cv !== 'undefined' && cv.Mat) {
-                                clearInterval(interval);
-                                processImageWithComputerVision(originalImage);
-                            }
-                        }, 500);
-                    }
+                    waitForLibrariesAndProcess(originalImage);
                 };
             };
             reader.readAsDataURL(file);
@@ -123,6 +110,22 @@
             if (code.length > 5) { displayFinalResult(code); event.target.value = ''; }
         });
 
+        function waitForLibrariesAndProcess(image) {
+            // Asegurarse de que TODAS las librerías estén cargadas.
+            if (typeof cv !== 'undefined' && cv.Mat && typeof ZXing !== 'undefined') {
+                if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
+                processImageWithComputerVision(image);
+            } else {
+                statusContainer.innerHTML = `<div class="veredicto-pensando">Cargando motores de IA... Por favor espere.</div>`;
+                const interval = setInterval(() => {
+                    if (typeof cv !== 'undefined' && cv.Mat && typeof ZXing !== 'undefined') {
+                        clearInterval(interval);
+                        if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
+                        processImageWithComputerVision(image);
+                    }
+                }, 500);
+            }
+        }
 
         // --- FLUJO DE ANÁLISIS CON VISIÓN POR COMPUTADORA ---
         async function processImageWithComputerVision(image) {
@@ -134,9 +137,10 @@
                 const gray = new cv.Mat();
                 cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-                const gradX = new cv.Mat(); const gradY = new cv.Mat();
-                cv.Scharr(gray, gradX, cv.CV_32F, 1, 0);
-                cv.Scharr(gray, gradY, cv.CV_32F, 0, 1);
+                const gradX = new cv.Mat();
+                cv.Sobel(gray, gradX, cv.CV_32F, 1, 0, -1);
+                const gradY = new cv.Mat();
+                cv.Sobel(gray, gradY, cv.CV_32F, 0, 1, -1);
                 
                 const gradient = new cv.Mat();
                 cv.subtract(gradX, gradY, gradient);
@@ -146,7 +150,11 @@
                 cv.blur(gradient, blurred, new cv.Size(9, 9));
                 
                 const thresh = new cv.Mat();
-                cv.threshold(blurred, thresh, 225, 255, cv.THRESH_BINARY);
+                // --- INICIO DE CORRECCIÓN: Uso de Umbral Adaptativo (Otsu) ---
+                // Este método calcula el umbral óptimo automáticamente basado en el histograma de la imagen,
+                // haciéndolo mucho más robusto a diferentes condiciones de iluminación.
+                cv.threshold(blurred, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                // --- FIN DE CORRECCIÓN ---
                 
                 const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
                 const closed = new cv.Mat();
