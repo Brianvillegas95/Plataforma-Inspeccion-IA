@@ -83,7 +83,6 @@
         function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function(e) {
                 originalImage = new Image();
@@ -94,7 +93,6 @@
                     displayCanvas.width = maxWidth;
                     displayCanvas.height = maxWidth / aspectRatio;
                     displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
-                    
                     uploadPrompt.style.display = 'none';
                     displayCanvas.classList.add('ready-to-crop');
                     statusContainer.innerHTML = 'Imagen cargada. Por favor, dibuje un recuadro sobre el código de barras.';
@@ -117,7 +115,6 @@
             const rect = displayCanvas.getBoundingClientRect();
             selectionRect.endX = e.clientX - rect.left;
             selectionRect.endY = e.clientY - rect.top;
-            
             displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
             displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.8)';
             displayCtx.lineWidth = 2;
@@ -132,37 +129,59 @@
             
             const width = selectionRect.endX - selectionRect.startX;
             const height = selectionRect.endY - selectionRect.startY;
-
             if (Math.abs(width) < 10 || Math.abs(height) < 10) return;
 
+            // --- INICIO DE LA CADENA DE FILTROS PROFESIONAL ---
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
             const scaleX = originalImage.width / displayCanvas.width;
             const scaleY = originalImage.height / displayCanvas.height;
-
             const cropX = Math.min(selectionRect.startX, selectionRect.endX) * scaleX;
             const cropY = Math.min(selectionRect.startY, selectionRect.endY) * scaleY;
             const cropWidth = Math.abs(width) * scaleX;
             const cropHeight = Math.abs(height) * scaleY;
-            
-            // --- PUNTO CLAVE: REESCALADO DE ALTA CALIDAD ---
-            const upscaleFactor = 3; // Hacemos la imagen 3 veces más grande
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = cropWidth * upscaleFactor;
-            tempCanvas.height = cropHeight * upscaleFactor;
-            const tempCtx = tempCanvas.getContext('2d');
 
-            // Desactivamos el suavizado de imagen para mantener los bordes nítidos (importante para OCR)
-            tempCtx.imageSmoothingEnabled = false;
-
-            // Dibujamos la imagen pequeña del recorte, estirándola en el canvas grande
-            tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, tempCanvas.width, tempCanvas.height);
+            tempCanvas.width = cropWidth;
+            tempCanvas.height = cropHeight;
+            tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
             
-            const upscaledImageDataUrl = tempCanvas.toDataURL('image/png');
-            analyzeCroppedImage(upscaledImageDataUrl);
+            // FILTRO 1: Escala de Grises, Contraste y Binarización
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const data = imageData.data;
+            const contrast = 1.5; // Factor de contraste (1.0 = sin cambio)
+            const threshold = 128; // Umbral para blanco/negro
+
+            for (let i = 0; i < data.length; i += 4) {
+                // Escala de grises
+                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                // Contraste
+                let contrastValue = avg;
+                contrastValue = (contrast * (contrastValue - 128)) + 128;
+                contrastValue = Math.max(0, Math.min(255, contrastValue));
+                // Binarización
+                const finalValue = contrastValue > threshold ? 255 : 0;
+                data[i] = data[i+1] = data[i+2] = finalValue;
+            }
+            tempCtx.putImageData(imageData, 0, 0);
+
+            // FILTRO 2: Reescalado a mayor tamaño
+            const upscaleFactor = 2;
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = tempCanvas.width * upscaleFactor;
+            finalCanvas.height = tempCanvas.height * upscaleFactor;
+            const finalCtx = finalCanvas.getContext('2d');
+            finalCtx.imageSmoothingEnabled = false;
+            finalCtx.drawImage(tempCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+            
+            const processedImageDataUrl = finalCanvas.toDataURL('image/png');
+            // --- FIN DE LA CADENA DE FILTROS ---
+
+            analyzeImage(processedImageDataUrl);
         });
         
-        async function analyzeCroppedImage(imageDataUrl) {
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando área seleccionada... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Procesando el recorte...";
+        async function analyzeImage(imageDataUrl) {
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando área procesada... <i class="fas fa-spinner fa-spin"></i></div>`;
+            auditorBubble.textContent = "Procesando con IA...";
 
             const worker = await Tesseract.createWorker('eng');
             await worker.setParameters({
@@ -173,7 +192,7 @@
             await worker.terminate();
 
             const cleanedText = text.replace(/\D/g, '');
-            console.log('Texto extraído del recorte reescalado:', text);
+            console.log('Texto extraído (post-procesamiento):', text);
             console.log('Texto limpiado:', cleanedText);
             
             let finalCode = null;
