@@ -175,24 +175,19 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- NUEVA FUNCIÓN DE RECONSTRUCCIÓN BASADA EN TU CORAZONADA ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Deja solo números
-                    
+                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
                     for (const prefix of VALID_PREFIXES) {
                         let startIndex = cleanedText.indexOf(prefix);
-                        if (startIndex !== -1) {
-                            // Encontramos un prefijo, ahora veamos si podemos formar un EAN-13 completo
-                            if (startIndex + 13 <= cleanedText.length) {
-                                const candidate = cleanedText.substring(startIndex, startIndex + 13);
-                                if (validateEAN13Checksum(candidate)) {
-                                    return candidate; // ¡Éxito! Encontramos un código válido.
-                                }
+                        if (startIndex !== -1 && startIndex + 13 <= cleanedText.length) {
+                            const candidate = cleanedText.substring(startIndex, startIndex + 13);
+                            if (validateEAN13Checksum(candidate)) {
+                                return candidate;
                             }
                         }
                     }
-                    return null; // No se pudo reconstruir un código válido
+                    return null;
                 }
 
                 function validateEAN13Checksum(code) {
@@ -203,16 +198,6 @@
                     for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
                     const calculatedChecksum = (10 - (sum % 10)) % 10;
                     return checksum === calculatedChecksum;
-                }
-                
-                // --- FUNCIÓN PARA CONVERTIR MAT A IMAGEDATA (SOLUCIONA EL ERROR) ---
-                function matToImageData(mat) {
-                    // Convierte un Mat de OpenCV (escala de grises) a un objeto ImageData RGBA
-                    const matRGBA = new cv.Mat();
-                    cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
-                    const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
-                    matRGBA.delete();
-                    return imageData;
                 }
 
                 self.onmessage = async (e) => {
@@ -235,12 +220,15 @@
                     let binary = new cv.Mat();
                     cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
-                    const imageDataForDecoders = matToImageData(binary);
+                    // --- LA SOLUCIÓN FINAL: Usar OffscreenCanvas para Tesseract ---
+                    // Creamos un lienzo fuera de pantalla, que es el formato más robusto para las librerías.
+                    const canvasForDecoders = new OffscreenCanvas(binary.cols, binary.rows);
+                    cv.imshow(canvasForDecoders, binary);
                     
                     // Intento 1: ZXing (lector de barras)
                     try {
                         const codeReader = new self.ZXing.BrowserMultiFormatReader();
-                        const result = await codeReader.decodeFromImageData(imageDataForDecoders);
+                        const result = await codeReader.decodeFromCanvas(canvasForDecoders);
                         if(result) results.push({ code: result.getText(), method: "IA Avanzada + ZXing" });
                     } catch(err) { /* ZXing falla silenciosamente */ }
 
@@ -250,18 +238,22 @@
                         try {
                             const worker = await self.Tesseract.createWorker('eng');
                             await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
-                            const { data: { text } } = await worker.recognize(imageDataForDecoders);
+                            // Le pasamos el lienzo directamente, que es el método más fiable.
+                            const { data: { text } } = await worker.recognize(canvasForDecoders);
                             await worker.terminate();
 
                             const reconstructedCode = reconstructEAN13FromOCR(text);
                             if (reconstructedCode) {
                                 results.push({ code: reconstructedCode, method: "IA + Reconstrucción OCR" });
                             }
-                        } catch(err) { /* Tesseract puede fallar */ }
+                        } catch(err) { 
+                            self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
+                        }
                     }
                     
-                    const debugImageData = matToImageData(binary);
+                    const debugImageData = canvasForDecoders.getContext('2d').getImageData(0, 0, canvasForDecoders.width, canvasForDecoders.height);
 
+                    // Limpieza de memoria
                     src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete();
 
                     self.postMessage({ 
