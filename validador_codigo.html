@@ -183,7 +183,10 @@
             statusContainer.innerHTML = `<div class="veredicto-pensando">Iniciando IA... <i class="fas fa-spinner fa-spin"></i></div>`;
             auditorBubble.textContent = "Usando motor estándar optimizado...";
 
-            const worker = await Tesseract.createWorker('eng', 1);
+            // --- CORRECCIÓN: Volvemos al motor 'eng' estándar, que siempre está disponible ---
+            const worker = await Tesseract.createWorker('eng', 1, {
+                logger: m => console.log(m)
+            });
             await worker.setParameters({
                 tessedit_char_whitelist: '0123456789',
             });
@@ -192,6 +195,8 @@
             await worker.terminate();
             
             const cleanedText = text.replace(/\D/g, '');
+            console.log('Texto extraído (motor eng):', text);
+            console.log('Texto limpiado:', cleanedText);
             
             let finalCode = null;
             const prefix1 = '75014287';
@@ -208,11 +213,9 @@
             }
             
             if (finalCode && finalCode.length === 13) {
-                console.log("Éxito: Se encontró el código verificado ->", finalCode);
                 statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${finalCode}</strong></div>`;
                 auditorBubble.textContent = `¡Lectura exitosa! El código es: ${finalCode}`;
             } else {
-                console.error("Fallo: No se encontró un código conocido en el texto limpiado:", cleanedText);
                 statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código conocido en el área.</div>`;
                 auditorBubble.textContent = "No encontré un código válido en tu selección.";
             }
