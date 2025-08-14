@@ -3,41 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código Profesional - Grupo Azor</title>
+    <title>Validador de Código Profesional - IA Vision</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* --- ESTILOS PARA LA NUEVA INTERFAZ DE ESCÁNER --- */
         #scanner-container {
-            position: relative;
-            background: #000;
-            border: 1px solid #ddd;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            position: relative; background: #000; border: 1px solid #ddd;
+            overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 250px;
         }
-        #image-display-canvas {
-            max-width: 100%;
-            height: auto;
-        }
-        #image-display-canvas.cropping-enabled {
-            cursor: crosshair;
-        }
-        #scanner-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            display: none; 
-        }
-        #scanner-overlay .scanner-line {
-            position: absolute;
-            top: 50%;
-            left: 5%;
-            right: 5%;
-            height: 2px;
-            background: rgba(255, 0, 0, 0.7);
-            box-shadow: 0 0 10px rgba(255, 0, 0, 0.9);
-        }
+        #image-display-canvas { max-width: 100%; height: auto; }
         #scanner-input {
             width: 100%; padding: 10px; font-size: 16px; border: 1px solid #ccc;
             border-radius: 5px; box-sizing: border-box;
@@ -66,22 +40,19 @@
         </header>
         <main class="main-content-grid">
             <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas-solid fa-barcode"></i> 1. Escáner de Código</h2>
+                <h2 class="panel-title"><i class="fas fa-eye"></i> 1. Análisis de Imagen con IA</h2>
                 <div id="scanner-container">
                     <canvas id="image-display-canvas"></canvas>
-                    <div id="scanner-overlay"><div class="scanner-line"></div></div>
-                    <p id="upload-prompt">Cargue una imagen para escanear...</p>
+                    <p id="upload-prompt">Suba una imagen para un análisis automático...</p>
                 </div>
                 <div class="label-container" id="status-container">
-                    Esperando imagen o escaneo...
+                    Esperando imagen...
                 </div>
             </section>
             <aside class="controls-panel">
                  <h3 class="panel-title"><i class="fas fa-cogs"></i> 2. Controles y Resultado</h3>
                 <div class="action-buttons">
-                    <label id="upload-label" for="upload-image-input" class="button primary-action">
-                        <i class="fas fa-camera"></i> Cargar Imagen para Escaneo
-                    </label>
+                    <label for="upload-image-input" class="button primary-action"><i class="fas fa-upload"></i> Subir Imagen para Analizar</label>
                     <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
                 </div>
                 <div style="margin-top: 15px; padding: 0 20px; text-align: center;">
@@ -94,7 +65,7 @@
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                        <span id="auditor-text">Cargue una imagen para iniciar la verificación.</span>
+                        <span id="auditor-text">Listo para iniciar la verificación automática.</span>
                     </div>
                 </div>
             </aside>
@@ -102,7 +73,10 @@
         <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
     </div>
 
+    <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/zxing.min.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    
     <script>
         const statusContainer = document.getElementById('status-container');
         const auditorBubble = document.querySelector('#auditor-message-bubble span');
@@ -112,22 +86,11 @@
         const uploadButtonInput = document.getElementById('upload-image-input');
         const uploadPrompt = document.getElementById('upload-prompt');
         const scannerInput = document.getElementById('scanner-input');
-        const scannerOverlay = document.getElementById('scanner-overlay');
 
         let originalImage = null;
-        let isDrawing = false;
-        let selectionRect = {};
-        let isCroppingEnabled = false;
+        const codeReader = new ZXing.BrowserMultiFormatReader();
 
-        scannerInput.addEventListener('change', (event) => {
-            const code = event.target.value.trim();
-            if (code.length > 5) {
-                displayFinalResult(code);
-                event.target.value = '';
-                event.target.blur();
-            }
-        });
-
+        // --- MANEJADORES DE EVENTOS ---
         uploadButtonInput.addEventListener('change', (event) => {
             const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
@@ -135,116 +98,172 @@
                 originalImage = new Image();
                 originalImage.src = e.target.result;
                 originalImage.onload = () => {
-                    displayImageForAnalysis(originalImage);
-                    processImageWithHybridReader(originalImage);
+                    displayImage(originalImage);
+                    if (typeof cv !== 'undefined') {
+                        processImageWithComputerVision(originalImage);
+                    } else {
+                        statusContainer.innerHTML = `<div class="veredicto-pensando">Cargando motor de IA... Por favor espere.</div>`;
+                        // Reintentar hasta que OpenCV esté listo
+                        const interval = setInterval(() => {
+                            if (typeof cv !== 'undefined') {
+                                clearInterval(interval);
+                                processImageWithComputerVision(originalImage);
+                            }
+                        }, 500);
+                    }
                 };
             };
             reader.readAsDataURL(file);
         });
+
+        scannerInput.addEventListener('change', (event) => {
+            const code = event.target.value.trim();
+            if (code.length > 5) { displayFinalResult(code); event.target.value = ''; }
+        });
+
+
+        // --- FLUJO DE ANÁLISIS CON VISIÓN POR COMPUTADORA ---
+        async function processImageWithComputerVision(image) {
+            auditorBubble.textContent = "Iniciando análisis de visión...";
+            statusContainer.innerHTML = `<div class="veredicto-pensando">Detectando área del código de barras... <i class="fas fa-spinner fa-spin"></i></div>`;
+            
+            // Paso 1: Usar OpenCV para encontrar la región del código de barras
+            const src = cv.imread(image);
+            const gray = new cv.Mat();
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+            const gradX = new cv.Mat(); const gradY = new cv.Mat();
+            cv.Scharr(gray, gradX, cv.CV_32F, 1, 0);
+            cv.Scharr(gray, gradY, cv.CV_32F, 0, 1);
+            
+            const gradient = new cv.Mat();
+            cv.subtract(gradX, gradY, gradient);
+            cv.convertScaleAbs(gradient, gradient);
+
+            const blurred = new cv.Mat();
+            cv.blur(gradient, blurred, new cv.Size(9, 9));
+            
+            const thresh = new cv.Mat();
+            cv.threshold(blurred, thresh, 225, 255, cv.THRESH_BINARY);
+            
+            const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
+            const closed = new cv.Mat();
+            cv.morphologyEx(thresh, closed, cv.MORPH_CLOSE, kernel);
+
+            cv.erode(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
+            cv.dilate(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
+
+            const contours = new cv.MatVector();
+            const hierarchy = new cv.Mat();
+            cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+            if (contours.size() === 0) {
+                auditorBubble.textContent = "No se detectó un área de código. Intentando en la imagen completa.";
+                await decodeFromFullImage(image); // Fallback si no se encuentra el contorno
+                return;
+            }
+
+            // Encontrar el contorno más grande
+            let maxArea = 0; let bestContour = null;
+            for (let i = 0; i < contours.size(); ++i) {
+                const cnt = contours.get(i);
+                const area = cv.contourArea(cnt);
+                if (area > maxArea) {
+                    maxArea = area;
+                    bestContour = cnt;
+                }
+            }
+
+            // Paso 2: Recortar la región encontrada
+            const rect = cv.boundingRect(bestContour);
+            const croppedCanvas = document.createElement('canvas');
+            croppedCanvas.width = rect.width;
+            croppedCanvas.height = rect.height;
+            const cropCtx = croppedCanvas.getContext('2d');
+            cropCtx.drawImage(image, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
+
+            // Visualizar el recorte para depuración
+            displayCtx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
+            displayCtx.lineWidth = 4;
+            displayCtx.strokeRect(rect.x / (image.naturalWidth / displayCanvas.width), rect.y / (image.naturalHeight / displayCanvas.height), rect.width / (image.naturalWidth / displayCanvas.width), rect.height / (image.naturalHeight / displayCanvas.height));
+
+            // Liberar memoria de OpenCV
+            src.delete(); gray.delete(); gradX.delete(); gradY.delete(); gradient.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete();
+
+            // Paso 3: Decodificar la imagen recortada
+            auditorBubble.textContent = "Área detectada. Decodificando...";
+            await decodeFromCroppedImage(croppedCanvas);
+        }
+
+        async function decodeFromCroppedImage(croppedImage) {
+            // Intento A: ZXing en el recorte
+            try {
+                const result = await codeReader.decodeFromImageElement(croppedImage);
+                if (result) {
+                    displayFinalResult(result.getText(), "Visión IA + ZXing");
+                    return;
+                }
+            } catch (error) {}
+
+            // Intento B: Tesseract en el recorte
+            try {
+                const worker = await Tesseract.createWorker('eng', 1);
+                await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+                const { data: { text } } = await worker.recognize(croppedImage);
+                await worker.terminate();
+                const finalCode = validateAndCorrectOCR(text.replace(/\s/g, ''));
+                displayFinalResult(finalCode, "Visión IA + OCR");
+                return;
+            } catch (error) {}
+
+            displayFinalResult(null); // Falla final
+        }
         
-        function displayImageForAnalysis(image) {
+        // Fallback si OpenCV no encuentra contornos
+        async function decodeFromFullImage(image) {
+            try {
+                const result = await codeReader.decodeFromImageElement(image);
+                if (result) {
+                    displayFinalResult(result.getText(), "Lector de Líneas (Completo)");
+                    return;
+                }
+            } catch (error) {}
+            displayFinalResult(null);
+        }
+
+
+        // --- FUNCIONES AUXILIARES ---
+        function displayImage(image) {
             const aspectRatio = image.naturalWidth / image.naturalHeight;
             const maxWidth = scannerContainer.clientWidth;
             displayCanvas.width = maxWidth;
             displayCanvas.height = maxWidth / aspectRatio;
             displayCtx.drawImage(image, 0, 0, displayCanvas.width, displayCanvas.height);
             uploadPrompt.style.display = 'none';
-            scannerOverlay.style.display = 'block'; // Mostrar la línea roja para el modo automático
-            disableCropping();
         }
 
-        async function processImageWithHybridReader(image) {
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Intento automático... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Analizando con el lector de alta velocidad...";
-
-            if ('BarcodeDetector' in window) {
-                try {
-                    const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
-                    const barcodes = await barcodeDetector.detect(image);
-                    if (barcodes.length > 0) {
-                        displayFinalResult(barcodes[0].rawValue, "Lector de Líneas (Automático)");
-                        return;
-                    }
-                } catch (error) { console.warn('BarcodeDetector falló:', error); }
-            } else { console.warn('BarcodeDetector no es compatible.'); }
-            
-            // --- INICIO DE MEJORA: Flujo de Interfaz Mejorado ---
-            // Si el intento automático falla, ocultamos la línea roja y damos una instrucción clara.
-            scannerOverlay.style.display = 'none';
-            statusContainer.innerHTML = `<div class="veredicto-advertencia">Falló. <strong>Ahora, haz clic y arrastra sobre el código para seleccionarlo.</strong></div>`;
-            auditorBubble.textContent = "El modo automático falló. Por favor, ayúdame seleccionando el área del código.";
-            enableCropping();
-            // --- FIN DE MEJORA ---
-        }
-
-        function enableCropping() {
-            isCroppingEnabled = true;
-            displayCanvas.classList.add('cropping-enabled');
-        }
-
-        function disableCropping() {
-            isCroppingEnabled = false;
-            isDrawing = false;
-            displayCanvas.classList.remove('cropping-enabled');
-        }
-
-        displayCanvas.addEventListener('mousedown', (e) => {
-            if (!isCroppingEnabled) return;
-            isDrawing = true;
-            const rect = displayCanvas.getBoundingClientRect();
-            selectionRect.startX = e.clientX - rect.left;
-            selectionRect.startY = e.clientY - rect.top;
-        });
-
-        displayCanvas.addEventListener('mousemove', (e) => {
-            if (!isDrawing || !isCroppingEnabled) return;
-            const rect = displayCanvas.getBoundingClientRect();
-            selectionRect.endX = e.clientX - rect.left;
-            selectionRect.endY = e.clientY - rect.top;
-            
-            displayCtx.drawImage(originalImage, 0, 0, displayCanvas.width, displayCanvas.height);
-            displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
-            displayCtx.lineWidth = 2;
-            const width = selectionRect.endX - selectionRect.startX;
-            const height = selectionRect.endY - selectionRect.startY;
-            displayCtx.strokeRect(selectionRect.startX, selectionRect.startY, width, height);
-        });
-
-        displayCanvas.addEventListener('mouseup', async (e) => {
-            if (!isDrawing || !isCroppingEnabled) return;
-            disableCropping();
-
-            const scaleX = originalImage.naturalWidth / displayCanvas.width;
-            const scaleY = originalImage.naturalHeight / displayCanvas.height;
-            const cropX = Math.min(selectionRect.startX, selectionRect.endX) * scaleX;
-            const cropY = Math.min(selectionRect.startY, selectionRect.endY) * scaleY;
-            const cropWidth = Math.abs(selectionRect.endX - selectionRect.startX) * scaleX;
-            const cropHeight = Math.abs(selectionRect.endY - selectionRect.startY) * scaleY;
-
-            if (cropWidth < 20 || cropHeight < 10) return;
-            
-            statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando selección con OCR... <i class="fas fa-spinner fa-spin"></i></div>`;
-            auditorBubble.textContent = "Aplicando OCR en el área seleccionada...";
-
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = cropWidth; tempCanvas.height = cropHeight;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-
-            const worker = await Tesseract.createWorker('eng', 1);
-            await worker.setParameters({ tessedit_char_whitelist: '0123456789', tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE });
-            const { data: { text } } = await worker.recognize(tempCanvas);
-            await worker.terminate();
-
-            const cleanedText = text.replace(/\s/g, '');
-            const finalCode = validateAndCorrectOCR(cleanedText);
-
-            if (finalCode) {
-                 displayFinalResult(finalCode, "Análisis Detallado (OCR)");
+        function displayFinalResult(code, method = "Pistola Escáner") {
+            if (code && validateEAN13Checksum(code)) {
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${code}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${method}</small>`;
+                auditorBubble.textContent = `¡Lectura automática exitosa! El código es: ${code}`;
+            } else if (code) {
+                 statusContainer.innerHTML = `<div class="veredicto-rechazado">Código Leído: <strong>${code}</strong> <span style="color: red;">(Inválido)</span></div><small>Método: ${method}</small>`;
+                 auditorBubble.textContent = `Código ${code} tiene un dígito verificador incorrecto.`;
             } else {
-                 displayFinalResult(null);
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código válido.</div>`;
+                auditorBubble.textContent = "La IA no pudo decodificar el código. Intente con otra imagen.";
             }
-        });
+        }
+
+        function validateEAN13Checksum(code) {
+            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
+            const digits = code.split('').map(Number);
+            const checksum = digits.pop();
+            let sum = 0;
+            for (let i = 0; i < 12; i++) { sum += i % 2 === 0 ? digits[i] : digits[i] * 3; }
+            const calculatedChecksum = (10 - (sum % 10)) % 10;
+            return checksum === calculatedChecksum;
+        }
 
         function validateAndCorrectOCR(ocrText) {
             const prefixes = ['75014287', '75014497'];
@@ -259,29 +278,6 @@
                 }
             }
             return null;
-        }
-
-        function displayFinalResult(code, method = "Pistola Escáner") {
-            if (code && validateEAN13Checksum(code)) {
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${code}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${method}</small>`;
-                auditorBubble.textContent = `¡Lectura exitosa! El código es: ${code}`;
-            } else if (code) {
-                 statusContainer.innerHTML = `<div class="veredicto-rechazado">Código Leído: <strong>${code}</strong> <span style="color: red;">(Inválido)</span></div><small>Método: ${method}</small>`;
-                 auditorBubble.textContent = `Código ${code} tiene un dígito verificador incorrecto.`;
-            } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código válido.</div>`;
-                auditorBubble.textContent = "No pude encontrar un código. Por favor, intenta de nuevo.";
-            }
-        }
-
-        function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
-            const digits = code.split('').map(Number);
-            const checksum = digits.pop();
-            let sum = 0;
-            for (let i = 0; i < 12; i++) { sum += i % 2 === 0 ? digits[i] : digits[i] * 3; }
-            const calculatedChecksum = (10 - (sum % 10)) % 10;
-            return checksum === calculatedChecksum;
         }
 
         function levenshteinDistance(s1, s2) {
