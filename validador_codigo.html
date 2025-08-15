@@ -242,7 +242,7 @@
 
                     // --- INICIO DEL PROCESAMIENTO DE NORMALIZACIÓN ---
 
-                    // 1. Pre-procesamiento con morfología para aislar los números (nuestro método exitoso)
+                    // 1. Pre-procesamiento con morfología para aislar los números
                     let sharpened = new cv.Mat();
                     let gaussian = new cv.Mat();
                     cv.GaussianBlur(gray, gaussian, new cv.Size(0, 0), 3);
@@ -262,30 +262,29 @@
                     for (let i = 0; i < contours.size(); ++i) {
                         let contour = contours.get(i);
                         let area = cv.contourArea(contour);
-                        if (area > 50) { // Un filtro simple para descartar ruido muy pequeño
+                        if (area > 50) { 
                             digitBoxes.push(cv.boundingRect(contour));
                         }
                         contour.delete();
                     }
 
-                    // 3. ¡PASO CLAVE! Ordenar las cajas de izquierda a derecha.
+                    // 3. Ordenar las cajas de izquierda a derecha.
                     digitBoxes.sort((a, b) => a.x - b.x);
 
-                    // 4. Crear un nuevo lienzo y re-renderizar los dígitos ordenados y con espaciado uniforme
-                    if (digitBoxes.length > 5) { // Solo si encontramos un número razonable de dígitos
-                        const PADDING = 10; // Espacio en blanco alrededor de los números
-                        const SPACING = 4;  // Espacio uniforme entre números
+                    // 4. Crear un nuevo lienzo y re-renderizar los dígitos ordenados
+                    var debugImageData = null; // Definimos la variable fuera del if
+                    if (digitBoxes.length > 5) { 
+                        const PADDING = 15; // Aumentamos el borde para más claridad
+                        // AJUSTE CLAVE 1: Aumentamos el espaciado para evitar que la IA fusione los números
+                        const SPACING = 10;
                         const totalWidth = digitBoxes.reduce((sum, box) => sum + box.width, 0) + (digitBoxes.length - 1) * SPACING + PADDING * 2;
                         const maxHeight = Math.max(...digitBoxes.map(box => box.height)) + PADDING * 2;
                         
-                        // Creamos el lienzo final, perfectamente dimensionado
                         let normalizedMask = cv.Mat.zeros(maxHeight, totalWidth, cv.CV_8U);
                         
                         let currentX = PADDING;
                         for (const box of digitBoxes) {
-                            // Extraemos el dígito de la imagen procesada
                             let digitROI = closed.roi(box);
-                            // Lo pegamos en nuestro nuevo lienzo
                             let pasteRegion = normalizedMask.roi(new cv.Rect(currentX, PADDING, box.width, box.height));
                             digitROI.copyTo(pasteRegion);
                             currentX += box.width + SPACING;
@@ -302,7 +301,8 @@
                             const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
                             await worker.setParameters({
                                 tessedit_char_whitelist: '0123456789',
-                                tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE 
+                                // AJUSTE CLAVE 2: Le decimos a la IA que es una SOLA PALABRA
+                                tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_WORD 
                             });
                             const { data: { text } } = await worker.recognize(canvasForDecoders);
                             self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (normalizado): "' + text.replace(/\\n/g, ' ') + '"' });
@@ -316,7 +316,7 @@
                             self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
                         }
 
-                        var debugImageData = finalImageData;
+                        debugImageData = finalImageData; // Asignamos la imagen para depuración
                         normalizedMask.delete();
                     }
                     
@@ -343,10 +343,11 @@
                         debugCanvas.height = debugImageData.height;
                         const ctx = debugCanvas.getContext('2d');
                         ctx.putImageData(debugImageData, 0, 0);
-                        // Hacemos que la imagen de depuración sea más fácil de ver
-                        debugCanvas.style.width = 'auto';
+                        
+                        // AJUSTE CLAVE 3: Corregimos el estilo para que la imagen se ajuste sin scrollbars
+                        debugCanvas.style.width = '100%';
+                        debugCanvas.style.height = 'auto';
                         debugCanvas.style.imageRendering = 'pixelated';
-                        debugCanvas.style.height = '60px';
                     }
 
                     displayFinalResult(result);
