@@ -181,26 +181,42 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- VERSIÓN FINAL DE TU ESTRATEGIA DE RECONSTRUCCIÓN ---
+                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
-                    
-                    for (const prefix of VALID_PREFIXES) {
-                        const startIndex = cleanedText.indexOf(prefix);
-                        if (startIndex !== -1) {
-                            // Una vez encontrado el prefijo, nos "esforzamos" en encontrar los siguientes 5 dígitos
-                            const remainingText = cleanedText.substring(startIndex + prefix.length);
-                            if (remainingText.length >= 5) {
-                                const finalFiveDigits = remainingText.substring(0, 5);
-                                const candidate = prefix + finalFiveDigits;
-                                if (validateEAN13Checksum(candidate)) {
-                                    return candidate; // ¡Éxito!
+                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo nos quedamos con los números
+
+                    for (let i = 0; i <= cleanedText.length - 8; i++) { // Busca en toda la cadena
+                        const potentialPrefix = cleanedText.substring(i, i + 8);
+                        for (const knownPrefix of VALID_PREFIXES) {
+                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) { // Tolera hasta 2 errores
+                                // Si encontramos un prefijo "casi" perfecto, intentamos construir el resto del código
+                                const remainingText = cleanedText.substring(i + 8);
+                                if (remainingText.length >= 5) {
+                                    const finalFiveDigits = remainingText.substring(0, 5);
+                                    // Usamos el PREFIJO CORRECTO para construir el candidato final
+                                    const candidate = knownPrefix + finalFiveDigits;
+                                    if (validateEAN13Checksum(candidate)) {
+                                        return candidate; // ¡Éxito! Código reconstruido y validado
+                                    }
                                 }
                             }
                         }
                     }
-                    return null; // No se encontró un código válido
+                    return null; // No se pudo reconstruir
+                }
+
+                function levenshteinDistance(s1, s2) {
+                    const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+                    for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
+                    for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
+                    for (let j = 1; j <= s2.length; j += 1) {
+                        for (let i = 1; i <= s1.length; i += 1) {
+                            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+                            track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
+                        }
+                    }
+                    return track[s2.length][s1.length];
                 }
 
                 function validateEAN13Checksum(code) {
@@ -253,21 +269,20 @@
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
                     try {
-                        // --- INICIALIZACIÓN ESTRICTA DE TESSERACT ---
-                        const worker = await self.Tesseract.createWorker();
-                        await worker.loadLanguage('eng');
-                        await worker.initialize('eng', 0); // 0 = Motor Legacy
-                        await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789'
+                        // Limpiamos las advertencias usando la inicialización moderna de Tesseract.js v5
+                        const worker = await self.Tesseract.createWorker('eng', 0, {
+                            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                         });
-
+                        await worker.setParameters({
+                            tessedit_char_whitelist: '0123456789',
+                        });
                         const { data: { text } } = await worker.recognize(canvasForDecoders);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR" };
+                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR Inteligente" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
@@ -331,7 +346,7 @@
         }
 
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
+            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
