@@ -175,15 +175,13 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- MEJORA: LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES (FUZZY) ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^A-Z0-9]/gi, '').toUpperCase(); // Deja letras y números
-                    
+                    const cleanedText = ocrText.replace(/[^A-Z0-9]/gi, '').toUpperCase();
                     for (let i = 0; i <= cleanedText.length - 8; i++) {
                         const potentialPrefix = cleanedText.substring(i, i + 8);
                         for (const knownPrefix of VALID_PREFIXES) {
-                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 1) { // Tolera 1 error
+                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 1) {
                                 if (i + 13 <= cleanedText.length) {
                                     const potentialCode = knownPrefix + cleanedText.substring(i + 8, i + 13).replace(/[^0-9]/g, '');
                                     if (potentialCode.length === 13 && validateEAN13Checksum(potentialCode)) {
@@ -236,32 +234,48 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- MEJORA: CORRECCIÓN DE INCLINACIÓN (DESKEW) ---
-                    let deskewed = new cv.Mat();
-                    let inverted = new cv.Mat();
-                    cv.bitwise_not(gray, inverted);
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
-                    cv.findContours(inverted, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
-                    let maxArea = 0; let bestContour = null;
-                    for(let i = 0; i < contours.size(); ++i) {
-                        let cnt = contours.get(i);
-                        let area = cv.contourArea(cnt);
-                        if (area > maxArea) { maxArea = area; bestContour = cnt; }
+                    // --- LÓGICA DE ENDEREZADO (DESKEW) CORREGIDA ---
+                    let correctedMat = new cv.Mat();
+                    try {
+                        let inverted = new cv.Mat();
+                        cv.bitwise_not(gray, inverted);
+                        let contours = new cv.MatVector();
+                        let hierarchy = new cv.Mat();
+                        cv.findContours(inverted, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+                        
+                        let maxArea = 0; let bestContour = null;
+                        for(let i = 0; i < contours.size(); ++i) {
+                            let cnt = contours.get(i);
+                            let area = cv.contourArea(cnt);
+                            if (area > maxArea) { maxArea = area; bestContour = cnt; }
+                        }
+                        
+                        if (bestContour) {
+                            const rect = cv.minAreaRect(bestContour);
+                            let angle = rect.angle;
+                            if (angle < -45) { angle += 90; }
+                            
+                            let rotated = new cv.Mat();
+                            const center = rect.center;
+                            const M = cv.getRotationMatrix2D(center, angle, 1);
+                            cv.warpAffine(gray, rotated, M, gray.size(), cv.INTER_CUBIC, cv.BORDER_REPLICATE);
+                            
+                            // Recorte de precisión para evitar distorsión
+                            let patch = new cv.Mat();
+                            cv.getRectSubPix(rotated, rect.size, center, patch);
+                            correctedMat = patch;
+                            
+                            rotated.delete(); M.delete();
+                        } else {
+                           correctedMat = gray.clone();
+                        }
+                        inverted.delete(); contours.delete(); hierarchy.delete();
+                    } catch(err) {
+                        correctedMat = gray.clone(); // Si falla el deskew, continuamos con la original
                     }
-                    if (bestContour) {
-                        const rect = cv.minAreaRect(bestContour);
-                        let angle = rect.angle;
-                        if (angle < -45) { angle += 90; }
-                        const center = rect.center;
-                        const M = cv.getRotationMatrix2D(center, angle, 1);
-                        cv.warpAffine(gray, deskewed, M, gray.size(), cv.INTER_CUBIC, cv.BORDER_REPLICATE);
-                    } else {
-                        deskewed = gray.clone();
-                    }
-                    
+
                     let blurred = new cv.Mat();
-                    cv.medianBlur(deskewed, blurred, 3);
+                    cv.medianBlur(correctedMat, blurred, 3);
 
                     let sharpened = new cv.Mat();
                     let gaussian = new cv.Mat();
@@ -293,7 +307,7 @@
                                 langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                                 corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
                             });
-                            await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ' }); // Permitir letras para la corrección
+                            await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ' });
                             const { data: { text } } = await worker.recognize(canvasForDecoders);
                             self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (Legacy): "' + text.replace(/\\n/g, ' ') + '"' });
                             await worker.terminate();
@@ -308,7 +322,7 @@
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); deskewed.delete(); inverted.delete(); contours.delete(); hierarchy.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+                    src.delete(); gray.delete(); correctedMat.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
@@ -350,7 +364,6 @@
                 updateAuditor(`¡Lectura exitosa! El código es: ${cleanCode}`);
                 if (cropper) { cropper.destroy(); cropper = null; analyzeSelectionBtn.style.display = 'none';}
             } else {
-                // --- MEJORA: Mensaje de error actualizado ---
                 statusContainer.innerHTML = `<div class="veredicto-rechazado">Muestra ilegible. Intente con una imagen más clara o una selección diferente.</div>`;
                 updateAuditor("La IA no pudo decodificar el código. Se recomienda un nuevo intento.");
             }
