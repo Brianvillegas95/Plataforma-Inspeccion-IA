@@ -177,7 +177,7 @@
 
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo números
+                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
                     for (const prefix of VALID_PREFIXES) {
                         let startIndex = cleanedText.indexOf(prefix);
                         if (startIndex !== -1 && startIndex + 13 <= cleanedText.length) {
@@ -216,25 +216,29 @@
                     
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-
-                    // --- PASO 1: ENDEREZADO (DESKEW) ---
-                    // (código de la versión anterior)
-                    let correctedMat = gray; // fallback
-                    // (la lógica de deskew completa está aquí para robustez)
-
-                    // --- PASO 2: BORRADOR DE BARRAS DIGITAL ---
-                    let numbersOnly = new cv.Mat();
-                    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(25, 3));
-                    let blackhat = new cv.Mat();
-                    cv.morphologyEx(correctedMat, blackhat, cv.MORPH_BLACKHAT, kernel);
                     
+                    // --- BORRADOR DE BARRAS DE PRECISIÓN (MÉTODO DE GRADIENTE) ---
+                    let numbersOnly = new cv.Mat();
+                    let gradX = new cv.Mat();
+                    // 1. Calcular el gradiente vertical (resalta las barras)
+                    cv.Scharr(gray, gradX, cv.CV_8U, 1, 0);
+
+                    // 2. Crear una máscara a partir de los gradientes fuertes
                     let mask = new cv.Mat();
-                    cv.threshold(blackhat, mask, 10, 255, cv.THRESH_BINARY);
-                    cv.dilate(mask, mask, new cv.Mat(), new cv.Point(-1,-1), 2);
+                    cv.threshold(gradX, mask, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
 
-                    cv.inpaint(correctedMat, mask, numbersOnly, 3, cv.INPAINT_NS);
+                    // 3. Unir las líneas de las barras en un bloque sólido
+                    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
+                    cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernel);
 
-                    // --- PASO 3: PROCESAMIENTO RESTANTE ---
+                    // 4. Limpiar la máscara con erosión y dilatación
+                    cv.erode(mask, mask, new cv.Mat(), new cv.Point(-1, -1), 2);
+                    cv.dilate(mask, mask, new cv.Mat(), new cv.Point(-1, -1), 2);
+
+                    // 5. Relleno inteligente usando la máscara precisa para borrar las barras
+                    cv.inpaint(gray, mask, numbersOnly, 3, cv.INPAINT_NS);
+
+                    // --- PROCESAMIENTO RESTANTE SOBRE LA IMAGEN LIMPIA ---
                     let blurred = new cv.Mat();
                     cv.medianBlur(numbersOnly, blurred, 3);
 
@@ -256,14 +260,12 @@
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
-                    // --- PASO 4: DECODIFICACIÓN ---
-                    if (results.length === 0) { // Se prioriza el OCR
+                    if (results.length === 0) {
                         try {
                             const worker = await self.Tesseract.createWorker('eng', 0, {
                                 langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                                 corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
                             });
-                            // FORZADO NUMÉRICO
                             await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
                             const { data: { text } } = await worker.recognize(canvasForDecoders);
                             self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (Solo Números): "' + text.replace(/\\n/g, ' ') + '"' });
@@ -279,7 +281,7 @@
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); numbersOnly.delete(); kernel.delete(); blackhat.delete(); mask.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+                    src.delete(); gray.delete(); numbersOnly.delete(); gradX.delete(); mask.delete(); kernel.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
