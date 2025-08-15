@@ -10,6 +10,14 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <style>
+        /* --- MEJORA: Corrección para el manejador de tamaño de Cropper.js --- */
+        .cropper-view-box .cropper-point {
+            width: 12px !important;
+            height: 12px !important;
+            opacity: 0.85 !important;
+        }
+    </style>
 </head>
 <body class="inspector-body">
     <div class="app-container">
@@ -169,7 +177,6 @@
             const workerCode = `
                 self.importScripts(
                     'https://docs.opencv.org/4.9.0/opencv.js',
-                    'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/index.min.js',
                     'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
                 );
 
@@ -216,31 +223,31 @@
                     
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+                    // --- ESTRATEGIA FINAL: "EL GUILLOTINAZO" ---
+                    let numbersZone = new cv.Mat();
+                    // 1. Encontrar el contorno principal (el código de barras completo)
+                    let thresh = new cv.Mat();
+                    cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+                    let contours = new cv.MatVector();
+                    let hierarchy = new cv.Mat();
+                    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                    if (contours.size() > 0) {
+                        let cnt = contours.get(0);
+                        // 2. Obtener su recuadro delimitador
+                        const rect = cv.boundingRect(cnt);
+                        // 3. Cortar y quedarse solo con el 40% inferior de la imagen, donde están los números
+                        const roiRect = new cv.Rect(rect.x, rect.y + Math.floor(rect.height * 0.60), rect.width, Math.floor(rect.height * 0.40));
+                        numbersZone = gray.roi(roiRect);
+                        cnt.delete();
+                    } else {
+                        numbersZone = gray.clone(); // Fallback si no se encuentran contornos
+                    }
                     
-                    // --- BORRADOR DE BARRAS DE PRECISIÓN (MÉTODO DE GRADIENTE) ---
-                    let numbersOnly = new cv.Mat();
-                    let gradX = new cv.Mat();
-                    // 1. Calcular el gradiente vertical (resalta las barras)
-                    cv.Scharr(gray, gradX, cv.CV_8U, 1, 0);
-
-                    // 2. Crear una máscara a partir de los gradientes fuertes
-                    let mask = new cv.Mat();
-                    cv.threshold(gradX, mask, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
-
-                    // 3. Unir las líneas de las barras en un bloque sólido
-                    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
-                    cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernel);
-
-                    // 4. Limpiar la máscara con erosión y dilatación
-                    cv.erode(mask, mask, new cv.Mat(), new cv.Point(-1, -1), 2);
-                    cv.dilate(mask, mask, new cv.Mat(), new cv.Point(-1, -1), 2);
-
-                    // 5. Relleno inteligente usando la máscara precisa para borrar las barras
-                    cv.inpaint(gray, mask, numbersOnly, 3, cv.INPAINT_NS);
-
-                    // --- PROCESAMIENTO RESTANTE SOBRE LA IMAGEN LIMPIA ---
+                    // --- PROCESAMIENTO RESTANTE SOBRE LA ZONA DE NÚMEROS ---
                     let blurred = new cv.Mat();
-                    cv.medianBlur(numbersOnly, blurred, 3);
+                    cv.medianBlur(numbersZone, blurred, 3);
 
                     let sharpened = new cv.Mat();
                     let gaussian = new cv.Mat();
@@ -251,7 +258,7 @@
                     cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
                     let resized = new cv.Mat();
-                    const targetHeight = 120;
+                    const targetHeight = 100; // Un poco más bajo ya que la imagen es más corta
                     const aspectRatio = binary.cols / binary.rows;
                     const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
                     cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
@@ -260,28 +267,26 @@
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
-                    if (results.length === 0) {
-                        try {
-                            const worker = await self.Tesseract.createWorker('eng', 0, {
-                                langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-                                corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
-                            });
-                            await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
-                            const { data: { text } } = await worker.recognize(canvasForDecoders);
-                            self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (Solo Números): "' + text.replace(/\\n/g, ' ') + '"' });
-                            await worker.terminate();
+                    try {
+                        const worker = await self.Tesseract.createWorker('eng', 0, {
+                            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+                            corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
+                        });
+                        await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+                        const { data: { text } } = await worker.recognize(canvasForDecoders);
+                        self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (Solo Números): "' + text.replace(/\\n/g, ' ') + '"' });
+                        await worker.terminate();
 
-                            const reconstructedCode = reconstructEAN13FromOCR(text);
-                            if (reconstructedCode) {
-                                results.push({ code: reconstructedCode, method: "IA + Reconstrucción OCR Inteligente" });
-                            }
-                        } catch(err) { 
-                            self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
+                        const reconstructedCode = reconstructEAN13FromOCR(text);
+                        if (reconstructedCode) {
+                            results.push({ code: reconstructedCode, method: "IA + Reconstrucción OCR Inteligente" });
                         }
+                    } catch(err) { 
+                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); numbersOnly.delete(); gradX.delete(); mask.delete(); kernel.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+                    src.delete(); gray.delete(); numbersZone.delete(); thresh.delete(); contours.delete(); hierarchy.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
