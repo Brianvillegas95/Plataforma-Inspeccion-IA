@@ -181,19 +181,26 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
+                // --- VERSIÓN FINAL DE TU ESTRATEGIA DE RECONSTRUCCIÓN ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
                     const cleanedText = ocrText.replace(/[^0-9]/g, '');
+                    
                     for (const prefix of VALID_PREFIXES) {
-                        let startIndex = cleanedText.indexOf(prefix);
-                        if (startIndex !== -1 && startIndex + 13 <= cleanedText.length) {
-                            const candidate = cleanedText.substring(startIndex, startIndex + 13);
-                            if (validateEAN13Checksum(candidate)) {
-                                return candidate;
+                        const startIndex = cleanedText.indexOf(prefix);
+                        if (startIndex !== -1) {
+                            // Una vez encontrado el prefijo, nos "esforzamos" en encontrar los siguientes 5 dígitos
+                            const remainingText = cleanedText.substring(startIndex + prefix.length);
+                            if (remainingText.length >= 5) {
+                                const finalFiveDigits = remainingText.substring(0, 5);
+                                const candidate = prefix + finalFiveDigits;
+                                if (validateEAN13Checksum(candidate)) {
+                                    return candidate; // ¡Éxito!
+                                }
                             }
                         }
                     }
-                    return null;
+                    return null; // No se encontró un código válido
                 }
 
                 function validateEAN13Checksum(code) {
@@ -223,7 +230,7 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- PROCESAMIENTO ESTABLE Y ROBUSTO (LA FÓRMULA GANADORA) ---
+                    // PROCESAMIENTO ESTABLE Y ROBUSTO
                     let blurred = new cv.Mat();
                     cv.medianBlur(gray, blurred, 3);
 
@@ -246,14 +253,14 @@
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
                     try {
-                        const worker = await self.Tesseract.createWorker('eng', 0, {
-                            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-                            corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
-                        });
+                        // --- INICIALIZACIÓN ESTRICTA DE TESSERACT ---
+                        const worker = await self.Tesseract.createWorker();
+                        await worker.loadLanguage('eng');
+                        await worker.initialize('eng', 0); // 0 = Motor Legacy
                         await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789',
-                            tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE 
+                            tessedit_char_whitelist: '0123456789'
                         });
+
                         const { data: { text } } = await worker.recognize(canvasForDecoders);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
@@ -324,7 +331,7 @@
         }
 
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
+            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
