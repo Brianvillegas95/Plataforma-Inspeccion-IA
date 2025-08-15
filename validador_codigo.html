@@ -181,7 +181,7 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- LÓGICA DE RECONSTRUCCIÓN (se mantiene igual) ---
+                // --- LÓGICA DE RECONSTRUCCIÓN Y VALIDACIÓN (sin cambios) ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
                     const cleanedText = ocrText.replace(/[^0-9]/g, '');
@@ -226,7 +226,6 @@
                 
                 function matToImageData(mat) {
                     const matRGBA = new cv.Mat();
-                    // Asumimos que la entrada puede ser GRAY o RGBA
                     if (mat.channels() === 1) {
                         cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
                     } else {
@@ -246,11 +245,8 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // Usaremos un umbral adaptativo que es mejor para iluminaciones no uniformes
                     let binary = new cv.Mat();
                     cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 4);
-
-                    // --- INICIO DE LA NUEVA LÓGICA DE FILTRADO DE CONTORNOS ---
 
                     let contours = new cv.MatVector();
                     let hierarchy = new cv.Mat();
@@ -264,44 +260,47 @@
                         const rect = cv.boundingRect(contour);
                         const aspectRatio = rect.height / rect.width;
                         const area = rect.width * rect.height;
-
-                        // Filtro 1: Proporción y tamaño. Los números no son ni muy anchos ni muy delgados.
-                        // Y no son demasiado pequeños (ruido) o demasiado grandes.
-                        if (aspectRatio > 1.0 && aspectRatio < 4.0 && area > 50 && area < 2000) {
+                        
+                        // Ajustamos ligeramente los filtros si es necesario, estos parecen un buen punto de partida.
+                        if (aspectRatio > 1.0 && aspectRatio < 5.0 && area > 50 && area < 2500) {
                             validContours.push(contour);
                             yCoords.push(rect.y);
                         } else {
-                            contour.delete();
+                            contour.delete(); // Liberamos memoria del contorno descartado
                         }
                     }
                     
-                    // Filtro 2: Alineación. Nos quedamos con los contornos que están alineados verticalmente.
                     yCoords.sort((a, b) => a - b);
                     const medianY = yCoords.length > 0 ? yCoords[Math.floor(yCoords.length / 2)] : 0;
-                    const yTolerance = 15; // Píxeles de tolerancia vertical
+                    const yTolerance = 20; // Aumentamos un poco la tolerancia por si la imagen está inclinada
 
-                    // Creamos una nueva imagen en blanco (máscara) para dibujar solo los dígitos buenos
                     let mask = cv.Mat.zeros(src.rows, src.cols, cv.CV_8U);
-                    let finalContours = new cv.MatVector();
+                    let finalContours = []; // Usaremos un array normal para facilitar el manejo
 
                     for(const contour of validContours) {
                         const rect = cv.boundingRect(contour);
                         if (Math.abs(rect.y - medianY) < yTolerance) {
-                            finalContours.push_back(contour);
+                            finalContours.push(contour);
                         }
                     }
 
-                    // Dibujamos los contornos que pasaron todos los filtros en nuestra máscara
-                    cv.drawContours(mask, finalContours, -1, new cv.Scalar(255, 255, 255, 255), -1);
+                    // --- INICIO DE LA NUEVA LÓGICA "GENERATIVA" ---
 
-                    // Un poco de dilatación para rellenar los números y hacerlos más sólidos
-                    let kernel = cv.Mat.ones(2, 2, cv.CV_8U);
-                    cv.dilate(mask, mask, kernel);
-                    kernel.delete();
+                    // En lugar de dibujar los contornos complejos, generamos rectángulos limpios.
+                    for (const contour of finalContours) {
+                        const rect = cv.boundingRect(contour);
+                        // Dibujamos un rectángulo relleno en la máscara en la posición de cada dígito detectado.
+                        let point1 = new cv.Point(rect.x, rect.y);
+                        let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
+                        cv.rectangle(mask, point1, point2, new cv.Scalar(255, 255, 255, 255), -1);
+                    }
+                    
+                    // Ya no necesitamos dilatar, porque los rectángulos ya son sólidos.
+                    // cv.dilate(mask, mask, kernel); <-- Eliminado
 
                     // --- FIN DE LA NUEVA LÓGICA ---
 
-                    const finalImageData = matToImageData(mask); // Usamos la máscara limpia para el OCR
+                    const finalImageData = matToImageData(mask);
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
@@ -310,24 +309,26 @@
                             langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                         });
                         await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789',
-                            // ¡Mejora Clave! Le decimos a Tesseract que espere una sola línea de texto.
+                            tessedit_char_whitelist: '01223456789', // Permitimos el 2 dos veces por si lo confunde con Z
                             tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE 
                         });
                         const { data: { text } } = await worker.recognize(canvasForDecoders);
-                        self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (post-filtrado): "' + text.replace(/\\n/g, ' ') + '"' });
+                        self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (post-generativo): "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Filtrado Geométrico y OCR" };
+                            result = { code: reconstructedCode, method: "IA + Reconstrucción Generativa" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); binary.delete(); contours.delete(); hierarchy.delete(); mask.delete(); finalContours.delete();
+                    src.delete(); gray.delete(); binary.delete(); contours.delete(); hierarchy.delete(); mask.delete(); 
+                    // Liberamos memoria de los contornos guardados
+                    finalContours.forEach(c => c.delete());
+
 
                     self.postMessage({ 
                         status: 'done', 
