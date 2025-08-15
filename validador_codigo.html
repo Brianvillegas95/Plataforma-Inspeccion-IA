@@ -199,6 +199,14 @@
                     const calculatedChecksum = (10 - (sum % 10)) % 10;
                     return checksum === calculatedChecksum;
                 }
+                
+                function matToImageData(mat) {
+                    const matRGBA = new cv.Mat();
+                    cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
+                    const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
+                    matRGBA.delete();
+                    return imageData;
+                }
 
                 self.onmessage = async (e) => {
                     const { imageData } = e.data;
@@ -220,26 +228,28 @@
                     let binary = new cv.Mat();
                     cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
-                    // --- LA SOLUCIÓN FINAL: Usar OffscreenCanvas para Tesseract ---
-                    // Creamos un lienzo fuera de pantalla, que es el formato más robusto para las librerías.
-                    const canvasForDecoders = new OffscreenCanvas(binary.cols, binary.rows);
-                    cv.imshow(canvasForDecoders, binary);
+                    // --- LA SOLUCIÓN DEFINITIVA ---
+                    // 1. Convertimos el Mat a ImageData usando el método seguro.
+                    const finalImageData = matToImageData(binary);
+                    // 2. Creamos un lienzo y "pintamos" la ImageData en él.
+                    const canvasForTesseract = new OffscreenCanvas(finalImageData.width, finalImageData.height);
+                    canvasForTesseract.getContext('2d').putImageData(finalImageData, 0, 0);
                     
-                    // Intento 1: ZXing (lector de barras)
+                    // Intento 1: ZXing. Le pasamos la ImageData directamente, que es compatible.
                     try {
                         const codeReader = new self.ZXing.BrowserMultiFormatReader();
-                        const result = await codeReader.decodeFromCanvas(canvasForDecoders);
+                        const result = await codeReader.decodeFromImageData(finalImageData);
                         if(result) results.push({ code: result.getText(), method: "IA Avanzada + ZXing" });
                     } catch(err) { /* ZXing falla silenciosamente */ }
 
-                    // Intento 2: Tesseract OCR con reconstrucción inteligente
+                    // Intento 2: Tesseract OCR con reconstrucción inteligente.
                     if (results.length === 0) {
                         self.postMessage({ status: 'update', message: 'Worker: ZXing falló. Intentando con reconstrucción OCR...' });
                         try {
                             const worker = await self.Tesseract.createWorker('eng');
                             await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
-                            // Le pasamos el lienzo directamente, que es el método más fiable.
-                            const { data: { text } } = await worker.recognize(canvasForDecoders);
+                            // 3. Le pasamos el lienzo a Tesseract, el formato más robusto.
+                            const { data: { text } } = await worker.recognize(canvasForTesseract);
                             await worker.terminate();
 
                             const reconstructedCode = reconstructEAN13FromOCR(text);
@@ -251,7 +261,8 @@
                         }
                     }
                     
-                    const debugImageData = canvasForDecoders.getContext('2d').getImageData(0, 0, canvasForDecoders.width, canvasForDecoders.height);
+                    // Enviamos la misma ImageData que usamos para los decodificadores para la depuración.
+                    const debugImageData = finalImageData;
 
                     // Limpieza de memoria
                     src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete();
