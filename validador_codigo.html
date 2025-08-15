@@ -67,7 +67,7 @@
                 </div>
 
                 <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen de Depuración (Procesada y Ampliada):</strong></p>
+                    <p><strong>Imagen de Depuración (Enderezada y Ampliada):</strong></p>
                     <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
                 </div>
 
@@ -175,19 +175,38 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
+                // --- MEJORA: LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES (FUZZY) ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
-                    for (const prefix of VALID_PREFIXES) {
-                        let startIndex = cleanedText.indexOf(prefix);
-                        if (startIndex !== -1 && startIndex + 13 <= cleanedText.length) {
-                            const candidate = cleanedText.substring(startIndex, startIndex + 13);
-                            if (validateEAN13Checksum(candidate)) {
-                                return candidate;
+                    const cleanedText = ocrText.replace(/[^A-Z0-9]/gi, '').toUpperCase(); // Deja letras y números
+                    
+                    for (let i = 0; i <= cleanedText.length - 8; i++) {
+                        const potentialPrefix = cleanedText.substring(i, i + 8);
+                        for (const knownPrefix of VALID_PREFIXES) {
+                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 1) { // Tolera 1 error
+                                if (i + 13 <= cleanedText.length) {
+                                    const potentialCode = knownPrefix + cleanedText.substring(i + 8, i + 13).replace(/[^0-9]/g, '');
+                                    if (potentialCode.length === 13 && validateEAN13Checksum(potentialCode)) {
+                                        return potentialCode;
+                                    }
+                                }
                             }
                         }
                     }
                     return null;
+                }
+
+                function levenshteinDistance(s1, s2) {
+                    const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+                    for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
+                    for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
+                    for (let j = 1; j <= s2.length; j += 1) {
+                        for (let i = 1; i <= s1.length; i += 1) {
+                            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+                            track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
+                        }
+                    }
+                    return track[s2.length][s1.length];
                 }
 
                 function validateEAN13Checksum(code) {
@@ -216,9 +235,33 @@
                     
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+                    // --- MEJORA: CORRECCIÓN DE INCLINACIÓN (DESKEW) ---
+                    let deskewed = new cv.Mat();
+                    let inverted = new cv.Mat();
+                    cv.bitwise_not(gray, inverted);
+                    let contours = new cv.MatVector();
+                    let hierarchy = new cv.Mat();
+                    cv.findContours(inverted, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+                    let maxArea = 0; let bestContour = null;
+                    for(let i = 0; i < contours.size(); ++i) {
+                        let cnt = contours.get(i);
+                        let area = cv.contourArea(cnt);
+                        if (area > maxArea) { maxArea = area; bestContour = cnt; }
+                    }
+                    if (bestContour) {
+                        const rect = cv.minAreaRect(bestContour);
+                        let angle = rect.angle;
+                        if (angle < -45) { angle += 90; }
+                        const center = rect.center;
+                        const M = cv.getRotationMatrix2D(center, angle, 1);
+                        cv.warpAffine(gray, deskewed, M, gray.size(), cv.INTER_CUBIC, cv.BORDER_REPLICATE);
+                    } else {
+                        deskewed = gray.clone();
+                    }
                     
                     let blurred = new cv.Mat();
-                    cv.medianBlur(gray, blurred, 3);
+                    cv.medianBlur(deskewed, blurred, 3);
 
                     let sharpened = new cv.Mat();
                     let gaussian = new cv.Mat();
@@ -245,26 +288,19 @@
                     } catch(err) { /* ZXing falla silenciosamente */ }
 
                     if (results.length === 0) {
-                        self.postMessage({ status: 'update', message: 'Worker: ZXing falló. Intentando con reconstrucción OCR...' });
                         try {
-                            // --- LA SOLUCIÓN DEFINITIVA ---
-                            // Le decimos a Tesseract que use el motor Legacy (0) y que cargue los
-                            // archivos de idioma completos desde un repositorio público.
                             const worker = await self.Tesseract.createWorker('eng', 0, {
                                 langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                                 corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
                             });
-                            
-                            await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+                            await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ' }); // Permitir letras para la corrección
                             const { data: { text } } = await worker.recognize(canvasForDecoders);
-                            
-                            self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (Motor Legacy): "' + text.replace(/\\n/g, ' ') + '"' });
-
+                            self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (Legacy): "' + text.replace(/\\n/g, ' ') + '"' });
                             await worker.terminate();
 
                             const reconstructedCode = reconstructEAN13FromOCR(text);
                             if (reconstructedCode) {
-                                results.push({ code: reconstructedCode, method: "IA + Reconstrucción OCR (Legacy)" });
+                                results.push({ code: reconstructedCode, method: "IA + Reconstrucción OCR Inteligente" });
                             }
                         } catch(err) { 
                             self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
@@ -272,7 +308,7 @@
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+                    src.delete(); gray.delete(); deskewed.delete(); inverted.delete(); contours.delete(); hierarchy.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
@@ -314,8 +350,9 @@
                 updateAuditor(`¡Lectura exitosa! El código es: ${cleanCode}`);
                 if (cropper) { cropper.destroy(); cropper = null; analyzeSelectionBtn.style.display = 'none';}
             } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo leer un código válido. Intente con otra imagen o una selección más precisa.</div>`;
-                updateAuditor("La IA no pudo decodificar el código. Intente de nuevo.");
+                // --- MEJORA: Mensaje de error actualizado ---
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">Muestra ilegible. Intente con una imagen más clara o una selección diferente.</div>`;
+                updateAuditor("La IA no pudo decodificar el código. Se recomienda un nuevo intento.");
             }
         }
         
