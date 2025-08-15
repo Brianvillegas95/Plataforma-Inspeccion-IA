@@ -247,10 +247,13 @@
                     if (results.length === 0) {
                         self.postMessage({ status: 'update', message: 'Worker: ZXing falló. Intentando con reconstrucción OCR...' });
                         try {
-                            // --- CAMBIO DE MOTOR OCR ---
-                            // El segundo argumento '0' le indica a Tesseract que use el motor "Legacy",
-                            // que es a menudo mejor para caracteres individuales como los de los códigos de barras.
-                            const worker = await self.Tesseract.createWorker('eng', 0);
+                            // --- LA SOLUCIÓN DEFINITIVA ---
+                            // Le decimos a Tesseract que use el motor Legacy (0) y que cargue los
+                            // archivos de idioma completos desde un repositorio público.
+                            const worker = await self.Tesseract.createWorker('eng', 0, {
+                                langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+                                corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
+                            });
                             
                             await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
                             const { data: { text } } = await worker.recognize(canvasForDecoders);
