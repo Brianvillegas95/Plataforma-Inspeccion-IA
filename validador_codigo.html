@@ -75,7 +75,7 @@
                 </div>
 
                 <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen de Depuración (Procesada):</strong></p>
+                    <p><strong>Imagen de Depuración (Filtrada):</strong></p>
                     <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
                 </div>
 
@@ -181,42 +181,19 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo nos quedamos con los números
-
-                    for (let i = 0; i <= cleanedText.length - 8; i++) { // Busca en toda la cadena
-                        const potentialPrefix = cleanedText.substring(i, i + 8);
-                        for (const knownPrefix of VALID_PREFIXES) {
-                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) { // Tolera hasta 2 errores
-                                // Si encontramos un prefijo "casi" perfecto, intentamos construir el resto del código
-                                const remainingText = cleanedText.substring(i + 8);
-                                if (remainingText.length >= 5) {
-                                    const finalFiveDigits = remainingText.substring(0, 5);
-                                    // Usamos el PREFIJO CORRECTO para construir el candidato final
-                                    const candidate = knownPrefix + finalFiveDigits;
-                                    if (validateEAN13Checksum(candidate)) {
-                                        return candidate; // ¡Éxito! Código reconstruido y validado
-                                    }
-                                }
+                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
+                    for (const prefix of VALID_PREFIXES) {
+                        let startIndex = cleanedText.indexOf(prefix);
+                        if (startIndex !== -1 && startIndex + 13 <= cleanedText.length) {
+                            const candidate = cleanedText.substring(startIndex, startIndex + 13);
+                            if (validateEAN13Checksum(candidate)) {
+                                return candidate;
                             }
                         }
                     }
-                    return null; // No se pudo reconstruir
-                }
-
-                function levenshteinDistance(s1, s2) {
-                    const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
-                    for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
-                    for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
-                    for (let j = 1; j <= s2.length; j += 1) {
-                        for (let i = 1; i <= s1.length; i += 1) {
-                            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-                            track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
-                        }
-                    }
-                    return track[s2.length][s1.length];
+                    return null;
                 }
 
                 function validateEAN13Checksum(code) {
@@ -246,7 +223,7 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // PROCESAMIENTO ESTABLE Y ROBUSTO
+                    // PROCESAMIENTO ESTABLE
                     let blurred = new cv.Mat();
                     cv.medianBlur(gray, blurred, 3);
 
@@ -258,18 +235,46 @@
                     let binary = new cv.Mat();
                     cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
+                    // --- FILTRO FINAL: "INSPECTOR DE CONTROL DE CALIDAD" ---
+                    let filtered = new cv.Mat.zeros(binary.rows, binary.cols, cv.CV_8UC1);
+                    let contours = new cv.MatVector();
+                    let hierarchy = new cv.Mat();
+                    cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                    
+                    let heights = [];
+                    for (let i = 0; i < contours.size(); i++) {
+                        let cnt = contours.get(i);
+                        let rect = cv.boundingRect(cnt);
+                        heights.push(rect.height);
+                        cnt.delete();
+                    }
+                    
+                    // Calcular una altura promedio robusta (mediana)
+                    heights.sort((a, b) => a - b);
+                    const medianHeight = heights.length > 0 ? heights[Math.floor(heights.length / 2)] : 0;
+                    const minHeightThreshold = medianHeight * 0.5; // El ruido debe ser menos de la mitad de alto que un número
+
+                    cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                    for (let i = 0; i < contours.size(); i++) {
+                        let cnt = contours.get(i);
+                        let rect = cv.boundingRect(cnt);
+                        if (rect.height > minHeightThreshold) {
+                            cv.drawContours(filtered, contours, i, new cv.Scalar(255), -1);
+                        }
+                        cnt.delete();
+                    }
+
                     let resized = new cv.Mat();
                     const targetHeight = 120;
-                    const aspectRatio = binary.cols / binary.rows;
+                    const aspectRatio = filtered.cols / filtered.rows;
                     const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
-                    cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
+                    cv.resize(filtered, resized, newSize, 0, 0, cv.INTER_CUBIC);
 
                     const finalImageData = matToImageData(resized);
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
                     try {
-                        // Limpiamos las advertencias usando la inicialización moderna de Tesseract.js v5
                         const worker = await self.Tesseract.createWorker('eng', 0, {
                             langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                         });
@@ -289,7 +294,8 @@
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+                    // Limpieza exhaustiva de memoria
+                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); filtered.delete(); contours.delete(); hierarchy.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
