@@ -75,7 +75,7 @@
                 </div>
 
                 <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Dígitos Aislados para Análisis:</strong></p>
+                    <p><strong>Imagen de Depuración (Procesada):</strong></p>
                     <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
                 </div>
 
@@ -133,7 +133,8 @@
             debugSection.style.display = 'none';
             const croppedCanvas = cropper.getCroppedCanvas();
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo, dígito por dígito...");
+            updateAuditor("Iniciando análisis profundo. Aplicando filtros avanzados...");
+            console.log("Main: Enviando imagen recortada al Web Worker.");
             if (!analysisWorker) {
                 setupWorker();
             }
@@ -180,24 +181,29 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- Lógica de reconstrucción y validación (sin cambios) ---
+                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
-                    for (let i = 0; i <= cleanedText.length - 8; i++) {
+                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo nos quedamos con los números
+
+                    for (let i = 0; i <= cleanedText.length - 8; i++) { // Busca en toda la cadena
                         const potentialPrefix = cleanedText.substring(i, i + 8);
                         for (const knownPrefix of VALID_PREFIXES) {
-                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) {
+                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) { // Tolera hasta 2 errores
+                                // Si encontramos un prefijo "casi" perfecto, intentamos construir el resto del código
                                 const remainingText = cleanedText.substring(i + 8);
                                 if (remainingText.length >= 5) {
                                     const finalFiveDigits = remainingText.substring(0, 5);
+                                    // Usamos el PREFIJO CORRECTO para construir el candidato final
                                     const candidate = knownPrefix + finalFiveDigits;
-                                    if (validateEAN13Checksum(candidate)) { return candidate; }
+                                    if (validateEAN13Checksum(candidate)) {
+                                        return candidate; // ¡Éxito! Código reconstruido y validado
+                                    }
                                 }
                             }
                         }
                     }
-                    return null;
+                    return null; // No se pudo reconstruir
                 }
 
                 function levenshteinDistance(s1, s2) {
@@ -214,7 +220,7 @@
                 }
 
                 function validateEAN13Checksum(code) {
-                    if (typeof code !== 'string' || !/^\\d{13}$/.test(code)) return false;
+                    if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
                     const digits = code.split('').map(Number);
                     const checksum = digits.pop();
                     let sum = 0;
@@ -225,7 +231,7 @@
                 
                 function matToImageData(mat) {
                     const matRGBA = new cv.Mat();
-                    if (mat.channels() === 1) { cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA); } else { mat.copyTo(matRGBA); }
+                    cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
                     const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
                     matRGBA.delete();
                     return imageData;
@@ -234,99 +240,62 @@
                 self.onmessage = async (e) => {
                     const { imageData } = e.data;
                     await waitForOpenCV();
-                    
-                    let src = cv.matFromImageData(imageData);
+                    const src = cv.matFromImageData(imageData);
                     let result = null;
+                    
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- INICIO DEL PROCESAMIENTO ROBUSTO ---
+                    // PROCESAMIENTO ESTABLE Y ROBUSTO
+                    let blurred = new cv.Mat();
+                    cv.medianBlur(gray, blurred, 3);
 
-                    // CAMBIO CLAVE 1: Usar umbral adaptativo. Es excelente para condiciones de luz variables,
-                    // brillos y bajo contraste, como en las fotos sobre plástico.
-                    let binary = new cv.Mat();
-                    cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 21, 10);
-
-                    // 2. Operación morfológica para rellenar y consolidar los números
-                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 2));
-                    let closed = new cv.Mat();
-                    cv.morphologyEx(binary, closed, cv.MORPH_CLOSE, kernel);
-
-                    // 3. Encontrar contornos y aplicar filtros estrictos para aislar solo los dígitos
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
-                    cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                    let sharpened = new cv.Mat();
+                    let gaussian = new cv.Mat();
+                    cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
+                    cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
                     
-                    let digitBoxes = [];
-                    for (let i = 0; i < contours.size(); ++i) {
-                        let contour = contours.get(i);
-                        let rect = cv.boundingRect(contour);
-                        
-                        // CAMBIO CLAVE 2: Filtros más exigentes. Ignoramos el ruido basándonos en
-                        // el tamaño y la forma (debe ser más alto que ancho).
-                        const area = rect.width * rect.height;
-                        const aspectRatio = rect.height / rect.width;
-                        if (area > 40 && rect.height > 10 && aspectRatio > 1.0 && aspectRatio < 5.0) {
-                            digitBoxes.push(rect);
-                        }
-                        contour.delete();
-                    }
-                    digitBoxes.sort((a, b) => a.x - b.x);
+                    let binary = new cv.Mat();
+                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    
+                    let resized = new cv.Mat();
+                    const targetHeight = 120;
+                    const aspectRatio = binary.cols / binary.rows;
+                    const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
+                    cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
 
-                    // 4. Lógica de reconocimiento CARACTER POR CARACTER (la más precisa)
-                    var debugImageData = null; 
-                    let recognizedText = '';
-
-                    if (digitBoxes.length > 5) {
-                        // Creamos la imagen de depuración para visualización
-                        const PADDING = 10; const SPACING = 10;
-                        const totalWidth = digitBoxes.reduce((sum, box) => sum + box.width, 0) + (digitBoxes.length - 1) * SPACING + PADDING * 2;
-                        const maxHeight = Math.max(...digitBoxes.map(box => box.height)) + PADDING * 2;
-                        let debugMask = cv.Mat.zeros(maxHeight, totalWidth, cv.CV_8U);
-                        let currentX = PADDING;
-                        for (const box of digitBoxes) {
-                            let digitROI = closed.roi(box);
-                            let pasteRegion = debugMask.roi(new cv.Rect(currentX, PADDING, box.width, box.height));
-                            digitROI.copyTo(pasteRegion);
-                            currentX += box.width + SPACING;
-                            digitROI.delete(); pasteRegion.delete();
-                        }
-                        debugImageData = matToImageData(debugMask);
-                        debugMask.delete();
-
-                        // Iniciamos el reconocimiento individual
-                        const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
+                    const finalImageData = matToImageData(resized);
+                    const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
+                    canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
+                    
+                    try {
+                        // Limpiamos las advertencias usando la inicialización moderna de Tesseract.js v5
+                        const worker = await self.Tesseract.createWorker('eng', 0, {
+                            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+                        });
                         await worker.setParameters({
                             tessedit_char_whitelist: '0123456789',
-                            tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_CHAR
                         });
-                        
-                        for (const box of digitBoxes) {
-                            let digitROI = closed.roi(box);
-                            // Agregamos un borde blanco al dígito para mejorar la lectura de Tesseract
-                            let borderedDigit = new cv.Mat();
-                            cv.copyMakeBorder(digitROI, borderedDigit, 5, 5, 5, 5, cv.BORDER_CONSTANT, new cv.Scalar(0,0,0,0));
-                            
-                            const digitCanvas = new OffscreenCanvas(borderedDigit.cols, borderedDigit.rows);
-                            digitCanvas.getContext('2d').putImageData(matToImageData(borderedDigit), 0, 0);
-
-                            const { data: { text } } = await worker.recognize(digitCanvas);
-                            recognizedText += text.trim();
-                            digitROI.delete();
-                            borderedDigit.delete();
-                        }
+                        const { data: { text } } = await worker.recognize(canvasForDecoders);
+                        self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
-                        
-                        self.postMessage({ status: 'update', message: 'Worker: Texto reconstruido: "' + recognizedText + '"' });
-                        const reconstructedCode = reconstructEAN13FromOCR(recognizedText);
+
+                        const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Análisis por Dígito (Robusto)" };
+                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR Inteligente" };
                         }
+                    } catch(err) { 
+                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
                     }
                     
-                    src.delete(); gray.delete(); binary.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete();
+                    const debugImageData = finalImageData;
+                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
 
-                    self.postMessage({ status: 'done', result: result, debugImageData: debugImageData }, debugImageData ? [debugImageData.data.buffer] : undefined);
+                    self.postMessage({ 
+                        status: 'done', 
+                        result: result,
+                        debugImageData: debugImageData
+                    }, [debugImageData.data.buffer]);
                 };
                 
                 function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
@@ -346,10 +315,6 @@
                         debugCanvas.height = debugImageData.height;
                         const ctx = debugCanvas.getContext('2d');
                         ctx.putImageData(debugImageData, 0, 0);
-                        
-                        debugCanvas.style.width = '100%';
-                        debugCanvas.style.height = 'auto';
-                        debugCanvas.style.imageRendering = 'pixelated';
                     }
 
                     displayFinalResult(result);
@@ -381,7 +346,7 @@
         }
 
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
+            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
