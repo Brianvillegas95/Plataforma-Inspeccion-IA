@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
     <style>
-        /* --- MEJORA: Corrección para el manejador de tamaño de Cropper.js --- */
+        /* Corrección para el manejador de tamaño de Cropper.js */
         .cropper-view-box .cropper-point {
             width: 12px !important;
             height: 12px !important;
@@ -75,7 +75,7 @@
                 </div>
 
                 <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen de Depuración (Solo Números):</strong></p>
+                    <p><strong>Imagen de Depuración (Procesada):</strong></p>
                     <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
                 </div>
 
@@ -85,7 +85,6 @@
     </div>
 
     <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/umd/index.min.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
@@ -224,30 +223,11 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- ESTRATEGIA FINAL: "EL GUILLOTINAZO" ---
-                    let numbersZone = new cv.Mat();
-                    // 1. Encontrar el contorno principal (el código de barras completo)
-                    let thresh = new cv.Mat();
-                    cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
-                    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                    // --- PROCESAMIENTO ESTABLE Y ROBUSTO ---
+                    // Se elimina el borrado de barras, volviendo a la estrategia que ya funcionó.
 
-                    if (contours.size() > 0) {
-                        let cnt = contours.get(0);
-                        // 2. Obtener su recuadro delimitador
-                        const rect = cv.boundingRect(cnt);
-                        // 3. Cortar y quedarse solo con el 40% inferior de la imagen, donde están los números
-                        const roiRect = new cv.Rect(rect.x, rect.y + Math.floor(rect.height * 0.60), rect.width, Math.floor(rect.height * 0.40));
-                        numbersZone = gray.roi(roiRect);
-                        cnt.delete();
-                    } else {
-                        numbersZone = gray.clone(); // Fallback si no se encuentran contornos
-                    }
-                    
-                    // --- PROCESAMIENTO RESTANTE SOBRE LA ZONA DE NÚMEROS ---
                     let blurred = new cv.Mat();
-                    cv.medianBlur(numbersZone, blurred, 3);
+                    cv.medianBlur(gray, blurred, 3);
 
                     let sharpened = new cv.Mat();
                     let gaussian = new cv.Mat();
@@ -258,7 +238,7 @@
                     cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
                     let resized = new cv.Mat();
-                    const targetHeight = 100; // Un poco más bajo ya que la imagen es más corta
+                    const targetHeight = 120;
                     const aspectRatio = binary.cols / binary.rows;
                     const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
                     cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
@@ -279,14 +259,14 @@
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            results.push({ code: reconstructedCode, method: "IA + Reconstrucción OCR Inteligente" });
+                            results.push({ code: reconstructedCode, method: "IA + Reconstrucción OCR" });
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); numbersZone.delete(); thresh.delete(); contours.delete(); hierarchy.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
@@ -343,7 +323,7 @@
         }
 
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
+            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
