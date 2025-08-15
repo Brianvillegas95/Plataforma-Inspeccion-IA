@@ -75,7 +75,7 @@
                 </div>
 
                 <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen de Depuración (Normalizada):</strong></p>
+                    <p><strong>Dígitos Aislados para Análisis:</strong></p>
                     <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
                 </div>
 
@@ -133,7 +133,7 @@
             debugSection.style.display = 'none';
             const croppedCanvas = cropper.getCroppedCanvas();
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo. Aplicando filtros avanzados...");
+            updateAuditor("Iniciando análisis profundo, dígito por dígito...");
             if (!analysisWorker) {
                 setupWorker();
             }
@@ -240,20 +240,19 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- INICIO DEL PROCESAMIENTO DE NORMALIZACIÓN ---
+                    // --- INICIO DEL PROCESAMIENTO ROBUSTO ---
 
-                    // 1. Pre-procesamiento con morfología para aislar los números
-                    let sharpened = new cv.Mat();
-                    let gaussian = new cv.Mat();
-                    cv.GaussianBlur(gray, gaussian, new cv.Size(0, 0), 3);
-                    cv.addWeighted(gray, 1.5, gaussian, -0.5, 0, sharpened);
+                    // CAMBIO CLAVE 1: Usar umbral adaptativo. Es excelente para condiciones de luz variables,
+                    // brillos y bajo contraste, como en las fotos sobre plástico.
                     let binary = new cv.Mat();
-                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
-                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 2));
+                    cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 21, 10);
+
+                    // 2. Operación morfológica para rellenar y consolidar los números
+                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 2));
                     let closed = new cv.Mat();
                     cv.morphologyEx(binary, closed, cv.MORPH_CLOSE, kernel);
 
-                    // 2. Encontrar contornos y guardamos sus 'cajas' delimitadoras (bounding box)
+                    // 3. Encontrar contornos y aplicar filtros estrictos para aislar solo los dígitos
                     let contours = new cv.MatVector();
                     let hierarchy = new cv.Mat();
                     cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
@@ -261,67 +260,71 @@
                     let digitBoxes = [];
                     for (let i = 0; i < contours.size(); ++i) {
                         let contour = contours.get(i);
-                        let area = cv.contourArea(contour);
-                        if (area > 50) { 
-                            digitBoxes.push(cv.boundingRect(contour));
+                        let rect = cv.boundingRect(contour);
+                        
+                        // CAMBIO CLAVE 2: Filtros más exigentes. Ignoramos el ruido basándonos en
+                        // el tamaño y la forma (debe ser más alto que ancho).
+                        const area = rect.width * rect.height;
+                        const aspectRatio = rect.height / rect.width;
+                        if (area > 40 && rect.height > 10 && aspectRatio > 1.0 && aspectRatio < 5.0) {
+                            digitBoxes.push(rect);
                         }
                         contour.delete();
                     }
-
-                    // 3. Ordenar las cajas de izquierda a derecha.
                     digitBoxes.sort((a, b) => a.x - b.x);
 
-                    // 4. Crear un nuevo lienzo y re-renderizar los dígitos ordenados
-                    var debugImageData = null; // Definimos la variable fuera del if
-                    if (digitBoxes.length > 5) { 
-                        const PADDING = 15; // Aumentamos el borde para más claridad
-                        // AJUSTE CLAVE 1: Aumentamos el espaciado para evitar que la IA fusione los números
-                        const SPACING = 10;
+                    // 4. Lógica de reconocimiento CARACTER POR CARACTER (la más precisa)
+                    var debugImageData = null; 
+                    let recognizedText = '';
+
+                    if (digitBoxes.length > 5) {
+                        // Creamos la imagen de depuración para visualización
+                        const PADDING = 10; const SPACING = 10;
                         const totalWidth = digitBoxes.reduce((sum, box) => sum + box.width, 0) + (digitBoxes.length - 1) * SPACING + PADDING * 2;
                         const maxHeight = Math.max(...digitBoxes.map(box => box.height)) + PADDING * 2;
-                        
-                        let normalizedMask = cv.Mat.zeros(maxHeight, totalWidth, cv.CV_8U);
-                        
+                        let debugMask = cv.Mat.zeros(maxHeight, totalWidth, cv.CV_8U);
                         let currentX = PADDING;
                         for (const box of digitBoxes) {
                             let digitROI = closed.roi(box);
-                            let pasteRegion = normalizedMask.roi(new cv.Rect(currentX, PADDING, box.width, box.height));
+                            let pasteRegion = debugMask.roi(new cv.Rect(currentX, PADDING, box.width, box.height));
                             digitROI.copyTo(pasteRegion);
                             currentX += box.width + SPACING;
+                            digitROI.delete(); pasteRegion.delete();
+                        }
+                        debugImageData = matToImageData(debugMask);
+                        debugMask.delete();
+
+                        // Iniciamos el reconocimiento individual
+                        const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
+                        await worker.setParameters({
+                            tessedit_char_whitelist: '0123456789',
+                            tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_CHAR
+                        });
+                        
+                        for (const box of digitBoxes) {
+                            let digitROI = closed.roi(box);
+                            // Agregamos un borde blanco al dígito para mejorar la lectura de Tesseract
+                            let borderedDigit = new cv.Mat();
+                            cv.copyMakeBorder(digitROI, borderedDigit, 5, 5, 5, 5, cv.BORDER_CONSTANT, new cv.Scalar(0,0,0,0));
+                            
+                            const digitCanvas = new OffscreenCanvas(borderedDigit.cols, borderedDigit.rows);
+                            digitCanvas.getContext('2d').putImageData(matToImageData(borderedDigit), 0, 0);
+
+                            const { data: { text } } = await worker.recognize(digitCanvas);
+                            recognizedText += text.trim();
                             digitROI.delete();
-                            pasteRegion.delete();
+                            borderedDigit.delete();
                         }
+                        await worker.terminate();
                         
-                        // 5. Enviar esta imagen PERFECTA al OCR
-                        const finalImageData = matToImageData(normalizedMask);
-                        const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
-                        canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
-                        
-                        try {
-                            const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
-                            await worker.setParameters({
-                                tessedit_char_whitelist: '0123456789',
-                                // AJUSTE CLAVE 2: Le decimos a la IA que es una SOLA PALABRA
-                                tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_WORD 
-                            });
-                            const { data: { text } } = await worker.recognize(canvasForDecoders);
-                            self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (normalizado): "' + text.replace(/\\n/g, ' ') + '"' });
-                            await worker.terminate();
-
-                            const reconstructedCode = reconstructEAN13FromOCR(text);
-                            if (reconstructedCode) {
-                                result = { code: reconstructedCode, method: "IA + Normalización de Dígitos" };
-                            }
-                        } catch(err) { 
-                            self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
+                        self.postMessage({ status: 'update', message: 'Worker: Texto reconstruido: "' + recognizedText + '"' });
+                        const reconstructedCode = reconstructEAN13FromOCR(recognizedText);
+                        if (reconstructedCode) {
+                            result = { code: reconstructedCode, method: "IA + Análisis por Dígito (Robusto)" };
                         }
-
-                        debugImageData = finalImageData; // Asignamos la imagen para depuración
-                        normalizedMask.delete();
                     }
                     
-                    // Liberación de memoria
-                    src.delete(); gray.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete();
+                    src.delete(); gray.delete(); binary.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete();
 
                     self.postMessage({ status: 'done', result: result, debugImageData: debugImageData }, debugImageData ? [debugImageData.data.buffer] : undefined);
                 };
@@ -344,7 +347,6 @@
                         const ctx = debugCanvas.getContext('2d');
                         ctx.putImageData(debugImageData, 0, 0);
                         
-                        // AJUSTE CLAVE 3: Corregimos el estilo para que la imagen se ajuste sin scrollbars
                         debugCanvas.style.width = '100%';
                         debugCanvas.style.height = 'auto';
                         debugCanvas.style.imageRendering = 'pixelated';
