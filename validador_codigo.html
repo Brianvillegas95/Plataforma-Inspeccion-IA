@@ -228,10 +228,8 @@
                     let binary = new cv.Mat();
                     cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
-                    // --- AJUSTE FINAL: "LUPA DIGITAL" ---
-                    // Se amplía la imagen a un tamaño óptimo para el OCR.
                     let resized = new cv.Mat();
-                    const targetHeight = 120; // Altura en píxeles, un buen valor para OCR.
+                    const targetHeight = 120;
                     const aspectRatio = binary.cols / binary.rows;
                     const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
                     cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
@@ -252,6 +250,11 @@
                             const worker = await self.Tesseract.createWorker('eng');
                             await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
                             const { data: { text } } = await worker.recognize(canvasForDecoders);
+                            
+                            // --- EL "ESPÍA" ---
+                            // Enviamos el texto crudo a la consola principal para depuración.
+                            self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
+
                             await worker.terminate();
 
                             const reconstructedCode = reconstructEAN13FromOCR(text);
