@@ -223,7 +223,7 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // PROCESAMIENTO ESTABLE Y ROBUSTO
+                    // --- PROCESAMIENTO ESTABLE Y ROBUSTO (LA FÓRMULA GANADORA) ---
                     let blurred = new cv.Mat();
                     cv.medianBlur(gray, blurred, 3);
 
@@ -234,10 +234,6 @@
                     
                     let binary = new cv.Mat();
                     cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-
-                    // MEJORA FINAL: "Refuerzo de Trazos"
-                    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-                    cv.dilate(binary, binary, kernel);
                     
                     let resized = new cv.Mat();
                     const targetHeight = 120;
@@ -249,39 +245,29 @@
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
-                    // MEJORA FINAL: "Análisis Multi-Perspectiva"
-                    const psmModes = [
-                        self.Tesseract.PSM.SINGLE_LINE, // Como una línea de texto
-                        self.Tesseract.PSM.SINGLE_WORD, // Como una sola palabra
-                        self.Tesseract.PSM.SINGLE_CHAR  // Caracter por caracter
-                    ];
+                    try {
+                        const worker = await self.Tesseract.createWorker('eng', 0, {
+                            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+                            corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
+                        });
+                        await worker.setParameters({
+                            tessedit_char_whitelist: '0123456789',
+                            tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE 
+                        });
+                        const { data: { text } } = await worker.recognize(canvasForDecoders);
+                        self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
+                        await worker.terminate();
 
-                    for (const psm of psmModes) {
-                        try {
-                            const worker = await self.Tesseract.createWorker('eng', 0, {
-                                langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-                                corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.0/tesseract-core.wasm.js',
-                            });
-                            await worker.setParameters({
-                                tessedit_char_whitelist: '0123456789',
-                                tessedit_pageseg_mode: psm
-                            });
-                            const { data: { text } } = await worker.recognize(canvasForDecoders);
-                            self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (PSM '+psm+'): "' + text.replace(/\\n/g, ' ') + '"' });
-                            await worker.terminate();
-
-                            const reconstructedCode = reconstructEAN13FromOCR(text);
-                            if (reconstructedCode) {
-                                result = { code: reconstructedCode, method: "IA + Reconstrucción OCR Multi-Perspectiva" };
-                                break; // ¡Éxito! Salimos del bucle.
-                            }
-                        } catch(err) { 
-                            self.postMessage({ status: 'update', message: 'Worker: Tesseract (PSM '+psm+') falló. Error: ' + err.message });
+                        const reconstructedCode = reconstructEAN13FromOCR(text);
+                        if (reconstructedCode) {
+                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR" };
                         }
+                    } catch(err) { 
+                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete(); kernel.delete();
+                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
