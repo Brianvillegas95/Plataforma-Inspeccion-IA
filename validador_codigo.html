@@ -235,33 +235,35 @@
                     let binary = new cv.Mat();
                     cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
-                    // --- FILTRO FINAL: "INSPECTOR DE CONTROL DE CALIDAD" ---
-                    let filtered = new cv.Mat.zeros(binary.rows, binary.cols, cv.CV_8UC1);
+                    // --- INSPECTOR DE CALIDAD CORREGIDO ---
+                    // 1. "Restaurador": une los trozos rotos de los números
+                    let closed = new cv.Mat();
+                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+                    cv.morphologyEx(binary, closed, cv.MORPH_CLOSE, kernel);
+
+                    // 2. Filtrado por altura sobre la imagen restaurada
+                    let filtered = new cv.Mat.zeros(closed.rows, closed.cols, cv.CV_8UC1);
                     let contours = new cv.MatVector();
                     let hierarchy = new cv.Mat();
-                    cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                    cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
                     
                     let heights = [];
-                    for (let i = 0; i < contours.size(); i++) {
-                        let cnt = contours.get(i);
-                        let rect = cv.boundingRect(cnt);
-                        heights.push(rect.height);
-                        cnt.delete();
-                    }
-                    
-                    // Calcular una altura promedio robusta (mediana)
-                    heights.sort((a, b) => a - b);
-                    const medianHeight = heights.length > 0 ? heights[Math.floor(heights.length / 2)] : 0;
-                    const minHeightThreshold = medianHeight * 0.5; // El ruido debe ser menos de la mitad de alto que un número
-
-                    cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-                    for (let i = 0; i < contours.size(); i++) {
-                        let cnt = contours.get(i);
-                        let rect = cv.boundingRect(cnt);
-                        if (rect.height > minHeightThreshold) {
-                            cv.drawContours(filtered, contours, i, new cv.Scalar(255), -1);
+                    if (contours.size() > 0) {
+                        for (let i = 0; i < contours.size(); i++) {
+                            let rect = cv.boundingRect(contours.get(i));
+                            heights.push(rect.height);
                         }
-                        cnt.delete();
+                        heights.sort((a, b) => a - b);
+                        const medianHeight = heights[Math.floor(heights.length / 2)];
+                        const minHeightThreshold = medianHeight * 0.5;
+
+                        for (let i = 0; i < contours.size(); i++) {
+                            let cnt = contours.get(i);
+                            let rect = cv.boundingRect(cnt);
+                            if (rect.height > minHeightThreshold) {
+                                cv.drawContours(filtered, contours, i, new cv.Scalar(255), -1);
+                            }
+                        }
                     }
 
                     let resized = new cv.Mat();
@@ -294,8 +296,7 @@
                     }
                     
                     const debugImageData = finalImageData;
-                    // Limpieza exhaustiva de memoria
-                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); filtered.delete(); contours.delete(); hierarchy.delete(); resized.delete();
+                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); closed.delete(); kernel.delete(); filtered.delete(); contours.delete(); hierarchy.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
