@@ -75,7 +75,7 @@
                 </div>
 
                 <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen de Depuración (Procesada):</strong></p>
+                    <p><strong>Imagen de Depuración (Normalizada):</strong></p>
                     <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
                 </div>
 
@@ -225,11 +225,7 @@
                 
                 function matToImageData(mat) {
                     const matRGBA = new cv.Mat();
-                    if (mat.channels() === 1) {
-                        cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
-                    } else {
-                        mat.copyTo(matRGBA);
-                    }
+                    if (mat.channels() === 1) { cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA); } else { mat.copyTo(matRGBA); }
                     const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
                     matRGBA.delete();
                     return imageData;
@@ -244,84 +240,90 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- INICIO DEL NUEVO PROCESAMIENTO AVANZADO ---
+                    // --- INICIO DEL PROCESAMIENTO DE NORMALIZACIÓN ---
 
-                    // 1. Mejorar el contraste y la nitidez, similar a la versión original que funcionaba bien.
+                    // 1. Pre-procesamiento con morfología para aislar los números (nuestro método exitoso)
                     let sharpened = new cv.Mat();
                     let gaussian = new cv.Mat();
                     cv.GaussianBlur(gray, gaussian, new cv.Size(0, 0), 3);
                     cv.addWeighted(gray, 1.5, gaussian, -0.5, 0, sharpened);
-
-                    // 2. Umbralización (Binarización) para convertir a blanco y negro
                     let binary = new cv.Mat();
                     cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
-                    
-                    // 3. ¡EL PASO CLAVE! Usar un filtro morfológico para unir las partes de los números.
-                    // Creamos un "pincel" rectangular (más ancho que alto)
                     let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 2));
                     let closed = new cv.Mat();
-                    // La operación de "Cierre" rellena los huecos en los números sin afectar mucho las barras verticales.
                     cv.morphologyEx(binary, closed, cv.MORPH_CLOSE, kernel);
 
-                    // 4. Encontrar contornos en la imagen morfológicamente limpiada.
+                    // 2. Encontrar contornos y guardamos sus 'cajas' delimitadoras (bounding box)
                     let contours = new cv.MatVector();
                     let hierarchy = new cv.Mat();
                     cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                    let validContours = [];
+                    
+                    let digitBoxes = [];
                     for (let i = 0; i < contours.size(); ++i) {
                         let contour = contours.get(i);
-                        let rect = cv.boundingRect(contour);
-                        let aspectRatio = rect.height / rect.width;
                         let area = cv.contourArea(contour);
-
-                        // Filtros por tamaño y proporción para quedarnos solo con lo que parecen números
-                        if (area > 50 && area < 5000 && rect.height > 10 && aspectRatio > 0.8) {
-                            validContours.push(contour);
-                        } else {
-                            contour.delete();
+                        if (area > 50) { // Un filtro simple para descartar ruido muy pequeño
+                            digitBoxes.push(cv.boundingRect(contour));
                         }
+                        contour.delete();
                     }
 
-                    // 5. Crear la máscara final dibujando los contornos válidos (la imagen "bonita")
-                    let mask = cv.Mat.zeros(src.rows, src.cols, cv.CV_8U);
-                    let finalContours = new cv.MatVector();
-                    validContours.forEach(c => finalContours.push_back(c));
-                    cv.drawContours(mask, finalContours, -1, new cv.Scalar(255, 255, 255, 255), -1);
-                    
-                    // --- FIN DEL NUEVO PROCESAMIENTO ---
-                    
-                    const finalImageData = matToImageData(mask);
-                    const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
-                    canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
-                    
-                    try {
-                        const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
-                        await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789',
-                            tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE 
-                        });
-                        const { data: { text } } = await worker.recognize(canvasForDecoders);
-                        self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (post-morfología): "' + text.replace(/\\n/g, ' ') + '"' });
-                        await worker.terminate();
+                    // 3. ¡PASO CLAVE! Ordenar las cajas de izquierda a derecha.
+                    digitBoxes.sort((a, b) => a.x - b.x);
 
-                        const reconstructedCode = reconstructEAN13FromOCR(text);
-                        if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Visión Morfológica" };
+                    // 4. Crear un nuevo lienzo y re-renderizar los dígitos ordenados y con espaciado uniforme
+                    if (digitBoxes.length > 5) { // Solo si encontramos un número razonable de dígitos
+                        const PADDING = 10; // Espacio en blanco alrededor de los números
+                        const SPACING = 4;  // Espacio uniforme entre números
+                        const totalWidth = digitBoxes.reduce((sum, box) => sum + box.width, 0) + (digitBoxes.length - 1) * SPACING + PADDING * 2;
+                        const maxHeight = Math.max(...digitBoxes.map(box => box.height)) + PADDING * 2;
+                        
+                        // Creamos el lienzo final, perfectamente dimensionado
+                        let normalizedMask = cv.Mat.zeros(maxHeight, totalWidth, cv.CV_8U);
+                        
+                        let currentX = PADDING;
+                        for (const box of digitBoxes) {
+                            // Extraemos el dígito de la imagen procesada
+                            let digitROI = closed.roi(box);
+                            // Lo pegamos en nuestro nuevo lienzo
+                            let pasteRegion = normalizedMask.roi(new cv.Rect(currentX, PADDING, box.width, box.height));
+                            digitROI.copyTo(pasteRegion);
+                            currentX += box.width + SPACING;
+                            digitROI.delete();
+                            pasteRegion.delete();
                         }
-                    } catch(err) { 
-                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
+                        
+                        // 5. Enviar esta imagen PERFECTA al OCR
+                        const finalImageData = matToImageData(normalizedMask);
+                        const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
+                        canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
+                        
+                        try {
+                            const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
+                            await worker.setParameters({
+                                tessedit_char_whitelist: '0123456789',
+                                tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE 
+                            });
+                            const { data: { text } } = await worker.recognize(canvasForDecoders);
+                            self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (normalizado): "' + text.replace(/\\n/g, ' ') + '"' });
+                            await worker.terminate();
+
+                            const reconstructedCode = reconstructEAN13FromOCR(text);
+                            if (reconstructedCode) {
+                                result = { code: reconstructedCode, method: "IA + Normalización de Dígitos" };
+                            }
+                        } catch(err) { 
+                            self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
+                        }
+
+                        var debugImageData = finalImageData;
+                        normalizedMask.delete();
                     }
                     
                     // Liberación de memoria
-                    const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete(); mask.delete(); finalContours.delete();
+                    src.delete(); gray.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); kernel.delete(); closed.delete(); contours.delete(); hierarchy.delete();
 
-                    self.postMessage({ 
-                        status: 'done', 
-                        result: result,
-                        debugImageData: debugImageData
-                    }, [debugImageData.data.buffer]);
+                    self.postMessage({ status: 'done', result: result, debugImageData: debugImageData }, debugImageData ? [debugImageData.data.buffer] : undefined);
                 };
                 
                 function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
@@ -341,6 +343,10 @@
                         debugCanvas.height = debugImageData.height;
                         const ctx = debugCanvas.getContext('2d');
                         ctx.putImageData(debugImageData, 0, 0);
+                        // Hacemos que la imagen de depuración sea más fácil de ver
+                        debugCanvas.style.width = 'auto';
+                        debugCanvas.style.imageRendering = 'pixelated';
+                        debugCanvas.style.height = '60px';
                     }
 
                     displayFinalResult(result);
