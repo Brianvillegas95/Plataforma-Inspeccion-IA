@@ -247,19 +247,21 @@
                     if (results.length === 0) {
                         self.postMessage({ status: 'update', message: 'Worker: ZXing falló. Intentando con reconstrucción OCR...' });
                         try {
-                            const worker = await self.Tesseract.createWorker('eng');
+                            // --- CAMBIO DE MOTOR OCR ---
+                            // El segundo argumento '0' le indica a Tesseract que use el motor "Legacy",
+                            // que es a menudo mejor para caracteres individuales como los de los códigos de barras.
+                            const worker = await self.Tesseract.createWorker('eng', 0);
+                            
                             await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
                             const { data: { text } } = await worker.recognize(canvasForDecoders);
                             
-                            // --- EL "ESPÍA" ---
-                            // Enviamos el texto crudo a la consola principal para depuración.
-                            self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
+                            self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR (Motor Legacy): "' + text.replace(/\\n/g, ' ') + '"' });
 
                             await worker.terminate();
 
                             const reconstructedCode = reconstructEAN13FromOCR(text);
                             if (reconstructedCode) {
-                                results.push({ code: reconstructedCode, method: "IA + Reconstrucción OCR" });
+                                results.push({ code: reconstructedCode, method: "IA + Reconstrucción OCR (Legacy)" });
                             }
                         } catch(err) { 
                             self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
