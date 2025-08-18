@@ -75,7 +75,7 @@
                 </div>
 
                 <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen Reconstruida por IA:</strong></p>
+                    <p><strong>Imagen de Depuración (Procesada):</strong></p>
                     <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
                 </div>
 
@@ -86,6 +86,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/zxing.min.js"></script>
     <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
     <script>
@@ -133,7 +134,7 @@
             debugSection.style.display = 'none';
             const croppedCanvas = cropper.getCroppedCanvas();
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo con Motor 3: IA Disruptiva...");
+            updateAuditor("Iniciando análisis profundo con Motor 3: OCR Pulido...");
             if (!analysisWorker) setupWorker();
             analysisWorker.postMessage({ imageData: imageData });
         });
@@ -173,12 +174,13 @@
 
         function setupWorker() {
             const workerCode = `
-                self.importScripts('https://docs.opencv.org/4.9.0/opencv.js');
+                self.importScripts(
+                    'https://docs.opencv.org/4.9.0/opencv.js',
+                    'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
+                );
 
                 const FIXED_PREFIX = '75014287';
-                let digitTemplates = null;
 
-                // --- Lógica de Validación Final ---
                 function levenshteinDistance(s1, s2) {
                     const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
                     for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
@@ -198,140 +200,116 @@
                     return (10 - (sum % 10)) % 10;
                 }
 
-                function logicalValidationEngine(recognizedString) {
-                    if (!recognizedString || recognizedString.length < 11) return null;
-                    
+                function logicalValidationEngine(ocrText) {
+                    if (!ocrText) return null;
+                    const correctedText = ocrText.toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/S/g, '5').replace(/B/g, '8');
+                    const numberBlocks = correctedText.match(/\\d+/g);
+                    if (!numberBlocks) return null;
+                    const allDigits = numberBlocks.join('');
+                    if (allDigits.length < 11) return null;
+
                     let bestMatch = { distance: 100, index: -1 };
-                    for (let i = 0; i <= recognizedString.length - 8; i++) {
-                        const dist = levenshteinDistance(recognizedString.substring(i, i + 8), FIXED_PREFIX);
+                    for (let i = 0; i <= allDigits.length - 8; i++) {
+                        const dist = levenshteinDistance(allDigits.substring(i, i + 8), FIXED_PREFIX);
                         if (dist < bestMatch.distance) {
                             bestMatch.distance = dist;
                             bestMatch.index = i;
                         }
-                        if (dist === 0) break; 
+                        if (dist === 0) break;
                     }
 
                     if (bestMatch.index === -1 || bestMatch.distance > 2) return null;
 
-                    const suffix = recognizedString.substring(bestMatch.index + 8);
+                    const suffix = allDigits.substring(bestMatch.index + 8);
                     const base12 = (FIXED_PREFIX + suffix).substring(0, 12);
                     if (base12.length < 12) return null;
-
                     return base12 + calculateEAN13Checksum(base12).toString();
                 }
 
-                // --- Nuevo Motor de Reconocimiento Visual ---
-                async function generativeOcrEngine(imageData) {
-                    if (!digitTemplates) {
-                        digitTemplates = await createDigitTemplates();
-                    }
-                    
-                    let src = cv.matFromImageData(imageData);
-                    let gray = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                    
-                    let binary = new cv.Mat();
-                    cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
-                    
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
-                    cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                    let recognizedChars = [];
-                    for (let i = 0; i < contours.size(); ++i) {
-                        let cnt = contours.get(i);
-                        let rect = cv.boundingRect(cnt);
-                        let h = rect.height;
-                        let w = rect.width;
-                        
-                        // Filtrar contornos: ignorar ruido y formas no parecidas a dígitos
-                        if (h < 15 || h > 80 || w > h || w < 5) continue;
-
-                        let roi = binary.roi(rect);
-                        let bestMatch = { digit: '?', score: 0 };
-
-                        for(let digit = 0; digit <= 9; digit++) {
-                            let template = digitTemplates[digit];
-                            let resizedRoi = new cv.Mat();
-                            cv.resize(roi, resizedRoi, template.size(), 0, 0, cv.INTER_AREA);
-                            
-                            let result = new cv.Mat();
-                            cv.matchTemplate(resizedRoi, template, result, cv.TM_CCOEFF_NORMED);
-                            let minMax = cv.minMaxLoc(result);
-                            
-                            if(minMax.maxVal > bestMatch.score) {
-                                bestMatch.score = minMax.maxVal;
-                                bestMatch.digit = digit.toString();
-                            }
-                            resizedRoi.delete();
-                            result.delete();
-                        }
-                        if(bestMatch.score > 0.6) { // Umbral de confianza
-                           recognizedChars.push({ digit: bestMatch.digit, x: rect.x });
-                        }
-                        roi.delete();
-                    }
-
-                    // Ordenar caracteres por su posición X en la imagen
-                    recognizedChars.sort((a, b) => a.x - b.x);
-                    const recognizedString = recognizedChars.map(c => c.digit).join('');
-                    
-                    // Limpieza de memoria
-                    src.delete(); gray.delete(); binary.delete(); contours.delete(); hierarchy.delete();
-                    
-                    return recognizedString;
-                }
-
-                async function createDigitTemplates() {
-                    const templates = {};
-                    for (let i = 0; i < 10; i++) {
-                        const canvas = new OffscreenCanvas(30, 50);
-                        const ctx = canvas.getContext('2d');
-                        ctx.fillStyle = 'white';
-                        ctx.font = 'bold 45px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText(i.toString(), 15, 25);
-                        const templateData = ctx.getImageData(0, 0, 30, 50);
-                        templates[i] = cv.matFromImageData(templateData);
-                        cv.cvtColor(templates[i], templates[i], cv.COLOR_RGBA2GRAY);
-                    }
-                    return templates;
+                function matToImageData(mat) {
+                    const matRGBA = new cv.Mat();
+                    cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
+                    const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
+                    matRGBA.delete();
+                    return imageData;
                 }
 
                 self.onmessage = async (e) => {
                     await waitForOpenCV();
-                    const recognizedString = await generativeOcrEngine(e.data.imageData);
-                    const finalCode = logicalValidationEngine(recognizedString);
-                    self.postMessage({ result: finalCode, reconstructedString: finalCode || recognizedString });
+                    const { imageData } = e.data;
+                    let result = null;
+                    
+                    const src = cv.matFromImageData(imageData);
+                    let gray = new cv.Mat();
+                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+                    // --- INICIA PIPELINE DE IMAGEN NÍTIDA (LA VERSIÓN BUENA) ---
+                    let blurred = new cv.Mat();
+                    cv.medianBlur(gray, blurred, 3);
+
+                    let sharpened = new cv.Mat();
+                    let gaussian = new cv.Mat();
+                    cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
+                    cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
+                    
+                    let binary = new cv.Mat();
+                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    
+                    let resized = new cv.Mat();
+                    const targetHeight = 120;
+                    const aspectRatio = binary.cols / binary.rows;
+                    const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
+                    cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
+                    // --- TERMINA PIPELINE DE IMAGEN NÍTIDA ---
+
+                    const finalImageData = matToImageData(resized);
+                    const canvasForTesseract = new OffscreenCanvas(finalImageData.width, finalImageData.height);
+                    canvasForTesseract.getContext('2d').putImageData(finalImageData, 0, 0);
+                    
+                    try {
+                        const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
+                        await worker.setParameters({
+                            tessedit_char_whitelist: '0123456789',
+                            tessedit_pageseg_mode: '7', // *** CLAVE: Tratar imagen como una sola línea de texto ***
+                        });
+                        const { data: { text } } = await worker.recognize(canvasForTesseract);
+                        self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
+                        await worker.terminate();
+
+                        result = logicalValidationEngine(text);
+
+                    } catch(err) { 
+                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
+                    }
+                    
+                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+
+                    self.postMessage({ status: 'done', result: result, debugImageData: finalImageData }, [finalImageData.data.buffer]);
                 };
                 
-                function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
+                function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
             `;
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             analysisWorker = new Worker(URL.createObjectURL(blob));
             analysisWorker.onmessage = (e) => {
-                const { result, reconstructedString } = e.data;
-                console.log("Main: El Worker ha finalizado el análisis.", {result, reconstructedString});
-                
-                // --- Reconstrucción Generativa en el Canvas ---
-                if (reconstructedString) {
-                    debugSection.style.display = 'block';
-                    const ctx = debugCanvas.getContext('2d');
-                    debugCanvas.height = 80;
-                    debugCanvas.width = 400; 
-                    ctx.fillStyle = '#f0f0f0';
-                    ctx.fillRect(0, 0, debugCanvas.width, debugCanvas.height);
-                    ctx.fillStyle = 'black';
-                    ctx.font = 'bold 50px monospace';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(reconstructedString, debugCanvas.width / 2, debugCanvas.height / 2);
-                }
+                const { status, message, result, debugImageData } = e.data;
+                if (status === 'update') {
+                    console.log(message);
+                } else if (status === 'done') {
+                    console.log("Main: El Worker ha finalizado el análisis.", result);
+                    
+                    if (debugImageData) {
+                        debugSection.style.display = 'block';
+                        debugCanvas.width = debugImageData.width;
+                        debugCanvas.height = debugImageData.height;
+                        const ctx = debugCanvas.getContext('2d');
+                        ctx.putImageData(debugImageData, 0, 0);
+                    }
 
-                displayFinalResult({ code: result, method: "Motor 3: IA Disruptiva (Reconstrucción)" });
-                analyzeSelectionBtn.disabled = false;
-                analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
+                    displayFinalResult({ code: result, method: "Motor 3: OCR Pulido" });
+                    analyzeSelectionBtn.disabled = false;
+                    analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
+                }
             };
         }
 
