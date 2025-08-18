@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validadador de Código Profesional - IA Vision Max</title>
+    <title>Validador de Código Profesional - IA Vision Max</title>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     
     <link rel="stylesheet" href="css/estilos.css">
@@ -89,7 +89,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
     <script>
-        const VALID_PREFIXES = ['75014287', '75014497'];
+        const TARGET_PREFIX = '75014287';
 
         const uploadInput = document.getElementById('upload-image-input');
         const imageDisplay = document.getElementById('image-display');
@@ -104,6 +104,9 @@
         let cropper = null;
         let analysisWorker = null;
 
+        // --- INICIO DE LA LÓGICA PRINCIPAL ---
+
+        // Evento para cuando el usuario sube una imagen
         uploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -113,11 +116,13 @@
                 imageDisplay.src = e.target.result;
                 imageDisplay.style.opacity = '1';
                 uploadPrompt.style.display = 'none';
-                startAutomaticDetection(imageDisplay);
+                // Directamente pedimos al usuario que seleccione el área
+                promptManualSelection();
             };
             reader.readAsDataURL(file);
         });
         
+        // Evento para la pistola escáner (sin cambios)
         scannerInput.addEventListener('change', (event) => {
             const code = event.target.value.trim();
             if (code.length > 5) {
@@ -126,210 +131,42 @@
             }
         });
 
+        // Evento para el botón de analizar
         analyzeSelectionBtn.addEventListener('click', () => {
             if (!cropper) return;
             analyzeSelectionBtn.disabled = true;
             analyzeSelectionBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando...`;
             debugSection.style.display = 'none';
-            const croppedCanvas = cropper.getCroppedCanvas();
+            
+            const croppedCanvas = cropper.getCroppedCanvas({
+                minWidth: 256, // Asegura una resolución mínima para el análisis
+                minHeight: 128,
+                imageSmoothingEnabled: false,
+                imageSmoothingQuality: 'high'
+            });
+
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo. Aplicando filtros avanzados...");
-            console.log("Main: Enviando imagen recortada al Web Worker.");
+            updateAuditor("Iniciando análisis con IA. Aplicando correcciones y filtros avanzados...");
+            
+            // Si el worker no existe, lo crea.
             if (!analysisWorker) {
                 setupWorker();
             }
+            // Envía la imagen recortada al worker para el procesamiento pesado
             analysisWorker.postMessage({ imageData: imageData });
         });
 
-        async function startAutomaticDetection(imageElement) {
-            updateAuditor("Iniciando análisis rápido con el motor nativo...");
-            updateStatus('pensando', 'Detectando código automáticamente...');
-            if ('BarcodeDetector' in window) {
-                try {
-                    const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
-                    const barcodes = await barcodeDetector.detect(imageElement);
-                    if (barcodes.length > 0) {
-                        for (const barcode of barcodes) {
-                            if (isValidCode(barcode.rawValue)) {
-                                displayFinalResult({ code: barcode.rawValue, method: "Lector Nativo (Rápido)" });
-                                return;
-                            }
-                        }
-                    }
-                } catch (error) { console.error("Error en detector nativo:", error); }
-            }
-            promptManualSelection();
-        }
+        // --- FUNCIONES DE LA INTERFAZ DE USUARIO (UI) ---
 
         function promptManualSelection() {
-            updateAuditor("Análisis rápido fallido. Por favor, selecciona el área del código para un análisis profundo.");
+            updateAuditor("Por favor, selecciona el área del código para un análisis profundo con IA.");
             statusContainer.innerHTML = "Selecciona el área del código de barras.";
             if (cropper) { cropper.destroy(); }
             cropper = new Cropper(imageDisplay, {
-                viewMode: 1, autoCrop: false, background: false, zoomable: false, movable: false,
+                viewMode: 1, autoCrop: false, background: false, zoomable: true, movable: true,
                 crop: () => { analyzeSelectionBtn.disabled = false; }
             });
             analyzeSelectionBtn.style.display = 'block';
-        }
-
-        function setupWorker() {
-            const workerCode = `
-                self.importScripts(
-                    'https://docs.opencv.org/4.9.0/opencv.js',
-                    'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
-                );
-
-                const VALID_PREFIXES = ['75014287', '75014497'];
-
-                // --- NUEVA LÓGICA: RECONSTRUIR Y VALIDAR (NO CORREGIR) ---
-                function reconstructAndValidateEAN13(ocrText) {
-                    if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
-
-                    for (let i = 0; i <= cleanedText.length - 8; i++) {
-                        const potentialPrefix = cleanedText.substring(i, i + 8);
-                        for (const knownPrefix of VALID_PREFIXES) {
-                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) {
-                                const remainingText = cleanedText.substring(i + 8);
-                                
-                                // Necesitamos al menos 5 dígitos más para formar un código de 13
-                                if (remainingText.length >= 5) {
-                                    const candidate13 = (knownPrefix + remainingText).substring(0, 13);
-                                    
-                                    // CAMBIO CLAVE: Solo validamos el candidato, no lo corregimos
-                                    if (candidate13.length === 13 && validateEAN13Checksum(candidate13)) {
-                                        return candidate13; // Éxito: El código leído es matemáticamente válido
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    return null; // Si no se encuentra ninguna combinación válida
-                }
-
-                function levenshteinDistance(s1, s2) {
-                    const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
-                    for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
-                    for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
-                    for (let j = 1; j <= s2.length; j += 1) {
-                        for (let i = 1; i <= s1.length; i += 1) {
-                            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-                            track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
-                        }
-                    }
-                    return track[s2.length][s1.length];
-                }
-
-                // Función de validación (similar a la que está en la página principal)
-                function validateEAN13Checksum(code) {
-                    if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
-                    const digits = code.split('').map(Number);
-                    const checksum = digits.pop();
-                    let sum = 0;
-                    for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
-                    const calculatedChecksum = (10 - (sum % 10)) % 10;
-                    return checksum === calculatedChecksum;
-                }
-                
-                function matToImageData(mat) {
-                    const matRGBA = new cv.Mat();
-                    cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
-                    const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
-                    matRGBA.delete();
-                    return imageData;
-                }
-
-                self.onmessage = async (e) => {
-                    const { imageData } = e.data;
-                    await waitForOpenCV();
-                    const src = cv.matFromImageData(imageData);
-                    let result = null;
-                    
-                    let gray = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-
-                    let blurred = new cv.Mat();
-                    cv.medianBlur(gray, blurred, 3);
-
-                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-                    let opened = new cv.Mat();
-                    cv.morphologyEx(blurred, opened, cv.MORPH_OPEN, kernel);
-                    let closed = new cv.Mat();
-                    cv.morphologyEx(opened, closed, cv.MORPH_CLOSE, kernel);
-
-                    let sharpened = new cv.Mat();
-                    let gaussian = new cv.Mat();
-                    cv.GaussianBlur(closed, gaussian, new cv.Size(0, 0), 3);
-                    cv.addWeighted(closed, 1.5, gaussian, -0.5, 0, sharpened);
-                    
-                    let binary = new cv.Mat();
-                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-                    
-                    let resized = new cv.Mat();
-                    const targetHeight = 120;
-                    const aspectRatio = binary.cols / binary.rows;
-                    const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
-                    cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
-
-                    const finalImageData = matToImageData(resized);
-                    
-                    const canvasForTesseract = new OffscreenCanvas(finalImageData.width, finalImageData.height);
-                    canvasForTesseract.getContext('2d').putImageData(finalImageData, 0, 0);
-                    const imageBlob = await canvasForTesseract.convertToBlob({ type: 'image/png' });
-
-                    try {
-                        const worker = await self.Tesseract.createWorker('eng', 0, {
-                            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-                        });
-                        await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789',
-                        });
-                        const { data: { text } } = await worker.recognize(imageBlob);
-                        self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
-                        await worker.terminate();
-
-                        const reconstructedCode = reconstructAndValidateEAN13(text); // Usamos la nueva función
-                        if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Reconstrucción y Validación" };
-                        }
-                    } catch(err) { 
-                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + (err.message || err) });
-                    }
-                    
-                    src.delete(); gray.delete(); blurred.delete(); kernel.delete(); opened.delete(); closed.delete();
-                    sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
-
-                    self.postMessage({ 
-                        status: 'done', 
-                        result: result,
-                        debugImageData: finalImageData
-                    }, [finalImageData.data.buffer]);
-                };
-                
-                function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
-            `;
-            const blob = new Blob([workerCode], { type: 'application/javascript' });
-            analysisWorker = new Worker(URL.createObjectURL(blob));
-            analysisWorker.onmessage = (e) => {
-                const { status, message, result, debugImageData } = e.data;
-                if (status === 'update') {
-                    console.log(message);
-                } else if (status === 'done') {
-                    console.log("Main: El Worker ha finalizado el análisis.", result);
-                    
-                    if (debugImageData) {
-                        debugSection.style.display = 'block';
-                        debugCanvas.width = debugImageData.width;
-                        debugCanvas.height = debugImageData.height;
-                        const ctx = debugCanvas.getContext('2d');
-                        ctx.putImageData(debugImageData, 0, 0);
-                    }
-
-                    displayFinalResult(result);
-                    analyzeSelectionBtn.disabled = false;
-                    analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
-                }
-            };
         }
 
         function displayFinalResult(result) {
@@ -342,6 +179,8 @@
                 statusContainer.innerHTML = `<div class="veredicto-rechazado">Muestra ilegible. Intente con una imagen más clara o una selección diferente.</div>`;
                 updateAuditor("La IA no pudo decodificar el código. Se recomienda un nuevo intento.");
             }
+            analyzeSelectionBtn.disabled = false;
+            analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
         }
         
         function isValidCode(code) {
@@ -349,8 +188,8 @@
             const match = code.match(/\d{13}/);
             if (!match) return false;
             const ean13Code = match[0];
-            const hasPrefix = VALID_PREFIXES.some(prefix => ean13Code.startsWith(prefix));
-            return hasPrefix && validateEAN13Checksum(ean13Code);
+            // Ahora solo valida contra un único prefijo
+            return ean13Code.startsWith(TARGET_PREFIX) && validateEAN13Checksum(ean13Code);
         }
 
         function validateEAN13Checksum(code) {
@@ -376,10 +215,205 @@
         }
 
         function updateAuditor(text) { auditorText.textContent = text; }
-        
         function updateStatus(type, message) { statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`; }
-        
         document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // --- WEB WORKER: EL CEREBRO DE LA IA ---
+        // Aquí se define toda la lógica de procesamiento pesado
+        function setupWorker() {
+            const workerCode = `
+                self.importScripts(
+                    'https://docs.opencv.org/4.9.0/opencv.js',
+                    'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
+                );
+
+                const TARGET_PREFIX = '75014287';
+
+                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES (MEJORADA) ---
+                function reconstructEAN13FromOCR(ocrText) {
+                    if (!ocrText) return null;
+                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo números
+
+                    // Buscamos el prefijo con una tolerancia de 2 errores
+                    for (let i = 0; i <= cleanedText.length - 8; i++) {
+                        const potentialPrefix = cleanedText.substring(i, i + 8);
+                        if (levenshteinDistance(potentialPrefix, TARGET_PREFIX) <= 2) {
+                            // Si lo encontramos, intentamos tomar los siguientes 5 dígitos
+                            const remainingText = cleanedText.substring(i + 8);
+                            if (remainingText.length >= 5) {
+                                const finalFiveDigits = remainingText.substring(0, 5);
+                                const candidate = TARGET_PREFIX + finalFiveDigits; // Usamos el prefijo CORRECTO
+                                if (validateEAN13Checksum(candidate)) {
+                                    return candidate; // ¡Éxito!
+                                }
+                            }
+                        }
+                    }
+                    return null; // No se pudo reconstruir
+                }
+
+                function levenshteinDistance(s1, s2) {
+                    const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+                    for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
+                    for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
+                    for (let j = 1; j <= s2.length; j += 1) {
+                        for (let i = 1; i <= s1.length; i += 1) {
+                            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+                            track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
+                        }
+                    }
+                    return track[s2.length][s1.length];
+                }
+
+                function validateEAN13Checksum(code) {
+                    if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
+                    const digits = code.split('').map(Number);
+                    const checksum = digits.pop();
+                    let sum = 0;
+                    for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
+                    const calculatedChecksum = (10 - (sum % 10)) % 10;
+                    return checksum === calculatedChecksum;
+                }
+                
+                // --- NUEVO PIPELINE DE PROCESAMIENTO CON IA (OpenCV) ---
+                function adaptiveImageProcessing(src) {
+                    let gray = new cv.Mat();
+                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+                    // 1. ENDEREZAR IMAGEN (Corrección de perspectiva)
+                    let deskewed = gray.clone();
+                    try {
+                        let binary = new cv.Mat();
+                        cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+                        let contours = new cv.MatVector();
+                        let hierarchy = new cv.Mat();
+                        cv.findContours(binary, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+                        
+                        if (contours.size() > 0) {
+                            // Encontrar el contorno más grande (asumimos que es el bloque de texto/código)
+                            let maxArea = 0;
+                            let bestContour = contours.get(0);
+                            for (let i = 0; i < contours.size(); ++i) {
+                                let area = cv.contourArea(contours.get(i));
+                                if (area > maxArea) {
+                                    maxArea = area;
+                                    bestContour = contours.get(i);
+                                }
+                            }
+                            
+                            const minAreaRect = cv.minAreaRect(bestContour);
+                            let angle = minAreaRect.angle;
+                            if (angle < -45) { angle = angle + 90; } // Ajustar el ángulo
+
+                            if (Math.abs(angle) > 2) { // Solo rotar si la inclinación es significativa
+                                self.postMessage({ status: 'update', message: 'Worker IA: Inclinación detectada (' + angle.toFixed(1) + '°). Corrigiendo...' });
+                                let M = cv.getRotationMatrix2D(minAreaRect.center, angle, 1);
+                                cv.warpAffine(gray, deskewed, M, gray.size(), cv.INTER_CUBIC, cv.BORDER_REPLICATE);
+                            }
+                        }
+                        binary.delete(); contours.delete(); hierarchy.delete();
+                    } catch(e) {
+                        self.postMessage({ status: 'update', message: 'Worker IA: Error en corrección de perspectiva. Omitiendo.' });
+                        deskewed = gray.clone(); // Si falla, continuamos con la imagen en gris
+                    }
+                    
+                    // 2. ELIMINAR SOMBRAS Y NORMALIZAR ILUMINACIÓN (CLAHE)
+                    self.postMessage({ status: 'update', message: 'Worker IA: Normalizando iluminación y contraste...' });
+                    let clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
+                    let normalized = new cv.Mat();
+                    clahe.apply(deskewed, normalized);
+                    clahe.delete();
+
+                    // 3. UMBRAL ADAPTATIVO PARA MÁXIMA NITIDEZ
+                    self.postMessage({ status: 'update', message: 'Worker IA: Aplicando umbral adaptativo para máxima claridad...' });
+                    let finalBinary = new cv.Mat();
+                    cv.adaptiveThreshold(normalized, finalBinary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
+
+                    // Liberar memoria
+                    gray.delete(); deskewed.delete(); normalized.delete();
+
+                    return finalBinary;
+                }
+
+                function matToImageData(mat) {
+                    const matRGBA = new cv.Mat();
+                    // Si la imagen ya es RGBA (como la original), no la convierte. Si es GRAY (como la procesada), la convierte.
+                    if (mat.channels() === 1) {
+                        cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
+                    } else {
+                        mat.copyTo(matRGBA);
+                    }
+                    const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
+                    matRGBA.delete();
+                    return imageData;
+                }
+
+                self.onmessage = async (e) => {
+                    const { imageData } = e.data;
+                    await waitForOpenCV();
+                    
+                    const src = cv.matFromImageData(imageData);
+                    
+                    // Aplicar el nuevo pipeline de procesamiento inteligente
+                    const processedMat = adaptiveImageProcessing(src);
+
+                    const finalImageData = matToImageData(processedMat);
+                    const canvasForTesseract = new OffscreenCanvas(finalImageData.width, finalImageData.height);
+                    canvasForTesseract.getContext('2d').putImageData(finalImageData, 0, 0);
+
+                    let result = null;
+                    try {
+                        self.postMessage({ status: 'update', message: 'Worker IA: Enviando imagen procesada a Tesseract OCR...' });
+                        const worker = await self.Tesseract.createWorker('eng');
+                        await worker.setParameters({
+                            tessedit_char_whitelist: '0123456789', // FORZAR SOLO NÚMEROS
+                        });
+                        const { data: { text } } = await worker.recognize(canvasForTesseract);
+                        await worker.terminate();
+                        
+                        self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
+                        
+                        const reconstructedCode = reconstructEAN13FromOCR(text);
+                        if (reconstructedCode) {
+                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR" };
+                        }
+                    } catch(err) { 
+                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
+                    }
+
+                    const debugImageData = finalImageData;
+                    src.delete(); processedMat.delete();
+
+                    self.postMessage({ 
+                        status: 'done', 
+                        result: result,
+                        debugImageData: debugImageData
+                    }, [debugImageData.data.buffer]);
+                };
+                
+                function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
+            `;
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            analysisWorker = new Worker(URL.createObjectURL(blob));
+            analysisWorker.onmessage = (e) => {
+                const { status, message, result, debugImageData } = e.data;
+                if (status === 'update') {
+                    console.log(message); // Muestra los mensajes de progreso de la IA en la consola
+                } else if (status === 'done') {
+                    console.log("Main: El Worker ha finalizado el análisis.", result);
+                    
+                    if (debugImageData) {
+                        debugSection.style.display = 'block';
+                        debugCanvas.width = debugImageData.width;
+                        debugCanvas.height = debugImageData.height;
+                        const ctx = debugCanvas.getContext('2d');
+                        ctx.putImageData(debugImageData, 0, 0);
+                    }
+
+                    displayFinalResult(result);
+                }
+            };
+        }
     </script>
     </body>
 </html>
