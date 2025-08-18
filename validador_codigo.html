@@ -75,7 +75,7 @@
                 </div>
 
                 <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen de Depuración (Procesada):</strong></p>
+                    <p><strong>Imagen de Depuración (Dígitos Aislados):</strong></p>
                     <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
                 </div>
 
@@ -104,9 +104,6 @@
         let cropper = null;
         let analysisWorker = null;
 
-        // --- INICIO DE LA LÓGICA PRINCIPAL ---
-
-        // Evento para cuando el usuario sube una imagen
         uploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -116,13 +113,11 @@
                 imageDisplay.src = e.target.result;
                 imageDisplay.style.opacity = '1';
                 uploadPrompt.style.display = 'none';
-                // Directamente pedimos al usuario que seleccione el área
                 promptManualSelection();
             };
             reader.readAsDataURL(file);
         });
         
-        // Evento para la pistola escáner (sin cambios)
         scannerInput.addEventListener('change', (event) => {
             const code = event.target.value.trim();
             if (code.length > 5) {
@@ -131,7 +126,6 @@
             }
         });
 
-        // Evento para el botón de analizar
         analyzeSelectionBtn.addEventListener('click', () => {
             if (!cropper) return;
             analyzeSelectionBtn.disabled = true;
@@ -139,24 +133,20 @@
             debugSection.style.display = 'none';
             
             const croppedCanvas = cropper.getCroppedCanvas({
-                minWidth: 256, // Asegura una resolución mínima para el análisis
+                minWidth: 256,
                 minHeight: 128,
                 imageSmoothingEnabled: false,
                 imageSmoothingQuality: 'high'
             });
 
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis con IA. Aplicando correcciones y filtros avanzados...");
+            updateAuditor("Iniciando análisis con IA. Aislando dígitos...");
             
-            // Si el worker no existe, lo crea.
             if (!analysisWorker) {
                 setupWorker();
             }
-            // Envía la imagen recortada al worker para el procesamiento pesado
             analysisWorker.postMessage({ imageData: imageData });
         });
-
-        // --- FUNCIONES DE LA INTERFAZ DE USUARIO (UI) ---
 
         function promptManualSelection() {
             updateAuditor("Por favor, selecciona el área del código para un análisis profundo con IA.");
@@ -188,7 +178,6 @@
             const match = code.match(/\d{13}/);
             if (!match) return false;
             const ean13Code = match[0];
-            // Ahora solo valida contra un único prefijo
             return ean13Code.startsWith(TARGET_PREFIX) && validateEAN13Checksum(ean13Code);
         }
 
@@ -215,11 +204,9 @@
         }
 
         function updateAuditor(text) { auditorText.textContent = text; }
-        function updateStatus(type, message) { statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`; }
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-        // --- WEB WORKER: EL CEREBRO DE LA IA ---
-        // Aquí se define toda la lógica de procesamiento pesado
+        // --- WEB WORKER: EL CEREBRO DE LA IA (VERSIÓN CON AISLAMIENTO DE DÍGITOS) ---
         function setupWorker() {
             const workerCode = `
                 self.importScripts(
@@ -229,27 +216,24 @@
 
                 const TARGET_PREFIX = '75014287';
 
-                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES (MEJORADA) ---
+                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES (SIN CAMBIOS) ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo números
-
-                    // Buscamos el prefijo con una tolerancia de 2 errores
+                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
                     for (let i = 0; i <= cleanedText.length - 8; i++) {
                         const potentialPrefix = cleanedText.substring(i, i + 8);
                         if (levenshteinDistance(potentialPrefix, TARGET_PREFIX) <= 2) {
-                            // Si lo encontramos, intentamos tomar los siguientes 5 dígitos
                             const remainingText = cleanedText.substring(i + 8);
                             if (remainingText.length >= 5) {
                                 const finalFiveDigits = remainingText.substring(0, 5);
-                                const candidate = TARGET_PREFIX + finalFiveDigits; // Usamos el prefijo CORRECTO
+                                const candidate = TARGET_PREFIX + finalFiveDigits;
                                 if (validateEAN13Checksum(candidate)) {
-                                    return candidate; // ¡Éxito!
+                                    return candidate;
                                 }
                             }
                         }
                     }
-                    return null; // No se pudo reconstruir
+                    return null;
                 }
 
                 function levenshteinDistance(s1, s2) {
@@ -275,74 +259,55 @@
                     return checksum === calculatedChecksum;
                 }
                 
-                // --- NUEVO PIPELINE DE PROCESAMIENTO CON IA (OpenCV) ---
-                function adaptiveImageProcessing(src) {
+                // --- NUEVA FUNCIÓN CLAVE: AISLAMIENTO DE DÍGITOS ---
+                function isolateDigits(src) {
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // 1. ENDEREZAR IMAGEN (Corrección de perspectiva)
-                    let deskewed = gray.clone();
-                    try {
-                        let binary = new cv.Mat();
-                        cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
-                        let contours = new cv.MatVector();
-                        let hierarchy = new cv.Mat();
-                        cv.findContours(binary, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
-                        
-                        if (contours.size() > 0) {
-                            // Encontrar el contorno más grande (asumimos que es el bloque de texto/código)
-                            let maxArea = 0;
-                            let bestContour = contours.get(0);
-                            for (let i = 0; i < contours.size(); ++i) {
-                                let area = cv.contourArea(contours.get(i));
-                                if (area > maxArea) {
-                                    maxArea = area;
-                                    bestContour = contours.get(i);
-                                }
-                            }
-                            
-                            const minAreaRect = cv.minAreaRect(bestContour);
-                            let angle = minAreaRect.angle;
-                            if (angle < -45) { angle = angle + 90; } // Ajustar el ángulo
+                    let blurred = new cv.Mat();
+                    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
 
-                            if (Math.abs(angle) > 2) { // Solo rotar si la inclinación es significativa
-                                self.postMessage({ status: 'update', message: 'Worker IA: Inclinación detectada (' + angle.toFixed(1) + '°). Corrigiendo...' });
-                                let M = cv.getRotationMatrix2D(minAreaRect.center, angle, 1);
-                                cv.warpAffine(gray, deskewed, M, gray.size(), cv.INTER_CUBIC, cv.BORDER_REPLICATE);
-                            }
+                    let binary = new cv.Mat();
+                    cv.adaptiveThreshold(blurred, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 4);
+
+                    let contours = new cv.MatVector();
+                    let hierarchy = new cv.Mat();
+                    cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                    let digitContours = new cv.MatVector();
+                    
+                    // Aquí está la inteligencia: filtramos los contornos por forma y tamaño
+                    for (let i = 0; i < contours.size(); ++i) {
+                        let cnt = contours.get(i);
+                        let rect = cv.boundingRect(cnt);
+                        let aspectRatio = rect.height / rect.width;
+                        let area = cv.contourArea(cnt);
+                        
+                        // Criterios de filtrado (se pueden ajustar)
+                        if (aspectRatio > 1.2 && aspectRatio < 4.0 && area > 50 && area < 2000) {
+                            digitContours.push_back(cnt);
                         }
-                        binary.delete(); contours.delete(); hierarchy.delete();
-                    } catch(e) {
-                        self.postMessage({ status: 'update', message: 'Worker IA: Error en corrección de perspectiva. Omitiendo.' });
-                        deskewed = gray.clone(); // Si falla, continuamos con la imagen en gris
                     }
                     
-                    // 2. ELIMINAR SOMBRAS Y NORMALIZAR ILUMINACIÓN (CLAHE)
-                    self.postMessage({ status: 'update', message: 'Worker IA: Normalizando iluminación y contraste...' });
-                    let clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
-                    let normalized = new cv.Mat();
-                    clahe.apply(deskewed, normalized);
-                    clahe.delete();
+                    // Creamos una nueva imagen en negro y dibujamos solo los dígitos filtrados
+                    let mask = cv.Mat.zeros(src.rows, src.cols, cv.CV_8U);
+                    for (let i = 0; i < digitContours.size(); ++i) {
+                        cv.drawContours(mask, digitContours, i, new cv.Scalar(255, 255, 255, 255), -1);
+                    }
 
-                    // 3. UMBRAL ADAPTATIVO PARA MÁXIMA NITIDEZ
-                    self.postMessage({ status: 'update', message: 'Worker IA: Aplicando umbral adaptativo para máxima claridad...' });
-                    let finalBinary = new cv.Mat();
-                    cv.adaptiveThreshold(normalized, finalBinary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
+                    // Limpieza final de la máscara para conectar partes rotas de números
+                    let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+                    cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernel);
+                    kernel.delete();
 
-                    // Liberar memoria
-                    gray.delete(); deskewed.delete(); normalized.delete();
+                    gray.delete(); blurred.delete(); binary.delete(); contours.delete(); hierarchy.delete(); digitContours.delete();
 
-                    return finalBinary;
+                    return mask;
                 }
 
                 function matToImageData(mat) {
                     const matRGBA = new cv.Mat();
-                    // Si la imagen ya es RGBA (como la original), no la convierte. Si es GRAY (como la procesada), la convierte.
-                    if (mat.channels() === 1) {
-                        cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
-                    } else {
-                        mat.copyTo(matRGBA);
-                    }
+                    cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
                     const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
                     matRGBA.delete();
                     return imageData;
@@ -354,8 +319,8 @@
                     
                     const src = cv.matFromImageData(imageData);
                     
-                    // Aplicar el nuevo pipeline de procesamiento inteligente
-                    const processedMat = adaptiveImageProcessing(src);
+                    // Aplicar el nuevo pipeline de Aislamiento de Dígitos
+                    const processedMat = isolateDigits(src);
 
                     const finalImageData = matToImageData(processedMat);
                     const canvasForTesseract = new OffscreenCanvas(finalImageData.width, finalImageData.height);
@@ -363,10 +328,10 @@
 
                     let result = null;
                     try {
-                        self.postMessage({ status: 'update', message: 'Worker IA: Enviando imagen procesada a Tesseract OCR...' });
+                        self.postMessage({ status: 'update', message: 'Worker IA: Enviando dígitos aislados a Tesseract OCR...' });
                         const worker = await self.Tesseract.createWorker('eng');
                         await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789', // FORZAR SOLO NÚMEROS
+                            tessedit_char_whitelist: '0123456789',
                         });
                         const { data: { text } } = await worker.recognize(canvasForTesseract);
                         await worker.terminate();
@@ -375,7 +340,7 @@
                         
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR" };
+                            result = { code: reconstructedCode, method: "IA (Aislamiento) + OCR" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
@@ -398,7 +363,7 @@
             analysisWorker.onmessage = (e) => {
                 const { status, message, result, debugImageData } = e.data;
                 if (status === 'update') {
-                    console.log(message); // Muestra los mensajes de progreso de la IA en la consola
+                    console.log(message);
                 } else if (status === 'done') {
                     console.log("Main: El Worker ha finalizado el análisis.", result);
                     
