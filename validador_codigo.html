@@ -181,24 +181,18 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- LÓGICA DE RECONSTRUCCIÓN CON AUTO-CORRECCIÓN DE CHECKSUM ---
                 function reconstructAndCorrectEAN13(ocrText) {
                     if (!ocrText) return null;
                     const cleanedText = ocrText.replace(/[^0-9]/g, '');
-
                     for (let i = 0; i <= cleanedText.length - 8; i++) {
                         const potentialPrefix = cleanedText.substring(i, i + 8);
                         for (const knownPrefix of VALID_PREFIXES) {
-                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) { // Tolera hasta 2 errores
+                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) {
                                 const remainingText = cleanedText.substring(i + 8);
-                                
-                                // Necesitamos al menos 4 dígitos más para formar la base de 12
                                 if (remainingText.length >= 4) {
                                     const base12 = (knownPrefix + remainingText).substring(0, 12);
-                                    
-                                    // MEJORA CLAVE: Calcular y corregir el checksum en lugar de solo validar
                                     const checksum = calculateEAN13Checksum(base12);
-                                    return base12 + checksum.toString(); // Devolver el código corregido
+                                    return base12 + checksum.toString();
                                 }
                             }
                         }
@@ -243,42 +237,37 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- INICIA PIPELINE DE IMAGEN MEJORADO CON "PULIDO FINAL" ---
-                    
-                    // 1. Reducción de ruido inicial
                     let blurred = new cv.Mat();
                     cv.medianBlur(gray, blurred, 3);
 
-                    // MEJORA: Operaciones morfológicas para eliminar ruido pequeño y rellenar dígitos
                     let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
                     let opened = new cv.Mat();
-                    // OPEN: Elimina el ruido y los "falsos dígitos" pequeños
                     cv.morphologyEx(blurred, opened, cv.MORPH_OPEN, kernel);
                     let closed = new cv.Mat();
-                    // CLOSE: Rellena los pixeles y une partes rotas de los números
                     cv.morphologyEx(opened, closed, cv.MORPH_CLOSE, kernel);
 
-                    // 2. Aumento de nitidez (sharpening) sobre la imagen ya limpia
                     let sharpened = new cv.Mat();
                     let gaussian = new cv.Mat();
                     cv.GaussianBlur(closed, gaussian, new cv.Size(0, 0), 3);
                     cv.addWeighted(closed, 1.5, gaussian, -0.5, 0, sharpened);
                     
-                    // 3. Binarización (convertir a blanco y negro)
                     let binary = new cv.Mat();
                     cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
-                    // 4. Redimensionamiento para consistencia
                     let resized = new cv.Mat();
                     const targetHeight = 120;
                     const aspectRatio = binary.cols / binary.rows;
                     const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
                     cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
 
-                    // --- TERMINA PIPELINE DE IMAGEN MEJORADO ---
-
                     const finalImageData = matToImageData(resized);
                     
+                    // --- INICIA CORRECCIÓN DE ESTABILIDAD ---
+                    const canvasForTesseract = new OffscreenCanvas(finalImageData.width, finalImageData.height);
+                    canvasForTesseract.getContext('2d').putImageData(finalImageData, 0, 0);
+                    const imageBlob = await canvasForTesseract.convertToBlob({ type: 'image/png' });
+                    // --- TERMINA CORRECCIÓN DE ESTABILIDAD ---
+
                     try {
                         const worker = await self.Tesseract.createWorker('eng', 0, {
                             langPath: 'https://tessdata.projectnaptha.com/4.0.0',
@@ -286,7 +275,8 @@
                         await worker.setParameters({
                             tessedit_char_whitelist: '0123456789',
                         });
-                        const { data: { text } } = await worker.recognize(finalImageData);
+                        // Pasar el Blob en lugar de la imagen cruda
+                        const { data: { text } } = await worker.recognize(imageBlob);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
 
@@ -295,10 +285,9 @@
                             result = { code: reconstructedCode, method: "IA + Reconstrucción Pulida" };
                         }
                     } catch(err) { 
-                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
+                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + (err.message || err) });
                     }
                     
-                    // Limpieza de memoria de OpenCV
                     src.delete(); gray.delete(); blurred.delete(); kernel.delete(); opened.delete(); closed.delete();
                     sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
 
