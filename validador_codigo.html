@@ -243,10 +243,18 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- PIPELINE A (Para la IA): Optimizado para Tesseract ---
+                    // --- PIPELINE A (Para la IA): Con Restauración Morfológica ---
                     let forTesseract = new cv.Mat();
-                    cv.GaussianBlur(gray, forTesseract, new cv.Size(1, 1), 0);
-                    cv.threshold(forTesseract, forTesseract, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+                    let denoised = new cv.Mat();
+                    cv.medianBlur(gray, denoised, 3);
+                    cv.adaptiveThreshold(denoised, forTesseract, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
+                    
+                    // --- Paso Clave: Restauración Morfológica para unir caracteres rotos ---
+                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+                    cv.morphologyEx(forTesseract, forTesseract, cv.MORPH_CLOSE, kernel);
+                    kernel.delete();
+                    denoised.delete();
+
 
                     // --- PIPELINE B (Para el Usuario): Optimizado para visualización ---
                     let forDebug = new cv.Mat();
@@ -263,7 +271,7 @@
                     const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
                     cv.resize(forDebug, forDebug, newSize, 0, 0, cv.INTER_CUBIC);
                     
-                    // --- Ejecutar OCR sobre la imagen del Pipeline A ---
+                    // --- Ejecutar OCR sobre la imagen Restaurada del Pipeline A ---
                     const tesseractImageData = matToImageData(forTesseract);
                     const canvasForTesseract = new OffscreenCanvas(tesseractImageData.width, tesseractImageData.height);
                     canvasForTesseract.getContext('2d').putImageData(tesseractImageData, 0, 0);
@@ -310,7 +318,7 @@
                         ctx.putImageData(debugImageData, 0, 0);
                     }
 
-                    displayFinalResult({ code: result, method: "Motor 3: Doble Pipeline" });
+                    displayFinalResult({ code: result, method: "Motor 3: Restauración Morfológica" });
                     analyzeSelectionBtn.disabled = false;
                     analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
                 }
