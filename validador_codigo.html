@@ -75,7 +75,7 @@
                 </div>
 
                 <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen de Depuración (Dígitos Aislados):</strong></p>
+                    <p><strong>Imagen de Depuración (Procesada):</strong></p>
                     <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
                 </div>
 
@@ -89,7 +89,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
     <script>
-        const TARGET_PREFIX = '75014287';
+        const VALID_PREFIXES = ['75014287', '75014497'];
 
         const uploadInput = document.getElementById('upload-image-input');
         const imageDisplay = document.getElementById('image-display');
@@ -113,7 +113,7 @@
                 imageDisplay.src = e.target.result;
                 imageDisplay.style.opacity = '1';
                 uploadPrompt.style.display = 'none';
-                promptManualSelection();
+                startAutomaticDetection(imageDisplay);
             };
             reader.readAsDataURL(file);
         });
@@ -131,82 +131,47 @@
             analyzeSelectionBtn.disabled = true;
             analyzeSelectionBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando...`;
             debugSection.style.display = 'none';
-            
-            const croppedCanvas = cropper.getCroppedCanvas({
-                minWidth: 256,
-                minHeight: 128,
-                imageSmoothingEnabled: false,
-                imageSmoothingQuality: 'high'
-            });
-
+            const croppedCanvas = cropper.getCroppedCanvas();
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis con IA. Aislando dígitos...");
-            
+            updateAuditor("Iniciando análisis profundo. Aplicando filtros avanzados...");
+            console.log("Main: Enviando imagen recortada al Web Worker.");
             if (!analysisWorker) {
                 setupWorker();
             }
             analysisWorker.postMessage({ imageData: imageData });
         });
 
+        async function startAutomaticDetection(imageElement) {
+            updateAuditor("Iniciando análisis rápido con el motor nativo...");
+            updateStatus('pensando', 'Detectando código automáticamente...');
+            if ('BarcodeDetector' in window) {
+                try {
+                    const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
+                    const barcodes = await barcodeDetector.detect(imageElement);
+                    if (barcodes.length > 0) {
+                        for (const barcode of barcodes) {
+                            if (isValidCode(barcode.rawValue)) {
+                                displayFinalResult({ code: barcode.rawValue, method: "Lector Nativo (Rápido)" });
+                                return;
+                            }
+                        }
+                    }
+                } catch (error) { console.error("Error en detector nativo:", error); }
+            }
+            promptManualSelection();
+        }
+
         function promptManualSelection() {
-            updateAuditor("Por favor, selecciona el área del código para un análisis profundo con IA.");
+            updateAuditor("Análisis rápido fallido. Por favor, selecciona el área del código para un análisis profundo.");
             statusContainer.innerHTML = "Selecciona el área del código de barras.";
             if (cropper) { cropper.destroy(); }
             cropper = new Cropper(imageDisplay, {
-                viewMode: 1, autoCrop: false, background: false, zoomable: true, movable: true,
+                viewMode: 1, autoCrop: false, background: false, zoomable: false, movable: false,
                 crop: () => { analyzeSelectionBtn.disabled = false; }
             });
             analyzeSelectionBtn.style.display = 'block';
         }
 
-        function displayFinalResult(result) {
-            if (result && isValidCode(result.code)) {
-                const cleanCode = result.code.match(/\d{13}/)[0];
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${result.method}</small>`;
-                updateAuditor(`¡Lectura exitosa! El código es: ${cleanCode}`);
-                if (cropper) { cropper.destroy(); cropper = null; analyzeSelectionBtn.style.display = 'none';}
-            } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">Muestra ilegible. Intente con una imagen más clara o una selección diferente.</div>`;
-                updateAuditor("La IA no pudo decodificar el código. Se recomienda un nuevo intento.");
-            }
-            analyzeSelectionBtn.disabled = false;
-            analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
-        }
-        
-        function isValidCode(code) {
-            if (!code || typeof code !== 'string') return false;
-            const match = code.match(/\d{13}/);
-            if (!match) return false;
-            const ean13Code = match[0];
-            return ean13Code.startsWith(TARGET_PREFIX) && validateEAN13Checksum(ean13Code);
-        }
-
-        function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
-            const digits = code.split('').map(Number);
-            const checksum = digits.pop();
-            let sum = 0;
-            for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
-            const calculatedChecksum = (10 - (sum % 10)) % 10;
-            return checksum === calculatedChecksum;
-        }
-
-        function resetUI() {
-            if (cropper) { cropper.destroy(); cropper = null; }
-            imageDisplay.src = "";
-            imageDisplay.style.opacity = '0';
-            uploadPrompt.style.display = 'block';
-            statusContainer.innerHTML = "Esperando imagen...";
-            analyzeSelectionBtn.style.display = 'none';
-            analyzeSelectionBtn.disabled = true;
-            debugSection.style.display = 'none';
-            updateAuditor("Listo para iniciar la verificación automática.");
-        }
-
-        function updateAuditor(text) { auditorText.textContent = text; }
-        document.getElementById('currentYear').textContent = new Date().getFullYear();
-
-        // --- WEB WORKER: EL CEREBRO DE LA IA (VERSIÓN CON AISLAMIENTO DE DÍGITOS) ---
         function setupWorker() {
             const workerCode = `
                 self.importScripts(
@@ -214,26 +179,31 @@
                     'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
                 );
 
-                const TARGET_PREFIX = '75014287';
+                const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES (SIN CAMBIOS) ---
+                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
-                    for (let i = 0; i <= cleanedText.length - 8; i++) {
+                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo nos quedamos con los números
+
+                    for (let i = 0; i <= cleanedText.length - 8; i++) { // Busca en toda la cadena
                         const potentialPrefix = cleanedText.substring(i, i + 8);
-                        if (levenshteinDistance(potentialPrefix, TARGET_PREFIX) <= 2) {
-                            const remainingText = cleanedText.substring(i + 8);
-                            if (remainingText.length >= 5) {
-                                const finalFiveDigits = remainingText.substring(0, 5);
-                                const candidate = TARGET_PREFIX + finalFiveDigits;
-                                if (validateEAN13Checksum(candidate)) {
-                                    return candidate;
+                        for (const knownPrefix of VALID_PREFIXES) {
+                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) { // Tolera hasta 2 errores
+                                // Si encontramos un prefijo "casi" perfecto, intentamos construir el resto del código
+                                const remainingText = cleanedText.substring(i + 8);
+                                if (remainingText.length >= 5) {
+                                    const finalFiveDigits = remainingText.substring(0, 5);
+                                    // Usamos el PREFIJO CORRECTO para construir el candidato final
+                                    const candidate = knownPrefix + finalFiveDigits;
+                                    if (validateEAN13Checksum(candidate)) {
+                                        return candidate; // ¡Éxito! Código reconstruido y validado
+                                    }
                                 }
                             }
                         }
                     }
-                    return null;
+                    return null; // No se pudo reconstruir
                 }
 
                 function levenshteinDistance(s1, s2) {
@@ -259,52 +229,6 @@
                     return checksum === calculatedChecksum;
                 }
                 
-                // --- NUEVA FUNCIÓN CLAVE: AISLAMIENTO DE DÍGITOS ---
-                function isolateDigits(src) {
-                    let gray = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-
-                    let blurred = new cv.Mat();
-                    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-
-                    let binary = new cv.Mat();
-                    cv.adaptiveThreshold(blurred, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 4);
-
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
-                    cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                    let digitContours = new cv.MatVector();
-                    
-                    // Aquí está la inteligencia: filtramos los contornos por forma y tamaño
-                    for (let i = 0; i < contours.size(); ++i) {
-                        let cnt = contours.get(i);
-                        let rect = cv.boundingRect(cnt);
-                        let aspectRatio = rect.height / rect.width;
-                        let area = cv.contourArea(cnt);
-                        
-                        // Criterios de filtrado (se pueden ajustar)
-                        if (aspectRatio > 1.2 && aspectRatio < 4.0 && area > 50 && area < 2000) {
-                            digitContours.push_back(cnt);
-                        }
-                    }
-                    
-                    // Creamos una nueva imagen en negro y dibujamos solo los dígitos filtrados
-                    let mask = cv.Mat.zeros(src.rows, src.cols, cv.CV_8U);
-                    for (let i = 0; i < digitContours.size(); ++i) {
-                        cv.drawContours(mask, digitContours, i, new cv.Scalar(255, 255, 255, 255), -1);
-                    }
-
-                    // Limpieza final de la máscara para conectar partes rotas de números
-                    let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-                    cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernel);
-                    kernel.delete();
-
-                    gray.delete(); blurred.delete(); binary.delete(); contours.delete(); hierarchy.delete(); digitContours.delete();
-
-                    return mask;
-                }
-
                 function matToImageData(mat) {
                     const matRGBA = new cv.Mat();
                     cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
@@ -316,38 +240,56 @@
                 self.onmessage = async (e) => {
                     const { imageData } = e.data;
                     await waitForOpenCV();
-                    
                     const src = cv.matFromImageData(imageData);
-                    
-                    // Aplicar el nuevo pipeline de Aislamiento de Dígitos
-                    const processedMat = isolateDigits(src);
-
-                    const finalImageData = matToImageData(processedMat);
-                    const canvasForTesseract = new OffscreenCanvas(finalImageData.width, finalImageData.height);
-                    canvasForTesseract.getContext('2d').putImageData(finalImageData, 0, 0);
-
                     let result = null;
+                    
+                    let gray = new cv.Mat();
+                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+                    // PROCESAMIENTO ESTABLE Y ROBUSTO
+                    let blurred = new cv.Mat();
+                    cv.medianBlur(gray, blurred, 3);
+
+                    let sharpened = new cv.Mat();
+                    let gaussian = new cv.Mat();
+                    cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
+                    cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
+                    
+                    let binary = new cv.Mat();
+                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    
+                    let resized = new cv.Mat();
+                    const targetHeight = 120;
+                    const aspectRatio = binary.cols / binary.rows;
+                    const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
+                    cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
+
+                    const finalImageData = matToImageData(resized);
+                    const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
+                    canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
+                    
                     try {
-                        self.postMessage({ status: 'update', message: 'Worker IA: Enviando dígitos aislados a Tesseract OCR...' });
-                        const worker = await self.Tesseract.createWorker('eng');
+                        // Limpiamos las advertencias usando la inicialización moderna de Tesseract.js v5
+                        const worker = await self.Tesseract.createWorker('eng', 0, {
+                            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+                        });
                         await worker.setParameters({
                             tessedit_char_whitelist: '0123456789',
                         });
-                        const { data: { text } } = await worker.recognize(canvasForTesseract);
-                        await worker.terminate();
-                        
+                        const { data: { text } } = await worker.recognize(canvasForDecoders);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
-                        
+                        await worker.terminate();
+
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA (Aislamiento) + OCR" };
+                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR Inteligente" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
                     }
-
+                    
                     const debugImageData = finalImageData;
-                    src.delete(); processedMat.delete();
+                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
@@ -376,9 +318,60 @@
                     }
 
                     displayFinalResult(result);
+                    analyzeSelectionBtn.disabled = false;
+                    analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
                 }
             };
         }
+
+        function displayFinalResult(result) {
+            if (result && isValidCode(result.code)) {
+                const cleanCode = result.code.match(/\d{13}/)[0];
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${result.method}</small>`;
+                updateAuditor(`¡Lectura exitosa! El código es: ${cleanCode}`);
+                if (cropper) { cropper.destroy(); cropper = null; analyzeSelectionBtn.style.display = 'none';}
+            } else {
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">Muestra ilegible. Intente con una imagen más clara o una selección diferente.</div>`;
+                updateAuditor("La IA no pudo decodificar el código. Se recomienda un nuevo intento.");
+            }
+        }
+        
+        function isValidCode(code) {
+            if (!code || typeof code !== 'string') return false;
+            const match = code.match(/\d{13}/);
+            if (!match) return false;
+            const ean13Code = match[0];
+            const hasPrefix = VALID_PREFIXES.some(prefix => ean13Code.startsWith(prefix));
+            return hasPrefix && validateEAN13Checksum(ean13Code);
+        }
+
+        function validateEAN13Checksum(code) {
+            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
+            const digits = code.split('').map(Number);
+            const checksum = digits.pop();
+            let sum = 0;
+            for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
+            const calculatedChecksum = (10 - (sum % 10)) % 10;
+            return checksum === calculatedChecksum;
+        }
+
+        function resetUI() {
+            if (cropper) { cropper.destroy(); cropper = null; }
+            imageDisplay.src = "";
+            imageDisplay.style.opacity = '0';
+            uploadPrompt.style.display = 'block';
+            statusContainer.innerHTML = "Esperando imagen...";
+            analyzeSelectionBtn.style.display = 'none';
+            analyzeSelectionBtn.disabled = true;
+            debugSection.style.display = 'none';
+            updateAuditor("Listo para iniciar la verificación automática.");
+        }
+
+        function updateAuditor(text) { auditorText.textContent = text; }
+        
+        function updateStatus(type, message) { statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`; }
+        
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>
     </body>
 </html>
