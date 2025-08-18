@@ -134,7 +134,7 @@
             debugSection.style.display = 'none';
             const croppedCanvas = cropper.getCroppedCanvas();
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo con Motor 3: OCR Pulido...");
+            updateAuditor("Iniciando análisis profundo con Motor 3: Doble Pipeline...");
             if (!analysisWorker) setupWorker();
             analysisWorker.postMessage({ imageData: imageData });
         });
@@ -200,137 +200,21 @@
                     return (10 - (sum % 10)) % 10;
                 }
 
-                
-function logicalValidationEngine(ocrText) {
-  const FIXED_PREFIX = '75014287'; // 8 fijos
-  if (!ocrText || typeof ocrText !== 'string') return null;
+                function logicalValidationEngine(ocrText) {
+                    if (!ocrText) return null;
+                    const correctedText = ocrText.toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/S/g, '5').replace(/B/g, '8');
+                    const numberBlocks = correctedText.match(/\\d+/g);
+                    if (!numberBlocks) return null;
+                    const allDigits = numberBlocks.join('');
+                    if (allDigits.length < 11) return null;
 
-  // 1) Normalización dura (OCR → dígitos)
-  const norm = normalizeOCR(ocrText);
-
-  // 2) Extrae bloques numéricos, descarta “solitarios”
-  const blocks = extractDigitBlocks(norm);
-  if (blocks.length === 0) return null;
-
-  // 3) Candidatos por alineación al prefijo (Levenshtein ≤ 2)
-  const allDigits = blocks.join('');
-  const base12 = bestBase12FromDigits(allDigits, FIXED_PREFIX);
-  if (!base12) {
-    // Fallback: si ya vino un 13-dígitos, valida/corrige checksum y prefijo
-    const fallback = fallbackFromRaw13(norm, FIXED_PREFIX);
-    return fallback;
-  }
-
-  // 4) Checksum y salida final
-  const check = calculateEAN13Checksum(base12);
-  return base12 + String(check);
-}
-
-/*** === Soporte: helpers robustos === ***/
-
-function normalizeOCR(s) {
-  const map = {
-    'O':'0','o':'0','Q':'0','D':'0',
-    'I':'1','l':'1','L':'1','|':'1','!':'1',
-    'S':'5','s':'5',
-    'B':'8','b':'8',
-    'Z':'2','z':'2',
-    'G':'6','g':'6',
-    'q':'9'
-  };
-  let out = '';
-  for (const ch of s) {
-    if (map[ch] !== undefined) { out += map[ch]; continue; }
-    if (/[0-9]/.test(ch))      { out += ch;      continue; }
-    out += ' ';
-  }
-  out = out.replace(/\s+/g,' ').trim();
-  return out;
-}
-
-function extractDigitBlocks(norm) {
-  const rawBlocks = norm.split(' ').filter(Boolean);
-  return rawBlocks.filter(b => b.length >= 2);
-}
-
-function lev(a, b) {
-  const m = a.length, n = b.length;
-  if (m === 0) return n; if (n === 0) return m;
-  let prev = new Array(n+1), curr = new Array(n+1);
-  for (let j=0;j<=n;j++) prev[j]=j;
-  for (let i=1;i<=m;i++) {
-    curr[0]=i;
-    for (let j=1;j<=n;j++) {
-      const cost = a[i-1]===b[j-1]?0:1;
-      curr[j]=Math.min(curr[j-1]+1, prev[j]+1, prev[j-1]+cost);
-    }
-    const tmp=prev; prev=curr; curr=tmp;
-  }
-  return prev[n];
-}
-
-function calculateEAN13Checksum(base12) {
-  if (!/^\d{12}$/.test(base12)) return null;
-  let sum = 0;
-  for (let i=0;i<12;i++) {
-    const d = base12.charCodeAt(i)-48;
-    sum += (i % 2 === 0) ? d : d*3;
-  }
-  return (10 - (sum % 10)) % 10;
-}
-
-function bestBase12FromDigits(allDigits, FIXED_PREFIX) {
-  if (!/^\d+$/.test(allDigits)) return null;
-  const anchors = [];
-  for (let i=0;i<allDigits.length;i++) if (allDigits[i]==='7') anchors.push(i);
-  if (anchors.length===0) anchors.push(0);
-  let best = {score:Infinity, base12:null};
-  for (const i of anchors) {
-    for (let offset=-3; offset<=3; offset++) {
-      const start = i + offset;
-      if (start < 0 || start+8 > allDigits.length) continue;
-      const prefCandidate = allDigits.slice(start, start+8);
-      const dist = lev(prefCandidate, FIXED_PREFIX);
-      if (dist > 2) continue;
-      let cursor = start + 8;
-      let data = '';
-      while (cursor < allDigits.length && data.length < 4) {
-        data += allDigits[cursor++];
-      }
-      if (data.length < 4) {
-        let back = start - 1;
-        const need = 4 - data.length;
-        let head = '';
-        while (back >= 0 && head.length < need) head = allDigits[back--] + head;
-        data = data + head;
-      }
-      if (data.length < 4) continue;
-      const candidateBase12 = FIXED_PREFIX + data.slice(0,4);
-      const borrowPenalty = data.length>4 ? 0.5 : 0;
-      const score = dist + borrowPenalty;
-      if (score < best.score) best = {score, base12:candidateBase12};
-    }
-  }
-  return best.base12;
-}
-
-function fallbackFromRaw13(norm, FIXED_PREFIX) {
-  const m = norm.replace(/\D+/g,'').match(/\d{13}/);
-  if (!m) return null;
-  let code = m[0];
-  if (!code.startsWith(FIXED_PREFIX)) {
-    const data4 = code.slice(8, 12).padEnd(4,'0');
-    const base12 = FIXED_PREFIX + data4;
-    const check = calculateEAN13Checksum(base12);
-    code = base12 + String(check);
-  } else {
-    const base12 = code.slice(0,12);
-    const check = calculateEAN13Checksum(base12);
-    code = base12 + String(check);
-  }
-  return code;
-}
-
+                    let bestMatch = { distance: 100, index: -1 };
+                    for (let i = 0; i <= allDigits.length - 8; i++) {
+                        const dist = levenshteinDistance(allDigits.substring(i, i + 8), FIXED_PREFIX);
+                        if (dist < bestMatch.distance) {
+                            bestMatch.distance = dist;
+                            bestMatch.index = i;
+                        }
                         if (dist === 0) break;
                     }
 
@@ -359,48 +243,50 @@ function fallbackFromRaw13(norm, FIXED_PREFIX) {
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- INICIA PIPELINE DE IMAGEN NÍTIDA (LA VERSIÓN BUENA) ---
+                    // --- PIPELINE A (Para la IA): Optimizado para Tesseract ---
+                    let forTesseract = new cv.Mat();
+                    cv.GaussianBlur(gray, forTesseract, new cv.Size(1, 1), 0); // Desenfoque muy ligero
+                    cv.threshold(forTesseract, forTesseract, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+
+                    // --- PIPELINE B (Para el Usuario): Optimizado para visualización ---
+                    let forDebug = new cv.Mat();
                     let blurred = new cv.Mat();
                     cv.medianBlur(gray, blurred, 3);
-
                     let sharpened = new cv.Mat();
                     let gaussian = new cv.Mat();
                     cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
                     cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
+                    cv.threshold(sharpened, forDebug, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
-                    let binary = new cv.Mat();
-                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-                    
-                    let resized = new cv.Mat();
                     const targetHeight = 120;
-                    const aspectRatio = binary.cols / binary.rows;
+                    const aspectRatio = forDebug.cols / forDebug.rows;
                     const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
-                    cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
-                    // --- TERMINA PIPELINE DE IMAGEN NÍTIDA ---
-
-                    const finalImageData = matToImageData(resized);
-                    const canvasForTesseract = new OffscreenCanvas(finalImageData.width, finalImageData.height);
-                    canvasForTesseract.getContext('2d').putImageData(finalImageData, 0, 0);
+                    cv.resize(forDebug, forDebug, newSize, 0, 0, cv.INTER_CUBIC);
                     
+                    // --- Ejecutar OCR sobre la imagen del Pipeline A ---
+                    const tesseractImageData = matToImageData(forTesseract);
                     try {
                         const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
                         await worker.setParameters({
                             tessedit_char_whitelist: '0123456789',
-                            tessedit_pageseg_mode: '7', // *** CLAVE: Tratar imagen como una sola línea de texto ***
+                            tessedit_pageseg_mode: '7',
                         });
-                        const { data: { text } } = await worker.recognize(canvasForTesseract);
+                        const { data: { text } } = await worker.recognize(tesseractImageData);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
-
                         result = logicalValidationEngine(text);
-
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
                     }
                     
-                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+                    // --- Preparar imagen del Pipeline B para enviar de vuelta ---
+                    const debugImageData = matToImageData(forDebug);
+                    
+                    // --- Limpieza de memoria ---
+                    src.delete(); gray.delete(); forTesseract.delete(); forDebug.delete();
+                    blurred.delete(); sharpened.delete(); gaussian.delete();
 
-                    self.postMessage({ status: 'done', result: result, debugImageData: finalImageData }, [finalImageData.data.buffer]);
+                    self.postMessage({ status: 'done', result: result, debugImageData: debugImageData }, [debugImageData.data.buffer]);
                 };
                 
                 function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
@@ -422,7 +308,7 @@ function fallbackFromRaw13(norm, FIXED_PREFIX) {
                         ctx.putImageData(debugImageData, 0, 0);
                     }
 
-                    displayFinalResult({ code: result, method: "Motor 3: OCR Pulido" });
+                    displayFinalResult({ code: result, method: "Motor 3: Doble Pipeline" });
                     analyzeSelectionBtn.disabled = false;
                     analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
                 }
