@@ -89,7 +89,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
     <script>
-        const VALID_PREFIXES = ['75014287', '75014497'];
+        const VALID_PREFIXES = ['75014287'];
 
         const uploadInput = document.getElementById('upload-image-input');
         const imageDisplay = document.getElementById('image-display');
@@ -179,54 +179,59 @@
                     'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
                 );
 
-                const VALID_PREFIXES = ['75014287', '75014497'];
+                const FIXED_PREFIX = '75014287';
 
-                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES ---
-                function reconstructEAN13FromOCR(ocrText) {
-                    if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo nos quedamos con los números
-
-                    for (let i = 0; i <= cleanedText.length - 8; i++) { // Busca en toda la cadena
-                        const potentialPrefix = cleanedText.substring(i, i + 8);
-                        for (const knownPrefix of VALID_PREFIXES) {
-                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) { // Tolera hasta 2 errores
-                                // Si encontramos un prefijo "casi" perfecto, intentamos construir el resto del código
-                                const remainingText = cleanedText.substring(i + 8);
-                                if (remainingText.length >= 5) {
-                                    const finalFiveDigits = remainingText.substring(0, 5);
-                                    // Usamos el PREFIJO CORRECTO para construir el candidato final
-                                    const candidate = knownPrefix + finalFiveDigits;
-                                    if (validateEAN13Checksum(candidate)) {
-                                        return candidate; // ¡Éxito! Código reconstruido y validado
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    return null; // No se pudo reconstruir
-                }
-
-                function levenshteinDistance(s1, s2) {
-                    const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
-                    for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
-                    for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
-                    for (let j = 1; j <= s2.length; j += 1) {
-                        for (let i = 1; i <= s1.length; i += 1) {
-                            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-                            track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
-                        }
-                    }
-                    return track[s2.length][s1.length];
-                }
-
-                function validateEAN13Checksum(code) {
-                    if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
-                    const digits = code.split('').map(Number);
-                    const checksum = digits.pop();
+                /**
+                 * Calcula el dígito de control (checksum) para una base EAN-13 de 12 dígitos.
+                 * @param {string} base12 - Los primeros 12 dígitos del código EAN-13.
+                 * @returns {number} El dígito de control calculado.
+                 */
+                function calculateEAN13Checksum(base12) {
                     let sum = 0;
-                    for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
+                    for (let i = 0; i < 12; i++) {
+                        const digit = parseInt(base12[i], 10);
+                        sum += (i % 2 === 0) ? digit : (digit * 3);
+                    }
                     const calculatedChecksum = (10 - (sum % 10)) % 10;
-                    return checksum === calculatedChecksum;
+                    return calculatedChecksum;
+                }
+
+                /**
+                 * Post-procesador IA para limpiar, reconstruir y auto-corregir un código EAN-13
+                 * a partir del texto crudo extraído por el OCR, siguiendo reglas de negocio estrictas.
+                 * @param {string} ocrText - El texto crudo del OCR.
+                 * @returns {string|null} El código EAN-13 de 13 dígitos, válido y corregido, o null si es imposible reconstruir.
+                 */
+                function reconstructAndCorrectEAN13(ocrText) {
+                    if (!ocrText) return null;
+
+                    // 1. Limpieza inicial: eliminar todo excepto los dígitos numéricos.
+                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
+
+                    // 2. Reconstrucción: localizar el primer '7' como ancla para el inicio del código.
+                    const startIndex = cleanedText.indexOf('7');
+                    if (startIndex === -1) {
+                        return null; // No se encontró un posible inicio de código.
+                    }
+
+                    // 3. Extraer todos los dígitos disponibles a partir del ancla '7'.
+                    const potentialCodeSuffix = cleanedText.substring(startIndex + 1);
+                    
+                    // 4. Forzar el prefijo y añadir los dígitos variables encontrados para formar una base de 12.
+                    const base12Candidate = (FIXED_PREFIX + potentialCodeSuffix).substring(0, 12);
+
+                    // 5. Validación de longitud: verificar si tenemos suficientes dígitos para trabajar.
+                    if (base12Candidate.length < 12) {
+                        return null; // No hay suficientes dígitos para construir una base de 12.
+                    }
+
+                    // 6. Auto-Corrección: calcular el dígito de control correcto.
+                    const checksum = calculateEAN13Checksum(base12Candidate);
+
+                    // 7. Salida final: devolver el código EAN-13 completo y válido.
+                    const finalCode = base12Candidate + checksum.toString();
+                    
+                    return finalCode;
                 }
                 
                 function matToImageData(mat) {
@@ -269,7 +274,6 @@
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
                     try {
-                        // Limpiamos las advertencias usando la inicialización moderna de Tesseract.js v5
                         const worker = await self.Tesseract.createWorker('eng', 0, {
                             langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                         });
@@ -280,9 +284,9 @@
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
 
-                        const reconstructedCode = reconstructEAN13FromOCR(text);
+                        const reconstructedCode = reconstructAndCorrectEAN13(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR Inteligente" };
+                            result = { code: reconstructedCode, method: "IA Post-Processor (Reconstrucción y Corrección)" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
@@ -331,7 +335,7 @@
                 updateAuditor(`¡Lectura exitosa! El código es: ${cleanCode}`);
                 if (cropper) { cropper.destroy(); cropper = null; analyzeSelectionBtn.style.display = 'none';}
             } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">Muestra ilegible. Intente con una imagen más clara o una selección diferente.</div>`;
+                statusContainer.innerHTML = `<div class="veredicto-rechazado"><strong>ERROR: Código no reconocible</strong></div>`;
                 updateAuditor("La IA no pudo decodificar el código. Se recomienda un nuevo intento.");
             }
         }
@@ -346,7 +350,7 @@
         }
 
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
+            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
