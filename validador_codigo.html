@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código Profesional - IA Vision Max</title>
+    <title>Validadador de Código Profesional - IA Vision Max</title>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     
     <link rel="stylesheet" href="css/estilos.css">
@@ -181,23 +181,30 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                function reconstructAndCorrectEAN13(ocrText) {
+                // --- NUEVA LÓGICA: RECONSTRUIR Y VALIDAR (NO CORREGIR) ---
+                function reconstructAndValidateEAN13(ocrText) {
                     if (!ocrText) return null;
                     const cleanedText = ocrText.replace(/[^0-9]/g, '');
+
                     for (let i = 0; i <= cleanedText.length - 8; i++) {
                         const potentialPrefix = cleanedText.substring(i, i + 8);
                         for (const knownPrefix of VALID_PREFIXES) {
                             if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) {
                                 const remainingText = cleanedText.substring(i + 8);
-                                if (remainingText.length >= 4) {
-                                    const base12 = (knownPrefix + remainingText).substring(0, 12);
-                                    const checksum = calculateEAN13Checksum(base12);
-                                    return base12 + checksum.toString();
+                                
+                                // Necesitamos al menos 5 dígitos más para formar un código de 13
+                                if (remainingText.length >= 5) {
+                                    const candidate13 = (knownPrefix + remainingText).substring(0, 13);
+                                    
+                                    // CAMBIO CLAVE: Solo validamos el candidato, no lo corregimos
+                                    if (candidate13.length === 13 && validateEAN13Checksum(candidate13)) {
+                                        return candidate13; // Éxito: El código leído es matemáticamente válido
+                                    }
                                 }
                             }
                         }
                     }
-                    return null;
+                    return null; // Si no se encuentra ninguna combinación válida
                 }
 
                 function levenshteinDistance(s1, s2) {
@@ -213,11 +220,15 @@
                     return track[s2.length][s1.length];
                 }
 
-                function calculateEAN13Checksum(code12) {
-                    if (typeof code12 !== 'string' || code12.length !== 12 || !/^\\d+$/.test(code12)) return 0;
+                // Función de validación (similar a la que está en la página principal)
+                function validateEAN13Checksum(code) {
+                    if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
+                    const digits = code.split('').map(Number);
+                    const checksum = digits.pop();
                     let sum = 0;
-                    for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? parseInt(code12[i]) : (parseInt(code12[i]) * 3); }
-                    return (10 - (sum % 10)) % 10;
+                    for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
+                    const calculatedChecksum = (10 - (sum % 10)) % 10;
+                    return checksum === calculatedChecksum;
                 }
                 
                 function matToImageData(mat) {
@@ -262,11 +273,9 @@
 
                     const finalImageData = matToImageData(resized);
                     
-                    // --- INICIA CORRECCIÓN DE ESTABILIDAD ---
                     const canvasForTesseract = new OffscreenCanvas(finalImageData.width, finalImageData.height);
                     canvasForTesseract.getContext('2d').putImageData(finalImageData, 0, 0);
                     const imageBlob = await canvasForTesseract.convertToBlob({ type: 'image/png' });
-                    // --- TERMINA CORRECCIÓN DE ESTABILIDAD ---
 
                     try {
                         const worker = await self.Tesseract.createWorker('eng', 0, {
@@ -275,14 +284,13 @@
                         await worker.setParameters({
                             tessedit_char_whitelist: '0123456789',
                         });
-                        // Pasar el Blob en lugar de la imagen cruda
                         const { data: { text } } = await worker.recognize(imageBlob);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
 
-                        const reconstructedCode = reconstructAndCorrectEAN13(text);
+                        const reconstructedCode = reconstructAndValidateEAN13(text); // Usamos la nueva función
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Reconstrucción Pulida" };
+                            result = { code: reconstructedCode, method: "IA + Reconstrucción y Validación" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + (err.message || err) });
