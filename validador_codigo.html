@@ -245,7 +245,7 @@
 
                     // --- PIPELINE A (Para la IA): Optimizado para Tesseract ---
                     let forTesseract = new cv.Mat();
-                    cv.GaussianBlur(gray, forTesseract, new cv.Size(1, 1), 0); // Desenfoque muy ligero
+                    cv.GaussianBlur(gray, forTesseract, new cv.Size(1, 1), 0);
                     cv.threshold(forTesseract, forTesseract, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
 
                     // --- PIPELINE B (Para el Usuario): Optimizado para visualización ---
@@ -265,24 +265,26 @@
                     
                     // --- Ejecutar OCR sobre la imagen del Pipeline A ---
                     const tesseractImageData = matToImageData(forTesseract);
+                    const canvasForTesseract = new OffscreenCanvas(tesseractImageData.width, tesseractImageData.height);
+                    canvasForTesseract.getContext('2d').putImageData(tesseractImageData, 0, 0);
+                    const imageBlob = await canvasForTesseract.convertToBlob({ type: 'image/png' });
+
                     try {
                         const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
                         await worker.setParameters({
                             tessedit_char_whitelist: '0123456789',
                             tessedit_pageseg_mode: '7',
                         });
-                        const { data: { text } } = await worker.recognize(tesseractImageData);
+                        const { data: { text } } = await worker.recognize(imageBlob);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
                         result = logicalValidationEngine(text);
                     } catch(err) { 
-                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
+                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + (err.message || err) });
                     }
                     
-                    // --- Preparar imagen del Pipeline B para enviar de vuelta ---
                     const debugImageData = matToImageData(forDebug);
                     
-                    // --- Limpieza de memoria ---
                     src.delete(); gray.delete(); forTesseract.delete(); forDebug.delete();
                     blurred.delete(); sharpened.delete(); gaussian.delete();
 
