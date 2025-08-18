@@ -127,14 +127,30 @@
             }
         });
 
-        analyzeSelectionBtn.addEventListener('click', () => {
+        analyzeSelectionBtn.addEventListener('click', async () => {
             if (!cropper) return;
             analyzeSelectionBtn.disabled = true;
             analyzeSelectionBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando...`;
             debugSection.style.display = 'none';
+            
             const croppedCanvas = cropper.getCroppedCanvas();
+            
+            // --- NUEVO FLUJO: Priorizar el escáner de barras sobre la selección ---
+            updateAuditor("Usando escáner de precisión (ZXing) en la selección...");
+            try {
+                const codeReader = new ZXing.BrowserMultiFormatReader();
+                const result = await codeReader.decodeFromCanvas(croppedCanvas);
+                if (result && result.getBarcodeFormat() === ZXing.BarcodeFormat.EAN_13 && isValidCode(result.getText())) {
+                    displayFinalResult({ code: result.getText(), method: "Motor 2: Escáner de Precisión (ZXing)" });
+                    return;
+                }
+            } catch (error) {
+                console.log("El escáner de precisión no encontró código de barras, intentando OCR como último recurso.");
+            }
+
+            // --- FALLBACK: Si ZXing falla, usar el OCR ---
+            updateAuditor("Escáner falló. Usando OCR de respaldo en los números...");
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo con Motor 3: Doble Pipeline...");
             if (!analysisWorker) setupWorker();
             analysisWorker.postMessage({ imageData: imageData });
         });
@@ -151,19 +167,19 @@
                 } catch (error) { console.error("Error en detector nativo:", error); }
             }
 
-            updateAuditor("Análisis nativo fallido. Probando Motor 2: ZXing Avanzado...");
+            updateAuditor("Análisis nativo fallido. Probando Motor 2: ZXing Automático...");
             try {
                 const codeReader = new ZXing.BrowserMultiFormatReader();
                 const result = await codeReader.decodeFromImageElement(imageElement);
-                if (result && result.getBarcodeFormat() === ZXing.BarcodeFormat.EAN_13 && isValidCode(result.getText())) { displayFinalResult({ code: result.getText(), method: "Motor 2: ZXing (Avanzado)" }); return; }
-            } catch (error) { console.log("ZXing no encontró un código válido."); }
+                if (result && result.getBarcodeFormat() === ZXing.BarcodeFormat.EAN_13 && isValidCode(result.getText())) { displayFinalResult({ code: result.getText(), method: "Motor 2: ZXing Automático" }); return; }
+            } catch (error) { console.log("ZXing no encontró un código válido en el análisis automático."); }
 
             promptManualSelection();
         }
 
         function promptManualSelection() {
-            updateAuditor("Análisis automático fallido. Por favor, selecciona el área de los NÚMEROS para un análisis profundo.");
-            statusContainer.innerHTML = "Selecciona el área de los números del código de barras.";
+            updateAuditor("Análisis automático fallido. Por favor, selecciona el área del CÓDIGO DE BARRAS para un análisis de precisión.");
+            statusContainer.innerHTML = "Selecciona el área del código de barras.";
             if (cropper) { cropper.destroy(); }
             cropper = new Cropper(imageDisplay, {
                 viewMode: 1, autoCrop: false, background: false, zoomable: false, movable: false,
@@ -173,14 +189,13 @@
         }
 
         function setupWorker() {
+            // El worker del OCR se mantiene como el mejor que teníamos (Doble Pipeline con Restauración)
             const workerCode = `
                 self.importScripts(
                     'https://docs.opencv.org/4.9.0/opencv.js',
                     'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
                 );
-
                 const FIXED_PREFIX = '75014287';
-
                 function levenshteinDistance(s1, s2) {
                     const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
                     for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
@@ -193,13 +208,11 @@
                     }
                     return track[s2.length][s1.length];
                 }
-
                 function calculateEAN13Checksum(base12) {
                     let sum = 0;
                     for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? parseInt(base12[i], 10) : (parseInt(base12[i], 10) * 3); }
                     return (10 - (sum % 10)) % 10;
                 }
-
                 function logicalValidationEngine(ocrText) {
                     if (!ocrText) return null;
                     const correctedText = ocrText.toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/S/g, '5').replace(/B/g, '8');
@@ -207,25 +220,18 @@
                     if (!numberBlocks) return null;
                     const allDigits = numberBlocks.join('');
                     if (allDigits.length < 11) return null;
-
                     let bestMatch = { distance: 100, index: -1 };
                     for (let i = 0; i <= allDigits.length - 8; i++) {
                         const dist = levenshteinDistance(allDigits.substring(i, i + 8), FIXED_PREFIX);
-                        if (dist < bestMatch.distance) {
-                            bestMatch.distance = dist;
-                            bestMatch.index = i;
-                        }
+                        if (dist < bestMatch.distance) { bestMatch.distance = dist; bestMatch.index = i; }
                         if (dist === 0) break;
                     }
-
                     if (bestMatch.index === -1 || bestMatch.distance > 2) return null;
-
                     const suffix = allDigits.substring(bestMatch.index + 8);
                     const base12 = (FIXED_PREFIX + suffix).substring(0, 12);
                     if (base12.length < 12) return null;
                     return base12 + calculateEAN13Checksum(base12).toString();
                 }
-
                 function matToImageData(mat) {
                     const matRGBA = new cv.Mat();
                     cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
@@ -233,30 +239,21 @@
                     matRGBA.delete();
                     return imageData;
                 }
-
                 self.onmessage = async (e) => {
                     await waitForOpenCV();
                     const { imageData } = e.data;
                     let result = null;
-                    
                     const src = cv.matFromImageData(imageData);
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-
-                    // --- PIPELINE A (Para la IA): Con Restauración Morfológica ---
                     let forTesseract = new cv.Mat();
                     let denoised = new cv.Mat();
                     cv.medianBlur(gray, denoised, 3);
                     cv.adaptiveThreshold(denoised, forTesseract, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
-                    
-                    // --- Paso Clave: Restauración Morfológica para unir caracteres rotos ---
                     let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
                     cv.morphologyEx(forTesseract, forTesseract, cv.MORPH_CLOSE, kernel);
                     kernel.delete();
                     denoised.delete();
-
-
-                    // --- PIPELINE B (Para el Usuario): Optimizado para visualización ---
                     let forDebug = new cv.Mat();
                     let blurred = new cv.Mat();
                     cv.medianBlur(gray, blurred, 3);
@@ -265,40 +262,27 @@
                     cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
                     cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
                     cv.threshold(sharpened, forDebug, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-                    
                     const targetHeight = 120;
                     const aspectRatio = forDebug.cols / forDebug.rows;
                     const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
                     cv.resize(forDebug, forDebug, newSize, 0, 0, cv.INTER_CUBIC);
-                    
-                    // --- Ejecutar OCR sobre la imagen Restaurada del Pipeline A ---
                     const tesseractImageData = matToImageData(forTesseract);
                     const canvasForTesseract = new OffscreenCanvas(tesseractImageData.width, tesseractImageData.height);
                     canvasForTesseract.getContext('2d').putImageData(tesseractImageData, 0, 0);
                     const imageBlob = await canvasForTesseract.convertToBlob({ type: 'image/png' });
-
                     try {
                         const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
-                        await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789',
-                            tessedit_pageseg_mode: '7',
-                        });
+                        await worker.setParameters({ tessedit_char_whitelist: '0123456789', tessedit_pageseg_mode: '7' });
                         const { data: { text } } = await worker.recognize(imageBlob);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
                         result = logicalValidationEngine(text);
-                    } catch(err) { 
-                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + (err.message || err) });
-                    }
-                    
+                    } catch(err) { self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + (err.message || err) }); }
                     const debugImageData = matToImageData(forDebug);
-                    
                     src.delete(); gray.delete(); forTesseract.delete(); forDebug.delete();
                     blurred.delete(); sharpened.delete(); gaussian.delete();
-
                     self.postMessage({ status: 'done', result: result, debugImageData: debugImageData }, [debugImageData.data.buffer]);
                 };
-                
                 function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
             `;
             const blob = new Blob([workerCode], { type: 'application/javascript' });
@@ -309,7 +293,6 @@
                     console.log(message);
                 } else if (status === 'done') {
                     console.log("Main: El Worker ha finalizado el análisis.", result);
-                    
                     if (debugImageData) {
                         debugSection.style.display = 'block';
                         debugCanvas.width = debugImageData.width;
@@ -317,10 +300,7 @@
                         const ctx = debugCanvas.getContext('2d');
                         ctx.putImageData(debugImageData, 0, 0);
                     }
-
-                    displayFinalResult({ code: result, method: "Motor 3: Restauración Morfológica" });
-                    analyzeSelectionBtn.disabled = false;
-                    analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
+                    displayFinalResult({ code: result, method: "Motor 4: OCR de Respaldo" });
                 }
             };
         }
@@ -335,6 +315,8 @@
                 statusContainer.innerHTML = `<div class="veredicto-rechazado"><strong>ERROR: Código no reconocible</strong></div>`;
                 updateAuditor("La IA no pudo decodificar el código. Se recomienda un nuevo intento.");
             }
+            analyzeSelectionBtn.disabled = false;
+            analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
         }
         
         function isValidCode(code) {
