@@ -84,6 +84,7 @@
         <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/zxing.min.js"></script>
     <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
@@ -133,17 +134,16 @@
             debugSection.style.display = 'none';
             const croppedCanvas = cropper.getCroppedCanvas();
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo. Aplicando filtros avanzados...");
-            console.log("Main: Enviando imagen recortada al Web Worker.");
-            if (!analysisWorker) {
-                setupWorker();
-            }
+            updateAuditor("Iniciando análisis profundo con Motor 3: OCR con IA...");
+            if (!analysisWorker) setupWorker();
             analysisWorker.postMessage({ imageData: imageData });
         });
 
         async function startAutomaticDetection(imageElement) {
-            updateAuditor("Iniciando análisis rápido con el motor nativo...");
             updateStatus('pensando', 'Detectando código automáticamente...');
+            
+            // --- Motor 1: Native BarcodeDetector ---
+            updateAuditor("Iniciando análisis... Motor 1: Lector Nativo.");
             if ('BarcodeDetector' in window) {
                 try {
                     const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
@@ -151,19 +151,34 @@
                     if (barcodes.length > 0) {
                         for (const barcode of barcodes) {
                             if (isValidCode(barcode.rawValue)) {
-                                displayFinalResult({ code: barcode.rawValue, method: "Lector Nativo (Rápido)" });
+                                displayFinalResult({ code: barcode.rawValue, method: "Motor 1: Lector Nativo (Rápido)" });
                                 return;
                             }
                         }
                     }
                 } catch (error) { console.error("Error en detector nativo:", error); }
             }
+
+            // --- Motor 2: ZXing Advanced Reader ---
+            updateAuditor("Análisis nativo fallido. Probando Motor 2: ZXing Avanzado...");
+            try {
+                const codeReader = new ZXing.BrowserMultiFormatReader();
+                const result = await codeReader.decodeFromImageElement(imageElement);
+                if (result && result.getBarcodeFormat() === ZXing.BarcodeFormat.EAN_13 && isValidCode(result.getText())) {
+                     displayFinalResult({ code: result.getText(), method: "Motor 2: ZXing (Avanzado)" });
+                     return;
+                }
+            } catch (error) {
+                console.log("ZXing no encontró un código válido.");
+            }
+
+            // --- Fallback: Manual Selection with OCR ---
             promptManualSelection();
         }
 
         function promptManualSelection() {
-            updateAuditor("Análisis rápido fallido. Por favor, selecciona el área del código para un análisis profundo.");
-            statusContainer.innerHTML = "Selecciona el área del código de barras.";
+            updateAuditor("Análisis automático fallido. Por favor, selecciona el área de los NÚMEROS para un análisis profundo.");
+            statusContainer.innerHTML = "Selecciona el área de los números del código de barras.";
             if (cropper) { cropper.destroy(); }
             cropper = new Cropper(imageDisplay, {
                 viewMode: 1, autoCrop: false, background: false, zoomable: false, movable: false,
@@ -181,57 +196,55 @@
 
                 const FIXED_PREFIX = '75014287';
 
-                /**
-                 * Calcula el dígito de control (checksum) para una base EAN-13 de 12 dígitos.
-                 * @param {string} base12 - Los primeros 12 dígitos del código EAN-13.
-                 * @returns {number} El dígito de control calculado.
-                 */
+                function levenshteinDistance(s1, s2) {
+                    const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+                    for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
+                    for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
+                    for (let j = 1; j <= s2.length; j += 1) {
+                        for (let i = 1; i <= s1.length; i += 1) {
+                            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+                            track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
+                        }
+                    }
+                    return track[s2.length][s1.length];
+                }
+
                 function calculateEAN13Checksum(base12) {
                     let sum = 0;
                     for (let i = 0; i < 12; i++) {
                         const digit = parseInt(base12[i], 10);
                         sum += (i % 2 === 0) ? digit : (digit * 3);
                     }
-                    const calculatedChecksum = (10 - (sum % 10)) % 10;
-                    return calculatedChecksum;
+                    return (10 - (sum % 10)) % 10;
                 }
 
-                /**
-                 * Post-procesador IA para limpiar, reconstruir y auto-corregir un código EAN-13
-                 * a partir del texto crudo extraído por el OCR, siguiendo reglas de negocio estrictas.
-                 * @param {string} ocrText - El texto crudo del OCR.
-                 * @returns {string|null} El código EAN-13 de 13 dígitos, válido y corregido, o null si es imposible reconstruir.
-                 */
-                function reconstructAndCorrectEAN13(ocrText) {
+                function intelligentCorrectionEngine(ocrText) {
                     if (!ocrText) return null;
+                    const correctedText = ocrText.toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/S/g, '5').replace(/B/g, '8');
+                    const numberBlocks = correctedText.match(/\\d+/g);
+                    if (!numberBlocks) return null;
+                    const allDigits = numberBlocks.join('');
+                    if (allDigits.length < 11) return null;
 
-                    // 1. Limpieza inicial: eliminar todo excepto los dígitos numéricos.
-                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
-
-                    // 2. Reconstrucción: localizar el primer '7' como ancla para el inicio del código.
-                    const startIndex = cleanedText.indexOf('7');
-                    if (startIndex === -1) {
-                        return null; // No se encontró un posible inicio de código.
+                    let bestMatch = { distance: 100, index: -1 };
+                    for (let i = 0; i <= allDigits.length - 8; i++) {
+                        const chunk = allDigits.substring(i, i + 8);
+                        const dist = levenshteinDistance(chunk, FIXED_PREFIX);
+                        if (dist < bestMatch.distance) {
+                            bestMatch.distance = dist;
+                            bestMatch.index = i;
+                        }
+                        if (dist === 0) break; 
                     }
 
-                    // 3. Extraer todos los dígitos disponibles a partir del ancla '7'.
-                    const potentialCodeSuffix = cleanedText.substring(startIndex + 1);
-                    
-                    // 4. Forzar el prefijo y añadir los dígitos variables encontrados para formar una base de 12.
-                    const base12Candidate = (FIXED_PREFIX + potentialCodeSuffix).substring(0, 12);
+                    if (bestMatch.index === -1 || bestMatch.distance > 2) return null;
 
-                    // 5. Validación de longitud: verificar si tenemos suficientes dígitos para trabajar.
-                    if (base12Candidate.length < 12) {
-                        return null; // No hay suficientes dígitos para construir una base de 12.
-                    }
+                    const suffix = allDigits.substring(bestMatch.index + 8);
+                    const base12 = (FIXED_PREFIX + suffix).substring(0, 12);
+                    if (base12.length < 12) return null;
 
-                    // 6. Auto-Corrección: calcular el dígito de control correcto.
-                    const checksum = calculateEAN13Checksum(base12Candidate);
-
-                    // 7. Salida final: devolver el código EAN-13 completo y válido.
-                    const finalCode = base12Candidate + checksum.toString();
-                    
-                    return finalCode;
+                    const checksum = calculateEAN13Checksum(base12);
+                    return base12 + checksum.toString();
                 }
                 
                 function matToImageData(mat) {
@@ -251,55 +264,46 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // PROCESAMIENTO ESTABLE Y ROBUSTO
-                    let blurred = new cv.Mat();
-                    cv.medianBlur(gray, blurred, 3);
-
-                    let sharpened = new cv.Mat();
-                    let gaussian = new cv.Mat();
-                    cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
-                    cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
+                    // --- UPGRADE 1: Sistema Anti-Reflejos ---
+                    let glareMask = new cv.Mat();
+                    // Identifica píxeles casi blancos (valor > 240) como reflejos
+                    cv.threshold(gray, glareMask, 240, 255, cv.THRESH_BINARY);
                     
+                    let M = cv.Mat.ones(3, 3, cv.CV_8U);
+                    // Expande el área del reflejo para asegurar cobertura total
+                    cv.dilate(glareMask, glareMask, M, new cv.Point(-1, -1), 1);
+                    M.delete();
+
+                    let inpainted = new cv.Mat();
+                    // "Pinta" sobre los reflejos usando los píxeles vecinos
+                    cv.inpaint(gray, glareMask, inpainted, 3, cv.INPAINT_TELEA);
+                    
+                    // --- Pre-procesamiento sobre la imagen "sanada" ---
                     let binary = new cv.Mat();
-                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-                    
-                    let resized = new cv.Mat();
-                    const targetHeight = 120;
-                    const aspectRatio = binary.cols / binary.rows;
-                    const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
-                    cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
+                    cv.adaptiveThreshold(inpainted, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 4);
 
-                    const finalImageData = matToImageData(resized);
-                    const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
-                    canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
+                    const finalImageData = matToImageData(binary);
+                    const canvasForTesseract = new OffscreenCanvas(finalImageData.width, finalImageData.height);
+                    canvasForTesseract.getContext('2d').putImageData(finalImageData, 0, 0);
                     
                     try {
-                        const worker = await self.Tesseract.createWorker('eng', 0, {
-                            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-                        });
-                        await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789',
-                        });
-                        const { data: { text } } = await worker.recognize(canvasForDecoders);
+                        const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
+                        await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+                        const { data: { text } } = await worker.recognize(canvasForTesseract);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
 
-                        const reconstructedCode = reconstructAndCorrectEAN13(text);
+                        const reconstructedCode = intelligentCorrectionEngine(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA Post-Processor (Reconstrucción y Corrección)" };
+                            result = { code: reconstructedCode, method: "Motor 3: OCR con IA (Anti-Glare)" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
                     }
                     
-                    const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+                    src.delete(); gray.delete(); glareMask.delete(); inpainted.delete(); binary.delete();
 
-                    self.postMessage({ 
-                        status: 'done', 
-                        result: result,
-                        debugImageData: debugImageData
-                    }, [debugImageData.data.buffer]);
+                    self.postMessage({ status: 'done', result: result, debugImageData: finalImageData }, [finalImageData.data.buffer]);
                 };
                 
                 function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
