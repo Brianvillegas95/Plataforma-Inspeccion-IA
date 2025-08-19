@@ -3,22 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código Profesional - IA Vision Max</title>
+    <title>Validador de Código Profesional - IA PRO</title>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     
     <link rel="stylesheet" href="css/estilos.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
-    <style>
-        /* Corrección para el manejador de tamaño de Cropper.js */
-        .cropper-view-box .cropper-point {
-            width: 12px !important;
-            height: 12px !important;
-            opacity: 0.85 !important;
-        }
-    </style>
-</head>
+    </head>
 <body class="inspector-body">
     <div class="app-container">
         <header class="app-header">
@@ -41,10 +32,10 @@
         </header>
         <main class="main-content-grid">
             <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas fa-eye"></i> 1. Análisis de Imagen con IA</h2>
+                <h2 class="panel-title"><i class="fas fa-barcode"></i> 1. Análisis de Imagen</h2>
                 <div id="scanner-container">
-                    <img id="image-display" style="display: block; max-width: 100%; opacity: 0;">
-                    <p id="upload-prompt" style="position: absolute; color: #888;">Suba una imagen para un análisis automático...</p>
+                    <img id="image-display" style="display: none; max-width: 100%;">
+                    <p id="upload-prompt" style="position: absolute; color: #888;">Suba una imagen para escanear el código de barras...</p>
                 </div>
                 <div class="label-container" id="status-container">
                     Esperando imagen...
@@ -55,11 +46,7 @@
                 <div class="action-buttons">
                     <label for="upload-image-input" class="button primary-action"><i class="fas fa-upload"></i> Subir Imagen para Analizar</label>
                     <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
-                    
-                    <button id="analyze-selection-btn" class="button" style="display: none; margin-top: 10px; background-color: #28a745;">
-                        <i class="fas fa-search"></i> Analizar Selección
-                    </button>
-                </div>
+                    </div>
                 <div style="margin-top: 15px; padding: 0 20px; text-align: center;">
                     <label for="scanner-input" style="display:block; margin-bottom: 5px; color: #555;">O use la pistola escáner:</label>
                     <input type="text" id="scanner-input" placeholder="Esperando escaneo...">
@@ -70,22 +57,15 @@
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                        <span id="auditor-text">Listo para iniciar la verificación automática.</span>
+                        <span id="auditor-text">Listo para escanear códigos de barras.</span>
                     </div>
                 </div>
-
-                <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen de Depuración (Procesada):</strong></p>
-                    <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
-                </div>
-
-            </aside>
+                </aside>
         </main>
         <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
     </div>
 
-    <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/zxing.min.js"></script>
 
     <script>
         const VALID_PREFIXES = ['75014287', '75014497'];
@@ -93,26 +73,38 @@
         const uploadInput = document.getElementById('upload-image-input');
         const imageDisplay = document.getElementById('image-display');
         const uploadPrompt = document.getElementById('upload-prompt');
-        const analyzeSelectionBtn = document.getElementById('analyze-selection-btn');
         const scannerInput = document.getElementById('scanner-input');
         const statusContainer = document.getElementById('status-container');
         const auditorText = document.getElementById('auditor-text');
-        const debugSection = document.getElementById('debug-section');
-        const debugCanvas = document.getElementById('debug-canvas');
-        
-        let cropper = null;
-        let analysisWorker = null;
+
+        // Inicializamos el lector de códigos de barras de ZXing
+        const codeReader = new ZXing.BrowserMultiFormatReader();
 
         uploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
+
             const reader = new FileReader();
             reader.onload = (e) => {
                 resetUI();
                 imageDisplay.src = e.target.result;
-                imageDisplay.style.opacity = '1';
+                imageDisplay.style.display = 'block';
                 uploadPrompt.style.display = 'none';
-                startAutomaticDetection(imageDisplay);
+                
+                updateStatus('pensando', 'Buscando código de barras en la imagen...');
+                updateAuditor('Analizando patrón de barras...');
+
+                // Decodificar desde el elemento de imagen
+                codeReader.decodeFromImageElement(imageDisplay)
+                    .then(result => {
+                        console.log("ZXing encontró un código:", result.getText());
+                        displayFinalResult({ code: result.getText() });
+                    })
+                    .catch(err => {
+                        console.error("Fallo en la lectura de ZXing:", err);
+                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras EAN-13 válido en la imagen.</div>`;
+                        updateAuditor("El lector de barras no pudo decodificar la imagen.");
+                    });
             };
             reader.readAsDataURL(file);
         });
@@ -120,536 +112,25 @@
         scannerInput.addEventListener('change', (event) => {
             const code = event.target.value.trim();
             if (code.length > 5) {
-                displayFinalResult({ code: code, method: "Pistola Escáner" });
-                event.target.value = '';
+                displayFinalResult({ code: code });
             }
+            event.target.value = '';
         });
-
-        analyzeSelectionBtn.addEventListener('click', () => {
-            if (!cropper) return;
-            analyzeSelectionBtn.disabled = true;
-            analyzeSelectionBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando...`;
-            debugSection.style.display = 'none';
-            const croppedCanvas = cropper.getCroppedCanvas();
-            const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo. Aplicando filtros avanzados...");
-            console.log("Main: Enviando imagen recortada al web worker.");
-            if (!analysisWorker) {
-                setupWorker();
-            }
-            analysisWorker.postMessage({ imageData: imageData });
-        });
-
-        async function startAutomaticDetection(imageElement) {
-            updateAuditor("Iniciando análisis rápido con el motor nativo...");
-            updateStatus('pensando', 'Detectando código automáticamente...');
-            if ('BarcodeDetector' in window) {
-                try {
-                    const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
-                    const barcodes = await barcodeDetector.detect(imageElement);
-                    if (barcodes.length > 0) {
-                        for (const barcode of barcodes) {
-                            if (isValidCode(barcode.rawValue)) {
-                                displayFinalResult({ code: barcode.rawValue, method: "Lector Nativo (Rápido)" });
-                                return;
-                            }
-                        }
-                    }
-                } catch (error) { console.error("Error en detector nativo:", error); }
-            }
-            promptManualSelection();
-        }
-
-        function promptManualSelection() {
-            updateAuditor("Análisis rápido fallido. Por favor, selecciona el área del código para un análisis profundo.");
-            statusContainer.innerHTML = "Selecciona el área del código de barras.";
-            if (cropper) { cropper.destroy(); }
-            cropper = new Cropper(imageDisplay, {
-                viewMode: 1, autoCrop: false, background: false, zoomable: false, movable: false,
-                crop: () => { analyzeSelectionBtn.disabled = false; }
-            });
-            analyzeSelectionBtn.style.display = 'block';
-        }
-
-        function setupWorker() {
-            const workerCode = `
-                // --- INICIO: CÓDIGO FUENTE ORIGINAL Y LIMPIO DE OCRAD.JS ---
-                var OCRAD = (function() {
-                    'use strict';
-                    var char_rec = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 2, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 2, 0, 0, 0, 0, 2, 0, 2, 0, 0, 0, 2, 0, 2, 2, 0, 0, 0, 0, 2, 0, 0, 2, 0, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 2, 0, 0, 2, 0, 2, 0, 0, 0, 0, 2, 2, 0, 2, 2, 2, 0, 2, 2, 2, 2, 0, 2, 0, 2, 0, 0, 0, 2, 0, 2, 2, 0, 2, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 2, 0, 0, 2, 0, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 0, 2, 0, 2, 2, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0];
-                    function threshold_and_or(pixels_in, pixels_out, width, height) {
-                        var i, j, k, x, y, u, v, accumulator, local_max, a_pixel, the_threshold, sum = 0, threshold_sum = 0;
-                        if (!pixels_in || !width || !height) {
-                            return;
-                        }
-                        var all_pixels = width * height;
-                        var histogram = Array(256).fill(0);
-                        var a_line_bw = new Array(width);
-                        var a_line_threshold = new Array(width);
-                        for (j = 0; j < height; j++) {
-                            for (i = 0; i < width; i++) {
-                                a_pixel = pixels_in[j * width + i];
-                                histogram[a_pixel]++;
-                            }
-                        }
-                        for (i = 0; i < 256; i++) {
-                            sum += i * histogram[i];
-                            threshold_sum += histogram[i];
-                        }
-                        the_threshold = sum / threshold_sum;
-                        for (j = 0; j < height; j++) {
-                            for (i = 0; i < width; i++) {
-                                a_pixel = pixels_in[j * width + i];
-                                a_line_bw[i] = a_pixel > the_threshold ? 1 : 0;
-                            }
-                            for (i = 0; i < width; i++) {
-                                accumulator = 0;
-                                local_max = 0;
-                                for (u = -2; u <= 2; u++) {
-                                    for (v = -2; v <= 2; v++) {
-                                        x = i + u;
-                                        y = j + v;
-                                        if (x >= 0 && y >= 0 && x < width && y < height) {
-                                            accumulator += pixels_in[y * width + x];
-                                            local_max++;
-                                        }
-                                    }
-                                }
-                                a_line_threshold[i] = accumulator / local_max;
-                            }
-                            for (i = 0; i < width; i++) {
-                                pixels_out[j * width + i] = pixels_in[j * width + i] > a_line_threshold[i] ? 1 : 0;
-                            }
-                        }
-                    }
-                    function Page(text_plus_props, PIX_page, page_width) {
-                        var i, j, the_line, the_char, block, the_box;
-                        this.text_plus_props = text_plus_props;
-                        this.page = [];
-                        this.num_chars = 0;
-                        this.num_lines = 0;
-                        this.PIX_page = PIX_page;
-                        this.page_width = page_width;
-                        this.flags = 0;
-                        block = new Box(0, 0, page_width, PIX_page.length / page_width);
-                        this.page[this.num_lines] = [];
-                        the_box = block.y * page_width + block.x;
-                        for (i = 0; i < block.height; i++) {
-                            for (j = 0; j < block.width; j++) {
-                                this.PIX_page[the_box++] = 1;
-                            }
-                            the_box += this.page_width - block.width;
-                        }
-                        this.flags & 2;
-                        for (the_line in this.page) {
-                            this.flags & 1;
-                        }
-                    }
-                    function Box(x, y, width, height) {
-                        var i, a_line_of_bytes;
-                        this.x = x;
-                        this.y = y;
-                        this.width = width;
-                        this.height = height;
-                        this.calculate_bounding_box = function(page, page_width) {
-                            var i, j, rows = new Array(this.height).fill(0),
-                                cols = new Array(this.width).fill(0),
-                                a_pixel;
-                            for (i = 0; i < this.height; i++) {
-                                for (j = 0; j < this.width; j++) {
-                                    a_pixel = this.y * page_width + this.x + i * page_width + j;
-                                    if (page[a_pixel] === 1) {
-                                        cols[j]++;
-                                        rows[i]++;
-                                    }
-                                }
-                            }
-                            for (this.top = 0; this.top < this.height && rows[this.top] === 0; this.top++);
-                            for (this.bottom = this.height - 1; this.bottom >= 0 && rows[this.bottom] === 0; this.bottom--);
-                            for (this.left = 0; this.left < this.width && cols[this.left] === 0; this.left++);
-                            for (this.right = this.width - 1; this.right >= 0 && cols[this.right] === 0; this.right--);
-                            if (this.top > this.bottom || this.left > this.right) {
-                                return;
-                            }
-                            this.bounding_box = new Box(this.left, this.top, this.right - this.left + 1, this.bottom - this.top + 1);
-                            a_line_of_bytes = new Array(this.bounding_box.width * this.bounding_box.height);
-                            rows = new Array(this.bounding_box.height);
-                            cols = new Array(this.bounding_box.width);
-                            this.copy_pixels(page, page_width, a_line_of_bytes);
-                            return new Char(a_line_of_bytes, this.bounding_box.width, this.bounding_box.height);
-                        };
-                        this.copy_pixels = function(page, page_width, a_line_of_bytes) {
-                            var i, j, a_pixel;
-                            for (i = 0; i < this.bounding_box.height; i++) {
-                                for (j = 0; j < this.bounding_box.width; j++) {
-                                    a_pixel = this.y * page_width + this.x + (this.top + i) * page_width + this.left + j;
-                                    a_line_of_bytes[i * this.bounding_box.width + j] = page[a_pixel];
-                                }
-                            }
-                        };
-                    }
-                    function Char(pixels, width, height) {
-                        var i, j, rows, cols, rows_of_bounding_box, cols_of_bounding_box, list_of_features, num_holes;
-                        this.pixels = pixels;
-                        this.width = width;
-                        this.height = height;
-                        rows = new Array(this.width);
-                        cols = new Array(this.height);
-                        rows_of_bounding_box = new Array(this.width);
-                        cols_of_bounding_box = new Array(this.height);
-                        this.lines = [];
-                        this.num_lines = 0;
-                        list_of_features = 0;
-                        num_holes = 0;
-                        this.recognise = function(result_text) {
-                            var i, the_line, new_line;
-                            for (i in this.lines) {
-                                the_line = this.lines[i];
-                                new_line = result_text.find(function(e) {
-                                    return e.str.length === the_line.str.length && e.str === the_line.str;
-                                });
-                                if (new_line) {
-                                    if (new_line.str.length !== the_line.str.length) {
-                                        result_text.push({
-                                            str: the_line.str,
-                                            weight: the_line.weight
-                                        });
-                                    }
-                                    new_line.weight += the_line.weight;
-                                } else {
-                                    result_text.push({
-                                        str: the_line.str,
-                                        weight: the_line.weight
-                                    });
-                                }
-                            }
-                            return true;
-                        };
-                        this.get_bounding_box_hs = function() {
-                            var i, j;
-                            for (i = 0; i < this.width; i++) {
-                                for (rows_of_bounding_box[i] = 0, j = 0; j < this.height; j++) {
-                                    if (this.pixels[j * this.width + i] === 1) {
-                                        rows_of_bounding_box[i]++;
-                                    }
-                                }
-                            }
-                            for (i = 0; i < this.height; i++) {
-                                for (cols_of_bounding_box[i] = 0, j = 0; j < this.width; j++) {
-                                    if (this.pixels[i * this.width + j] === 1) {
-                                        cols_of_bounding_box[i]++;
-                                    }
-                                }
-                            }
-                        };
-                        this.process_line = function(y1, x1, x2, y2) {
-                            var i;
-                            for (i = y1 * this.width + x1; i < y1 * this.width + x2; i++) {
-                                if (this.pixels[i] === 1) {
-                                    this.lines[this.num_lines - 1].weight += 0.5;
-                                    this.lines[this.num_lines - 1].str += '-';
-                                }
-                            }
-                            for (i = y2 * this.width + x1; i < y2 * this.width + x2; i++) {
-                                if (this.pixels[i] === 1) {
-                                    this.lines[this.num_lines - 1].weight += 0.5;
-                                    this.lines[this.num_lines - 1].str += '-';
-                                }
-                            }
-                        };
-                        this.recognise_char = function() {
-                            var i, j;
-                            for (i = 0; i < this.height; i++) {
-                                for (j = 0; j < this.width; j++) {
-                                    if (this.pixels[i * this.width + j] === 1) {
-                                        list_of_features++;
-                                    }
-                                }
-                            }
-                            this.lines[this.num_lines] = {
-                                str: '',
-                                weight: 1
-                            };
-                            for (j = 0, i = 0; i < this.height; i++) {
-                                if (this.pixels[i * this.width + this.width - 1] === 1) {
-                                    j++;
-                                }
-                            }
-                            this.lines[this.num_lines].str = 'thin:' + Math.floor(10 * this.width / this.height);
-                            this.num_lines++;
-                            this.lines[this.num_lines] = {
-                                str: '',
-                                weight: 1
-                            };
-                            this.lines[this.num_lines++].str = 'holes:' + this.holes();
-                            this.process_line(0, 0, this.width, this.height - 1);
-                            this.process_line(0, 0, this.width, Math.floor(this.height / 2));
-                            this.process_line(Math.floor(this.height / 2), 0, this.width, this.height - 1);
-                            this.process_line(0, 0, Math.floor(this.width / 2), this.height - 1);
-                            this.process_line(Math.floor(this.width / 2), 0, this.width, this.height - 1);
-                            this.process_line(0, 0, Math.floor(this.width / 2), Math.floor(this.height / 2));
-                            this.process_line(Math.floor(this.width / 2), 0, this.width, Math.floor(this.height / 2));
-                            this.process_line(0, Math.floor(this.width / 2), this.width, this.height - 1);
-                            this.process_line(Math.floor(this.width / 2), Math.floor(this.width / 2), this.width, this.height - 1);
-                            return this.lines;
-                        };
-                        this.holes = function() {
-                            var pixels_copy = this.pixels.slice(0),
-                                w = this.width,
-                                h = this.height,
-                                num_holes = 0,
-                                i, j;
-                            for (i = 0; i < h; i++) {
-                                for (j = 0; j < w; j++) {
-                                    if (pixels_copy[i * w + j] === 0) {
-                                        num_holes++;
-                                        this.flood_fill(pixels_copy, w, h, j, i);
-                                    }
-                                }
-                            }
-                            return num_holes - 1;
-                        };
-                        this.flood_fill = function(pixels_copy, w, h, x, y) {
-                            var to_fill, i, j, current;
-                            if (x >= 0 && x < w && y >= 0 && y < h && pixels_copy[y * w + x] === 0) {
-                                pixels_copy[y * w + x] = 1;
-                                to_fill = [
-                                    [x, y]
-                                ];
-                                while (to_fill.length) {
-                                    current = to_fill.pop();
-                                    for (i = -1; i <= 1; i++) {
-                                        for (j = -1; j <= 1; j++) {
-                                            if (current[0] + i >= 0 && current[0] + i < w && current[1] + j >= 0 && current[1] + j < h && pixels_copy[(current[1] + j) * w + current[0] + i] === 0) {
-                                                pixels_copy[(current[1] + j) * w + current[0] + i] = 1;
-                                                to_fill.push([current[0] + i, current[1] + j]);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        };
-                    }
-                    function recognise(image, options) {
-                        var i, j, pixels, threshold, width, height, result, characters, a_char, a_line, text, line_text;
-                        if (!image) {
-                            return '';
-                        }
-                        options = options || {};
-                        threshold = options.threshold || 128;
-                        if (typeof image === 'string') {
-                            return image;
-                        }
-                        width = image.width;
-                        height = image.height;
-                        if (!width || !height) {
-                            return '';
-                        }
-                        pixels = [];
-                        if (image.data) {
-                            var data = image.data;
-                            for (i = 0; i < data.length; i += 4) {
-                                pixels.push((data[i] + data[i + 1] + data[i + 2]) / 3);
-                            }
-                        } else {
-                            pixels = image;
-                        }
-                        threshold_and_or(pixels, pixels, width, height);
-                        characters = new Page(null, pixels, width).page;
-                        text = '';
-                        for (i in characters) {
-                            a_line = characters[i];
-                            line_text = '';
-                            for (j in a_line) {
-                                a_char = a_line[j];
-                                if (a_char) {
-                                    result = a_char.recognise_char();
-                                    result.sort(function(a, b) {
-                                        return a.weight < b.weight ? 1 : a.weight > b.weight ? -1 : 0;
-                                    });
-                                    if (result.length > 0) {
-                                        line_text += result[0].str.substr(result[0].str.indexOf(':') + 1, 1);
-                                    }
-                                }
-                            }
-                            text += line_text + (characters.length > 1 ? '\\n' : '');
-                        }
-                        return text;
-                    }
-                    function from_canvas(canvas, options) {
-                        var context;
-                        if (!canvas || !canvas.getContext) {
-                            return '';
-                        }
-                        context = canvas.getContext('2d');
-                        return recognise(context.getImageData(0, 0, canvas.width, canvas.height), options);
-                    }
-                    function OCRAD(image, options) {
-                        if (!image) {
-                            return;
-                        }
-                        var canvas = image;
-                        var context = image;
-                        if (!context.getContext && image.width && image.height) {
-                            canvas = window.document.createElement('canvas');
-                            canvas.width = image.width;
-                            canvas.height = image.height;
-                            canvas.getContext('2d').drawImage(image, 0, 0);
-                        }
-                        return from_canvas(canvas, options);
-                    }
-                    return OCRAD;
-                }());
-                // --- FIN: CÓDIGO FUENTE ORIGINAL Y LIMPIO DE OCRAD.JS ---
-
-                self.importScripts(
-                    'https://docs.opencv.org/4.9.0/opencv.js'
-                );
-
-                const VALID_PREFIXES = ['75014287', '75014497'];
-
-                function validateEAN13Checksum(code) {
-                    if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
-                    const digits = code.split('').map(Number);
-                    const checksum = digits.pop();
-                    let sum = 0;
-                    for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
-                    const calculatedChecksum = (10 - (sum % 10)) % 10;
-                    return checksum === calculatedChecksum;
-                }
-                
-                function matToImageData(mat) {
-                    const matRGBA = new cv.Mat();
-                    cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
-                    const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
-                    matRGBA.delete();
-                    return imageData;
-                }
-
-                self.onmessage = async (e) => {
-                    const { imageData } = e.data;
-                    await waitForOpenCV();
-                    
-                    let src = cv.matFromImageData(imageData);
-                    const CROP_TOP_PERCENTAGE = 0.60;
-                    const originalHeight = src.rows;
-                    const cropY = Math.round(originalHeight * CROP_TOP_PERCENTAGE);
-                    const newHeight = originalHeight - cropY;
-
-                    if (newHeight <= 0) {
-                         self.postMessage({ status: 'done', result: null, debugImageData: null });
-                         return;
-                    }
-                    const rect = new cv.Rect(0, cropY, src.cols, newHeight);
-                    let cropped = src.roi(rect);
-
-                    let gray = new cv.Mat();
-                    cv.cvtColor(cropped, gray, cv.COLOR_RGBA2GRAY, 0);
-                    
-                    let binary = new cv.Mat();
-                    cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
-                    
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
-                    cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                    if (contours.size() === 0) {
-                        self.postMessage({ status: 'done', result: null, debugImageData: matToImageData(binary) });
-                        return;
-                    }
-
-                    let minX = binary.cols, minY = binary.rows, maxX = 0, maxY = 0;
-                    for (let i = 0; i < contours.size(); ++i) {
-                        let rect = cv.boundingRect(contours.get(i));
-                        minX = Math.min(minX, rect.x);
-                        minY = Math.min(minY, rect.y);
-                        maxX = Math.max(maxX, rect.x + rect.width);
-                        maxY = Math.max(maxY, rect.y + rect.height);
-                    }
-                    const combinedWidth = maxX - minX;
-                    const combinedHeight = maxY - minY;
-                    
-                    const digitWidth = combinedWidth / 13.0;
-                    let recognizedString = "";
-                    for (let i = 0; i < 13; i++) {
-                        const x = minX + Math.floor(i * digitWidth);
-                        const w = Math.ceil(digitWidth);
-                        if (x + w > binary.cols) continue;
-
-                        const digitRect = new cv.Rect(x, minY, w, combinedHeight);
-                        let snippet = binary.roi(digitRect);
-                        
-                        const snippetCanvas = new OffscreenCanvas(snippet.cols, snippet.rows);
-                        snippetCanvas.getContext('2d').putImageData(matToImageData(snippet), 0, 0);
-                        
-                        // USANDO OCRAD.JS
-                        const text = OCRAD(snippetCanvas, { numeric: true }).trim();
-                        
-                        const digit = (text.match(/\\d/) || ['?'])[0];
-                        recognizedString += digit;
-                        snippet.delete();
-                    }
-                    
-                    self.postMessage({ status: 'update', message: 'Worker: Texto reconstruido (Ocrad.js): "' + recognizedString + '"' });
-
-                    let finalResult = null;
-                    const hasPrefix = VALID_PREFIXES.some(prefix => recognizedString.startsWith(prefix));
-                    if (hasPrefix && validateEAN13Checksum(recognizedString)) {
-                        finalResult = { code: recognizedString, method: "IA + Ocrad.js + Segmentación Manual" };
-                    }
-                    
-                    const debugImageData = matToImageData(binary);
-
-                    src.delete(); cropped.delete(); gray.delete(); binary.delete(); contours.delete(); hierarchy.delete();
-
-                    self.postMessage({ 
-                        status: 'done', 
-                        result: finalResult,
-                        debugImageData: debugImageData
-                    }, [debugImageData.data.buffer]);
-                };
-                
-                function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
-            `;
-            const blob = new Blob([workerCode], { type: 'application/javascript' });
-            analysisWorker = new Worker(URL.createObjectURL(blob));
-            analysisWorker.onmessage = (e) => {
-                const { status, message, result, debugImageData } = e.data;
-                if (status === 'update') {
-                    console.log(message);
-                } else if (status === 'done') {
-                    console.log("Main: El worker ha finalizado el análisis.", result);
-                    
-                    if (debugImageData) {
-                        debugSection.style.display = 'block';
-                        debugCanvas.width = debugImageData.width;
-                        debugCanvas.height = debugImageData.height;
-                        const ctx = debugCanvas.getContext('2d');
-                        ctx.putImageData(debugImageData, 0, 0);
-                    }
-
-                    displayFinalResult(result);
-                    analyzeSelectionBtn.disabled = false;
-                    analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
-                }
-            };
-        }
 
         function displayFinalResult(result) {
             if (result && isValidCode(result.code)) {
-                const cleanCode = result.code.match(/\d{13}/)[0];
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${result.method}</small>`;
-                updateAuditor(`¡Lectura exitosa! El código es: ${cleanCode}`);
-                if (cropper) { cropper.destroy(); cropper = null; analyzeSelectionBtn.style.display = 'none';}
+                const cleanCode = result.code.match(/\\d{13}/)[0];
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div>`;
+                updateAuditor(`¡Lectura de barras exitosa! El código es: ${cleanCode}`);
             } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">Muestra ilegible. Intente con una imagen más clara o una selección diferente.</div>`;
-                updateAuditor("La IA no pudo decodificar el código. Se recomienda un nuevo intento.");
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">El código leído no es válido o no corresponde a un prefijo autorizado.</div>`;
+                updateAuditor("El código encontrado no es válido.");
             }
         }
         
         function isValidCode(code) {
             if (!code || typeof code !== 'string') return false;
-            const match = code.match(/\d{13}/);
+            const match = code.match(/\\d{13}/);
             if (!match) return false;
             const ean13Code = match[0];
             const hasPrefix = VALID_PREFIXES.some(prefix => ean13Code.startsWith(prefix));
@@ -657,32 +138,204 @@
         }
 
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
+            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
-            for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
+            for (let i = 0; i < 12; i++) {
+                sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3);
+            }
             const calculatedChecksum = (10 - (sum % 10)) % 10;
             return checksum === calculatedChecksum;
         }
 
         function resetUI() {
-            if (cropper) { cropper.destroy(); cropper = null; }
             imageDisplay.src = "";
-            imageDisplay.style.opacity = '0';
+            imageDisplay.style.display = 'none';
             uploadPrompt.style.display = 'block';
             statusContainer.innerHTML = "Esperando imagen...";
-            analyzeSelectionBtn.style.display = 'none';
-            analyzeSelectionBtn.disabled = true;
-            debugSection.style.display = 'none';
-            updateAuditor("Listo para iniciar la verificación automática.");
+            updateAuditor("Listo para escanear códigos de barras.");
         }
 
-        function updateAuditor(text) { auditorText.textContent = text; }
+        function updateAuditor(text) {
+            auditorText.textContent = text;
+        }
         
-        function updateStatus(type, message) { statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`; }
+        function updateStatus(type, message) {
+            statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`;
+        }
         
         document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>
-    </body>
+</body>
+</html><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validador de Código Profesional - IA PRO</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    
+    <link rel="stylesheet" href="css/estilos.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    </head>
+<body class="inspector-body">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>Inspección de Calidad <span class="ia-badge">IA PRO</span></h1>
+            </div>
+            <nav class="main-nav">
+                 <ul>
+                    <li class="dropdown"><a href="index.html" class="dropdown-toggle">Inicio</a></li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle active">Herramientas IA<i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="validador_color.html">Validador de Color</a></li>
+                            <li><a href="validador_codigo.html" class="active">Validador de Código</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+        <main class="main-content-grid">
+            <section class="vision-panel">
+                <h2 class="panel-title"><i class="fas fa-barcode"></i> 1. Análisis de Imagen</h2>
+                <div id="scanner-container">
+                    <img id="image-display" style="display: none; max-width: 100%;">
+                    <p id="upload-prompt" style="position: absolute; color: #888;">Suba una imagen para escanear el código de barras...</p>
+                </div>
+                <div class="label-container" id="status-container">
+                    Esperando imagen...
+                </div>
+            </section>
+            <aside class="controls-panel">
+                 <h3 class="panel-title"><i class="fas fa-cogs"></i> 2. Controles y Resultado</h3>
+                <div class="action-buttons">
+                    <label for="upload-image-input" class="button primary-action"><i class="fas fa-upload"></i> Subir Imagen para Analizar</label>
+                    <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
+                    </div>
+                <div style="margin-top: 15px; padding: 0 20px; text-align: center;">
+                    <label for="scanner-input" style="display:block; margin-bottom: 5px; color: #555;">O use la pistola escáner:</label>
+                    <input type="text" id="scanner-input" placeholder="Esperando escaneo...">
+                </div>
+                <div id="auditor-section" style="margin-top: 20px;">
+                    <p id="auditor-title">Asistente de Inspección</p>
+                    <div id="auditor-image-container">
+                        <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
+                    </div>
+                    <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
+                        <span id="auditor-text">Listo para escanear códigos de barras.</span>
+                    </div>
+                </div>
+                </aside>
+        </main>
+        <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
+    </div>
+
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/zxing.min.js"></script>
+
+    <script>
+        const VALID_PREFIXES = ['75014287', '75014497'];
+
+        const uploadInput = document.getElementById('upload-image-input');
+        const imageDisplay = document.getElementById('image-display');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const scannerInput = document.getElementById('scanner-input');
+        const statusContainer = document.getElementById('status-container');
+        const auditorText = document.getElementById('auditor-text');
+
+        // Inicializamos el lector de códigos de barras de ZXing
+        const codeReader = new ZXing.BrowserMultiFormatReader();
+
+        uploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                resetUI();
+                imageDisplay.src = e.target.result;
+                imageDisplay.style.display = 'block';
+                uploadPrompt.style.display = 'none';
+                
+                updateStatus('pensando', 'Buscando código de barras en la imagen...');
+                updateAuditor('Analizando patrón de barras...');
+
+                // Decodificar desde el elemento de imagen
+                codeReader.decodeFromImageElement(imageDisplay)
+                    .then(result => {
+                        console.log("ZXing encontró un código:", result.getText());
+                        displayFinalResult({ code: result.getText() });
+                    })
+                    .catch(err => {
+                        console.error("Fallo en la lectura de ZXing:", err);
+                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras EAN-13 válido en la imagen.</div>`;
+                        updateAuditor("El lector de barras no pudo decodificar la imagen.");
+                    });
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        scannerInput.addEventListener('change', (event) => {
+            const code = event.target.value.trim();
+            if (code.length > 5) {
+                displayFinalResult({ code: code });
+            }
+            event.target.value = '';
+        });
+
+        function displayFinalResult(result) {
+            if (result && isValidCode(result.code)) {
+                const cleanCode = result.code.match(/\\d{13}/)[0];
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div>`;
+                updateAuditor(`¡Lectura de barras exitosa! El código es: ${cleanCode}`);
+            } else {
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">El código leído no es válido o no corresponde a un prefijo autorizado.</div>`;
+                updateAuditor("El código encontrado no es válido.");
+            }
+        }
+        
+        function isValidCode(code) {
+            if (!code || typeof code !== 'string') return false;
+            const match = code.match(/\\d{13}/);
+            if (!match) return false;
+            const ean13Code = match[0];
+            const hasPrefix = VALID_PREFIXES.some(prefix => ean13Code.startsWith(prefix));
+            return hasPrefix && validateEAN13Checksum(ean13Code);
+        }
+
+        function validateEAN13Checksum(code) {
+            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
+            const digits = code.split('').map(Number);
+            const checksum = digits.pop();
+            let sum = 0;
+            for (let i = 0; i < 12; i++) {
+                sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3);
+            }
+            const calculatedChecksum = (10 - (sum % 10)) % 10;
+            return checksum === calculatedChecksum;
+        }
+
+        function resetUI() {
+            imageDisplay.src = "";
+            imageDisplay.style.display = 'none';
+            uploadPrompt.style.display = 'block';
+            statusContainer.innerHTML = "Esperando imagen...";
+            updateAuditor("Listo para escanear códigos de barras.");
+        }
+
+        function updateAuditor(text) {
+            auditorText.textContent = text;
+        }
+        
+        function updateStatus(type, message) {
+            statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`;
+        }
+        
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+    </script>
+</body>
 </html>
