@@ -181,29 +181,26 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES ---
+                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES (sin cambios) ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo nos quedamos con los números
-
-                    for (let i = 0; i <= cleanedText.length - 8; i++) { // Busca en toda la cadena
+                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
+                    for (let i = 0; i <= cleanedText.length - 8; i++) {
                         const potentialPrefix = cleanedText.substring(i, i + 8);
                         for (const knownPrefix of VALID_PREFIXES) {
-                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) { // Tolera hasta 2 errores
-                                // Si encontramos un prefijo "casi" perfecto, intentamos construir el resto del código
+                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) {
                                 const remainingText = cleanedText.substring(i + 8);
                                 if (remainingText.length >= 5) {
                                     const finalFiveDigits = remainingText.substring(0, 5);
-                                    // Usamos el PREFIJO CORRECTO para construir el candidato final
                                     const candidate = knownPrefix + finalFiveDigits;
                                     if (validateEAN13Checksum(candidate)) {
-                                        return candidate; // ¡Éxito! Código reconstruido y validado
+                                        return candidate;
                                     }
                                 }
                             }
                         }
                     }
-                    return null; // No se pudo reconstruir
+                    return null;
                 }
 
                 function levenshteinDistance(s1, s2) {
@@ -231,6 +228,7 @@
                 
                 function matToImageData(mat) {
                     const matRGBA = new cv.Mat();
+                    // Convertimos de GRIS a RGBA para que sea compatible con ImageData
                     cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
                     const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
                     matRGBA.delete();
@@ -246,7 +244,7 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // PROCESAMIENTO ESTABLE Y ROBUSTO
+                    // PROCESAMIENTO ANTERIOR (aún útil)
                     let blurred = new cv.Mat();
                     cv.medianBlur(gray, blurred, 3);
 
@@ -255,9 +253,28 @@
                     cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
                     cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
                     
-                    let binary = new cv.Mat();
-                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    // --- INICIO DE LA NUEVA LÓGICA PARA ELIMINAR BARRAS ---
                     
+                    // 1. Crear un 'kernel' horizontal. Este es el núcleo de la técnica.
+                    // Es ancho (15px) para conectar partes horizontales de los números.
+                    // Es bajo (1px) para ignorar las líneas verticales.
+                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(15, 1));
+                    
+                    // 2. Aplicar una operación de 'cierre morfológico'.
+                    // Esto usa el kernel para rellenar los huecos entre las partes de los números.
+                    let closed = new cv.Mat();
+                    cv.morphologyEx(sharpened, closed, cv.MORPH_CLOSE, kernel);
+                    
+                    // --- FIN DE LA NUEVA LÓGICA ---
+
+                    // 3. Aplicar el umbral AHORA a la imagen procesada ('closed'), no a la original.
+                    let binary = new cv.Mat();
+                    cv.threshold(closed, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+                    // NOTA: Cambié a THRESH_BINARY_INV. A veces, después de las operaciones,
+                    // los números quedan en negro sobre fondo blanco. INV los vuelve a poner
+                    // en blanco sobre negro, que es lo que Tesseract espera. Si no funciona,
+                    // vuelve a cambiarlo a THRESH_BINARY + cv.THRESH_OTSU.
+
                     let resized = new cv.Mat();
                     const targetHeight = 120;
                     const aspectRatio = binary.cols / binary.rows;
@@ -269,7 +286,6 @@
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
                     try {
-                        // Limpiamos las advertencias usando la inicialización moderna de Tesseract.js v5
                         const worker = await self.Tesseract.createWorker('eng', 0, {
                             langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                         });
@@ -289,7 +305,10 @@
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+
+                    // Liberar toda la memoria usada por las matrices de OpenCV
+                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); 
+                    gaussian.delete(); kernel.delete(); closed.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
@@ -346,7 +365,7 @@
         }
 
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
+            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
