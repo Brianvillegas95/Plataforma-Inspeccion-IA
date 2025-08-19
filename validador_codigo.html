@@ -235,36 +235,36 @@
                 self.onmessage = async (e) => {
                     const { imageData } = e.data;
                     await waitForOpenCV();
-                    const src = cv.matFromImageData(imageData);
-                    let result = null;
                     
-                    let gray = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                    let src = cv.matFromImageData(imageData);
+                    let final_mat = new cv.Mat(); // Matriz que usaremos para el procesamiento final
+                    
+                    // --- INICIO DE LA NUEVA LÓGICA: RECORTE SUPERIOR ---
 
-                    // --- INICIO DE LA LÓGICA "BORRADOR DE BARRAS" (CORREGIDA) ---
+                    // Este es el valor clave a ajustar. 0.60 significa que se elimina el 60% superior de la imagen.
+                    const CROP_TOP_PERCENTAGE = 0.60;
+                    
+                    const originalHeight = src.rows;
+                    const cropY = Math.round(originalHeight * CROP_TOP_PERCENTAGE);
+                    const newHeight = originalHeight - cropY;
 
-                    // 1. Detectar las líneas verticales con un kernel alto y delgado.
-                    let vertical_kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(1, 40));
-                    let detected_lines = new cv.Mat();
-                    cv.erode(gray, detected_lines, vertical_kernel, new cv.Point(-1, -1));
-                    
-                    // 2. Creamos la máscara "engordando" las líneas detectadas para borrarlas por completo.
-                    let mask = new cv.Mat();
-                    cv.dilate(detected_lines, mask, vertical_kernel, new cv.Point(-1, -1));
-                    
-                    // ¡¡¡ERROR CORREGIDO!!! La siguiente línea invertía la máscara y causaba el problema. Ha sido eliminada.
-                    // cv.bitwise_not(mask, mask); 
-                    
-                    // 3. Borramos las líneas usando Inpainting con la máscara CORRECTA.
-                    let inpainted_image = new cv.Mat();
-                    // La máscara ahora tiene valores no-cero donde están las barras, que es lo que inpaint espera.
-                    cv.inpaint(gray, mask, inpainted_image, 5, cv.INPAINT_NS);
-
-                    // 4. Binarizamos la imagen ya limpia.
-                    let binary = new cv.Mat();
-                    cv.threshold(inpainted_image, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    // Nos aseguramos de que el recorte sea válido
+                    if (newHeight > 0) {
+                        const rect = new cv.Rect(0, cropY, src.cols, newHeight);
+                        // Creamos una nueva Matriz a partir de la Región de Interés (ROI)
+                        final_mat = src.roi(rect);
+                    } else {
+                        // Si el recorte no es válido (imagen muy pequeña), usamos la original
+                        final_mat = src.clone();
+                    }
                     
                     // --- FIN DE LA NUEVA LÓGICA ---
+
+                    let gray = new cv.Mat();
+                    cv.cvtColor(final_mat, gray, cv.COLOR_RGBA2GRAY, 0);
+                    
+                    let binary = new cv.Mat();
+                    cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
 
                     let resized = new cv.Mat();
                     const targetHeight = 120;
@@ -276,6 +276,7 @@
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
+                    let result = null;
                     try {
                         const worker = await self.Tesseract.createWorker('eng', 0, {
                             langPath: 'https://tessdata.projectnaptha.com/4.0.0',
@@ -287,16 +288,16 @@
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR (Borrador de Barras v2)" };
+                            result = { code: reconstructedCode, method: "IA + OCR con Recorte Superior" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
                     }
                     
                     const debugImageData = finalImageData;
-
-                    src.delete(); gray.delete(); vertical_kernel.delete(); detected_lines.delete();
-                    mask.delete(); inpainted_image.delete(); binary.delete(); resized.delete();
+                    
+                    // Liberar memoria
+                    src.delete(); gray.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
