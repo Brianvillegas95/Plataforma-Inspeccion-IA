@@ -168,7 +168,6 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
                     
-                    // Un pre-procesamiento simple para mejorar el contraste general
                     let binary = new cv.Mat();
                     cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
 
@@ -193,7 +192,6 @@
                 
                 const cleanedText = fullText.replace(/[^0-9]/g, '');
                 
-                // --- LÍNEAS CORREGIDAS ---
                 if (cleanedText.includes(codeToVerify)) {
                     statusContainer.innerHTML = \`<div class="veredicto-aprobado">CÓDIGO ENCONTRADO: <strong>\${codeToVerify}</strong> <span style="color: green;">(APROBADO)</span></div>\`;
                     updateAuditor("¡Éxito! El código fue verificado en la imagen.");
@@ -204,7 +202,6 @@
             };
         }
 
-        // --- FUNCIONES DE VALIDACIÓN ---
         function isValidEAN13(code) {
             if (typeof code !== 'string' || !/^\\d{13}$/.test(code)) return false;
             const hasPrefix = VALID_PREFIXES.some(prefix => code.startsWith(prefix));
