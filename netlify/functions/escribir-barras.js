@@ -18,15 +18,16 @@ exports.handler = async function (event) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // IMPORTANTE: Usamos una nueva variable de entorno para el ID de la hoja de auditoría
-    const spreadsheetId = process.env.AUDITORIA_SHEET_ID;
+    // Usamos la variable de entorno con el nombre que definiste
+    const spreadsheetId = process.env.AUDITORIA_SHEETBARRAS_ID;
     if (!spreadsheetId) {
         throw new Error('El ID de la hoja de Auditoría no está configurado en Netlify.');
     }
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: spreadsheetId,
-      range: 'Registros!A1', // Escribirá en una pestaña llamada "Registros"
+      // Escribimos en la pestaña "Hoja 1" como en tu archivo
+      range: 'Hoja 1!A1', 
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [datos],
