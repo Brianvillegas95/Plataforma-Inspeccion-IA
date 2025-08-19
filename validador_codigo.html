@@ -191,9 +191,9 @@
                 const { fullText } = e.data;
                 console.log("Texto extraído de la imagen:", fullText);
                 
-                // Limpiamos el texto para facilitar la búsqueda
                 const cleanedText = fullText.replace(/[^0-9]/g, '');
                 
+                // --- LÍNEAS CORREGIDAS ---
                 if (cleanedText.includes(codeToVerify)) {
                     statusContainer.innerHTML = \`<div class="veredicto-aprobado">CÓDIGO ENCONTRADO: <strong>\${codeToVerify}</strong> <span style="color: green;">(APROBADO)</span></div>\`;
                     updateAuditor("¡Éxito! El código fue verificado en la imagen.");
