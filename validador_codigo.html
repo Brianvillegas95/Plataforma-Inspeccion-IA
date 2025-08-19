@@ -16,7 +16,6 @@
         }
         #video-feed { max-width: 100%; height: auto; display: none; background-color: #000; }
 
-        /* --- PULIDO FINAL: ESTILOS DEL INSPECTOR INTERACTIVO --- */
         #auditor-section {
             transition: background-color 0.5s ease, border-color 0.5s ease;
             border-radius: 8px;
@@ -24,15 +23,15 @@
             padding: 15px;
         }
         #auditor-section.auditor-neutral {
-            background-color: #f8f9fa; /* Color neutro por defecto */
+            background-color: #f8f9fa;
             border-color: #dee2e6;
         }
         #auditor-section.auditor-aprobado {
-            background-color: #e9f7ef; /* Fondo verde para APROBADO */
+            background-color: #e9f7ef;
             border-color: #28a745;
         }
         #auditor-section.auditor-rechazado {
-            background-color: #f8d7da; /* Fondo rojo para RECHAZADO */
+            background-color: #f8d7da;
             border-color: #dc3545;
         }
     </style>
@@ -60,14 +59,23 @@
 
         <main class="main-content-grid">
             <section class="vision-panel">
-                </section>
+                <h2 class="panel-title"><i class="fas fa-barcode"></i> Vista del Código de Barras</h2>
+                <div id="image-container" class="webcam-view" style="display: flex; align-items: center; justify-content: center; background-color: #f0f0f0;">
+                    <video id="video-feed"></video>
+                    <img id="image-display" style="display: none; max-width: 100%; max-height: 100%; object-fit: contain;">
+                    <p id="image-prompt" style="color: #888;">Seleccione un producto para comenzar...</p>
+                </div>
+                <div class="label-container" id="status-container">
+                    Esperando selección de producto...
+                </div>
+            </section>
 
             <aside class="controls-panel">
-                <div id="controls-wrapper"> <div id="product-selection-container">
+                <div id="controls-wrapper">
+                    <div id="product-selection-container">
                         <h3 class="panel-title"><i class="fas fa-box-open"></i> 1. Seleccionar Producto</h3>
                         <select id="product-select"></select>
                     </div>
-
                     <div id="image-input-container" style="margin-top: 20px;">
                         <h3 class="panel-title"><i class="fas fa-camera"></i> 2. Proporcionar Imagen</h3>
                         <label for="upload-input" id="upload-label" class="button primary-action" style="display: block; text-align: center; opacity: 0.5; cursor: not-allowed;">
@@ -78,7 +86,6 @@
                             <i class="fas fa-video"></i> Activar Cámara
                         </button>
                     </div>
-                
                     <div id="manual-input-container" style="display: none;">
                         <h3 class="panel-title"><i class="fas fa-keyboard"></i> 3. Entrada Manual</h3>
                         <p class="note">Lectura automática falló. Ingrese el código manualmente.</p>
@@ -122,97 +129,279 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // ... (referencias a elementos, incluyendo los nuevos)
+        const VALID_PREFIXES = ['75014287', '75014497'];
+        const productSelectEl = document.getElementById('product-select');
+        const statusContainer = document.getElementById('status-container');
+        const auditorText = document.getElementById('auditor-text');
+        const uploadLabel = document.getElementById('upload-label');
+        const uploadInput = document.getElementById('upload-input');
+        const webcamBtn = document.getElementById('webcam-btn');
+        const videoFeed = document.getElementById('video-feed');
+        const imagePrompt = document.getElementById('image-prompt');
+        const imageDisplay = document.getElementById('image-display');
+        const manualInputContainer = document.getElementById('manual-input-container');
+        const manualInput = document.getElementById('manual-barcode-input');
+        const manualValidateBtn = document.getElementById('manual-validate-btn');
         const auditorSection = document.getElementById('auditor-section');
         const operatorDataContainer = document.getElementById('operator-data-container');
         const colaboradorInput = document.getElementById('colaborador-input');
         const jobInput = document.getElementById('job-input');
         const saveAuditBtn = document.getElementById('save-audit-btn');
         const controlsWrapper = document.getElementById('controls-wrapper');
-        
-        // ... (estado de la aplicación)
-        let temporaryAuditData = {}; // Para guardar datos entre pasos
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
 
+        const choices = new Choices(productSelectEl, { searchEnabled: true, itemSelectText: 'Seleccionar', shouldSort: false });
+        const codeReader = new ZXing.BrowserMultiFormatReader();
+
+        let productos = [];
+        // FIX #1: La variable productChoices ahora es global para que resetUI() pueda usarla.
+        let productChoices = [];
+        let productoSeleccionado = null;
+        let isCameraActive = false;
+        let videoTrack = null;
+        let cameraCapabilities = {};
+        let temporaryAuditData = {};
+
+        function updateAuditor(message) { auditorText.textContent = message; }
+        
         function setAuditorState(state, message) {
             auditorSection.classList.remove('auditor-neutral', 'auditor-aprobado', 'auditor-rechazado');
             auditorSection.classList.add(`auditor-${state}`);
             updateAuditor(message);
         }
 
+        async function cargarProductos() {
+            choices.clearStore();
+            choices.setChoices([{ value: '', label: 'Cargando productos...', disabled: true }], 'value', 'label', true);
+            try {
+                const response = await fetch('/.netlify/functions/leer-sheet-privada');
+                if (!response.ok) throw new Error(`Error: ${response.statusText}`);
+                const data = await response.json();
+                
+                productos = data.map(row => ({ codigoDeBarras: row[0], sku: row[1], descripcion: row[2] }));
+                productChoices = productos.map(p => ({
+                    value: p.codigoDeBarras,
+                    label: `${p.sku} - ${p.descripcion}`
+                }));
+                
+                choices.clearStore();
+                choices.setChoices([{ value: '', label: '-- Seleccione un producto --', selected: true, disabled: true }, ...productChoices], 'value', 'label', true);
+                choices.enable();
+                updateAuditor("Lista de productos cargada. Por favor, seleccione uno.");
+            } catch (error) {
+                console.error('Error al cargar productos:', error);
+                choices.clearStore();
+                choices.setChoices([{ value: '', label: '-- Error al cargar --', disabled: true }], 'value', 'label', true);
+                updateAuditor("Error: No se pudo cargar la lista de productos.");
+            }
+        }
+
+        async function escribirAuditoria(datos) {
+            return fetch('/.netlify/functions/escribir-barras', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ datos: datos }),
+            });
+        }
+
         function realizarValidacion(codigoLeido, metodo) {
-            // ... (lógica de validación sin cambios)
-            
-            // --- ACTUALIZACIÓN DEL FLUJO ---
-            if (resultado === 'APROBADO') {
-                setAuditorState('aprobado', `¡Éxito! ${motivo}`);
+             if (!productoSeleccionado) return;
+            stopWebcam();
+            const codigoEsperado = productoSeleccionado.codigoDeBarras;
+            let resultado = 'RECHAZADO';
+            let motivo = '';
+            const tienePrefijoValido = VALID_PREFIXES.some(prefix => codigoLeido.startsWith(prefix));
+            if (!tienePrefijoValido) {
+                motivo = `Prefijo no autorizado (${codigoLeido.substring(0,8)}).`;
+            } else if (!validateEAN13Checksum(codigoLeido)) {
+                motivo = `Código EAN-13 inválido (checksum incorrecto).`;
+            } else if (codigoLeido !== codigoEsperado) {
+                motivo = `El código leído (${codigoLeido}) no coincide con el del producto.`;
             } else {
+                resultado = 'APROBADO';
+                motivo = `El código ${codigoLeido} es correcto.`;
+            }
+            if (resultado === 'APROBADO') {
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">APROBADO: ${motivo}</div>`;
+                setAuditorState('aprobado', `¡Éxito! El código de barras coincide.`);
+            } else {
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">RECHAZADO: ${motivo}</div>`;
                 setAuditorState('rechazado', `¡Atención! ${motivo}`);
             }
-            
-            // Guardamos los datos temporalmente
-            temporaryAuditData = {
-                codigoLeido,
-                resultado,
-                metodo
-            };
-
-            // Mostramos la sección de datos del operador y bloqueamos controles
+            temporaryAuditData = { codigoLeido, resultado, metodo };
             operatorDataContainer.style.display = 'block';
             controlsWrapper.style.pointerEvents = 'none';
             controlsWrapper.style.opacity = '0.5';
         }
-
+        
         function resetUI() {
             setAuditorState('neutral', 'Bienvenido. Seleccione un producto para una nueva auditoría.');
             operatorDataContainer.style.display = 'none';
             colaboradorInput.value = '';
             jobInput.value = '';
-            
             controlsWrapper.style.pointerEvents = 'auto';
             controlsWrapper.style.opacity = '1';
-            
-            choices.clearSelection();
+            choices.clearStore();
             choices.setChoices([{ value: '', label: '-- Seleccione un producto --', selected: true, disabled: true }, ...productChoices], 'value', 'label', true);
-
-            // Reseteamos el estado visual
             statusContainer.textContent = 'Esperando selección de producto...';
-            // ... (y otros resets visuales que consideres necesarios)
+            imageDisplay.style.display = 'none';
+            imageDisplay.src = '';
+            imagePrompt.style.display = 'block';
+            manualInputContainer.style.display = 'none';
+            manualInput.value = '';
         }
 
         saveAuditBtn.addEventListener('click', () => {
             const numColaborador = colaboradorInput.value.trim();
             const numJob = jobInput.value.trim();
-
             if (!numColaborador || !numJob) {
                 alert('Por favor, complete los campos "Número de Colaborador" y "Número de Job". Son obligatorios.');
                 return;
             }
-
             const timestamp = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
-            
             const datosParaSheet = [
-                timestamp,
-                productoSeleccionado.sku,
-                productoSeleccionado.descripcion,
-                productoSeleccionado.codigoDeBarras,
-                temporaryAuditData.codigoLeido,
-                temporaryAuditData.resultado,
-                temporaryAuditData.metodo,
-                numColaborador,
-                numJob
+                timestamp, productoSeleccionado.sku, productoSeleccionado.descripcion,
+                productoSeleccionado.codigoDeBarras, temporaryAuditData.codigoLeido,
+                temporaryAuditData.resultado, temporaryAuditData.metodo,
+                numColaborador, numJob
             ];
-            
-            // Llamamos a la función para escribir y luego reseteamos la UI
-            escribirAuditoria(datosParaSheet).then(() => {
-                alert('Auditoría guardada con éxito.');
-                resetUI();
-            }).catch(() => {
-                alert('Hubo un error al guardar. Por favor, intente de nuevo.');
-            });
+            escribirAuditoria(datosParaSheet)
+                .then(response => {
+                    if (!response.ok) throw new Error('Fallo al guardar');
+                    alert('Auditoría guardada con éxito.');
+                    resetUI();
+                })
+                .catch(() => {
+                    alert('Hubo un error al guardar. Por favor, intente de nuevo.');
+                });
         });
+        
+        // El resto de funciones (validateEAN13Checksum, startWebcam, etc.) y listeners
+        // permanecen igual que en la versión anterior. Los incluyo para que el script esté completo.
 
-        // El resto de las funciones (cargarProductos, startWebcam, etc.) permanecen sin cambios.
-        // Solo asegúrate de que ya no llaman a escribirAuditoria directamente.
+        function validateEAN13Checksum(code) {
+                if (typeof code !== 'string' || !/^\d{13}$/.test(code)) return false;
+                const digits = code.split('').map(Number);
+                const checksum = digits.pop();
+                let sum = 0;
+                for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
+                const calculatedChecksum = (10 - (sum % 10)) % 10;
+                return checksum === calculatedChecksum;
+        }
+        async function applyCameraSetting(settingName, value) {
+                if (!videoTrack || !videoTrack.applyConstraints) return false;
+                try {
+                    await videoTrack.applyConstraints({ advanced: [{[settingName]: value}] });
+                    return true;
+                } catch (err) { console.error(`Error al aplicar ${settingName}:`, err); return false; }
+        }
+        async function applyFixedCameraSettings() {
+                if (!videoTrack) return;
+                cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+                if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
+                if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
+                if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
+                if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
+        }
+        function stopWebcam() {
+                if (isCameraActive) {
+                    codeReader.reset();
+                    videoFeed.style.display = 'none';
+                    if(!imageDisplay.src.includes('blob')) imagePrompt.style.display = 'block';
+                    isCameraActive = false;
+                    webcamBtn.innerHTML = '<i class="fas fa-video"></i> Activar Cámara';
+                }
+        }
+        async function startWebcam() {
+                if (isCameraActive) { stopWebcam(); return; }
+                imageDisplay.style.display = 'none';
+                imagePrompt.style.display = 'none';
+                videoFeed.style.display = 'block';
+                isCameraActive = true;
+                webcamBtn.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
+                updateAuditor("Cámara activada. Centre el código de barras frente a la cámara.");
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    videoFeed.srcObject = stream;
+                    videoTrack = stream.getVideoTracks()[0];
+                    await applyFixedCameraSettings();
+                    codeReader.decodeFromVideoDevice(undefined, 'video-feed', (result, err) => {
+                        if (result) { realizarValidacion(result.getText(), 'Webcam'); }
+                        if (err && !(err instanceof ZXing.NotFoundException)) {
+                            console.error("Error de la cámara con ZXing:", err);
+                            updateAuditor("Error con la cámara. Intente de nuevo.");
+                            stopWebcam();
+                        }
+                    });
+                } catch (err) {
+                    console.error("Fallo al iniciar la cámara:", err);
+                    updateAuditor("No se pudo acceder a la cámara. Verifique los permisos.");
+                    stopWebcam();
+                }
+        }
+        async function procesarImagen(imageUrl) {
+                statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando código de barras...</div>`;
+                updateAuditor("Estoy analizando la imagen para encontrar el código...");
+                manualInputContainer.style.display = 'none';
+                try {
+                    const result = await codeReader.decodeFromImageUrl(imageUrl);
+                    realizarValidacion(result.getText(), 'Archivo');
+                } catch (error) {
+                    console.error("Error de lectura con ZXing:", error);
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">FALLO LECTURA: No se pudo encontrar un código en la imagen.</div>`;
+                    updateAuditor("No pude leer el código automáticamente. Por favor, ingréselo de forma manual.");
+                    manualInputContainer.style.display = 'block';
+                }
+        }
+        productSelectEl.addEventListener('change', (event) => {
+                const codigoSeleccionado = event.detail.value;
+                productoSeleccionado = codigoSeleccionado ? productos.find(p => p.codigoDeBarras === codigoSeleccionado) : null;
+                if (productoSeleccionado) {
+                    statusContainer.innerHTML = `Producto seleccionado: <strong>${productoSeleccionado.sku}</strong>. Esperando imagen.`;
+                    updateAuditor(`Listo para validar: ${productoSeleccionado.codigoDeBarras}.`);
+                    imagePrompt.textContent = "Listo para recibir imagen...";
+                    uploadInput.disabled = false; webcamBtn.disabled = false;
+                    uploadLabel.style.opacity = '1'; uploadLabel.style.cursor = 'pointer';
+                    manualInputContainer.style.display = 'none';
+                    imageDisplay.style.display = 'none';
+                    imagePrompt.style.display = 'block';
+                    stopWebcam();
+                } else {
+                    productoSeleccionado = null;
+                    statusContainer.textContent = 'Esperando selección de producto...';
+                    updateAuditor("Por favor, seleccione un producto de la lista.");
+                    uploadInput.disabled = true; webcamBtn.disabled = true;
+                    uploadLabel.style.opacity = '0.5'; uploadLabel.style.cursor = 'not-allowed';
+                    stopWebcam();
+                }
+        });
+        uploadInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file || !productoSeleccionado) return;
+                stopWebcam();
+                const imageUrl = URL.createObjectURL(file);
+                imageDisplay.src = imageUrl;
+                imageDisplay.style.display = 'block';
+                imagePrompt.style.display = 'none';
+                procesarImagen(imageUrl);
+        });
+        manualInput.addEventListener('paste', (e) => {
+                e.preventDefault();
+                updateAuditor("Acción de pegar deshabilitada. Por favor, teclee o escanee el código.");
+                return false;
+        });
+        manualValidateBtn.addEventListener('click', () => {
+                const codigoManual = manualInput.value.trim();
+                if (codigoManual && productoSeleccionado) {
+                    realizarValidacion(codigoManual, 'Manual');
+                } else {
+                    updateAuditor("Por favor, ingrese un código en el campo manual.");
+                }
+        });
+        webcamBtn.addEventListener('click', startWebcam);
+
+        // FIX #2: Se ha restaurado la llamada inicial para cargar los productos.
+        cargarProductos();
     });
     </script>
 </body>
