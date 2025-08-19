@@ -96,10 +96,8 @@
         const scanBeep = document.getElementById('scan-beep');
         const uploadPrompt = document.getElementById('upload-prompt');
         
-        // --- LÓGICA DEL ESCÁNER DE VIDEO ---
         const codeReader = new ZXing.BrowserMultiFormatReader();
 
-        // Al cargar la página, buscar las cámaras disponibles
         window.addEventListener('load', () => {
             codeReader.listVideoInputDevices()
                 .then(videoInputDevices => {
@@ -107,11 +105,11 @@
                         videoInputDevices.forEach(device => {
                             const option = document.createElement('option');
                             option.value = device.deviceId;
-                            option.text = device.label || \`Cámara \${sourceSelect.length + 1}\`;
+                            option.text = device.label || `Cámara ${sourceSelect.length + 1}`;
                             sourceSelect.appendChild(option);
                         });
                     } else {
-                        alert("No se encontraron cámaras en este dispositivo.");
+                        console.warn("No se encontraron cámaras en este dispositivo.");
                     }
                 })
                 .catch(err => console.error(err));
@@ -132,7 +130,7 @@
                 if (result) {
                     console.log("ZXing encontró un código:", result.getText());
                     scanBeep.play();
-                    codeReader.reset(); // Detener el escaneo
+                    codeReader.reset();
                     displayFinalResult({ code: result.getText() });
                 }
                 if (err && !(err instanceof ZXing.NotFoundException)) {
@@ -147,7 +145,6 @@
             resetUI();
         });
 
-        // --- LÓGICA PARA SUBIR IMAGEN (se mantiene) ---
         uploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -161,8 +158,8 @@
                     updateStatus('pensando', 'Buscando código de barras en la imagen...');
                     updateAuditor('Analizando patrón de barras en archivo...');
                     
-                    // Mostrar la imagen subida en el visor de video para consistencia
-                    videoElement.style.backgroundImage = \`url(\${e.target.result})\`;
+                    uploadPrompt.style.display = 'none';
+                    videoElement.style.backgroundImage = `url(${e.target.result})`;
                     videoElement.style.backgroundSize = 'contain';
                     videoElement.style.backgroundRepeat = 'no-repeat';
                     videoElement.style.backgroundPosition = 'center';
@@ -175,7 +172,7 @@
                         })
                         .catch(err => {
                             console.error("Fallo en la lectura de ZXing:", err);
-                            statusContainer.innerHTML = \`<div class="veredicto-rechazado">No se pudo encontrar un código de barras EAN-13 válido en la imagen.</div>\`;
+                            statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras EAN-13 válido en la imagen.</div>`;
                             updateAuditor("El lector de barras no pudo decodificar el archivo.");
                         });
                 }
@@ -183,7 +180,6 @@
             reader.readAsDataURL(file);
         });
         
-        // --- LÓGICA COMÚN ---
         scannerInput.addEventListener('change', (event) => {
             const code = event.target.value.trim();
             if (code.length > 5) {
@@ -194,18 +190,18 @@
 
         function displayFinalResult(result) {
             if (result && isValidCode(result.code)) {
-                const cleanCode = result.code.match(/\\d{13}/)[0];
-                statusContainer.innerHTML = \`<div class="veredicto-aprobado">Código Leído: <strong>\${cleanCode}</strong> <span style="color: green;">(Válido)</span></div>\`;
-                updateAuditor(\`¡Lectura de barras exitosa! El código es: \${cleanCode}\`);
+                const cleanCode = result.code.match(/\d{13}/)[0];
+                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div>`;
+                updateAuditor(`¡Lectura de barras exitosa! El código es: ${cleanCode}`);
             } else {
-                statusContainer.innerHTML = \`<div class="veredicto-rechazado">El código leído (\${result.code || ''}) no es válido o no corresponde a un prefijo autorizado.</div>\`;
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">El código leído (${result.code || ''}) no es válido o no corresponde a un prefijo autorizado.</div>`;
                 updateAuditor("El código encontrado no es válido.");
             }
         }
         
         function isValidCode(code) {
             if (!code || typeof code !== 'string') return false;
-            const match = code.match(/\\d{13}/);
+            const match = code.match(/\d{13}/);
             if (!match) return false;
             const ean13Code = match[0];
             const hasPrefix = VALID_PREFIXES.some(prefix => ean13Code.startsWith(prefix));
@@ -213,7 +209,7 @@
         }
 
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
+            if (typeof code !== 'string' || code.length !== 13 || !/^\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
@@ -236,7 +232,7 @@
         }
         
         function updateStatus(type, message) {
-            statusContainer.innerHTML = \`<div class="veredicto-\${type}">\${message}</div>\`;
+            statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`;
         }
         
         document.getElementById('currentYear').textContent = new Date().getFullYear();
