@@ -11,29 +11,40 @@
         .main-content-grid { grid-template-columns: 55% 45%; }
         .controls-panel .button { margin-top: 10px; }
         select:disabled, button:disabled { background-color: #e9ecef; cursor: not-allowed; opacity: 0.7; }
-        #manual-input-container, #operator-data-container {
-            border-top: 2px solid #eee; margin-top: 20px; padding-top: 15px;
-        }
+        #manual-input-container { border-top: 2px solid #eee; margin-top: 20px; padding-top: 15px; }
         #video-feed { max-width: 100%; height: auto; display: none; background-color: #000; }
 
+        /* --- ESTILOS PARA EL NUEVO INSPECTOR DINÁMICO --- */
         #auditor-section {
             transition: background-color 0.5s ease, border-color 0.5s ease;
-            border-radius: 8px;
-            border: 2px solid transparent;
-            padding: 15px;
+            border-radius: 8px; border: 2px solid #dee2e6;
+            padding: 15px; background-color: #f8f9fa;
         }
-        #auditor-section.auditor-neutral {
-            background-color: #f8f9fa;
-            border-color: #dee2e6;
+        #inspector-icon-container {
+            width: 100px; height: 100px; margin: 10px auto;
         }
-        #auditor-section.auditor-aprobado {
-            background-color: #e9f7ef;
-            border-color: #28a745;
+        .inspector-icon { display: none; }
+        #auditor-section.auditor-neutral .icon-neutral,
+        #auditor-section.auditor-pensando .icon-pensando,
+        #auditor-section.auditor-aprobado .icon-aprobado,
+        #auditor-section.auditor-rechazado .icon-rechazado { display: block; }
+
+        #auditor-section.auditor-aprobado { background-color: #e9f7ef; border-color: #28a745; }
+        #auditor-section.auditor-rechazado { background-color: #f8d7da; border-color: #dc3545; }
+
+        .icon-aprobado .check { stroke-dasharray: 100; stroke-dashoffset: 100; animation: draw-check 0.5s ease-out forwards; }
+        .icon-rechazado { animation: pop-in 0.4s ease-out; }
+        .icon-pensando { animation: spin 1.2s linear infinite; }
+        
+        @keyframes draw-check { to { stroke-dashoffset: 0; } }
+        @keyframes pop-in { 0% { transform: scale(0.5); opacity: 0; } 80% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* --- ESTILOS PARA LA PANTALLA DE INICIO DE SESIÓN --- */
+        #login-container {
+            padding: 25px; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        #auditor-section.auditor-rechazado {
-            background-color: #f8d7da;
-            border-color: #dc3545;
-        }
+        #main-app-content { display: none; } /* Ocultamos la app al inicio */
     </style>
 </head>
 <body class="inspector-body">
@@ -57,7 +68,26 @@
             </nav>
         </header>
 
-        <main class="main-content-grid">
+        <main id="login-container" class="main-content">
+             <div style="text-align: center; margin-bottom: 20px;">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h2>Registro de Auditoría</h2>
+                <p>Por favor, ingrese sus datos para comenzar.</p>
+            </div>
+            <div class="form-group">
+                <label for="colaborador-input"><strong>Número de Colaborador:</strong></label>
+                <input type="text" id="colaborador-input" class="form-control" placeholder="Ej: 12345">
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label for="job-input"><strong>Número de Job:</strong></label>
+                <input type="text" id="job-input" class="form-control" placeholder="Ej: 98765">
+            </div>
+            <button id="start-audit-btn" class="button primary-action" style="width:100%; margin-top: 25px; padding: 15px; font-size: 1.2em;">
+                <i class="fas fa-play-circle"></i> Empezar Auditoría
+            </button>
+        </main>
+
+        <main id="main-app-content" class="main-content-grid">
             <section class="vision-panel">
                 <h2 class="panel-title"><i class="fas fa-barcode"></i> Vista del Código de Barras</h2>
                 <div id="image-container" class="webcam-view" style="display: flex; align-items: center; justify-content: center; background-color: #f0f0f0;">
@@ -69,53 +99,38 @@
                     Esperando selección de producto...
                 </div>
             </section>
-
             <aside class="controls-panel">
-                <div id="controls-wrapper">
-                    <div id="product-selection-container">
-                        <h3 class="panel-title"><i class="fas fa-box-open"></i> 1. Seleccionar Producto</h3>
-                        <select id="product-select"></select>
-                    </div>
-                    <div id="image-input-container" style="margin-top: 20px;">
-                        <h3 class="panel-title"><i class="fas fa-camera"></i> 2. Proporcionar Imagen</h3>
-                        <label for="upload-input" id="upload-label" class="button primary-action" style="display: block; text-align: center; opacity: 0.5; cursor: not-allowed;">
-                            <i class="fas fa-upload"></i> Subir Archivo
-                        </label>
-                        <input type="file" id="upload-input" accept="image/*" style="display: none;" disabled>
-                         <button id="webcam-btn" class="button secondary-action" style="width: 100%;" disabled>
-                            <i class="fas fa-video"></i> Activar Cámara
-                        </button>
-                    </div>
-                    <div id="manual-input-container" style="display: none;">
-                        <h3 class="panel-title"><i class="fas fa-keyboard"></i> 3. Entrada Manual</h3>
-                        <p class="note">Lectura automática falló. Ingrese el código manualmente.</p>
-                        <input type="text" id="manual-barcode-input" class="form-control" placeholder="Teclear o escanear código EAN-13...">
-                        <button id="manual-validate-btn" class="button secondary-action" style="width: 100%;">Validar Código Manual</button>
-                    </div>
+                <div id="product-selection-container">
+                    <h3 class="panel-title"><i class="fas fa-box-open"></i> 1. Seleccionar Producto</h3>
+                    <select id="product-select"></select>
                 </div>
-
-                <div id="operator-data-container" style="display: none;">
-                    <h3 class="panel-title"><i class="fas fa-user-check"></i> 4. Datos de Auditoría</h3>
-                    <div class="form-group">
-                        <label for="colaborador-input">Número de Colaborador:</label>
-                        <input type="text" id="colaborador-input" class="form-control" placeholder="Ej: 12345">
-                    </div>
-                    <div class="form-group" style="margin-top: 10px;">
-                        <label for="job-input">Número de Job:</label>
-                        <input type="text" id="job-input" class="form-control" placeholder="Ej: 98765">
-                    </div>
-                    <button id="save-audit-btn" class="button primary-action" style="width:100%; margin-top: 15px; background-color: #28a745;">
-                        <i class="fas fa-save"></i> Guardar y Finalizar Auditoría
+                <div id="image-input-container" style="margin-top: 20px;">
+                    <h3 class="panel-title"><i class="fas fa-camera"></i> 2. Proporcionar Imagen</h3>
+                    <label for="upload-input" id="upload-label" class="button primary-action" style="display: block; text-align: center; opacity: 0.5; cursor: not-allowed;">
+                        <i class="fas fa-upload"></i> Subir Archivo
+                    </label>
+                    <input type="file" id="upload-input" accept="image/*" style="display: none;" disabled>
+                     <button id="webcam-btn" class="button secondary-action" style="width: 100%;" disabled>
+                        <i class="fas fa-video"></i> Activar Cámara
                     </button>
                 </div>
+                <div id="manual-input-container" style="display: none;">
+                    <h3 class="panel-title"><i class="fas fa-keyboard"></i> 3. Entrada Manual</h3>
+                    <p class="note">Lectura automática falló. Ingrese el código manualmente.</p>
+                    <input type="text" id="manual-barcode-input" class="form-control" placeholder="Teclear o escanear código EAN-13...">
+                    <button id="manual-validate-btn" class="button secondary-action" style="width: 100%;">Validar Código Manual</button>
+                </div>
 
-                <div id="auditor-section" class="auditor-neutral">
+                <div id="auditor-section">
                     <p id="auditor-title">Asistente de Inspección</p>
-                    <div id="auditor-image-container">
-                        <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
+                    <div id="inspector-icon-container">
+                        <svg class="inspector-icon icon-neutral" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="none" stroke="#6c757d" stroke-width="5"/></svg>
+                        <svg class="inspector-icon icon-pensando" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M 50,5 A 45,45 0 0 1 95,50" fill="none" stroke="#007bff" stroke-width="8" stroke-linecap="round"/></svg>
+                        <svg class="inspector-icon icon-aprobado" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="#28a745" /><path class="check" d="M30 50 l15 15 l30 -30" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <svg class="inspector-icon icon-rechazado" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="#dc3545" /><path d="M35 35 l30 30 M65 35 l-30 30" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/></svg>
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                        <span id="auditor-text">Bienvenido. Por favor, seleccione un producto.</span>
+                        <span id="auditor-text">Listo para iniciar.</span>
                     </div>
                 </div>
             </aside>
@@ -130,6 +145,11 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const VALID_PREFIXES = ['75014287', '75014497'];
+        const loginContainer = document.getElementById('login-container');
+        const mainAppContent = document.getElementById('main-app-content');
+        const startAuditBtn = document.getElementById('start-audit-btn');
+        const colaboradorInput = document.getElementById('colaborador-input');
+        const jobInput = document.getElementById('job-input');
         const productSelectEl = document.getElementById('product-select');
         const statusContainer = document.getElementById('status-container');
         const auditorText = document.getElementById('auditor-text');
@@ -143,30 +163,23 @@
         const manualInput = document.getElementById('manual-barcode-input');
         const manualValidateBtn = document.getElementById('manual-validate-btn');
         const auditorSection = document.getElementById('auditor-section');
-        const operatorDataContainer = document.getElementById('operator-data-container');
-        const colaboradorInput = document.getElementById('colaborador-input');
-        const jobInput = document.getElementById('job-input');
-        const saveAuditBtn = document.getElementById('save-audit-btn');
-        const controlsWrapper = document.getElementById('controls-wrapper');
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
         const choices = new Choices(productSelectEl, { searchEnabled: true, itemSelectText: 'Seleccionar', shouldSort: false });
         const codeReader = new ZXing.BrowserMultiFormatReader();
 
         let productos = [];
-        // FIX #1: La variable productChoices ahora es global para que resetUI() pueda usarla.
         let productChoices = [];
         let productoSeleccionado = null;
         let isCameraActive = false;
         let videoTrack = null;
         let cameraCapabilities = {};
-        let temporaryAuditData = {};
+        let operatorData = {};
 
         function updateAuditor(message) { auditorText.textContent = message; }
         
         function setAuditorState(state, message) {
-            auditorSection.classList.remove('auditor-neutral', 'auditor-aprobado', 'auditor-rechazado');
-            auditorSection.classList.add(`auditor-${state}`);
+            auditorSection.className = `auditor-${state}`;
             updateAuditor(message);
         }
 
@@ -187,12 +200,12 @@
                 choices.clearStore();
                 choices.setChoices([{ value: '', label: '-- Seleccione un producto --', selected: true, disabled: true }, ...productChoices], 'value', 'label', true);
                 choices.enable();
-                updateAuditor("Lista de productos cargada. Por favor, seleccione uno.");
+                setAuditorState('neutral', 'Lista de productos cargada. Por favor, seleccione uno.');
             } catch (error) {
                 console.error('Error al cargar productos:', error);
                 choices.clearStore();
                 choices.setChoices([{ value: '', label: '-- Error al cargar --', disabled: true }], 'value', 'label', true);
-                updateAuditor("Error: No se pudo cargar la lista de productos.");
+                setAuditorState('rechazado', 'Error: No se pudo cargar la lista de productos.');
             }
         }
 
@@ -228,57 +241,25 @@
                 statusContainer.innerHTML = `<div class="veredicto-rechazado">RECHAZADO: ${motivo}</div>`;
                 setAuditorState('rechazado', `¡Atención! ${motivo}`);
             }
-            temporaryAuditData = { codigoLeido, resultado, metodo };
-            operatorDataContainer.style.display = 'block';
-            controlsWrapper.style.pointerEvents = 'none';
-            controlsWrapper.style.opacity = '0.5';
-        }
-        
-        function resetUI() {
-            setAuditorState('neutral', 'Bienvenido. Seleccione un producto para una nueva auditoría.');
-            operatorDataContainer.style.display = 'none';
-            colaboradorInput.value = '';
-            jobInput.value = '';
-            controlsWrapper.style.pointerEvents = 'auto';
-            controlsWrapper.style.opacity = '1';
-            choices.clearStore();
-            choices.setChoices([{ value: '', label: '-- Seleccione un producto --', selected: true, disabled: true }, ...productChoices], 'value', 'label', true);
-            statusContainer.textContent = 'Esperando selección de producto...';
-            imageDisplay.style.display = 'none';
-            imageDisplay.src = '';
-            imagePrompt.style.display = 'block';
-            manualInputContainer.style.display = 'none';
-            manualInput.value = '';
-        }
 
-        saveAuditBtn.addEventListener('click', () => {
-            const numColaborador = colaboradorInput.value.trim();
-            const numJob = jobInput.value.trim();
-            if (!numColaborador || !numJob) {
-                alert('Por favor, complete los campos "Número de Colaborador" y "Número de Job". Son obligatorios.');
-                return;
-            }
             const timestamp = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
             const datosParaSheet = [
                 timestamp, productoSeleccionado.sku, productoSeleccionado.descripcion,
-                productoSeleccionado.codigoDeBarras, temporaryAuditData.codigoLeido,
-                temporaryAuditData.resultado, temporaryAuditData.metodo,
-                numColaborador, numJob
+                productoSeleccionado.codigoDeBarras, codigoLeido, resultado, metodo,
+                operatorData.colaborador, operatorData.job
             ];
+
             escribirAuditoria(datosParaSheet)
                 .then(response => {
-                    if (!response.ok) throw new Error('Fallo al guardar');
-                    alert('Auditoría guardada con éxito.');
-                    resetUI();
+                    if (!response.ok) throw new Error('Fallo al guardar en Google Sheets');
+                    console.log('Registro guardado con éxito');
                 })
-                .catch(() => {
-                    alert('Hubo un error al guardar. Por favor, intente de nuevo.');
+                .catch(err => {
+                    console.error("El registro en Google Sheets falló:", err);
+                    setAuditorState('rechazado', 'ALERTA: El resultado fue validado pero no se pudo guardar en el registro.');
                 });
-        });
+        }
         
-        // El resto de funciones (validateEAN13Checksum, startWebcam, etc.) y listeners
-        // permanecen igual que en la versión anterior. Los incluyo para que el script esté completo.
-
         function validateEAN13Checksum(code) {
                 if (typeof code !== 'string' || !/^\d{13}$/.test(code)) return false;
                 const digits = code.split('').map(Number);
@@ -319,7 +300,7 @@
                 videoFeed.style.display = 'block';
                 isCameraActive = true;
                 webcamBtn.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
-                updateAuditor("Cámara activada. Centre el código de barras frente a la cámara.");
+                setAuditorState('pensando', 'Cámara activada. Buscando código...');
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                     videoFeed.srcObject = stream;
@@ -329,19 +310,19 @@
                         if (result) { realizarValidacion(result.getText(), 'Webcam'); }
                         if (err && !(err instanceof ZXing.NotFoundException)) {
                             console.error("Error de la cámara con ZXing:", err);
-                            updateAuditor("Error con la cámara. Intente de nuevo.");
+                            setAuditorState('rechazado', 'Error con la cámara.');
                             stopWebcam();
                         }
                     });
                 } catch (err) {
                     console.error("Fallo al iniciar la cámara:", err);
-                    updateAuditor("No se pudo acceder a la cámara. Verifique los permisos.");
+                    setAuditorState('rechazado', 'No se pudo acceder a la cámara.');
                     stopWebcam();
                 }
         }
         async function procesarImagen(imageUrl) {
                 statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando código de barras...</div>`;
-                updateAuditor("Estoy analizando la imagen para encontrar el código...");
+                setAuditorState('pensando', 'Analizando la imagen...');
                 manualInputContainer.style.display = 'none';
                 try {
                     const result = await codeReader.decodeFromImageUrl(imageUrl);
@@ -349,16 +330,30 @@
                 } catch (error) {
                     console.error("Error de lectura con ZXing:", error);
                     statusContainer.innerHTML = `<div class="veredicto-rechazado">FALLO LECTURA: No se pudo encontrar un código en la imagen.</div>`;
-                    updateAuditor("No pude leer el código automáticamente. Por favor, ingréselo de forma manual.");
+                    setAuditorState('neutral', 'No pude leer el código. Por favor, ingréselo de forma manual.');
                     manualInputContainer.style.display = 'block';
                 }
         }
+
+        startAuditBtn.addEventListener('click', () => {
+            const numColaborador = colaboradorInput.value.trim();
+            const numJob = jobInput.value.trim();
+            if (!numColaborador || !numJob) {
+                alert('Por favor, complete ambos campos para comenzar.');
+                return;
+            }
+            operatorData = { colaborador: numColaborador, job: numJob };
+            loginContainer.style.display = 'none';
+            mainAppContent.style.display = 'grid';
+            cargarProductos();
+        });
+
         productSelectEl.addEventListener('change', (event) => {
                 const codigoSeleccionado = event.detail.value;
                 productoSeleccionado = codigoSeleccionado ? productos.find(p => p.codigoDeBarras === codigoSeleccionado) : null;
                 if (productoSeleccionado) {
                     statusContainer.innerHTML = `Producto seleccionado: <strong>${productoSeleccionado.sku}</strong>. Esperando imagen.`;
-                    updateAuditor(`Listo para validar: ${productoSeleccionado.codigoDeBarras}.`);
+                    setAuditorState('neutral', `Listo para validar el producto ${productoSeleccionado.sku}.`);
                     imagePrompt.textContent = "Listo para recibir imagen...";
                     uploadInput.disabled = false; webcamBtn.disabled = false;
                     uploadLabel.style.opacity = '1'; uploadLabel.style.cursor = 'pointer';
@@ -369,7 +364,7 @@
                 } else {
                     productoSeleccionado = null;
                     statusContainer.textContent = 'Esperando selección de producto...';
-                    updateAuditor("Por favor, seleccione un producto de la lista.");
+                    setAuditorState('neutral', 'Por favor, seleccione un producto de la lista.');
                     uploadInput.disabled = true; webcamBtn.disabled = true;
                     uploadLabel.style.opacity = '0.5'; uploadLabel.style.cursor = 'not-allowed';
                     stopWebcam();
@@ -387,7 +382,7 @@
         });
         manualInput.addEventListener('paste', (e) => {
                 e.preventDefault();
-                updateAuditor("Acción de pegar deshabilitada. Por favor, teclee o escanee el código.");
+                setAuditorState('neutral', 'Acción de pegar deshabilitada. Por favor, teclee o escanee el código.');
                 return false;
         });
         manualValidateBtn.addEventListener('click', () => {
@@ -395,13 +390,10 @@
                 if (codigoManual && productoSeleccionado) {
                     realizarValidacion(codigoManual, 'Manual');
                 } else {
-                    updateAuditor("Por favor, ingrese un código en el campo manual.");
+                    setAuditorState('neutral', 'Por favor, ingrese un código en el campo manual.');
                 }
         });
         webcamBtn.addEventListener('click', startWebcam);
-
-        // FIX #2: Se ha restaurado la llamada inicial para cargar los productos.
-        cargarProductos();
     });
     </script>
 </body>
