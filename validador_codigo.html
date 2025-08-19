@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="css/estilos.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    </head>
+</head>
 <body class="inspector-body">
     <div class="app-container">
         <header class="app-header">
@@ -32,38 +32,52 @@
         </header>
         <main class="main-content-grid">
             <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas fa-barcode"></i> 1. Análisis de Imagen</h2>
-                <div id="scanner-container">
-                    <img id="image-display" style="display: none; max-width: 100%;">
-                    <p id="upload-prompt" style="position: absolute; color: #888;">Suba una imagen para escanear el código de barras...</p>
+                <h2 class="panel-title"><i class="fas fa-camera"></i> 1. Escáner en Tiempo Real</h2>
+                <div id="scanner-container" style="background-color: #000;">
+                    <video id="video-scanner" style="width: 100%; max-height: 100%; border-radius: 8px;"></video>
+                    <p id="upload-prompt" style="position: absolute; color: #888;">Use los controles para iniciar la cámara...</p>
                 </div>
                 <div class="label-container" id="status-container">
-                    Esperando imagen...
+                    Esperando escaneo...
                 </div>
             </section>
             <aside class="controls-panel">
                  <h3 class="panel-title"><i class="fas fa-cogs"></i> 2. Controles y Resultado</h3>
+                
+                <div class="video-controls">
+                    <label for="video-source-select">Seleccionar Cámara:</label>
+                    <select id="video-source-select" class="control-element"></select>
+                    <button id="start-scan-btn" class="button"><i class="fas fa-play"></i> Iniciar Escáner</button>
+                    <button id="reset-scan-btn" class="button secondary-action"><i class="fas fa-stop"></i> Detener / Reiniciar</button>
+                </div>
+
+                <hr class="separator">
+
                 <div class="action-buttons">
-                    <label for="upload-image-input" class="button primary-action"><i class="fas fa-upload"></i> Subir Imagen para Analizar</label>
+                    <label for="upload-image-input" class="button primary-action"><i class="fas fa-upload"></i> O Subir Imagen</label>
                     <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
-                    </div>
+                </div>
+
                 <div style="margin-top: 15px; padding: 0 20px; text-align: center;">
                     <label for="scanner-input" style="display:block; margin-bottom: 5px; color: #555;">O use la pistola escáner:</label>
                     <input type="text" id="scanner-input" placeholder="Esperando escaneo...">
                 </div>
+
                 <div id="auditor-section" style="margin-top: 20px;">
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                        <span id="auditor-text">Listo para escanear códigos de barras.</span>
+                        <span id="auditor-text">Listo para escanear.</span>
                     </div>
                 </div>
-                </aside>
+            </aside>
         </main>
         <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
     </div>
+    
+    <audio id="scan-beep" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
 
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/zxing.min.js"></script>
 
@@ -71,44 +85,105 @@
         const VALID_PREFIXES = ['75014287', '75014497'];
 
         const uploadInput = document.getElementById('upload-image-input');
-        const imageDisplay = document.getElementById('image-display');
-        const uploadPrompt = document.getElementById('upload-prompt');
         const scannerInput = document.getElementById('scanner-input');
         const statusContainer = document.getElementById('status-container');
         const auditorText = document.getElementById('auditor-text');
-
-        // Inicializamos el lector de códigos de barras de ZXing
+        
+        const videoElement = document.getElementById('video-scanner');
+        const sourceSelect = document.getElementById('video-source-select');
+        const startBtn = document.getElementById('start-scan-btn');
+        const resetBtn = document.getElementById('reset-scan-btn');
+        const scanBeep = document.getElementById('scan-beep');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        
+        // --- LÓGICA DEL ESCÁNER DE VIDEO ---
         const codeReader = new ZXing.BrowserMultiFormatReader();
 
+        // Al cargar la página, buscar las cámaras disponibles
+        window.addEventListener('load', () => {
+            codeReader.listVideoInputDevices()
+                .then(videoInputDevices => {
+                    if (videoInputDevices.length > 0) {
+                        videoInputDevices.forEach(device => {
+                            const option = document.createElement('option');
+                            option.value = device.deviceId;
+                            option.text = device.label || \`Cámara \${sourceSelect.length + 1}\`;
+                            sourceSelect.appendChild(option);
+                        });
+                    } else {
+                        alert("No se encontraron cámaras en este dispositivo.");
+                    }
+                })
+                .catch(err => console.error(err));
+        });
+
+        startBtn.addEventListener('click', () => {
+            const selectedDeviceId = sourceSelect.value;
+            if (!selectedDeviceId) {
+                alert("Por favor, seleccione una cámara.");
+                return;
+            }
+            
+            resetUI();
+            uploadPrompt.style.display = 'none';
+            updateAuditor("Apunte la cámara al código de barras...");
+            
+            codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
+                if (result) {
+                    console.log("ZXing encontró un código:", result.getText());
+                    scanBeep.play();
+                    codeReader.reset(); // Detener el escaneo
+                    displayFinalResult({ code: result.getText() });
+                }
+                if (err && !(err instanceof ZXing.NotFoundException)) {
+                    console.error("Fallo en la lectura de ZXing:", err);
+                    updateStatus('rechazado', 'Error al leer el video.');
+                }
+            });
+        });
+
+        resetBtn.addEventListener('click', () => {
+            codeReader.reset();
+            resetUI();
+        });
+
+        // --- LÓGICA PARA SUBIR IMAGEN (se mantiene) ---
         uploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                resetUI();
-                imageDisplay.src = e.target.result;
-                imageDisplay.style.display = 'block';
-                uploadPrompt.style.display = 'none';
-                
-                updateStatus('pensando', 'Buscando código de barras en la imagen...');
-                updateAuditor('Analizando patrón de barras...');
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    resetUI();
+                    updateStatus('pensando', 'Buscando código de barras en la imagen...');
+                    updateAuditor('Analizando patrón de barras en archivo...');
+                    
+                    // Mostrar la imagen subida en el visor de video para consistencia
+                    videoElement.style.backgroundImage = \`url(\${e.target.result})\`;
+                    videoElement.style.backgroundSize = 'contain';
+                    videoElement.style.backgroundRepeat = 'no-repeat';
+                    videoElement.style.backgroundPosition = 'center';
 
-                // Decodificar desde el elemento de imagen
-                codeReader.decodeFromImageElement(imageDisplay)
-                    .then(result => {
-                        console.log("ZXing encontró un código:", result.getText());
-                        displayFinalResult({ code: result.getText() });
-                    })
-                    .catch(err => {
-                        console.error("Fallo en la lectura de ZXing:", err);
-                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras EAN-13 válido en la imagen.</div>`;
-                        updateAuditor("El lector de barras no pudo decodificar la imagen.");
-                    });
+                    codeReader.decodeFromImage(img)
+                        .then(result => {
+                            console.log("ZXing encontró un código:", result.getText());
+                            scanBeep.play();
+                            displayFinalResult({ code: result.getText() });
+                        })
+                        .catch(err => {
+                            console.error("Fallo en la lectura de ZXing:", err);
+                            statusContainer.innerHTML = \`<div class="veredicto-rechazado">No se pudo encontrar un código de barras EAN-13 válido en la imagen.</div>\`;
+                            updateAuditor("El lector de barras no pudo decodificar el archivo.");
+                        });
+                }
             };
             reader.readAsDataURL(file);
         });
         
+        // --- LÓGICA COMÚN ---
         scannerInput.addEventListener('change', (event) => {
             const code = event.target.value.trim();
             if (code.length > 5) {
@@ -120,10 +195,10 @@
         function displayFinalResult(result) {
             if (result && isValidCode(result.code)) {
                 const cleanCode = result.code.match(/\\d{13}/)[0];
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div>`;
-                updateAuditor(`¡Lectura de barras exitosa! El código es: ${cleanCode}`);
+                statusContainer.innerHTML = \`<div class="veredicto-aprobado">Código Leído: <strong>\${cleanCode}</strong> <span style="color: green;">(Válido)</span></div>\`;
+                updateAuditor(\`¡Lectura de barras exitosa! El código es: \${cleanCode}\`);
             } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">El código leído no es válido o no corresponde a un prefijo autorizado.</div>`;
+                statusContainer.innerHTML = \`<div class="veredicto-rechazado">El código leído (\${result.code || ''}) no es válido o no corresponde a un prefijo autorizado.</div>\`;
                 updateAuditor("El código encontrado no es válido.");
             }
         }
@@ -150,11 +225,10 @@
         }
 
         function resetUI() {
-            imageDisplay.src = "";
-            imageDisplay.style.display = 'none';
+            statusContainer.innerHTML = "Esperando escaneo...";
+            updateAuditor("Listo para escanear.");
             uploadPrompt.style.display = 'block';
-            statusContainer.innerHTML = "Esperando imagen...";
-            updateAuditor("Listo para escanear códigos de barras.");
+            videoElement.style.backgroundImage = 'none';
         }
 
         function updateAuditor(text) {
@@ -162,177 +236,7 @@
         }
         
         function updateStatus(type, message) {
-            statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`;
-        }
-        
-        document.getElementById('currentYear').textContent = new Date().getFullYear();
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código Profesional - IA PRO</title>
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-    
-    <link rel="stylesheet" href="css/estilos.css">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    </head>
-<body class="inspector-body">
-    <div class="app-container">
-        <header class="app-header">
-            <div class="logo-container">
-                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
-                <h1>Inspección de Calidad <span class="ia-badge">IA PRO</span></h1>
-            </div>
-            <nav class="main-nav">
-                 <ul>
-                    <li class="dropdown"><a href="index.html" class="dropdown-toggle">Inicio</a></li>
-                    <li class="dropdown">
-                        <a href="#" class="dropdown-toggle active">Herramientas IA<i class="fas fa-angle-down nav-arrow"></i></a>
-                        <ul class="dropdown-menu">
-                            <li><a href="validador_color.html">Validador de Color</a></li>
-                            <li><a href="validador_codigo.html" class="active">Validador de Código</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </nav>
-        </header>
-        <main class="main-content-grid">
-            <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas fa-barcode"></i> 1. Análisis de Imagen</h2>
-                <div id="scanner-container">
-                    <img id="image-display" style="display: none; max-width: 100%;">
-                    <p id="upload-prompt" style="position: absolute; color: #888;">Suba una imagen para escanear el código de barras...</p>
-                </div>
-                <div class="label-container" id="status-container">
-                    Esperando imagen...
-                </div>
-            </section>
-            <aside class="controls-panel">
-                 <h3 class="panel-title"><i class="fas fa-cogs"></i> 2. Controles y Resultado</h3>
-                <div class="action-buttons">
-                    <label for="upload-image-input" class="button primary-action"><i class="fas fa-upload"></i> Subir Imagen para Analizar</label>
-                    <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
-                    </div>
-                <div style="margin-top: 15px; padding: 0 20px; text-align: center;">
-                    <label for="scanner-input" style="display:block; margin-bottom: 5px; color: #555;">O use la pistola escáner:</label>
-                    <input type="text" id="scanner-input" placeholder="Esperando escaneo...">
-                </div>
-                <div id="auditor-section" style="margin-top: 20px;">
-                    <p id="auditor-title">Asistente de Inspección</p>
-                    <div id="auditor-image-container">
-                        <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
-                    </div>
-                    <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                        <span id="auditor-text">Listo para escanear códigos de barras.</span>
-                    </div>
-                </div>
-                </aside>
-        </main>
-        <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
-    </div>
-
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/zxing.min.js"></script>
-
-    <script>
-        const VALID_PREFIXES = ['75014287', '75014497'];
-
-        const uploadInput = document.getElementById('upload-image-input');
-        const imageDisplay = document.getElementById('image-display');
-        const uploadPrompt = document.getElementById('upload-prompt');
-        const scannerInput = document.getElementById('scanner-input');
-        const statusContainer = document.getElementById('status-container');
-        const auditorText = document.getElementById('auditor-text');
-
-        // Inicializamos el lector de códigos de barras de ZXing
-        const codeReader = new ZXing.BrowserMultiFormatReader();
-
-        uploadInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                resetUI();
-                imageDisplay.src = e.target.result;
-                imageDisplay.style.display = 'block';
-                uploadPrompt.style.display = 'none';
-                
-                updateStatus('pensando', 'Buscando código de barras en la imagen...');
-                updateAuditor('Analizando patrón de barras...');
-
-                // Decodificar desde el elemento de imagen
-                codeReader.decodeFromImageElement(imageDisplay)
-                    .then(result => {
-                        console.log("ZXing encontró un código:", result.getText());
-                        displayFinalResult({ code: result.getText() });
-                    })
-                    .catch(err => {
-                        console.error("Fallo en la lectura de ZXing:", err);
-                        statusContainer.innerHTML = `<div class="veredicto-rechazado">No se pudo encontrar un código de barras EAN-13 válido en la imagen.</div>`;
-                        updateAuditor("El lector de barras no pudo decodificar la imagen.");
-                    });
-            };
-            reader.readAsDataURL(file);
-        });
-        
-        scannerInput.addEventListener('change', (event) => {
-            const code = event.target.value.trim();
-            if (code.length > 5) {
-                displayFinalResult({ code: code });
-            }
-            event.target.value = '';
-        });
-
-        function displayFinalResult(result) {
-            if (result && isValidCode(result.code)) {
-                const cleanCode = result.code.match(/\\d{13}/)[0];
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div>`;
-                updateAuditor(`¡Lectura de barras exitosa! El código es: ${cleanCode}`);
-            } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">El código leído no es válido o no corresponde a un prefijo autorizado.</div>`;
-                updateAuditor("El código encontrado no es válido.");
-            }
-        }
-        
-        function isValidCode(code) {
-            if (!code || typeof code !== 'string') return false;
-            const match = code.match(/\\d{13}/);
-            if (!match) return false;
-            const ean13Code = match[0];
-            const hasPrefix = VALID_PREFIXES.some(prefix => ean13Code.startsWith(prefix));
-            return hasPrefix && validateEAN13Checksum(ean13Code);
-        }
-
-        function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
-            const digits = code.split('').map(Number);
-            const checksum = digits.pop();
-            let sum = 0;
-            for (let i = 0; i < 12; i++) {
-                sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3);
-            }
-            const calculatedChecksum = (10 - (sum % 10)) % 10;
-            return checksum === calculatedChecksum;
-        }
-
-        function resetUI() {
-            imageDisplay.src = "";
-            imageDisplay.style.display = 'none';
-            uploadPrompt.style.display = 'block';
-            statusContainer.innerHTML = "Esperando imagen...";
-            updateAuditor("Listo para escanear códigos de barras.");
-        }
-
-        function updateAuditor(text) {
-            auditorText.textContent = text;
-        }
-        
-        function updateStatus(type, message) {
-            statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`;
+            statusContainer.innerHTML = \`<div class="veredicto-\${type}">\${message}</div>\`;
         }
         
         document.getElementById('currentYear').textContent = new Date().getFullYear();
