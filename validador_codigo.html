@@ -241,37 +241,31 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- INICIO DE LA NUEVA LÓGICA "BORRADOR DE BARRAS" ---
+                    // --- INICIO DE LA LÓGICA "BORRADOR DE BARRAS" (CORREGIDA) ---
 
-                    // 1. Detectar las líneas verticales. Creamos un kernel alto y delgado.
-                    // El tamaño (1, 40) es bueno para capturar las barras sin tocar los números.
+                    // 1. Detectar las líneas verticales con un kernel alto y delgado.
                     let vertical_kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(1, 40));
                     let detected_lines = new cv.Mat();
-                    // La operación ERODE encogerá todo, eliminando casi todo excepto las líneas verticales puras.
                     cv.erode(gray, detected_lines, vertical_kernel, new cv.Point(-1, -1));
                     
-                    // 2. Creamos la máscara. Para asegurarnos de borrar las barras por completo,
-                    // las "engordamos" un poco con DILATE.
+                    // 2. Creamos la máscara "engordando" las líneas detectadas para borrarlas por completo.
                     let mask = new cv.Mat();
                     cv.dilate(detected_lines, mask, vertical_kernel, new cv.Point(-1, -1));
                     
-                    // Invertimos la máscara para que las barras sean blancas (lo que se va a borrar)
-                    cv.bitwise_not(mask, mask);
+                    // ¡¡¡ERROR CORREGIDO!!! La siguiente línea invertía la máscara y causaba el problema. Ha sido eliminada.
+                    // cv.bitwise_not(mask, mask); 
                     
-                    // 3. Borramos las líneas usando Inpainting.
-                    // cv.inpaint toma la imagen original (gray), la máscara (mask) y
-                    // produce una imagen nueva con las áreas borradas y rellenas.
+                    // 3. Borramos las líneas usando Inpainting con la máscara CORRECTA.
                     let inpainted_image = new cv.Mat();
+                    // La máscara ahora tiene valores no-cero donde están las barras, que es lo que inpaint espera.
                     cv.inpaint(gray, mask, inpainted_image, 5, cv.INPAINT_NS);
 
-                    // 4. Binarizamos la imagen ya limpia. Volvemos al THRESH_BINARY normal.
-                    // Esto convertirá los números (que sobrevivieron) a blanco y el fondo a negro.
+                    // 4. Binarizamos la imagen ya limpia.
                     let binary = new cv.Mat();
                     cv.threshold(inpainted_image, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
                     // --- FIN DE LA NUEVA LÓGICA ---
 
-                    // Redimensionamos la imagen final para Tesseract como antes
                     let resized = new cv.Mat();
                     const targetHeight = 120;
                     const aspectRatio = binary.cols / binary.rows;
@@ -293,7 +287,7 @@
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR (Borrador de Barras)" };
+                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR (Borrador de Barras v2)" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
@@ -301,7 +295,6 @@
                     
                     const debugImageData = finalImageData;
 
-                    // Liberar toda la memoria usada, incluyendo los nuevos Mats
                     src.delete(); gray.delete(); vertical_kernel.delete(); detected_lines.delete();
                     mask.delete(); inpainted_image.delete(); binary.delete(); resized.delete();
 
