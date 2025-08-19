@@ -242,26 +242,26 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- INICIO DE LA CADENA DE PROCESAMIENTO MEJORADA ---
+                    // --- INICIO DE LA CADENA DE PROCESAMIENTO FINAL ---
                     
                     updateStatus("Worker: Aplicando umbral adaptativo...");
-                    // 1. Umbralización adaptativa sigue siendo nuestro mejor punto de partida.
+                    // 1. Umbralización adaptativa.
                     let binary = new cv.Mat();
-                    cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 4);
+                    cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 17, 5);
                     
                     // 2. Inversión de color para tener fondo blanco y texto negro.
                     cv.bitwise_not(binary, binary);
 
-                    updateStatus("Worker: Adelgazando números para mejorar separación...");
-                    // 3. Erosión: 'Adelgaza' los pixeles blancos. Esto ayuda a separar
-                    // caracteres que están muy juntos o casi tocándose.
+                    updateStatus("Worker: Engrosando números para reconocimiento...");
+                    // 3. DILATACIÓN: 'Engorda' los pixeles blancos. Es el opuesto de la erosión.
+                    // Esto hace los caracteres más robustos y parecidos a los datos de entrenamiento de Tesseract.
                     let kernel = cv.Mat.ones(2, 2, cv.CV_8U);
-                    let eroded = new cv.Mat();
-                    cv.erode(binary, eroded, kernel, new cv.Point(-1, -1), 1);
+                    let dilated = new cv.Mat();
+                    cv.dilate(binary, dilated, kernel, new cv.Point(-1, -1), 1);
                     
-                    const finalImage = eroded;
+                    const finalImage = dilated;
                     
-                    // --- FIN DE LA CADENA DE PROCESAMIENTO MEJORADA ---
+                    // --- FIN DE LA CADENA DE PROCESAMIENTO FINAL ---
 
                     const finalImageData = matToImageData(finalImage);
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
@@ -271,13 +271,10 @@
                         updateStatus("Worker: Iniciando OCR con modo de segmentación de línea única...");
                         const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
                         
-                        // --- CAMBIO CLAVE: AJUSTE DE PARÁMETROS DE TESSERACT ---
                         await worker.setParameters({
                             tessedit_char_whitelist: '0123456789',
-                            // PSM 7: Trata la imagen como una única línea de texto.
                             tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE,
                         });
-                        // --- FIN DEL CAMBIO CLAVE ---
 
                         const { data: { text } } = await worker.recognize(canvasForDecoders);
                         updateStatus('Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"');
@@ -285,7 +282,7 @@
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + OCR con Segmentación Asistida" };
+                            result = { code: reconstructedCode, method: "IA + Reconstrucción Morfológica" };
                         }
                     } catch(err) { 
                         updateStatus('Worker: Tesseract falló en la lectura. Error: ' + err.message);
