@@ -242,57 +242,58 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- INICIO DE LA CADENA DE PROCESAMIENTO PARA OCR DE TEXTO ---
+                    // --- INICIO DE LA CADENA DE PROCESAMIENTO MEJORADA ---
                     
-                    updateStatus("Worker: Eliminando ruido y preservando bordes...");
-                    // 1. Filtro de mediana para eliminar ruido sin dañar los bordes de los números.
-                    let denoised = new cv.Mat();
-                    cv.medianBlur(gray, denoised, 3);
-
-                    updateStatus("Worker: Aplicando umbral adaptativo para máxima claridad...");
-                    // 2. Umbralización adaptativa. Es la mejor técnica para texto.
-                    // Calcula el umbral localmente, manejando bien sombras y reflejos.
+                    updateStatus("Worker: Aplicando umbral adaptativo...");
+                    // 1. Umbralización adaptativa sigue siendo nuestro mejor punto de partida.
                     let binary = new cv.Mat();
-                    cv.adaptiveThreshold(
-                        denoised,                      // Imagen de entrada
-                        binary,                        // Imagen de salida
-                        255,                           // Valor máximo (blanco)
-                        cv.ADAPTIVE_THRESH_GAUSSIAN_C, // Método de cálculo
-                        cv.THRESH_BINARY,              // Tipo de umbral
-                        11,                            // Tamaño del bloque (debe ser impar)
-                        4                              // Constante C a restar de la media
-                    );
-
-                    // 3. Inversión de color. Tesseract a menudo prefiere texto negro sobre fondo blanco.
-                    // La umbralización adaptativa puede dar un fondo negro, así que lo invertimos para asegurar.
+                    cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 4);
+                    
+                    // 2. Inversión de color para tener fondo blanco y texto negro.
                     cv.bitwise_not(binary, binary);
+
+                    updateStatus("Worker: Adelgazando números para mejorar separación...");
+                    // 3. Erosión: 'Adelgaza' los pixeles blancos. Esto ayuda a separar
+                    // caracteres que están muy juntos o casi tocándose.
+                    let kernel = cv.Mat.ones(2, 2, cv.CV_8U);
+                    let eroded = new cv.Mat();
+                    cv.erode(binary, eroded, kernel, new cv.Point(-1, -1), 1);
                     
-                    const finalImage = binary; // Usamos directamente la imagen binaria limpia.
+                    const finalImage = eroded;
                     
-                    // --- FIN DE LA CADENA DE PROCESAMIENTO PARA OCR DE TEXTO ---
+                    // --- FIN DE LA CADENA DE PROCESAMIENTO MEJORADA ---
 
                     const finalImageData = matToImageData(finalImage);
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
                     try {
-                        updateStatus("Worker: Iniciando reconocimiento de texto con Tesseract...");
+                        updateStatus("Worker: Iniciando OCR con modo de segmentación de línea única...");
                         const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
-                        await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+                        
+                        // --- CAMBIO CLAVE: AJUSTE DE PARÁMETROS DE TESSERACT ---
+                        await worker.setParameters({
+                            tessedit_char_whitelist: '0123456789',
+                            // PSM 7: Trata la imagen como una única línea de texto.
+                            tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE,
+                        });
+                        // --- FIN DEL CAMBIO CLAVE ---
+
                         const { data: { text } } = await worker.recognize(canvasForDecoders);
                         updateStatus('Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"');
                         await worker.terminate();
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + OCR Adaptativo" };
+                            result = { code: reconstructedCode, method: "IA + OCR con Segmentación Asistida" };
                         }
                     } catch(err) { 
                         updateStatus('Worker: Tesseract falló en la lectura. Error: ' + err.message);
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); denoised.delete();
+                    // Liberar memoria
+                    src.delete(); gray.delete(); binary.delete(); kernel.delete();
                     
                     self.postMessage({ 
                         status: 'done', 
