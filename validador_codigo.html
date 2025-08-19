@@ -181,29 +181,25 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo nos quedamos con los números
-
-                    for (let i = 0; i <= cleanedText.length - 8; i++) { // Busca en toda la cadena
+                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
+                    for (let i = 0; i <= cleanedText.length - 8; i++) {
                         const potentialPrefix = cleanedText.substring(i, i + 8);
                         for (const knownPrefix of VALID_PREFIXES) {
-                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) { // Tolera hasta 2 errores
-                                // Si encontramos un prefijo "casi" perfecto, intentamos construir el resto del código
+                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) {
                                 const remainingText = cleanedText.substring(i + 8);
                                 if (remainingText.length >= 5) {
                                     const finalFiveDigits = remainingText.substring(0, 5);
-                                    // Usamos el PREFIJO CORRECTO para construir el candidato final
                                     const candidate = knownPrefix + finalFiveDigits;
                                     if (validateEAN13Checksum(candidate)) {
-                                        return candidate; // ¡Éxito! Código reconstruido y validado
+                                        return candidate;
                                     }
                                 }
                             }
                         }
                     }
-                    return null; // No se pudo reconstruir
+                    return null;
                 }
 
                 function levenshteinDistance(s1, s2) {
@@ -246,30 +242,38 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // PROCESAMIENTO ESTABLE Y ROBUSTO
-                    let blurred = new cv.Mat();
-                    cv.medianBlur(gray, blurred, 3);
-
-                    let sharpened = new cv.Mat();
-                    let gaussian = new cv.Mat();
-                    cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
-                    cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
-                    
                     let binary = new cv.Mat();
-                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
                     
+                    // --- INICIO DE LA NUEVA LÓGICA: "DIGITALIZACIÓN" DE TEXTO ---
+
+                    // 1. Definimos un "pincel" o "kernel" para las operaciones. Un tamaño pequeño es bueno para detalles finos.
+                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+
+                    // 2. Operación de Apertura: Elimina el ruido (manchas pequeñas).
+                    let opened = new cv.Mat();
+                    cv.morphologyEx(binary, opened, cv.MORPH_OPEN, kernel);
+
+                    // 3. Operación de Cierre: Rellena los huecos en los caracteres.
+                    let closed = new cv.Mat();
+                    cv.morphologyEx(opened, closed, cv.MORPH_CLOSE, kernel);
+                    
+                    // La imagen que pasaremos a Tesseract será la 'closed', la más limpia.
+                    const finalProcessedMat = closed;
+
+                    // --- FIN DE LA NUEVA LÓGICA ---
+
                     let resized = new cv.Mat();
                     const targetHeight = 120;
-                    const aspectRatio = binary.cols / binary.rows;
+                    const aspectRatio = finalProcessedMat.cols / finalProcessedMat.rows;
                     const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
-                    cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
+                    cv.resize(finalProcessedMat, resized, newSize, 0, 0, cv.INTER_CUBIC);
 
                     const finalImageData = matToImageData(resized);
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
                     try {
-                        // Limpiamos las advertencias usando la inicialización moderna de Tesseract.js v5
                         const worker = await self.Tesseract.createWorker('eng', 0, {
                             langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                         });
@@ -289,7 +293,7 @@
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+                    src.delete(); gray.delete(); binary.delete(); kernel.delete(); opened.delete(); closed.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
