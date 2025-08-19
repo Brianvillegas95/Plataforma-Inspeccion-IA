@@ -3,33 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verificador de Código - IA Vision Max</title>
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-    
+    <title>Auditor de Código EAN-13 - IA PRO</title>
     <link rel="stylesheet" href="css/estilos.css">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* Estilos simplificados para la nueva interfaz */
-        #verification-container {
-            padding: 20px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        /* Pequeños ajustes para los nuevos elementos */
+        .controls-panel .button {
+            margin-top: 10px;
         }
-        #scanner-input {
-            font-size: 1.2em;
-            padding: 10px;
-            width: 100%;
-            box-sizing: border-box;
-            border: 2px solid #ccc;
-            border-radius: 4px;
-        }
-        #upload-and-verify-btn {
-            margin-top: 15px;
-            width: 100%;
-            padding: 15px;
-            font-size: 1.1em;
+        select:disabled, button:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+            opacity: 0.7;
         }
     </style>
 </head>
@@ -42,38 +27,47 @@
             </div>
             <nav class="main-nav">
                  <ul>
-                    <li class="dropdown"><a href="index.html" class="dropdown-toggle">Inicio</a></li>
+                    <li><a href="index.html">Inicio</a></li>
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle active">Herramientas IA<i class="fas fa-angle-down nav-arrow"></i></a>
                         <ul class="dropdown-menu">
                             <li><a href="validador_color.html">Validador de Color</a></li>
-                            <li><a href="validador_codigo.html" class="active">Validador de Código</a></li>
+                            <li><a href="auditor_ean13.html" class="active">Auditor de Código EAN-13</a></li>
                         </ul>
                     </li>
                 </ul>
             </nav>
         </header>
+
         <main class="main-content-grid">
             <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas fa-camera"></i> Vista de la Imagen</h2>
-                <div id="scanner-container">
-                    <img id="image-display" style="display: block; max-width: 100%; opacity: 0;">
-                    <p id="upload-prompt" style="position: absolute; color: #888;">La imagen cargada se mostrará aquí...</p>
+                <h2 class="panel-title"><i class="fas fa-barcode"></i> Vista del Código de Barras</h2>
+                <div id="image-container" class="webcam-view" style="display: flex; align-items: center; justify-content: center; background-color: #f0f0f0;">
+                    <p id="image-prompt" style="color: #888;">Seleccione un producto para comenzar...</p>
                 </div>
                 <div class="label-container" id="status-container">
-                    Esperando acción...
+                    Esperando selección de producto...
                 </div>
             </section>
+
             <aside class="controls-panel">
-                <div id="verification-container">
-                    <h3 class="panel-title"><i class="fas fa-barcode"></i> 1. Ingresar Código a Verificar</h3>
-                    <input type="text" id="scanner-input" placeholder="Escanear o teclear código EAN-13...">
-                    
-                    <h3 class="panel-title" style="margin-top: 20px;"><i class="fas fa-image"></i> 2. Cargar Imagen y Verificar</h3>
-                    <label for="upload-image-input" id="upload-and-verify-btn" class="button primary-action" style="display: block; text-align: center;">
-                        <i class="fas fa-upload"></i> Subir Imagen para Verificar
+                <div id="product-selection-container">
+                    <h3 class="panel-title"><i class="fas fa-box-open"></i> 1. Seleccionar Producto</h3>
+                    <select id="product-select" class="form-control" disabled>
+                        <option value="">-- Cargando productos... --</option>
+                    </select>
+                </div>
+
+                <div id="image-input-container" style="margin-top: 20px;">
+                    <h3 class="panel-title"><i class="fas fa-camera"></i> 2. Proporcionar Imagen</h3>
+                    <label for="upload-input" id="upload-label" class="button primary-action" style="display: block; text-align: center; opacity: 0.5; cursor: not-allowed;">
+                        <i class="fas fa-upload"></i> Subir Archivo de Imagen
                     </label>
-                    <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
+                    <input type="file" id="upload-input" accept="image/*" style="display: none;" disabled>
+                    
+                    <button id="webcam-btn" class="button secondary-action" style="width: 100%;" disabled>
+                        <i class="fas fa-video"></i> Activar Cámara Web
+                    </button>
                 </div>
 
                 <div id="auditor-section" style="margin-top: 20px;">
@@ -82,144 +76,129 @@
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                        <span id="auditor-text">Listo para iniciar la verificación.</span>
+                        <span id="auditor-text">Bienvenido. Por favor, seleccione un producto de la lista para iniciar la auditoría.</span>
                     </div>
                 </div>
             </aside>
         </main>
+        
         <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
     </div>
 
-    <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-    
     <script>
-        const VALID_PREFIXES = ['75014287', '75014497'];
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- 1. REFERENCIAS A ELEMENTOS DEL DOM ---
+            const productSelect = document.getElementById('product-select');
+            const statusContainer = document.getElementById('status-container');
+            const auditorText = document.getElementById('auditor-text');
+            const uploadLabel = document.getElementById('upload-label');
+            const uploadInput = document.getElementById('upload-input');
+            const webcamBtn = document.getElementById('webcam-btn');
+            const imagePrompt = document.getElementById('image-prompt');
+            document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-        const uploadInput = document.getElementById('upload-image-input');
-        const imageDisplay = document.getElementById('image-display');
-        const uploadPrompt = document.getElementById('upload-prompt');
-        const scannerInput = document.getElementById('scanner-input');
-        const statusContainer = document.getElementById('status-container');
-        const auditorText = document.getElementById('auditor-text');
-        
-        let analysisWorker = null;
-        let codeToVerify = '';
+            // --- 2. ESTADO DE LA APLICACIÓN ---
+            let productos = []; // Almacenará la lista completa de productos
+            let productoSeleccionado = null; // Guardará el producto elegido por el usuario
 
-        scannerInput.addEventListener('change', (event) => {
-            const potentialCode = event.target.value.trim();
-            if (isValidEAN13(potentialCode)) {
-                codeToVerify = potentialCode;
-                updateAuditor(`Código ${codeToVerify} listo para ser verificado.`);
-                statusContainer.innerHTML = `Listo para verificar: <strong>${codeToVerify}</strong>`;
-            } else {
-                codeToVerify = '';
-                updateAuditor(`El código ingresado no es un EAN-13 válido.`);
-            }
-        });
+            // --- 3. FUNCIONES ---
 
-        uploadInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            if (!codeToVerify) {
-                updateAuditor("Error: Por favor, ingrese un código válido antes de subir una imagen.");
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">Ingrese un código EAN-13 válido primero.</div>`;
-                return;
+            /**
+             * Actualiza el mensaje del asistente de IA.
+             * @param {string} message - El texto a mostrar.
+             * @param {string} type - 'info' (default), 'success', 'error'.
+             */
+            function updateAuditor(message, type = 'info') {
+                auditorText.textContent = message;
+                // Podríamos agregar clases para cambiar el color de la burbuja en el futuro.
             }
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                imageDisplay.src = e.target.result;
-                imageDisplay.style.opacity = '1';
-                uploadPrompt.style.display = 'none';
-                
-                statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen con IA...</div>`;
-                updateAuditor("Analizando toda la imagen en busca del código...");
+            /**
+             * Llama a la función de Netlify para cargar los productos desde Google Sheets.
+             */
+            async function cargarProductos() {
+                try {
+                    // La URL '/.netlify/functions/...' es la ruta que Netlify crea para tus robots.
+                    const response = await fetch('/.netlify/functions/leer-sheet-privada');
+                    if (!response.ok) {
+                        throw new Error(`Error del servidor: ${response.statusText}`);
+                    }
+                    const data = await response.json();
 
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    const imageData = ctx.getImageData(0, 0, img.width, img.height);
+                    // Guardamos los datos en un formato más manejable
+                    productos = data.map(row => ({
+                        codigoDeBarras: row[0],
+                        sku: row[1],
+                        descripcion: row[2]
+                        // Agrega más campos si es necesario, ej: row[3]
+                    }));
+
+                    // Limpiamos el select y agregamos la opción por defecto
+                    productSelect.innerHTML = '<option value="">-- Seleccione un producto --</option>';
+
+                    // Llenamos el select con los productos cargados
+                    productos.forEach(producto => {
+                        const option = document.createElement('option');
+                        option.value = producto.codigoDeBarras; // El valor será el código de barras único
+                        option.textContent = `${producto.sku} - ${producto.descripcion}`; // El texto visible
+                        productSelect.appendChild(option);
+                    });
                     
-                    if (!analysisWorker) setupWorker();
-                    analysisWorker.postMessage({ imageData: imageData });
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
+                    productSelect.disabled = false; // Habilitamos el menú
+                    updateAuditor("Lista de productos cargada. Por favor, seleccione uno.");
 
-        function setupWorker() {
-            const workerCode = `
-                self.importScripts(
-                    'https://docs.opencv.org/4.9.0/opencv.js',
-                    'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
-                );
-
-                self.onmessage = async (e) => {
-                    const { imageData } = e.data;
-                    await waitForOpenCV();
-                    const src = cv.matFromImageData(imageData);
-                    let gray = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                    
-                    let binary = new cv.Mat();
-                    cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
-
-                    const finalImageData = new ImageData(new Uint8ClampedArray(binary.data), binary.cols, binary.rows);
-                    
-                    const worker = await self.Tesseract.createWorker('eng', 1, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
-                    const { data: { text } } = await worker.recognize(finalImageData);
-                    await worker.terminate();
-                    
-                    src.delete(); gray.delete(); binary.delete();
-
-                    self.postMessage({ fullText: text });
-                };
-
-                function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
-            `;
-            const blob = new Blob([workerCode], { type: 'application/javascript' });
-            analysisWorker = new Worker(URL.createObjectURL(blob));
-            analysisWorker.onmessage = (e) => {
-                const { fullText } = e.data;
-                console.log("Texto extraído de la imagen:", fullText);
-                
-                const cleanedText = fullText.replace(/[^0-9]/g, '');
-                
-                if (cleanedText.includes(codeToVerify)) {
-                    statusContainer.innerHTML = \`<div class="veredicto-aprobado">CÓDIGO ENCONTRADO: <strong>\${codeToVerify}</strong> <span style="color: green;">(APROBADO)</span></div>\`;
-                    updateAuditor("¡Éxito! El código fue verificado en la imagen.");
-                } else {
-                    statusContainer.innerHTML = \`<div class="veredicto-rechazado">CÓDIGO NO ENCONTRADO: <strong>\${codeToVerify}</strong> <span style="color: red;">(RECHAZADO)</span></div>\`;
-                    updateAuditor("El código ingresado no se encontró en la imagen.");
+                } catch (error) {
+                    console.error('Error al cargar la lista de productos:', error);
+                    productSelect.innerHTML = '<option value="">-- Error al cargar --</option>';
+                    updateAuditor("Error: No se pudo cargar la lista de productos. Verifique la conexión.", "error");
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">Fallo al cargar productos</div>`;
                 }
-            };
-        }
+            }
+            
+            // --- 4. EVENT LISTENERS ---
 
-        function isValidEAN13(code) {
-            if (typeof code !== 'string' || !/^\\d{13}$/.test(code)) return false;
-            const hasPrefix = VALID_PREFIXES.some(prefix => code.startsWith(prefix));
-            return hasPrefix && validateEAN13Checksum(code);
-        }
+            /**
+             * Se activa cuando el operador selecciona un producto del menú.
+             */
+            productSelect.addEventListener('change', (event) => {
+                const codigoSeleccionado = event.target.value;
+                
+                if (codigoSeleccionado) {
+                    // Buscamos el objeto completo del producto en nuestro arreglo
+                    productoSeleccionado = productos.find(p => p.codigoDeBarras === codigoSeleccionado);
+                    
+                    if (productoSeleccionado) {
+                        // Actualizamos la UI para reflejar la selección
+                        statusContainer.innerHTML = `Producto seleccionado: <strong>${productoSeleccionado.sku}</strong>. Esperando imagen.`;
+                        updateAuditor(`Listo para validar el código: ${productoSeleccionado.codigoDeBarras}. Por favor, suba una imagen o active la cámara.`, "success");
+                        imagePrompt.textContent = "Listo para recibir imagen...";
 
-        function validateEAN13Checksum(code) {
-            const digits = code.split('').map(Number);
-            const checksum = digits.pop();
-            let sum = 0;
-            for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
-            const calculatedChecksum = (10 - (sum % 10)) % 10;
-            return checksum === calculatedChecksum;
-        }
+                        // Habilitamos los botones para el siguiente paso (Fase 2)
+                        uploadInput.disabled = false;
+                        webcamBtn.disabled = false;
+                        uploadLabel.style.opacity = '1';
+                        uploadLabel.style.cursor = 'pointer';
 
-        function updateAuditor(text) { auditorText.textContent = text; }
-        
-        document.getElementById('currentYear').textContent = new Date().getFullYear();
+                    }
+                } else {
+                    // Si el usuario vuelve a la opción "-- Seleccione un producto --"
+                    productoSeleccionado = null;
+                    statusContainer.textContent = 'Esperando selección de producto...';
+                    updateAuditor("Por favor, seleccione un producto de la lista.");
+                    imagePrompt.textContent = "Seleccione un producto para comenzar...";
+
+                    // Deshabilitamos los botones
+                    uploadInput.disabled = true;
+                    webcamBtn.disabled = true;
+                    uploadLabel.style.opacity = '0.5';
+                    uploadLabel.style.cursor = 'not-allowed';
+                }
+            });
+
+
+            // --- 5. INICIALIZACIÓN ---
+            cargarProductos();
+        });
     </script>
 </body>
 </html>
