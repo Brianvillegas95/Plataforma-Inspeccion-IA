@@ -131,14 +131,13 @@
             analyzeSelectionBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando...`;
             debugSection.style.display = 'none';
             const croppedCanvas = cropper.getCroppedCanvas({
-                minWidth: 256, // Asegura una resolución mínima para el análisis
+                minWidth: 256,
                 minHeight: 128,
                 imageSmoothingEnabled: true,
                 imageSmoothingQuality: 'high',
             });
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo con IA...");
-            console.log("Main: Enviando imagen recortada al Web Worker.");
+            updateAuditor("Iniciando análisis profundo para OCR...");
             if (!analysisWorker) {
                 setupWorker();
             }
@@ -185,7 +184,7 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES (SE MANTIENE IGUAL) ---
+                // --- La lógica de reconstrucción de EAN13 se mantiene igual ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
                     const cleanedText = ocrText.replace(/[^0-9]/g, '');
@@ -197,16 +196,13 @@
                                 if (remainingText.length >= 5) {
                                     const finalFiveDigits = remainingText.substring(0, 5);
                                     const candidate = knownPrefix + finalFiveDigits;
-                                    if (validateEAN13Checksum(candidate)) {
-                                        return candidate;
-                                    }
+                                    if (validateEAN13Checksum(candidate)) { return candidate; }
                                 }
                             }
                         }
                     }
                     return null;
                 }
-
                 function levenshteinDistance(s1, s2) {
                     const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
                     for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
@@ -219,7 +215,6 @@
                     }
                     return track[s2.length][s1.length];
                 }
-
                 function validateEAN13Checksum(code) {
                     if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
                     const digits = code.split('').map(Number);
@@ -229,7 +224,6 @@
                     const calculatedChecksum = (10 - (sum % 10)) % 10;
                     return checksum === calculatedChecksum;
                 }
-                
                 function matToImageData(mat) {
                     const matRGBA = new cv.Mat();
                     cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
@@ -237,11 +231,7 @@
                     matRGBA.delete();
                     return imageData;
                 }
-                
-                // Función para enviar mensajes de estado al hilo principal
-                function updateStatus(message) {
-                    self.postMessage({ status: 'update', message: message });
-                }
+                function updateStatus(message) { self.postMessage({ status: 'update', message: message }); }
 
                 self.onmessage = async (e) => {
                     const { imageData } = e.data;
@@ -252,46 +242,34 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // --- INICIO DE LA NUEVA CADENA DE PROCESAMIENTO AVANZADO ---
+                    // --- INICIO DE LA CADENA DE PROCESAMIENTO PARA OCR DE TEXTO ---
                     
-                    updateStatus("Worker: Calculando gradientes para aislar barras...");
-                    // 1. Calcular gradientes para encontrar las líneas verticales.
-                    // El operador Scharr es más sensible que Sobel a líneas finas.
-                    let gradX = new cv.Mat();
-                    cv.Scharr(gray, gradX, cv.CV_32F, 1, 0);
-                    cv.convertScaleAbs(gradX, gradX);
-                    
-                    updateStatus("Worker: Suavizando y aplicando umbral adaptativo...");
-                    // 2. Suavizar el gradiente para reducir el ruido y unir las barras.
-                    let blurred = new cv.Mat();
-                    cv.GaussianBlur(gradX, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-                    
-                    // 3. Aplicar umbralización para obtener una máscara binaria.
-                    // Otsu es excelente para separar automáticamente el fondo del primer plano.
-                    let thresh = new cv.Mat();
-                    cv.threshold(blurred, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    updateStatus("Worker: Eliminando ruido y preservando bordes...");
+                    // 1. Filtro de mediana para eliminar ruido sin dañar los bordes de los números.
+                    let denoised = new cv.Mat();
+                    cv.medianBlur(gray, denoised, 3);
 
-                    updateStatus("Worker: Reconstruyendo barras con operaciones morfológicas...");
-                    // 4. Operación Morfológica de CIERRE (Closing).
-                    // Esto es clave: Rellena los huecos en las barras del código.
-                    // Usamos un kernel rectangular para conectar mejor las líneas verticales.
-                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
-                    let closed = new cv.Mat();
-                    cv.morphologyEx(thresh, closed, cv.MORPH_CLOSE, kernel);
+                    updateStatus("Worker: Aplicando umbral adaptativo para máxima claridad...");
+                    // 2. Umbralización adaptativa. Es la mejor técnica para texto.
+                    // Calcula el umbral localmente, manejando bien sombras y reflejos.
+                    let binary = new cv.Mat();
+                    cv.adaptiveThreshold(
+                        denoised,                      // Imagen de entrada
+                        binary,                        // Imagen de salida
+                        255,                           // Valor máximo (blanco)
+                        cv.ADAPTIVE_THRESH_GAUSSIAN_C, // Método de cálculo
+                        cv.THRESH_BINARY,              // Tipo de umbral
+                        11,                            // Tamaño del bloque (debe ser impar)
+                        4                              // Constante C a restar de la media
+                    );
 
-                    // 5. Limpieza final con EROSIÓN y DILATACIÓN.
-                    // Eliminamos cualquier ruido que aún quede.
-                    cv.erode(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
-                    cv.dilate(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
-
-                    // 6. Preparar la imagen final para Tesseract.
-                    // Usamos la máscara 'closed' para tomar solo la región del código de la imagen original en escala de grises.
-                    let finalImage = new cv.Mat();
-                    cv.bitwise_and(gray, gray, finalImage, closed);
-                    // Invertimos (fondo blanco, texto negro) que a menudo funciona mejor con Tesseract.
-                    cv.bitwise_not(finalImage, finalImage);
+                    // 3. Inversión de color. Tesseract a menudo prefiere texto negro sobre fondo blanco.
+                    // La umbralización adaptativa puede dar un fondo negro, así que lo invertimos para asegurar.
+                    cv.bitwise_not(binary, binary);
                     
-                    // --- FIN DE LA NUENA CADENA DE PROCESAMIENTO AVANZADO ---
+                    const finalImage = binary; // Usamos directamente la imagen binaria limpia.
+                    
+                    // --- FIN DE LA CADENA DE PROCESAMIENTO PARA OCR DE TEXTO ---
 
                     const finalImageData = matToImageData(finalImage);
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
@@ -299,29 +277,23 @@
                     
                     try {
                         updateStatus("Worker: Iniciando reconocimiento de texto con Tesseract...");
-                        const worker = await self.Tesseract.createWorker('eng', 0, {
-                            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-                        });
-                        await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789',
-                        });
+                        const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
+                        await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
                         const { data: { text } } = await worker.recognize(canvasForDecoders);
                         updateStatus('Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"');
                         await worker.terminate();
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA Avanzada + Reconstrucción Morfológica" };
+                            result = { code: reconstructedCode, method: "IA + OCR Adaptativo" };
                         }
                     } catch(err) { 
                         updateStatus('Worker: Tesseract falló en la lectura. Error: ' + err.message);
                     }
                     
                     const debugImageData = finalImageData;
-
-                    // Liberar memoria
-                    src.delete(); gray.delete(); gradX.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); finalImage.delete();
-
+                    src.delete(); gray.delete(); denoised.delete();
+                    
                     self.postMessage({ 
                         status: 'done', 
                         result: result,
