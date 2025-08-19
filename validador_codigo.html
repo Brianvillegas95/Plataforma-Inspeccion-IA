@@ -3,18 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validador de Código Profesional - IA Vision Max</title>
+    <title>Verificador de Código - IA Vision Max</title>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     
     <link rel="stylesheet" href="css/estilos.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
     <style>
-        .cropper-view-box .cropper-point {
-            width: 12px !important;
-            height: 12px !important;
-            opacity: 0.85 !important;
+        /* Estilos simplificados para la nueva interfaz */
+        #verification-container {
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        #scanner-input {
+            font-size: 1.2em;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+        }
+        #upload-and-verify-btn {
+            margin-top: 15px;
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1em;
         }
     </style>
 </head>
@@ -40,44 +55,36 @@
         </header>
         <main class="main-content-grid">
             <section class="vision-panel">
-                <h2 class="panel-title"><i class="fas fa-eye"></i> 1. Análisis de Imagen con IA</h2>
+                <h2 class="panel-title"><i class="fas fa-camera"></i> Vista de la Imagen</h2>
                 <div id="scanner-container">
                     <img id="image-display" style="display: block; max-width: 100%; opacity: 0;">
-                    <p id="upload-prompt" style="position: absolute; color: #888;">Suba una imagen para un análisis automático...</p>
+                    <p id="upload-prompt" style="position: absolute; color: #888;">La imagen cargada se mostrará aquí...</p>
                 </div>
                 <div class="label-container" id="status-container">
-                    Esperando imagen...
+                    Esperando acción...
                 </div>
             </section>
             <aside class="controls-panel">
-                 <h3 class="panel-title"><i class="fas fa-cogs"></i> 2. Controles y Resultado</h3>
-                <div class="action-buttons">
-                    <label for="upload-image-input" class="button primary-action"><i class="fas fa-upload"></i> Subir Imagen para Analizar</label>
-                    <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
+                <div id="verification-container">
+                    <h3 class="panel-title"><i class="fas fa-barcode"></i> 1. Ingresar Código a Verificar</h3>
+                    <input type="text" id="scanner-input" placeholder="Escanear o teclear código EAN-13...">
                     
-                    <button id="analyze-selection-btn" class="button" style="display: none; margin-top: 10px; background-color: #28a745;">
-                        <i class="fas fa-search"></i> Analizar Selección
-                    </button>
+                    <h3 class="panel-title" style="margin-top: 20px;"><i class="fas fa-image"></i> 2. Cargar Imagen y Verificar</h3>
+                    <label for="upload-image-input" id="upload-and-verify-btn" class="button primary-action" style="display: block; text-align: center;">
+                        <i class="fas fa-upload"></i> Subir Imagen para Verificar
+                    </label>
+                    <input type="file" id="upload-image-input" accept="image/*" style="display: none;">
                 </div>
-                <div style="margin-top: 15px; padding: 0 20px; text-align: center;">
-                    <label for="scanner-input" style="display:block; margin-bottom: 5px; color: #555;">O use la pistola escáner:</label>
-                    <input type="text" id="scanner-input" placeholder="Esperando escaneo...">
-                </div>
+
                 <div id="auditor-section" style="margin-top: 20px;">
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                        <span id="auditor-text">Listo para iniciar la verificación automática.</span>
+                        <span id="auditor-text">Listo para iniciar la verificación.</span>
                     </div>
                 </div>
-
-                <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen de Depuración (Procesada para OCR):</strong></p>
-                    <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
-                </div>
-
             </aside>
         </main>
         <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
@@ -85,95 +92,67 @@
 
     <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
-
+    
     <script>
         const VALID_PREFIXES = ['75014287', '75014497'];
 
         const uploadInput = document.getElementById('upload-image-input');
         const imageDisplay = document.getElementById('image-display');
         const uploadPrompt = document.getElementById('upload-prompt');
-        const analyzeSelectionBtn = document.getElementById('analyze-selection-btn');
         const scannerInput = document.getElementById('scanner-input');
         const statusContainer = document.getElementById('status-container');
         const auditorText = document.getElementById('auditor-text');
-        const debugSection = document.getElementById('debug-section');
-        const debugCanvas = document.getElementById('debug-canvas');
         
-        let cropper = null;
         let analysisWorker = null;
+        let codeToVerify = '';
+
+        scannerInput.addEventListener('change', (event) => {
+            const potentialCode = event.target.value.trim();
+            if (isValidEAN13(potentialCode)) {
+                codeToVerify = potentialCode;
+                updateAuditor(`Código ${codeToVerify} listo para ser verificado.`);
+                statusContainer.innerHTML = `Listo para verificar: <strong>${codeToVerify}</strong>`;
+            } else {
+                codeToVerify = '';
+                updateAuditor(`El código ingresado no es un EAN-13 válido.`);
+            }
+        });
 
         uploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
+
+            if (!codeToVerify) {
+                updateAuditor("Error: Por favor, ingrese un código válido antes de subir una imagen.");
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">Ingrese un código EAN-13 válido primero.</div>`;
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = (e) => {
-                resetUI();
                 imageDisplay.src = e.target.result;
                 imageDisplay.style.opacity = '1';
                 uploadPrompt.style.display = 'none';
-                startAutomaticDetection(imageDisplay);
+                
+                statusContainer.innerHTML = `<div class="veredicto-pensando">Procesando imagen con IA...</div>`;
+                updateAuditor("Analizando toda la imagen en busca del código...");
+
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const imageData = ctx.getImageData(0, 0, img.width, img.height);
+                    
+                    if (!analysisWorker) setupWorker();
+                    analysisWorker.postMessage({ imageData: imageData });
+                };
+                img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         });
-        
-        scannerInput.addEventListener('change', (event) => {
-            const code = event.target.value.trim();
-            if (code.length > 5) {
-                displayFinalResult({ code: code, method: "Pistola Escáner" });
-                event.target.value = '';
-            }
-        });
-
-        analyzeSelectionBtn.addEventListener('click', () => {
-            if (!cropper) return;
-            analyzeSelectionBtn.disabled = true;
-            analyzeSelectionBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando...`;
-            debugSection.style.display = 'none';
-            const croppedCanvas = cropper.getCroppedCanvas({
-                minWidth: 256,
-                minHeight: 128,
-                imageSmoothingEnabled: true,
-                imageSmoothingQuality: 'high',
-            });
-            const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo para OCR...");
-            if (!analysisWorker) {
-                setupWorker();
-            }
-            analysisWorker.postMessage({ imageData: imageData });
-        });
-
-        async function startAutomaticDetection(imageElement) {
-            updateAuditor("Iniciando análisis rápido con el motor nativo...");
-            updateStatus('pensando', 'Detectando código automáticamente...');
-            if ('BarcodeDetector' in window) {
-                try {
-                    const barcodeDetector = new BarcodeDetector({ formats: ['ean_13'] });
-                    const barcodes = await barcodeDetector.detect(imageElement);
-                    if (barcodes.length > 0) {
-                        for (const barcode of barcodes) {
-                            if (isValidCode(barcode.rawValue)) {
-                                displayFinalResult({ code: barcode.rawValue, method: "Lector Nativo (Rápido)" });
-                                return;
-                            }
-                        }
-                    }
-                } catch (error) { console.error("Error en detector nativo:", error); }
-            }
-            promptManualSelection();
-        }
-
-        function promptManualSelection() {
-            updateAuditor("Análisis rápido fallido. Por favor, selecciona el área del código para un análisis profundo.");
-            statusContainer.innerHTML = "Selecciona el área del código de barras.";
-            if (cropper) { cropper.destroy(); }
-            cropper = new Cropper(imageDisplay, {
-                viewMode: 1, autoCrop: false, background: false, zoomable: false, movable: false,
-                crop: () => { analyzeSelectionBtn.disabled = false; }
-            });
-            analyzeSelectionBtn.style.display = 'block';
-        }
 
         function setupWorker() {
             const workerCode = `
@@ -182,173 +161,57 @@
                     'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
                 );
 
-                const VALID_PREFIXES = ['75014287', '75014497'];
-
-                // --- La lógica de reconstrucción de EAN13 se mantiene igual ---
-                function reconstructEAN13FromOCR(ocrText) {
-                    if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
-                    for (let i = 0; i <= cleanedText.length - 8; i++) {
-                        const potentialPrefix = cleanedText.substring(i, i + 8);
-                        for (const knownPrefix of VALID_PREFIXES) {
-                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) {
-                                const remainingText = cleanedText.substring(i + 8);
-                                if (remainingText.length >= 5) {
-                                    const finalFiveDigits = remainingText.substring(0, 5);
-                                    const candidate = knownPrefix + finalFiveDigits;
-                                    if (validateEAN13Checksum(candidate)) { return candidate; }
-                                }
-                            }
-                        }
-                    }
-                    return null;
-                }
-                function levenshteinDistance(s1, s2) {
-                    const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
-                    for (let i = 0; i <= s1.length; i += 1) { track[0][i] = i; }
-                    for (let j = 0; j <= s2.length; j += 1) { track[j][0] = j; }
-                    for (let j = 1; j <= s2.length; j += 1) {
-                        for (let i = 1; i <= s1.length; i += 1) {
-                            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-                            track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
-                        }
-                    }
-                    return track[s2.length][s1.length];
-                }
-                function validateEAN13Checksum(code) {
-                    if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
-                    const digits = code.split('').map(Number);
-                    const checksum = digits.pop();
-                    let sum = 0;
-                    for (let i = 0; i < 12; i++) { sum += (i % 2 === 0) ? digits[i] : (digits[i] * 3); }
-                    const calculatedChecksum = (10 - (sum % 10)) % 10;
-                    return checksum === calculatedChecksum;
-                }
-                function matToImageData(mat) {
-                    const matRGBA = new cv.Mat();
-                    cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
-                    const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
-                    matRGBA.delete();
-                    return imageData;
-                }
-                function updateStatus(message) { self.postMessage({ status: 'update', message: message }); }
-
                 self.onmessage = async (e) => {
                     const { imageData } = e.data;
                     await waitForOpenCV();
                     const src = cv.matFromImageData(imageData);
-                    let result = null;
-                    
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-
-                    // --- INICIO DE LA CADENA DE PROCESAMIENTO FINAL ---
                     
-                    updateStatus("Worker: Aplicando umbral adaptativo...");
-                    // 1. Umbralización adaptativa.
+                    // Un pre-procesamiento simple para mejorar el contraste general
                     let binary = new cv.Mat();
-                    cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 17, 5);
-                    
-                    // 2. Inversión de color para tener fondo blanco y texto negro.
-                    cv.bitwise_not(binary, binary);
+                    cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 4);
 
-                    updateStatus("Worker: Engrosando números para reconocimiento...");
-                    // 3. DILATACIÓN: 'Engorda' los pixeles blancos. Es el opuesto de la erosión.
-                    // Esto hace los caracteres más robustos y parecidos a los datos de entrenamiento de Tesseract.
-                    let kernel = cv.Mat.ones(2, 2, cv.CV_8U);
-                    let dilated = new cv.Mat();
-                    cv.dilate(binary, dilated, kernel, new cv.Point(-1, -1), 1);
+                    const finalImageData = new ImageData(new Uint8ClampedArray(binary.data), binary.cols, binary.rows);
                     
-                    const finalImage = dilated;
+                    const worker = await self.Tesseract.createWorker('eng', 1, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
+                    const { data: { text } } = await worker.recognize(finalImageData);
+                    await worker.terminate();
                     
-                    // --- FIN DE LA CADENA DE PROCESAMIENTO FINAL ---
+                    src.delete(); gray.delete(); binary.delete();
 
-                    const finalImageData = matToImageData(finalImage);
-                    const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
-                    canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
-                    
-                    try {
-                        updateStatus("Worker: Iniciando OCR con modo de segmentación de línea única...");
-                        const worker = await self.Tesseract.createWorker('eng', 0, { langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
-                        
-                        await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789',
-                            tessedit_pageseg_mode: self.Tesseract.PSM.SINGLE_LINE,
-                        });
-
-                        const { data: { text } } = await worker.recognize(canvasForDecoders);
-                        updateStatus('Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"');
-                        await worker.terminate();
-
-                        const reconstructedCode = reconstructEAN13FromOCR(text);
-                        if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Reconstrucción Morfológica" };
-                        }
-                    } catch(err) { 
-                        updateStatus('Worker: Tesseract falló en la lectura. Error: ' + err.message);
-                    }
-                    
-                    const debugImageData = finalImageData;
-                    // Liberar memoria
-                    src.delete(); gray.delete(); binary.delete(); kernel.delete();
-                    
-                    self.postMessage({ 
-                        status: 'done', 
-                        result: result,
-                        debugImageData: debugImageData
-                    }, [debugImageData.data.buffer]);
+                    self.postMessage({ fullText: text });
                 };
-                
+
                 function waitForOpenCV() { return new Promise(resolve => { const i = setInterval(() => { if (typeof cv !== 'undefined' && cv.Mat) { clearInterval(i); resolve(); } }, 50); }); }
             `;
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             analysisWorker = new Worker(URL.createObjectURL(blob));
             analysisWorker.onmessage = (e) => {
-                const { status, message, result, debugImageData } = e.data;
-                if (status === 'update') {
-                    console.log(message);
-                    updateAuditor(message.replace('Worker: ', ''));
-                } else if (status === 'done') {
-                    console.log("Main: El Worker ha finalizado el análisis.", result);
-                    
-                    if (debugImageData) {
-                        debugSection.style.display = 'block';
-                        debugCanvas.width = debugImageData.width;
-                        debugCanvas.height = debugImageData.height;
-                        const ctx = debugCanvas.getContext('2d');
-                        ctx.putImageData(debugImageData, 0, 0);
-                    }
-
-                    displayFinalResult(result);
-                    analyzeSelectionBtn.disabled = false;
-                    analyzeSelectionBtn.innerHTML = `<i class="fas fa-search"></i> Analizar Selección`;
+                const { fullText } = e.data;
+                console.log("Texto extraído de la imagen:", fullText);
+                
+                // Limpiamos el texto para facilitar la búsqueda
+                const cleanedText = fullText.replace(/[^0-9]/g, '');
+                
+                if (cleanedText.includes(codeToVerify)) {
+                    statusContainer.innerHTML = \`<div class="veredicto-aprobado">CÓDIGO ENCONTRADO: <strong>\${codeToVerify}</strong> <span style="color: green;">(APROBADO)</span></div>\`;
+                    updateAuditor("¡Éxito! El código fue verificado en la imagen.");
+                } else {
+                    statusContainer.innerHTML = \`<div class="veredicto-rechazado">CÓDIGO NO ENCONTRADO: <strong>\${codeToVerify}</strong> <span style="color: red;">(RECHAZADO)</span></div>\`;
+                    updateAuditor("El código ingresado no se encontró en la imagen.");
                 }
             };
         }
 
-        function displayFinalResult(result) {
-            if (result && isValidCode(result.code)) {
-                const cleanCode = result.code.match(/\d{13}/)[0];
-                statusContainer.innerHTML = `<div class="veredicto-aprobado">Código Leído: <strong>${cleanCode}</strong> <span style="color: green;">(Válido)</span></div><small>Método: ${result.method}</small>`;
-                updateAuditor(`¡Lectura exitosa! El código es: ${cleanCode}`);
-                if (cropper) { cropper.destroy(); cropper = null; analyzeSelectionBtn.style.display = 'none';}
-            } else {
-                statusContainer.innerHTML = `<div class="veredicto-rechazado">Muestra ilegible. Intente con una imagen más clara o una selección diferente.</div>`;
-                updateAuditor("La IA no pudo decodificar el código. Se recomienda un nuevo intento.");
-            }
-        }
-        
-        function isValidCode(code) {
-            if (!code || typeof code !== 'string') return false;
-            const match = code.match(/\d{13}/);
-            if (!match) return false;
-            const ean13Code = match[0];
-            const hasPrefix = VALID_PREFIXES.some(prefix => ean13Code.startsWith(prefix));
-            return hasPrefix && validateEAN13Checksum(ean13Code);
+        // --- FUNCIONES DE VALIDACIÓN ---
+        function isValidEAN13(code) {
+            if (typeof code !== 'string' || !/^\\d{13}$/.test(code)) return false;
+            const hasPrefix = VALID_PREFIXES.some(prefix => code.startsWith(prefix));
+            return hasPrefix && validateEAN13Checksum(code);
         }
 
         function validateEAN13Checksum(code) {
-            if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
             const digits = code.split('').map(Number);
             const checksum = digits.pop();
             let sum = 0;
@@ -357,23 +220,9 @@
             return checksum === calculatedChecksum;
         }
 
-        function resetUI() {
-            if (cropper) { cropper.destroy(); cropper = null; }
-            imageDisplay.src = "";
-            imageDisplay.style.opacity = '0';
-            uploadPrompt.style.display = 'block';
-            statusContainer.innerHTML = "Esperando imagen...";
-            analyzeSelectionBtn.style.display = 'none';
-            analyzeSelectionBtn.disabled = true;
-            debugSection.style.display = 'none';
-            updateAuditor("Listo para iniciar la verificación automática.");
-        }
-
         function updateAuditor(text) { auditorText.textContent = text; }
-        
-        function updateStatus(type, message) { statusContainer.innerHTML = `<div class="veredicto-${type}">${message}</div>`; }
         
         document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>
-    </body>
+</body>
 </html>
