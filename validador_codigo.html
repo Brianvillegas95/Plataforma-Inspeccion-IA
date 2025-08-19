@@ -85,7 +85,7 @@
     </div>
 
     <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <script src="https://unpkg.com/ocrad.js@2.0.0/ocrad.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
     <script>
@@ -134,7 +134,7 @@
             const croppedCanvas = cropper.getCroppedCanvas();
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
             updateAuditor("Iniciando análisis profundo. Aplicando filtros avanzados...");
-            console.log("Main: Enviando imagen recortada al Web Worker.");
+            console.log("Main: Enviando imagen recortada al web worker.");
             if (!analysisWorker) {
                 setupWorker();
             }
@@ -176,12 +176,11 @@
             const workerCode = `
                 self.importScripts(
                     'https://docs.opencv.org/4.9.0/opencv.js',
-                    'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
+                    'https://unpkg.com/ocrad.js@2.0.0/ocrad.js'
                 );
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- LÓGICA DE VALIDACIÓN (sin cambios) ---
                 function validateEAN13Checksum(code) {
                     if (typeof code !== 'string' || code.length !== 13 || !/^\\d+$/.test(code)) return false;
                     const digits = code.split('').map(Number);
@@ -204,7 +203,6 @@
                     const { imageData } = e.data;
                     await waitForOpenCV();
                     
-                    // --- PRE-PROCESAMIENTO: MANTENEMOS EL RECORTE SUPERIOR ---
                     let src = cv.matFromImageData(imageData);
                     const CROP_TOP_PERCENTAGE = 0.60;
                     const originalHeight = src.rows;
@@ -224,9 +222,6 @@
                     let binary = new cv.Mat();
                     cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
                     
-                    // --- LÓGICA DISRUPTIVA: SEGMENTACIÓN MANUAL DE DÍGITOS ---
-                    
-                    // 1. Encontrar todos los contornos (formas) de los números.
                     let contours = new cv.MatVector();
                     let hierarchy = new cv.Mat();
                     cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
@@ -236,66 +231,48 @@
                         return;
                     }
 
-                    // 2. Calcular la "caja" gigante que envuelve a TODOS los números.
                     let minX = binary.cols, minY = binary.rows, maxX = 0, maxY = 0;
                     for (let i = 0; i < contours.size(); ++i) {
                         let rect = cv.boundingRect(contours.get(i));
-                        if (rect.x < minX) minX = rect.x;
-                        if (rect.y < minY) minY = rect.y;
-                        if (rect.x + rect.width > maxX) maxX = rect.x + rect.width;
-                        if (rect.y + rect.height > maxY) maxY = rect.y + rect.height;
+                        minX = Math.min(minX, rect.x);
+                        minY = Math.min(minY, rect.y);
+                        maxX = Math.max(maxX, rect.x + rect.width);
+                        maxY = Math.max(maxY, rect.y + rect.height);
                     }
                     const combinedWidth = maxX - minX;
                     const combinedHeight = maxY - minY;
                     
-                    // 3. "Rebanar" la caja en 13 partes iguales.
                     const digitWidth = combinedWidth / 13.0;
-                    let digitSnippets = [];
+                    let recognizedString = "";
                     for (let i = 0; i < 13; i++) {
                         const x = minX + Math.floor(i * digitWidth);
                         const w = Math.ceil(digitWidth);
-                        if (x + w > binary.cols) continue; // Evitar salirnos de la imagen
+                        if (x + w > binary.cols) continue;
 
                         const digitRect = new cv.Rect(x, minY, w, combinedHeight);
-                        digitSnippets.push(binary.roi(digitRect));
-                    }
-
-                    // 4. Reconocer cada dígito individualmente.
-                    const tesseractWorker = await self.Tesseract.createWorker('eng', 0, {
-                        langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-                    });
-
-                    let recognizedString = "";
-                    for (const snippet of digitSnippets) {
+                        let snippet = binary.roi(digitRect);
+                        
                         const snippetCanvas = new OffscreenCanvas(snippet.cols, snippet.rows);
-                        const snippetImageData = matToImageData(snippet);
-                        snippetCanvas.getContext('2d').putImageData(snippetImageData, 0, 0);
+                        snippetCanvas.getContext('2d').putImageData(matToImageData(snippet), 0, 0);
                         
-                        // ¡CLAVE! PSM 10 trata la imagen como un solo caracter.
-                        const { data: { text } } = await tesseractWorker.recognize(snippetCanvas, {
-                            tessedit_pageseg_mode: 10,
-                            tessedit_char_whitelist: '0123456789'
-                        });
+                        // USANDO OCRAD.JS
+                        const text = OCRAD(snippetCanvas, { numeric: true }).trim();
                         
-                        // Limpiamos el resultado, nos quedamos solo con el primer dígito que encuentre.
                         const digit = (text.match(/\\d/) || ['?'])[0];
                         recognizedString += digit;
                         snippet.delete();
                     }
-                    await tesseractWorker.terminate();
                     
-                    self.postMessage({ status: 'update', message: 'Worker: Texto reconstruido: "' + recognizedString + '"' });
+                    self.postMessage({ status: 'update', message: 'Worker: Texto reconstruido (Ocrad.js): "' + recognizedString + '"' });
 
                     let finalResult = null;
                     const hasPrefix = VALID_PREFIXES.some(prefix => recognizedString.startsWith(prefix));
                     if (hasPrefix && validateEAN13Checksum(recognizedString)) {
-                        finalResult = { code: recognizedString, method: "IA + Segmentación Manual de Dígitos" };
+                        finalResult = { code: recognizedString, method: "IA + Ocrad.js + Segmentación Manual" };
                     }
                     
-                    // Para depuración, mostramos la imagen binaria con los contornos.
                     const debugImageData = matToImageData(binary);
 
-                    // Liberar toda la memoria
                     src.delete(); cropped.delete(); gray.delete(); binary.delete(); contours.delete(); hierarchy.delete();
 
                     self.postMessage({ 
@@ -314,7 +291,7 @@
                 if (status === 'update') {
                     console.log(message);
                 } else if (status === 'done') {
-                    console.log("Main: El Worker ha finalizado el análisis.", result);
+                    console.log("Main: El worker ha finalizado el análisis.", result);
                     
                     if (debugImageData) {
                         debugSection.style.display = 'block';
