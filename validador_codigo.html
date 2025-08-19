@@ -237,29 +237,20 @@
                     await waitForOpenCV();
                     
                     let src = cv.matFromImageData(imageData);
-                    let final_mat = new cv.Mat(); // Matriz que usaremos para el procesamiento final
+                    let final_mat = new cv.Mat();
                     
-                    // --- INICIO DE LA NUEVA LÓGICA: RECORTE SUPERIOR ---
-
-                    // Este es el valor clave a ajustar. 0.60 significa que se elimina el 60% superior de la imagen.
                     const CROP_TOP_PERCENTAGE = 0.60;
-                    
                     const originalHeight = src.rows;
                     const cropY = Math.round(originalHeight * CROP_TOP_PERCENTAGE);
                     const newHeight = originalHeight - cropY;
 
-                    // Nos aseguramos de que el recorte sea válido
                     if (newHeight > 0) {
                         const rect = new cv.Rect(0, cropY, src.cols, newHeight);
-                        // Creamos una nueva Matriz a partir de la Región de Interés (ROI)
                         final_mat = src.roi(rect);
                     } else {
-                        // Si el recorte no es válido (imagen muy pequeña), usamos la original
                         final_mat = src.clone();
                     }
                     
-                    // --- FIN DE LA NUEVA LÓGICA ---
-
                     let gray = new cv.Mat();
                     cv.cvtColor(final_mat, gray, cv.COLOR_RGBA2GRAY, 0);
                     
@@ -281,14 +272,18 @@
                         const worker = await self.Tesseract.createWorker('eng', 0, {
                             langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                         });
-                        await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+                        await worker.setParameters({ 
+                            tessedit_char_whitelist: '0123456789',
+                            // ¡NUEVO AJUSTE! Le decimos a Tesseract que es una sola línea de texto.
+                            tessedit_pageseg_mode: 7,
+                        });
                         const { data: { text } } = await worker.recognize(canvasForDecoders);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + OCR con Recorte Superior" };
+                            result = { code: reconstructedCode, method: "IA + OCR con Recorte y PSM" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
@@ -296,7 +291,6 @@
                     
                     const debugImageData = finalImageData;
                     
-                    // Liberar memoria
                     src.delete(); gray.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
