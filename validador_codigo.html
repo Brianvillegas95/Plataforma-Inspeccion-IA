@@ -181,7 +181,7 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES (sin cambios) ---
+                // --- LÓGICA DE RECONSTRUCCIÓN Y VALIDACIÓN (sin cambios) ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
                     const cleanedText = ocrText.replace(/[^0-9]/g, '');
@@ -193,9 +193,7 @@
                                 if (remainingText.length >= 5) {
                                     const finalFiveDigits = remainingText.substring(0, 5);
                                     const candidate = knownPrefix + finalFiveDigits;
-                                    if (validateEAN13Checksum(candidate)) {
-                                        return candidate;
-                                    }
+                                    if (validateEAN13Checksum(candidate)) { return candidate; }
                                 }
                             }
                         }
@@ -228,7 +226,6 @@
                 
                 function matToImageData(mat) {
                     const matRGBA = new cv.Mat();
-                    // Convertimos de GRIS a RGBA para que sea compatible con ImageData
                     cv.cvtColor(mat, matRGBA, cv.COLOR_GRAY2RGBA);
                     const imageData = new ImageData(new Uint8ClampedArray(matRGBA.data), mat.cols, mat.rows);
                     matRGBA.delete();
@@ -244,37 +241,37 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // PROCESAMIENTO ANTERIOR (aún útil)
-                    let blurred = new cv.Mat();
-                    cv.medianBlur(gray, blurred, 3);
+                    // --- INICIO DE LA NUEVA LÓGICA "BORRADOR DE BARRAS" ---
 
-                    let sharpened = new cv.Mat();
-                    let gaussian = new cv.Mat();
-                    cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
-                    cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
+                    // 1. Detectar las líneas verticales. Creamos un kernel alto y delgado.
+                    // El tamaño (1, 40) es bueno para capturar las barras sin tocar los números.
+                    let vertical_kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(1, 40));
+                    let detected_lines = new cv.Mat();
+                    // La operación ERODE encogerá todo, eliminando casi todo excepto las líneas verticales puras.
+                    cv.erode(gray, detected_lines, vertical_kernel, new cv.Point(-1, -1));
                     
-                    // --- INICIO DE LA NUEVA LÓGICA PARA ELIMINAR BARRAS ---
+                    // 2. Creamos la máscara. Para asegurarnos de borrar las barras por completo,
+                    // las "engordamos" un poco con DILATE.
+                    let mask = new cv.Mat();
+                    cv.dilate(detected_lines, mask, vertical_kernel, new cv.Point(-1, -1));
                     
-                    // 1. Crear un 'kernel' horizontal. Este es el núcleo de la técnica.
-                    // Es ancho (15px) para conectar partes horizontales de los números.
-                    // Es bajo (1px) para ignorar las líneas verticales.
-                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(15, 1));
+                    // Invertimos la máscara para que las barras sean blancas (lo que se va a borrar)
+                    cv.bitwise_not(mask, mask);
                     
-                    // 2. Aplicar una operación de 'cierre morfológico'.
-                    // Esto usa el kernel para rellenar los huecos entre las partes de los números.
-                    let closed = new cv.Mat();
-                    cv.morphologyEx(sharpened, closed, cv.MORPH_CLOSE, kernel);
+                    // 3. Borramos las líneas usando Inpainting.
+                    // cv.inpaint toma la imagen original (gray), la máscara (mask) y
+                    // produce una imagen nueva con las áreas borradas y rellenas.
+                    let inpainted_image = new cv.Mat();
+                    cv.inpaint(gray, mask, inpainted_image, 5, cv.INPAINT_NS);
+
+                    // 4. Binarizamos la imagen ya limpia. Volvemos al THRESH_BINARY normal.
+                    // Esto convertirá los números (que sobrevivieron) a blanco y el fondo a negro.
+                    let binary = new cv.Mat();
+                    cv.threshold(inpainted_image, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
                     
                     // --- FIN DE LA NUEVA LÓGICA ---
 
-                    // 3. Aplicar el umbral AHORA a la imagen procesada ('closed'), no a la original.
-                    let binary = new cv.Mat();
-                    cv.threshold(closed, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
-                    // NOTA: Cambié a THRESH_BINARY_INV. A veces, después de las operaciones,
-                    // los números quedan en negro sobre fondo blanco. INV los vuelve a poner
-                    // en blanco sobre negro, que es lo que Tesseract espera. Si no funciona,
-                    // vuelve a cambiarlo a THRESH_BINARY + cv.THRESH_OTSU.
-
+                    // Redimensionamos la imagen final para Tesseract como antes
                     let resized = new cv.Mat();
                     const targetHeight = 120;
                     const aspectRatio = binary.cols / binary.rows;
@@ -289,16 +286,14 @@
                         const worker = await self.Tesseract.createWorker('eng', 0, {
                             langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                         });
-                        await worker.setParameters({
-                            tessedit_char_whitelist: '0123456789',
-                        });
+                        await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
                         const { data: { text } } = await worker.recognize(canvasForDecoders);
                         self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
                         await worker.terminate();
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR Inteligente" };
+                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR (Borrador de Barras)" };
                         }
                     } catch(err) { 
                         self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
@@ -306,9 +301,9 @@
                     
                     const debugImageData = finalImageData;
 
-                    // Liberar toda la memoria usada por las matrices de OpenCV
-                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); 
-                    gaussian.delete(); kernel.delete(); closed.delete(); binary.delete(); resized.delete();
+                    // Liberar toda la memoria usada, incluyendo los nuevos Mats
+                    src.delete(); gray.delete(); vertical_kernel.delete(); detected_lines.delete();
+                    mask.delete(); inpainted_image.delete(); binary.delete(); resized.delete();
 
                     self.postMessage({ 
                         status: 'done', 
