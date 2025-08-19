@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
     <style>
-        /* Corrección para el manejador de tamaño de Cropper.js */
         .cropper-view-box .cropper-point {
             width: 12px !important;
             height: 12px !important;
@@ -75,7 +74,7 @@
                 </div>
 
                 <div id="debug-section" style="margin-top: 20px; display: none;">
-                    <p><strong>Imagen de Depuración (Procesada):</strong></p>
+                    <p><strong>Imagen de Depuración (Procesada para OCR):</strong></p>
                     <canvas id="debug-canvas" style="width: 100%; border: 1px solid #ccc; background-color: #f0f0f0;"></canvas>
                 </div>
 
@@ -131,9 +130,14 @@
             analyzeSelectionBtn.disabled = true;
             analyzeSelectionBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando...`;
             debugSection.style.display = 'none';
-            const croppedCanvas = cropper.getCroppedCanvas();
+            const croppedCanvas = cropper.getCroppedCanvas({
+                minWidth: 256, // Asegura una resolución mínima para el análisis
+                minHeight: 128,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
             const imageData = croppedCanvas.getContext('2d').getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
-            updateAuditor("Iniciando análisis profundo. Aplicando filtros avanzados...");
+            updateAuditor("Iniciando análisis profundo con IA...");
             console.log("Main: Enviando imagen recortada al Web Worker.");
             if (!analysisWorker) {
                 setupWorker();
@@ -181,29 +185,26 @@
 
                 const VALID_PREFIXES = ['75014287', '75014497'];
 
-                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES ---
+                // --- LÓGICA DE RECONSTRUCCIÓN CON TOLERANCIA A ERRORES (SE MANTIENE IGUAL) ---
                 function reconstructEAN13FromOCR(ocrText) {
                     if (!ocrText) return null;
-                    const cleanedText = ocrText.replace(/[^0-9]/g, ''); // Solo nos quedamos con los números
-
-                    for (let i = 0; i <= cleanedText.length - 8; i++) { // Busca en toda la cadena
+                    const cleanedText = ocrText.replace(/[^0-9]/g, '');
+                    for (let i = 0; i <= cleanedText.length - 8; i++) {
                         const potentialPrefix = cleanedText.substring(i, i + 8);
                         for (const knownPrefix of VALID_PREFIXES) {
-                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) { // Tolera hasta 2 errores
-                                // Si encontramos un prefijo "casi" perfecto, intentamos construir el resto del código
+                            if (levenshteinDistance(potentialPrefix, knownPrefix) <= 2) {
                                 const remainingText = cleanedText.substring(i + 8);
                                 if (remainingText.length >= 5) {
                                     const finalFiveDigits = remainingText.substring(0, 5);
-                                    // Usamos el PREFIJO CORRECTO para construir el candidato final
                                     const candidate = knownPrefix + finalFiveDigits;
                                     if (validateEAN13Checksum(candidate)) {
-                                        return candidate; // ¡Éxito! Código reconstruido y validado
+                                        return candidate;
                                     }
                                 }
                             }
                         }
                     }
-                    return null; // No se pudo reconstruir
+                    return null;
                 }
 
                 function levenshteinDistance(s1, s2) {
@@ -236,6 +237,11 @@
                     matRGBA.delete();
                     return imageData;
                 }
+                
+                // Función para enviar mensajes de estado al hilo principal
+                function updateStatus(message) {
+                    self.postMessage({ status: 'update', message: message });
+                }
 
                 self.onmessage = async (e) => {
                     const { imageData } = e.data;
@@ -246,30 +252,53 @@
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    // PROCESAMIENTO ESTABLE Y ROBUSTO
+                    // --- INICIO DE LA NUEVA CADENA DE PROCESAMIENTO AVANZADO ---
+                    
+                    updateStatus("Worker: Calculando gradientes para aislar barras...");
+                    // 1. Calcular gradientes para encontrar las líneas verticales.
+                    // El operador Scharr es más sensible que Sobel a líneas finas.
+                    let gradX = new cv.Mat();
+                    cv.Scharr(gray, gradX, cv.CV_32F, 1, 0);
+                    cv.convertScaleAbs(gradX, gradX);
+                    
+                    updateStatus("Worker: Suavizando y aplicando umbral adaptativo...");
+                    // 2. Suavizar el gradiente para reducir el ruido y unir las barras.
                     let blurred = new cv.Mat();
-                    cv.medianBlur(gray, blurred, 3);
-
-                    let sharpened = new cv.Mat();
-                    let gaussian = new cv.Mat();
-                    cv.GaussianBlur(blurred, gaussian, new cv.Size(0, 0), 3);
-                    cv.addWeighted(blurred, 1.5, gaussian, -0.5, 0, sharpened);
+                    cv.GaussianBlur(gradX, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
                     
-                    let binary = new cv.Mat();
-                    cv.threshold(sharpened, binary, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-                    
-                    let resized = new cv.Mat();
-                    const targetHeight = 120;
-                    const aspectRatio = binary.cols / binary.rows;
-                    const newSize = new cv.Size(Math.round(targetHeight * aspectRatio), targetHeight);
-                    cv.resize(binary, resized, newSize, 0, 0, cv.INTER_CUBIC);
+                    // 3. Aplicar umbralización para obtener una máscara binaria.
+                    // Otsu es excelente para separar automáticamente el fondo del primer plano.
+                    let thresh = new cv.Mat();
+                    cv.threshold(blurred, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
 
-                    const finalImageData = matToImageData(resized);
+                    updateStatus("Worker: Reconstruyendo barras con operaciones morfológicas...");
+                    // 4. Operación Morfológica de CIERRE (Closing).
+                    // Esto es clave: Rellena los huecos en las barras del código.
+                    // Usamos un kernel rectangular para conectar mejor las líneas verticales.
+                    let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 7));
+                    let closed = new cv.Mat();
+                    cv.morphologyEx(thresh, closed, cv.MORPH_CLOSE, kernel);
+
+                    // 5. Limpieza final con EROSIÓN y DILATACIÓN.
+                    // Eliminamos cualquier ruido que aún quede.
+                    cv.erode(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
+                    cv.dilate(closed, closed, new cv.Mat(), new cv.Point(-1, -1), 4);
+
+                    // 6. Preparar la imagen final para Tesseract.
+                    // Usamos la máscara 'closed' para tomar solo la región del código de la imagen original en escala de grises.
+                    let finalImage = new cv.Mat();
+                    cv.bitwise_and(gray, gray, finalImage, closed);
+                    // Invertimos (fondo blanco, texto negro) que a menudo funciona mejor con Tesseract.
+                    cv.bitwise_not(finalImage, finalImage);
+                    
+                    // --- FIN DE LA NUENA CADENA DE PROCESAMIENTO AVANZADO ---
+
+                    const finalImageData = matToImageData(finalImage);
                     const canvasForDecoders = new OffscreenCanvas(finalImageData.width, finalImageData.height);
                     canvasForDecoders.getContext('2d').putImageData(finalImageData, 0, 0);
                     
                     try {
-                        // Limpiamos las advertencias usando la inicialización moderna de Tesseract.js v5
+                        updateStatus("Worker: Iniciando reconocimiento de texto con Tesseract...");
                         const worker = await self.Tesseract.createWorker('eng', 0, {
                             langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                         });
@@ -277,19 +306,21 @@
                             tessedit_char_whitelist: '0123456789',
                         });
                         const { data: { text } } = await worker.recognize(canvasForDecoders);
-                        self.postMessage({ status: 'update', message: 'Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"' });
+                        updateStatus('Worker: Texto crudo del OCR: "' + text.replace(/\\n/g, ' ') + '"');
                         await worker.terminate();
 
                         const reconstructedCode = reconstructEAN13FromOCR(text);
                         if (reconstructedCode) {
-                            result = { code: reconstructedCode, method: "IA + Reconstrucción OCR Inteligente" };
+                            result = { code: reconstructedCode, method: "IA Avanzada + Reconstrucción Morfológica" };
                         }
                     } catch(err) { 
-                        self.postMessage({ status: 'update', message: 'Worker: Tesseract falló en la lectura. Error: ' + err.message });
+                        updateStatus('Worker: Tesseract falló en la lectura. Error: ' + err.message);
                     }
                     
                     const debugImageData = finalImageData;
-                    src.delete(); gray.delete(); blurred.delete(); sharpened.delete(); gaussian.delete(); binary.delete(); resized.delete();
+
+                    // Liberar memoria
+                    src.delete(); gray.delete(); gradX.delete(); blurred.delete(); thresh.delete(); kernel.delete(); closed.delete(); finalImage.delete();
 
                     self.postMessage({ 
                         status: 'done', 
@@ -306,6 +337,7 @@
                 const { status, message, result, debugImageData } = e.data;
                 if (status === 'update') {
                     console.log(message);
+                    updateAuditor(message.replace('Worker: ', ''));
                 } else if (status === 'done') {
                     console.log("Main: El Worker ha finalizado el análisis.", result);
                     
