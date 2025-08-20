@@ -289,8 +289,6 @@
                 choices.setChoices([{ value: '', label: '-- Elija un estándar --', selected: true, disabled: true }, ...colorChoices], 'value', 'label', false);
             }
 
-            // --- AJUSTE REALIZADO AQUÍ ---
-            // La función ahora reinicia la herramienta Y regresa a la pantalla de login.
             function resetForNewTest() {
                 // Reinicia el estado de la herramienta de color
                 setAuditorState('neutral');
@@ -307,7 +305,12 @@
                 if(capturedColorValuesEl) capturedColorValuesEl.textContent = '-';
                 if(standardColorDisplay) standardColorDisplay.style.backgroundColor = 'transparent';
                 if(standardColorValuesEl) standardColorValuesEl.textContent = '-';
-                choices.clearSelection();
+                
+                // --- AJUSTE REALIZADO AQUÍ ---
+                // Se reemplazó 'choices.clearSelection()' que causaba el error,
+                // por 'choices.setChoiceByValue('')' que es el método correcto.
+                choices.setChoiceByValue('');
+
                 compactResultsContainer.style.visibility = 'hidden';
                 if(colorResultNoteEl) colorResultNoteEl.textContent = '';
                 newTestBtn.style.display = 'none';
