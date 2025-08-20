@@ -14,37 +14,68 @@
         #manual-input-container { border-top: 2px solid #eee; margin-top: 20px; padding-top: 15px; }
         #video-feed { max-width: 100%; height: auto; display: none; background-color: #000; }
 
-        /* --- ESTILOS PARA EL NUEVO INSPECTOR DINÁMICO --- */
-        #auditor-section {
-            transition: background-color 0.5s ease, border-color 0.5s ease;
-            border-radius: 8px; border: 2px solid #dee2e6;
-            padding: 15px; background-color: #f8f9fa;
-        }
-        #inspector-icon-container {
-            width: 100px; height: 100px; margin: 10px auto;
-        }
-        .inspector-icon { display: none; }
-        #auditor-section.auditor-neutral .icon-neutral,
-        #auditor-section.auditor-pensando .icon-pensando,
-        #auditor-section.auditor-aprobado .icon-aprobado,
-        #auditor-section.auditor-rechazado .icon-rechazado { display: block; }
-
-        #auditor-section.auditor-aprobado { background-color: #e9f7ef; border-color: #28a745; }
-        #auditor-section.auditor-rechazado { background-color: #f8d7da; border-color: #dc3545; }
-
-        .icon-aprobado .check { stroke-dasharray: 100; stroke-dashoffset: 100; animation: draw-check 0.5s ease-out forwards; }
-        .icon-rechazado { animation: pop-in 0.4s ease-out; }
-        .icon-pensando { animation: spin 1.2s linear infinite; }
-        
-        @keyframes draw-check { to { stroke-dashoffset: 0; } }
-        @keyframes pop-in { 0% { transform: scale(0.5); opacity: 0; } 80% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
         /* --- ESTILOS PARA LA PANTALLA DE INICIO DE SESIÓN --- */
         #login-container {
             padding: 25px; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        #main-app-content { display: none; } /* Ocultamos la app al inicio */
+        #main-app-content { display: none; }
+
+        /* --- ANIMACIONES Y ESTILOS DEL NUEVO INSPECTOR --- */
+        #auditor-section {
+            transition: all 0.5s ease;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border: 2px solid #dee2e6;
+        }
+        #auditor-image {
+            transition: transform 0.3s ease, filter 0.4s ease;
+            max-width: 120px; /* Ajusta si es necesario */
+        }
+
+        /* Clase base para los estados */
+        .auditor-state {
+             /* Estilos comunes a todos los estados pueden ir aquí */
+        }
+
+        /* Estado Pensando */
+        .auditor-pensando #auditor-image {
+            animation: pulse-blue 1.5s infinite;
+        }
+        /* Estado Aprobado */
+        .auditor-aprobado {
+             background-color: #e9f7ef !important;
+             border-color: #28a745 !important;
+        }
+        .auditor-aprobado #auditor-image {
+            filter: drop-shadow(0 0 15px rgba(40, 167, 69, 0.9));
+            animation: pop-in-happy 0.5s ease-out;
+        }
+        /* Estado Rechazado */
+        .auditor-rechazado {
+            background-color: #f8d7da !important;
+            border-color: #dc3545 !important;
+        }
+        .auditor-rechazado #auditor-image {
+            filter: drop-shadow(0 0 15px rgba(220, 53, 69, 0.9));
+            animation: shake-horizontal 0.5s ease-out;
+        }
+
+        @keyframes pulse-blue {
+            0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(0, 123, 255, 0.6)); }
+            50% { transform: scale(1.05); filter: drop-shadow(0 0 15px rgba(0, 123, 255, 0.9)); }
+            100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(0, 123, 255, 0.6)); }
+        }
+        @keyframes pop-in-happy {
+            0% { transform: scale(0.8); }
+            80% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        @keyframes shake-horizontal {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
     </style>
 </head>
 <body class="inspector-body">
@@ -75,12 +106,12 @@
                 <p>Por favor, ingrese sus datos para comenzar.</p>
             </div>
             <div class="form-group">
-                <label for="colaborador-input"><strong>Número de Colaborador:</strong></label>
-                <input type="text" id="colaborador-input" class="form-control" placeholder="Ej: 12345">
+                <label for="colaborador-input"><strong>Número de Colaborador (4 dígitos):</strong></label>
+                <input type="text" id="colaborador-input" class="form-control" placeholder="Ej: 1234" maxlength="4">
             </div>
             <div class="form-group" style="margin-top: 15px;">
-                <label for="job-input"><strong>Número de Job:</strong></label>
-                <input type="text" id="job-input" class="form-control" placeholder="Ej: 98765">
+                <label for="job-input"><strong>Número de Job (6 dígitos):</strong></label>
+                <input type="text" id="job-input" class="form-control" placeholder="Ej: 987650" maxlength="6">
             </div>
             <button id="start-audit-btn" class="button primary-action" style="width:100%; margin-top: 25px; padding: 15px; font-size: 1.2em;">
                 <i class="fas fa-play-circle"></i> Empezar Auditoría
@@ -123,11 +154,8 @@
 
                 <div id="auditor-section">
                     <p id="auditor-title">Asistente de Inspección</p>
-                    <div id="inspector-icon-container">
-                        <svg class="inspector-icon icon-neutral" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="none" stroke="#6c757d" stroke-width="5"/></svg>
-                        <svg class="inspector-icon icon-pensando" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M 50,5 A 45,45 0 0 1 95,50" fill="none" stroke="#007bff" stroke-width="8" stroke-linecap="round"/></svg>
-                        <svg class="inspector-icon icon-aprobado" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="#28a745" /><path class="check" d="M30 50 l15 15 l30 -30" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <svg class="inspector-icon icon-rechazado" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="#dc3545" /><path d="M35 35 l30 30 M65 35 l-30 30" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/></svg>
+                    <div id="auditor-image-container">
+                        <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
                         <span id="auditor-text">Listo para iniciar.</span>
@@ -179,7 +207,8 @@
         function updateAuditor(message) { auditorText.textContent = message; }
         
         function setAuditorState(state, message) {
-            auditorSection.className = `auditor-${state}`;
+            auditorSection.classList.remove('auditor-neutral', 'auditor-pensando', 'auditor-aprobado', 'auditor-rechazado');
+            auditorSection.classList.add(`auditor-${state}`, 'auditor-state');
             updateAuditor(message);
         }
 
@@ -338,10 +367,16 @@
         startAuditBtn.addEventListener('click', () => {
             const numColaborador = colaboradorInput.value.trim();
             const numJob = jobInput.value.trim();
-            if (!numColaborador || !numJob) {
-                alert('Por favor, complete ambos campos para comenzar.');
+
+            if (!/^\d{4}$/.test(numColaborador)) {
+                alert('Error: El "Número de Colaborador" debe contener exactamente 4 dígitos.');
                 return;
             }
+            if (!/^\d{6}$/.test(numJob)) {
+                alert('Error: El "Número de Job" debe contener exactamente 6 dígitos.');
+                return;
+            }
+
             operatorData = { colaborador: numColaborador, job: numJob };
             loginContainer.style.display = 'none';
             mainAppContent.style.display = 'grid';
