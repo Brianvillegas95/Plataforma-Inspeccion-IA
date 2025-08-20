@@ -32,8 +32,7 @@
         .compact-results-container .auditor-section {
             padding: 0; margin: 0; flex-shrink: 0; border: none; background-color: transparent;
         }
-        /* --- AJUSTE REALIZADO AQUÍ --- */
-        /* Se cambió el selector de .auditor-image a #auditor-image para que apunte correctamente a la imagen por su ID */
+        
         .compact-results-container #auditor-image { max-width: 60px; }
         .compact-results-container .auditor-message-bubble { display: none; } /* Ocultamos la burbuja de texto */
 
@@ -47,8 +46,7 @@
         .auditor-section {
             transition: all 0.5s ease;
         }
-        /* --- AJUSTE REALIZADO AQUÍ --- */
-        /* También se corrigieron los selectores en las animaciones para que funcionen correctamente */
+        
         #auditor-image {
             transition: transform 0.3s ease, filter 0.4s ease;
         }
@@ -291,7 +289,10 @@
                 choices.setChoices([{ value: '', label: '-- Elija un estándar --', selected: true, disabled: true }, ...colorChoices], 'value', 'label', false);
             }
 
+            // --- AJUSTE REALIZADO AQUÍ ---
+            // La función ahora reinicia la herramienta Y regresa a la pantalla de login.
             function resetForNewTest() {
+                // Reinicia el estado de la herramienta de color
                 setAuditorState('neutral');
                 if (cropper) {
                     cropper.destroy();
@@ -310,6 +311,14 @@
                 compactResultsContainer.style.visibility = 'hidden';
                 if(colorResultNoteEl) colorResultNoteEl.textContent = '';
                 newTestBtn.style.display = 'none';
+
+                // Oculta la app y muestra la pantalla de login
+                mainAppContent.style.display = 'none';
+                loginContainer.style.display = 'block';
+                
+                // Limpia los campos de colaborador y job
+                colaboradorInput.value = '';
+                jobInput.value = '';
             }
 
             startAuditBtn.addEventListener('click', () => {
