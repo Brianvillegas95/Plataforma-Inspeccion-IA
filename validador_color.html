@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
     <script src="deltae.js"></script> 
     <style>
@@ -16,12 +17,18 @@
         }
         #main-app-content { display: none; }
 
+        .captured-image-area {
+            width: 100%; height: 250px; background-color: #e9ecef;
+        }
+        #cropper-image { display: block; max-width: 100%; max-height: 100%; }
+        
+        .delta-e-result { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
         #auditor-section {
-            transition: all 0.5s ease; border-radius: 8px; padding: 15px;
-            background-color: #f8f9fa; border: 2px solid #dee2e6; margin-top: 20px;
+            padding: 10px; margin-top: 0; flex-shrink: 0; transition: all 0.5s ease;
+            border-radius: 8px; border: 2px solid #dee2e6; background-color: #f8f9fa;
         }
         #auditor-image {
-            transition: transform 0.3s ease, filter 0.4s ease; max-width: 120px;
+            transition: transform 0.3s ease, filter 0.4s ease; max-width: 80px;
         }
         .auditor-state {}
         .auditor-pensando #auditor-image { animation: pulse-blue 1.5s infinite; }
@@ -33,6 +40,7 @@
         .auditor-rechazado #auditor-image {
             filter: drop-shadow(0 0 15px rgba(220, 53, 69, 0.9)); animation: shake-horizontal 0.5s ease-out;
         }
+
         @keyframes pulse-blue {
             0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(0, 123, 255, 0.6)); }
             50% { transform: scale(1.05); filter: drop-shadow(0 0 15px rgba(0, 123, 255, 0.9)); }
@@ -59,8 +67,8 @@
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle active" data-area="Herramientas IA">Herramientas IA <i class="fas fa-angle-down nav-arrow"></i></a>
                         <ul class="dropdown-menu">
-                           <li><a href="auditor_ean13.html">Auditor de Código EAN-13</a></li>
-                           <li><a href="validador_color.html" class="active">Validador de Color</a></li>
+                            <li><a href="auditor_ean13.html">Auditor de Código EAN-13</a></li>
+                            <li><a href="validador_color.html" class="active">Validador de Color</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -100,28 +108,28 @@
                             <video id="color-video-feed" playsinline autoplay muted></video>
                             <p id="webcam-loading-prompt">Activando cámara...</p>
                         </div>
-                        <canvas id="color-capture-canvas" style="display:none;"></canvas> 
-                        <canvas id="calibration-helper-canvas" style="display:none;"></canvas>
+                        <canvas id="color-capture-canvas" style="display:none;"></canvas>
                         <button id="capture-color-btn" class="button primary-action full-width-button">
                             <i class="fas fa-camera-retro"></i> Capturar Imagen
                         </button>
-                        <div class="camera-manual-focus-panel" style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-top: 20px; border: 1px solid #eee; display: none;" id="manual-focus-container">
-                            <h3 class="panel-title-sub" style="margin-top: 0; margin-bottom: 15px; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;"><i class="fas fa-magnifying-glass-plus"></i> Ajuste de Enfoque Manual</h3>
-                            <div class="form-group camera-control-group" id="focus-control-group" style="display:none; margin-bottom: 12px;">
-                                <label for="focus-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Enfoque:</label>
-                                <input type="range" id="focus-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
-                                <span id="focus-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
+                        <div class="camera-manual-focus-panel" style="display: none;" id="manual-focus-container">
+                            <h3 class="panel-title-sub"><i class="fas fa-camera-retro"></i> Controles de Cámara</h3>
+                            <div class="form-group camera-control-group" id="focus-control-group" style="display:none;">
+                                <label for="focus-slider">Enfoque:</label>
+                                <input type="range" id="focus-slider" class="camera-slider">
+                                <span id="focus-value" class="slider-value"></span>
                             </div>
-                            <p class="note" style="font-size: 0.8em; margin-top:15px;">Nota: Si la imagen no es clara utilice la barra en enfoque hasta que la imagen mejore.</p>
-                        </div>
-                        <div class="color-picker-instructions">
-                            <p id="instruction-text" style="color: #212529; font-weight:bold;">Capture una imagen y dibuje un recuadro para seleccionar el área de color.</p>
+                            <div class="form-group camera-control-group" id="zoom-control-group" style="display:none;">
+                                <label for="zoom-slider">Zoom:</label>
+                                <input type="range" id="zoom-slider" class="camera-slider">
+                                <span id="zoom-value" class="slider-value"></span>
+                            </div>
                         </div>
                     </div>
                     <div class="color-analysis-panel">
                         <h3 class="panel-title-sub"><i class="fas fa-crop-alt"></i> 2. Área de Muestra y Estándar</h3>
                         <div class="captured-image-area">
-                            <canvas id="display-captured-image-canvas" class="captured-image-canvas"></canvas> 
+                            <img id="cropper-image" style="display: none;">
                             <p id="capture-prompt">Esperando imagen capturada...</p>
                         </div>
                         <div class="form-group">
@@ -147,37 +155,38 @@
                             </div>
                         </div>
                         <div class="delta-e-result">
-                            <h4>Diferencia de Color (ΔE*<sub_00</sub>):</h4>
-                            <p id="delta-e-value" class="delta-e-value-text">-</p>
-                            <div class="tolerance-bar-container">
-                                <div id="tolerance-bar" class="tolerance-bar-fill"></div>
+                            <div>
+                                <h4>Diferencia (ΔE*<sub_00</sub>):</h4>
+                                <p id="delta-e-value" class="delta-e-value-text">-</p>
+                                <div class="tolerance-bar-container">
+                                    <div id="tolerance-bar" class="tolerance-bar-fill"></div>
+                                </div>
+                                <p id="tolerance-status" class="tolerance-status-text">-</p>
                             </div>
-                            <p id="tolerance-status" class="tolerance-status-text">-</p>
+                            <div id="auditor-section">
+                                <div id="auditor-image-container">
+                                    <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente IA" class="auditor-image-estilizada">
+                                </div>
+                                <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
+                                    <span id="auditor-text"></span>
+                                </div>
+                            </div>
                         </div>
                          <p id="color-result-note" class="note" style="margin-top:10px;"></p>
-
-                         <div id="auditor-section">
-                            <p id="auditor-title">Asistente de Inspección</p>
-                            <div id="auditor-image-container">
-                                <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente de Inspección IA" class="auditor-image-estilizada">
-                            </div>
-                            <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                                <span id="auditor-text">Listo para iniciar.</span>
-                            </div>
-                        </div>
-
-                        <button id="new-test-btn" class="button primary-action" style="width: 100%; font-size: 1.1em; display: none; margin-top: 20px;">
+                         <button id="new-test-btn" class="button" style="width: 100%; display: none; margin-top: 20px;">
                             <i class="fas fa-redo"></i> Nueva Prueba
                         </button>
                     </div>
                 </div> 
             </section>
         </main>
+
         <footer class="app-footer">
             &copy; <span id="currentYearColorValidator"></span> Grupo Azor México. Todos los derechos reservados.
         </footer>
     </div>
-
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
     
     <script type="text/javascript">
@@ -186,7 +195,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Referencias a elementos (Nuevos y Originales)
+            // Referencias a elementos
             const loginContainer = document.getElementById('login-container');
             const mainAppContent = document.getElementById('main-app-content');
             const startAuditBtn = document.getElementById('start-audit-btn');
@@ -195,8 +204,6 @@
             const auditorSection = document.getElementById('auditor-section');
             const auditorText = document.getElementById('auditor-text');
             const newTestBtn = document.getElementById('new-test-btn');
-            const controlsWrapper = document.querySelector('.color-validator-grid');
-            
             const videoElement = document.getElementById('color-video-feed');
             const webcamLoadingPrompt = document.getElementById('webcam-loading-prompt');
             const captureButton = document.getElementById('capture-color-btn');
@@ -204,12 +211,9 @@
             const compareButton = document.getElementById('compare-colors-btn');
             const instructionTextEl = document.getElementById('instruction-text');
             const mainInstructionTextEl = document.getElementById('main-instruction-text');
-            const displayCanvas = document.getElementById('display-captured-image-canvas');
-            const displayCtx = displayCanvas ? displayCanvas.getContext('2d', { willReadFrequently: true }) : null;
             const captureCanvas = document.getElementById('color-capture-canvas'); 
-            const captureCtx = captureCanvas ? captureCanvas.getContext('2d', { willReadFrequently: true }) : null;
-            const calibrationHelperCanvas = document.getElementById('calibration-helper-canvas'); 
-            const calibrationHelperCtx = calibrationHelperCanvas ? calibrationHelperCanvas.getContext('2d', { willReadFrequently: true }) : null; 
+            const captureCtx = captureCanvas.getContext('2d', { willReadFrequently: true });
+            const cropperImage = document.getElementById('cropper-image');
             const capturePrompt = document.getElementById('capture-prompt');
             const capturedColorDisplay = document.getElementById('captured-color-display');
             const capturedColorValuesEl = document.getElementById('captured-color-values');
@@ -223,17 +227,19 @@
             const focusControlGroup = document.getElementById('focus-control-group');
             const focusSlider = document.getElementById('focus-slider');
             const focusValueEl = document.getElementById('focus-value');
+            const zoomControlGroup = document.getElementById('zoom-control-group');
+            const zoomSlider = document.getElementById('zoom-slider');
+            const zoomValueEl = document.getElementById('zoom-value');
 
-            // Variables de estado (Nuevas y Originales)
+            // Variables de estado
             let operatorData = {};
             let choices = new Choices(standardColorSelect, { searchEnabled: true, itemSelectText: 'Seleccionar', shouldSort: false });
             let coloresEstandarAzor = {};
+            let cropper = null;
             let stream = null;
             let pickedColorRGB = null; 
             let currentStandardColorData = null;
             let imageIsCaptured = false; 
-            let isDrawingSelection = false;
-            let selectionRect = { startX: 0, startY: 0, currentX: 0, currentY: 0, width: 0, height: 0 };
             let videoTrack = null; 
             let cameraCapabilities = {}; 
             let isCameraReady = false; 
@@ -241,31 +247,32 @@
             // --- NUEVAS FUNCIONES DE UI ---
             function setAuditorState(state, message) {
                 if (!auditorSection) return;
-                auditorSection.classList.remove('auditor-neutral', 'auditor-pensando', 'auditor-aprobado', 'auditor-rechazado');
-                auditorSection.classList.add(`auditor-${state}`, 'auditor-state');
+                auditorSection.className = `auditor-${state}`;
                 if(auditorText) auditorText.textContent = message;
             }
 
-            function resetAppForNewSession() {
-                mainAppContent.style.display = 'none';
-                loginContainer.style.display = 'block';
-                colaboradorInput.value = '';
-                jobInput.value = '';
-
-                if(controlsWrapper) {
-                    controlsWrapper.style.pointerEvents = 'auto';
-                    controlsWrapper.style.opacity = '1';
+            function resetForNewTest() {
+                setAuditorState('neutral', 'Listo para una nueva prueba.');
+                if (cropper) cropper.destroy();
+                cropper = null;
+                cropperImage.style.display = 'none';
+                capturePrompt.style.display = 'block';
+                imageIsCaptured = false;
+                pickedColorRGB = null;
+                compareButton.disabled = true;
+                if(capturedColorDisplay) capturedColorDisplay.style.backgroundColor = 'transparent';
+                if(capturedColorValuesEl) capturedColorValuesEl.textContent = '-';
+                if(deltaEValueEl) deltaEValueEl.textContent = '-';
+                if(toleranceStatusEl) {
+                    toleranceStatusEl.textContent = '-';
+                    toleranceStatusEl.className = 'tolerance-status-text';
                 }
+                if(toleranceBar) {
+                    toleranceBar.style.width = '0%';
+                    toleranceBar.className = 'tolerance-bar-fill';
+                }
+                if(colorResultNoteEl) colorResultNoteEl.textContent = '';
                 newTestBtn.style.display = 'none';
-
-                resetUIForNewCapture();
-                if (displayCtx) displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
-                if (capturePrompt) capturePrompt.textContent = "Esperando imagen capturada...";
-                
-                choices.clearStore();
-                choices.setChoices([{ value: '', label: '-- Elija un estándar --', selected: true, disabled: true }], 'value', 'label', false);
-                
-                setAuditorState('neutral', 'Bienvenido. Aplicación lista para una nueva validación.');
             }
 
             // --- FUNCIONES ORIGINALES MODIFICADAS ---
@@ -284,7 +291,7 @@
                 alert('Error: No se pudo guardar el resultado.');
               }
             }
-
+            
             function populateStandardColors() {
                 if (!choices) return;
                 choices.clearStore();
@@ -295,7 +302,7 @@
                 choices.setChoices([{ value: '', label: '-- Elija un estándar --', selected: true, disabled: true }, ...colorChoices], 'value', 'label', false);
             }
 
-            // --- NUEVOS LISTENERS DE UI ---
+            // --- LÓGICA DE INICIO Y LISTENERS ---
             startAuditBtn.addEventListener('click', () => {
                 const numColaborador = colaboradorInput.value.trim();
                 const numJob = jobInput.value.trim();
@@ -316,26 +323,18 @@
                 inicializarAplicacion();
             });
 
-            newTestBtn.addEventListener('click', resetAppForNewSession);
+            newTestBtn.addEventListener('click', resetForNewTest);
 
-            // --- TODO EL CÓDIGO ORIGINAL RESTANTE ---
+            // --- CÓDIGO ORIGINAL ÍNTEGRO ---
             async function inicializarAplicacion() {
                 try {
                     const response = await fetch('Archivos/colores.JSON');
-                    if (!response.ok) {
-                        throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
-                    }
+                    if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
                     coloresEstandarAzor = await response.json();
-                    console.log("Colores estándar cargados exitosamente.");
                     populateStandardColors();
                     startWebcam();
                 } catch (error) {
                     console.error("Error crítico al cargar el archivo de colores JSON:", error);
-                    if (mainInstructionTextEl) {
-                        mainInstructionTextEl.textContent = "Error: No se pudo cargar el archivo de colores estándar (colores.JSON).";
-                        mainInstructionTextEl.style.color = '#dc3545';
-                    }
-                    if(webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
                     alert("Error crítico: No se pudo cargar la configuración de colores desde 'Archivos/colores.JSON'.");
                 }
             }
@@ -347,27 +346,18 @@
 
             function setAppControlsActive(isActive) {
                 isCameraReady = isActive;
-                if (captureButton) captureButton.disabled = !isActive;
-                if (standardColorSelect) standardColorSelect.disabled = !isActive;
-                if(isActive) {
-                    if(mainInstructionTextEl) mainInstructionTextEl.textContent = "Cámara lista. Proceda a capturar la imagen.";
-                    if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#28a745';
-                } else {
-                    if(mainInstructionTextEl) mainInstructionTextEl.textContent = "Cargando cámara con ajustes predefinidos.";
-                    if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#007bff';
-                }
+                captureButton.disabled = !isActive;
             }
             
             function updateSliderValue(sliderElement, valueElement, value, unit = "") {
                 if (valueElement) { 
-                    let displayValue = parseFloat(value).toFixed(0);
-                    valueElement.textContent = `${displayValue}${unit}`;
+                    valueElement.textContent = `${parseFloat(value).toFixed(0)}${unit}`;
                 }
                 if (sliderElement) sliderElement.value = value;
             }
 
             async function startWebcam() {
-                setAppControlsActive(false); 
+                setAppControlsActive(false);
                 videoElement.style.display = 'block';
                 webcamLoadingPrompt.style.display = 'block';
                 try {
@@ -375,36 +365,28 @@
                     const constraints = { video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } } };
                     stream = await navigator.mediaDevices.getUserMedia(constraints);
                     videoElement.srcObject = stream;
-                    videoTrack = stream.getVideoTracks()[0]; 
+                    videoTrack = stream.getVideoTracks()[0];
                     cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
                     
-                    await new Promise((resolve, reject) => {
-                       videoElement.onloadedmetadata = () => {
-                            if (videoElement.videoWidth > 0) {
-                                captureCanvas.width = videoElement.videoWidth;
-                                captureCanvas.height = videoElement.videoHeight;
-                                resolve();
-                            } else {
-                                reject(new Error("Dimensiones del video son 0."));
-                            }
-                       };
-                       videoElement.onerror = (e) => reject(new Error("Error al cargar video: " + e));
-                       setTimeout(() => reject(new Error("Timeout esperando metadata.")), 4000); 
-                    });
+                    await videoElement.play();
+                    captureCanvas.width = videoElement.videoWidth;
+                    captureCanvas.height = videoElement.videoHeight;
                     
                     webcamLoadingPrompt.style.display = 'none';
                     await applyFixedCameraSettings();
-                    initializeFocusControl(); 
-                    setAppControlsActive(true); 
-                    checkEnableCompareButton();
+                    initializeFocusControl();
+                    initializeZoomControl();
+                    setAppControlsActive(true);
+                    mainInstructionTextEl.textContent = "Cámara lista. Proceda a capturar la imagen.";
+                    mainInstructionTextEl.style.color = '#28a745';
                 } catch (err) {
                     console.error("Validador Color: Error al acceder/configurar webcam: ", err);
-                    webcamLoadingPrompt.style.display = 'none';
-                    if (capturePrompt) capturePrompt.textContent = "Error webcam: " + (err.message || "Desconocido");
-                    setAppControlsActive(false); 
+                    mainInstructionTextEl.textContent = "Error de cámara. Revise permisos y recargue.";
+                    mainInstructionTextEl.style.color = '#dc3545';
+                    setAppControlsActive(false);
                 }
             }
-
+            
             async function applyCameraSetting(settingName, value) {
                 if (!videoTrack || !videoTrack.applyConstraints) return false;
                 try {
@@ -421,174 +403,125 @@
                 if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
                 console.log("Ajustes fijos completados.");
             }
-
+            
             function initializeFocusControl() {
-                if (cameraCapabilities.focusMode && cameraCapabilities.focusMode.includes('manual') && cameraCapabilities.focusDistance && manualFocusContainer) {
-                    manualFocusContainer.style.display = 'block'; 
+                if (cameraCapabilities.focusMode && cameraCapabilities.focusMode.includes('manual') && cameraCapabilities.focusDistance) {
+                    manualFocusContainer.style.display = 'block';
                     focusControlGroup.style.display = 'block';
                     const focusCaps = cameraCapabilities.focusDistance;
-                    focusSlider.min = focusCaps.min;
-                    focusSlider.max = focusCaps.max;
-                    focusSlider.step = focusCaps.step || 1;
-                    const initialFocusValue = ((focusCaps.max - focusCaps.min) / 2 + focusCaps.min);
-                    updateSliderValue(focusSlider, focusValueEl, initialFocusValue);
+                    focusSlider.min = focusCaps.min; focusSlider.max = focusCaps.max; focusSlider.step = focusCaps.step || 1;
+                    const initialFocus = videoTrack.getSettings().focusDistance || focusCaps.min;
+                    updateSliderValue(focusSlider, focusValueEl, initialFocus);
                     applyCameraSetting('focusMode', 'manual').then(success => {
-                        if(success) { applyCameraSetting('focusDistance', initialFocusValue); }
+                        if (success) applyCameraSetting('focusDistance', initialFocus);
                     });
                     focusSlider.oninput = () => updateSliderValue(null, focusValueEl, focusSlider.value);
                     focusSlider.onchange = () => applyCameraSetting('focusDistance', parseFloat(focusSlider.value));
-                } else {
-                    if (manualFocusContainer) manualFocusContainer.style.display = 'none';
                 }
             }
 
-            function resetUIForNewCapture() {
-                capturePrompt.style.display = 'none'; 
-                imageIsCaptured = true; 
-                pickedColorRGB = null; 
-                compareButton.disabled = true; 
-                if(capturedColorDisplay) capturedColorDisplay.style.backgroundColor = 'transparent';
-                if(capturedColorValuesEl) capturedColorValuesEl.textContent = 'Dibuje un área en la imagen';
-                if(deltaEValueEl) deltaEValueEl.textContent = '-';
-                if(toleranceStatusEl) {
-                    toleranceStatusEl.textContent = '-';
-                    toleranceStatusEl.className = 'tolerance-status-text';
+            function initializeZoomControl() {
+                if (cameraCapabilities.zoom) {
+                    manualFocusContainer.style.display = 'block';
+                    zoomControlGroup.style.display = 'block';
+                    const zoomCaps = cameraCapabilities.zoom;
+                    zoomSlider.min = zoomCaps.min; zoomSlider.max = zoomCaps.max; zoomSlider.step = zoomCaps.step || 1;
+                    const initialZoom = videoTrack.getSettings().zoom || zoomCaps.min;
+                    updateSliderValue(zoomSlider, zoomValueEl, initialZoom);
+                    zoomSlider.oninput = () => updateSliderValue(null, zoomValueEl, zoomSlider.value);
+                    zoomSlider.onchange = () => applyCameraSetting('zoom', parseFloat(zoomSlider.value));
                 }
-                if(toleranceBar) { 
-                    toleranceBar.style.width = '0%'; 
-                    toleranceBar.className = 'tolerance-bar-fill';
-                }
-                if (instructionTextEl) {
-                     instructionTextEl.textContent = "Dibuje un recuadro en la imagen para seleccionar el área de color.";
-                     instructionTextEl.style.color = '#212529'; 
-                }
-                if(colorResultNoteEl) colorResultNoteEl.textContent = '';
-                checkEnableCompareButton();
             }
 
-            if (captureButton) {
-                captureButton.addEventListener('click', () => {
-                    if (!isCameraReady) { return; }
-                    captureCtx.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
-                    displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height); 
-                    displayCtx.drawImage(captureCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
-                    resetUIForNewCapture();
+            captureButton.addEventListener('click', () => {
+                if (!isCameraReady) return;
+                captureCtx.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
+                const imageUrl = captureCanvas.toDataURL("image/png");
+                cropperImage.src = imageUrl;
+                cropperImage.style.display = 'block';
+                capturePrompt.style.display = 'none';
+                if (cropper) cropper.destroy();
+                cropper = new Cropper(cropperImage, {
+                    viewMode: 1, autoCropArea: 0.5, background: false, movable: true, zoomable: false,
                 });
-            }
-
+                imageIsCaptured = true;
+                compareButton.disabled = false;
+            });
+            
             function checkEnableCompareButton() {
-                 if (compareButton) {
-                    const standardSelected = standardColorSelect && standardColorSelect.value !== "";
-                    compareButton.disabled = !(isCameraReady && pickedColorRGB && standardSelected && currentStandardColorData);
+                if (compareButton) {
+                    const standardSelected = standardColorSelect.value !== "";
+                    compareButton.disabled = !(imageIsCaptured && standardSelected);
                 }
-            }
-
-            if (displayCanvas) {
-                 displayCanvas.addEventListener('mousedown', (e) => {
-                    if (!imageIsCaptured) return;  
-                    isDrawingSelection = true; const rect = displayCanvas.getBoundingClientRect();
-                    selectionRect.startX = e.clientX - rect.left; selectionRect.startY = e.clientY - rect.top;
-                });
-
-                displayCanvas.addEventListener('mousemove', (e) => {
-                    if (!isDrawingSelection) return;
-                    const rect = displayCanvas.getBoundingClientRect();
-                    selectionRect.currentX = e.clientX - rect.left; selectionRect.currentY = e.clientY - rect.top;
-                    selectionRect.width = selectionRect.currentX - selectionRect.startX;
-                    selectionRect.height = selectionRect.currentY - selectionRect.startY;
-                    displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
-                    displayCtx.drawImage(captureCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
-                    displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.8)'; displayCtx.lineWidth = 2;
-                    displayCtx.strokeRect(selectionRect.startX, selectionRect.startY, selectionRect.width, selectionRect.height);
-                });
-
-                displayCanvas.addEventListener('mouseup', () => {
-                    if (!isDrawingSelection) return;
-                    isDrawingSelection = false;
-                    const scaleX = captureCanvas.width / displayCanvas.width; const scaleY = captureCanvas.height / displayCanvas.height;
-                    const x = Math.min(selectionRect.startX, selectionRect.currentX) * scaleX;
-                    const y = Math.min(selectionRect.startY, selectionRect.currentY) * scaleY;
-                    const w = Math.abs(selectionRect.width) * scaleX;
-                    const h = Math.abs(selectionRect.height) * scaleY;
-
-                    if (w < 1 || h < 1) return;
-                    const imageData = captureCtx.getImageData(x, y, w, h);
-                    const data = imageData.data; let sumR = 0, sumG = 0, sumB = 0;
-                    for (let i = 0; i < data.length; i += 4) {
-                        sumR += data[i]; sumG += data[i+1]; sumB += data[i+2];
-                    }
-                    const pixelCount = data.length / 4;
-                    pickedColorRGB = { r: Math.round(sumR / pixelCount), g: Math.round(sumG / pixelCount), b: Math.round(sumB / pixelCount) };
-                    const hexPicked = rgbToHex(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b);
-                    capturedColorDisplay.style.backgroundColor = hexPicked;
-                    capturedColorValuesEl.textContent = `RGB: ${pickedColorRGB.r}, ${pickedColorRGB.g}, ${pickedColorRGB.b}`;
-                    instructionTextEl.textContent = "Área seleccionada. Elija un estándar y compare.";
-                    checkEnableCompareButton();
-                });
             }
             
-            if (standardColorSelect) {
-                standardColorSelect.addEventListener('change', () => {
-                     const selectedKey = standardColorSelect.value;
-                    if (selectedKey && coloresEstandarAzor[selectedKey]) {
-                        currentStandardColorData = coloresEstandarAzor[selectedKey];
-                        standardColorDisplay.style.backgroundColor = currentStandardColorData.hex;
-                        standardColorValuesEl.textContent = `HEX: ${currentStandardColorData.hex.toUpperCase()}`;
-                    } else {
-                        currentStandardColorData = null;
-                        standardColorDisplay.style.backgroundColor = 'transparent';
-                        standardColorValuesEl.textContent = '-';
-                    }
-                    checkEnableCompareButton(); 
-                });
-            }
+            standardColorSelect.addEventListener('change', () => {
+                const selectedKey = choices.getValue(true);
+                if (selectedKey && coloresEstandarAzor[selectedKey]) {
+                    currentStandardColorData = coloresEstandarAzor[selectedKey];
+                    standardColorDisplay.style.backgroundColor = currentStandardColorData.hex;
+                    standardColorValuesEl.textContent = `HEX: ${currentStandardColorData.hex.toUpperCase()}`;
+                } else {
+                    currentStandardColorData = null;
+                    standardColorDisplay.style.backgroundColor = 'transparent';
+                    standardColorValuesEl.textContent = '-';
+                }
+                checkEnableCompareButton();
+            });
 
-            if (compareButton) {
-                compareButton.addEventListener('click', () => {
-                     if (!pickedColorRGB || !currentStandardColorData) return;
-                    setAuditorState('pensando', 'Calculando diferencia...');
-                    const labSample = { L: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[0], A: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[1], B: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[2] };
-                    const labStandard = { L: currentStandardColorData.lab.L, A: currentStandardColorData.lab.a, B: currentStandardColorData.lab.b };
-                    const deltaE = window.DeltaE.getDeltaE00(labSample, labStandard);
-                    
-                    deltaEValueEl.textContent = deltaE.toFixed(2);
-                    
-                    let statusText = ''; let statusClass = ''; let barWidthPercentage = 0;
-                    const umbralExcelente = 1.5; const umbralAceptable = 3.5; const maxDeltaEForBar = 10;
+            compareButton.addEventListener('click', () => {
+                if (!cropper || !currentStandardColorData) return;
+                setAuditorState('pensando', 'Calculando diferencia...');
 
-                    if (deltaE <= umbralExcelente) {
-                        statusText = 'Aprobado (Excelente)'; statusClass = 'status-ok';
-                        barWidthPercentage = (deltaE / umbralExcelente) * (100 / 3);
-                    } else if (deltaE <= umbralAceptable) {
-                        statusText = 'Aprobado (Aceptable)'; statusClass = 'status-warning';
-                        barWidthPercentage = (100 / 3) + ((deltaE - umbralExcelente) / (umbralAceptable - umbralExcelente)) * (100 / 3);
-                    } else {
-                        statusText = 'Rechazado (Fuera de Tolerancia)'; statusClass = 'status-danger';
-                        barWidthPercentage = (200 / 3) + Math.min(1, (deltaE - umbralAceptable) / (maxDeltaEForBar - umbralAceptable)) * (100 / 3);
-                    }
-                    toleranceStatusEl.textContent = statusText;
-                    toleranceStatusEl.className = `tolerance-status-text ${statusClass}`; 
-                    toleranceBar.style.width = `${Math.min(100, barWidthPercentage)}%`;
-                    toleranceBar.className = `tolerance-bar-fill ${statusClass}`;
-                    
-                    if (statusText.includes('Aprobado')) {
-                        setAuditorState('aprobado', `Resultado: ${statusText}`);
-                    } else {
-                        setAuditorState('rechazado', `Resultado: ${statusText}`);
-                    }
-                    
-                    const timestamp = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
-                    const datosParaSheet = [timestamp, currentStandardColorData.nombre, parseFloat(deltaE.toFixed(2)), statusText];
-                    escribirEnSheet(datosParaSheet);
+                const croppedCanvas = cropper.getCroppedCanvas();
+                const croppedCtx = croppedCanvas.getContext('2d');
+                const imageData = croppedCtx.getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
+                const data = imageData.data; let sumR = 0, sumG = 0, sumB = 0;
+                for (let i = 0; i < data.length; i += 4) {
+                    sumR += data[i]; sumG += data[i+1]; sumB += data[i+2];
+                }
+                const pixelCount = data.length / 4;
+                pickedColorRGB = { r: Math.round(sumR / pixelCount), g: Math.round(sumG / pixelCount), b: Math.round(sumB / pixelCount) };
+                
+                const hexPicked = rgbToHex(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b);
+                capturedColorDisplay.style.backgroundColor = hexPicked;
+                capturedColorValuesEl.textContent = `RGB: ${pickedColorRGB.r}, ${pickedColorRGB.g}, ${pickedColorRGB.b}`;
+                
+                const labSample = { L: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[0], A: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[1], B: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[2] };
+                const labStandard = { L: currentStandardColorData.lab.L, A: currentStandardColorData.lab.a, B: currentStandardColorData.lab.b };
+                const deltaE = window.DeltaE.getDeltaE00(labSample, labStandard);
+                
+                deltaEValueEl.textContent = deltaE.toFixed(2);
+                
+                let statusText = '', statusClass = '', barWidthPercentage = 0;
+                const umbralExcelente = 1.5; const umbralAceptable = 3.5; const maxDeltaEForBar = 10;
 
-                    if(controlsWrapper) {
-                        controlsWrapper.style.pointerEvents = 'none';
-                        controlsWrapper.style.opacity = '0.5';
-                    }
-                    newTestBtn.style.display = 'block';
-                });
-            }
-
+                if (deltaE <= umbralExcelente) {
+                    statusText = 'Aprobado (Excelente)'; statusClass = 'status-ok';
+                    barWidthPercentage = (deltaE / umbralAceptable) * 50;
+                } else if (deltaE <= umbralAceptable) {
+                    statusText = 'Aprobado (Aceptable)'; statusClass = 'status-warning';
+                    barWidthPercentage = 50 + ((deltaE - umbralAceptable) / (umbralAceptable - umbralAceptable)) * 50;
+                } else {
+                    statusText = 'Rechazado (Fuera de Tolerancia)'; statusClass = 'status-danger';
+                    barWidthPercentage = 100;
+                }
+                toleranceStatusEl.textContent = statusText;
+                toleranceStatusEl.className = `tolerance-status-text ${statusClass}`; 
+                toleranceBar.style.width = `${Math.min(100, barWidthPercentage)}%`;
+                toleranceBar.className = `tolerance-bar-fill ${statusClass}`;
+                
+                if (statusText.includes('Aprobado')) {
+                    setAuditorState('aprobado', `Resultado: ${statusText}`);
+                } else {
+                    setAuditorState('rechazado', `Resultado: ${statusText}`);
+                }
+                
+                const timestamp = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                const datosParaSheet = [timestamp, currentStandardColorData.nombre, parseFloat(deltaE.toFixed(2)), statusText];
+                escribirEnSheet(datosParaSheet);
+                newTestBtn.style.display = 'block';
+            });
         });
     </script>
 </body>
