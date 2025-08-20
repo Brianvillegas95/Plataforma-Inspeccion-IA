@@ -14,13 +14,11 @@
         #manual-input-container { border-top: 2px solid #eee; margin-top: 20px; padding-top: 15px; }
         #video-feed { max-width: 100%; height: auto; display: none; background-color: #000; }
 
-        /* --- ESTILOS PARA LA PANTALLA DE INICIO DE SESIÓN --- */
         #login-container {
             padding: 25px; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         #main-app-content { display: none; }
 
-        /* --- ANIMACIONES Y ESTILOS DEL NUEVO INSPECTOR --- */
         #auditor-section {
             transition: all 0.5s ease;
             border-radius: 8px;
@@ -30,19 +28,13 @@
         }
         #auditor-image {
             transition: transform 0.3s ease, filter 0.4s ease;
-            max-width: 120px; /* Ajusta si es necesario */
+            max-width: 120px;
         }
 
-        /* Clase base para los estados */
-        .auditor-state {
-             /* Estilos comunes a todos los estados pueden ir aquí */
-        }
+        .auditor-state { }
 
-        /* Estado Pensando */
-        .auditor-pensando #auditor-image {
-            animation: pulse-blue 1.5s infinite;
-        }
-        /* Estado Aprobado */
+        .auditor-pensando #auditor-image { animation: pulse-blue 1.5s infinite; }
+
         .auditor-aprobado {
              background-color: #e9f7ef !important;
              border-color: #28a745 !important;
@@ -51,7 +43,6 @@
             filter: drop-shadow(0 0 15px rgba(40, 167, 69, 0.9));
             animation: pop-in-happy 0.5s ease-out;
         }
-        /* Estado Rechazado */
         .auditor-rechazado {
             background-color: #f8d7da !important;
             border-color: #dc3545 !important;
@@ -147,6 +138,19 @@
                             <i class="fas fa-video"></i> Activar Cámara
                         </button>
                     </div>
+                    <div class="camera-manual-focus-panel" style="display: none; margin-top: 15px; border-top: 2px solid #eee; padding-top: 15px;" id="manual-focus-container">
+                        <h3 class="panel-title-sub"><i class="fas fa-camera-retro"></i> Controles de Cámara</h3>
+                        <div class="form-group camera-control-group" id="focus-control-group" style="display:none;">
+                            <label for="focus-slider">Enfoque:</label>
+                            <input type="range" id="focus-slider" class="camera-slider">
+                            <span id="focus-value" class="slider-value"></span>
+                        </div>
+                        <div class="form-group camera-control-group" id="zoom-control-group" style="display:none;">
+                            <label for="zoom-slider">Zoom:</label>
+                            <input type="range" id="zoom-slider" class="camera-slider">
+                            <span id="zoom-value" class="slider-value"></span>
+                        </div>
+                    </div>
                     <div id="manual-input-container" style="display: none;">
                         <h3 class="panel-title"><i class="fas fa-keyboard"></i> 3. Entrada Manual</h3>
                         <p class="note">Lectura automática falló. Ingrese el código manualmente.</p>
@@ -201,13 +205,22 @@
         const auditorSection = document.getElementById('auditor-section');
         const controlsWrapper = document.getElementById('controls-wrapper');
         const newTestBtn = document.getElementById('new-test-btn');
+        
+        // Elementos de control de cámara
+        const manualFocusContainer = document.getElementById('manual-focus-container');
+        const focusControlGroup = document.getElementById('focus-control-group');
+        const focusSlider = document.getElementById('focus-slider');
+        const focusValueEl = document.getElementById('focus-value');
+        const zoomControlGroup = document.getElementById('zoom-control-group');
+        const zoomSlider = document.getElementById('zoom-slider');
+        const zoomValueEl = document.getElementById('zoom-value');
+
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
         let choices = new Choices(productSelectEl, { searchEnabled: true, itemSelectText: 'Seleccionar', shouldSort: false });
         const codeReader = new ZXing.BrowserMultiFormatReader();
 
         let productos = [];
-        let productChoices = [];
         let productoSeleccionado = null;
         let isCameraActive = false;
         let videoTrack = null;
@@ -231,7 +244,7 @@
                 const data = await response.json();
                 
                 productos = data.map(row => ({ codigoDeBarras: row[0], sku: row[1], descripcion: row[2] }));
-                productChoices = productos.map(p => ({
+                const productChoices = productos.map(p => ({
                     value: p.codigoDeBarras,
                     label: `${p.sku} - ${p.descripcion}`
                 }));
@@ -338,20 +351,58 @@
                 const calculatedChecksum = (10 - (sum % 10)) % 10;
                 return checksum === calculatedChecksum;
         }
+
+        function updateSliderValue(sliderElement, valueElement, value, unit = "") {
+            if (valueElement) valueElement.textContent = `${parseFloat(value).toFixed(0)}${unit}`;
+            if (sliderElement) sliderElement.value = value;
+        }
+
         async function applyCameraSetting(settingName, value) {
                 if (!videoTrack || !videoTrack.applyConstraints) return false;
                 try {
                     await videoTrack.applyConstraints({ advanced: [{[settingName]: value}] });
                     return true;
-                } catch (err) { console.error(`Error al aplicar ${settingName}:`, err); return false; }
+                } catch (err) { console.error(`Error al aplicar ${settingName} = ${value}:`, err); return false; }
         }
+
         async function applyFixedCameraSettings() {
-                if (!videoTrack) return;
-                cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+                console.log("Aplicando ajustes de cámara fijos...");
                 if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
                 if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
                 if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
                 if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
+                console.log("Ajustes fijos completados.");
+        }
+
+        function initializeFocusControl() {
+            if (cameraCapabilities.focusMode && cameraCapabilities.focusMode.includes('manual') && cameraCapabilities.focusDistance) {
+                manualFocusContainer.style.display = 'block';
+                focusControlGroup.style.display = 'block';
+                const focusCaps = cameraCapabilities.focusDistance;
+                focusSlider.min = focusCaps.min; focusSlider.max = focusCaps.max; focusSlider.step = focusCaps.step || 1;
+                const initialFocus = videoTrack.getSettings().focusDistance || focusCaps.min;
+                updateSliderValue(focusSlider, focusValueEl, initialFocus);
+                applyCameraSetting('focusMode', 'manual').then(success => { if (success) applyCameraSetting('focusDistance', initialFocus); });
+                focusSlider.oninput = () => updateSliderValue(null, focusValueEl, focusSlider.value);
+                focusSlider.onchange = () => applyCameraSetting('focusDistance', parseFloat(focusSlider.value));
+            } else {
+                 focusControlGroup.style.display = 'none';
+            }
+        }
+
+        function initializeZoomControl() {
+            if (cameraCapabilities.zoom) {
+                manualFocusContainer.style.display = 'block';
+                zoomControlGroup.style.display = 'block';
+                const zoomCaps = cameraCapabilities.zoom;
+                zoomSlider.min = zoomCaps.min; zoomSlider.max = zoomCaps.max; zoomSlider.step = zoomCaps.step || 1;
+                const initialZoom = videoTrack.getSettings().zoom || zoomCaps.min;
+                updateSliderValue(zoomSlider, zoomValueEl, initialZoom);
+                zoomSlider.oninput = () => updateSliderValue(null, zoomValueEl, zoomSlider.value);
+                zoomSlider.onchange = () => applyCameraSetting('zoom', parseFloat(zoomSlider.value));
+            } else {
+                zoomControlGroup.style.display = 'none';
+            }
         }
         
         function stopWebcam() {
@@ -367,6 +418,7 @@
             webcamBtn.innerHTML = '<i class="fas fa-video"></i> Activar Cámara';
             webcamBtn.classList.remove('primary-action');
             webcamBtn.classList.add('secondary-action');
+            manualFocusContainer.style.display = 'none'; // Oculta los controles
         }
 
         async function startWebcamPreview() {
@@ -377,11 +429,17 @@
             setAuditorState('neutral', 'Cámara activada. Centre el código y tome la captura.');
             
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                // Prioriza la cámara externa (USB)
+                const constraints = { video: { facingMode: "environment" } };
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 videoFeed.srcObject = stream;
                 await videoFeed.play();
                 videoTrack = stream.getVideoTracks()[0];
+                cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+
                 await applyFixedCameraSettings();
+                initializeFocusControl();
+                initializeZoomControl();
                 
                 isCameraActive = true;
                 webcamBtn.innerHTML = '<i class="fas fa-camera"></i> Tomar Captura';
@@ -477,6 +535,7 @@
                     stopWebcam();
                 }
         });
+
         uploadInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (!file || !productoSeleccionado) return;
@@ -487,11 +546,13 @@
                 imagePrompt.style.display = 'none';
                 procesarImagen(imageUrl);
         });
+
         manualInput.addEventListener('paste', (e) => {
                 e.preventDefault();
                 setAuditorState('neutral', 'Acción de pegar deshabilitada. Por favor, teclee o escanee el código.');
                 return false;
         });
+
         manualValidateBtn.addEventListener('click', () => {
                 const codigoManual = manualInput.value.trim();
                 if (codigoManual && productoSeleccionado) {
@@ -500,6 +561,7 @@
                     setAuditorState('neutral', 'Por favor, ingrese un código en el campo manual.');
                 }
         });
+
         webcamBtn.addEventListener('click', () => {
             if (!isCameraActive) {
                 startWebcamPreview();
@@ -507,6 +569,7 @@
                 takeWebcamSnapshotAndDecode();
             }
         });
+
         newTestBtn.addEventListener('click', resetAppForNewSession);
     });
     </script>
