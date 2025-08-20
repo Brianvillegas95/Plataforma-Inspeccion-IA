@@ -10,7 +10,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
     <script src="deltae.js"></script> 
     <style>
-        /* Estilos para la pantalla de login y el inspector dinámico */
         #login-container {
             padding: 25px; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             max-width: 500px; margin: 40px auto;
@@ -56,14 +55,12 @@
             </div>
             <nav class="main-nav">
                 <ul>
-                    <li class="dropdown">
-                        <a href="index.html" class="dropdown-toggle">Inicio</a>
-                    </li>
+                    <li class="dropdown"><a href="index.html" class="dropdown-toggle">Inicio</a></li>
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle active" data-area="Herramientas IA">Herramientas IA <i class="fas fa-angle-down nav-arrow"></i></a>
                         <ul class="dropdown-menu">
-                            <li><a href="auditor_ean13.html">Auditor de Código EAN-13</a></li>
-                            <li><a href="validador_color.html" class="active">Validador de Color</a></li>
+                           <li><a href="auditor_ean13.html">Auditor de Código EAN-13</a></li>
+                           <li><a href="validador_color.html" class="active">Validador de Color</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -96,7 +93,6 @@
                     <h2>Estación Digital de Validación de Color</h2>
                     <p id="main-instruction-text" style="font-weight: bold; color: #007bff;">Cargando cámara con ajustes predefinidos.</p>
                 </div>
-
                 <div class="color-validator-grid">
                     <div class="color-capture-panel">
                         <h3 class="panel-title-sub"><i class="fas fa-camera"></i> 1. Captura de Imagen</h3>
@@ -109,21 +105,25 @@
                         <button id="capture-color-btn" class="button primary-action full-width-button">
                             <i class="fas fa-camera-retro"></i> Capturar Imagen
                         </button>
-                        
                         <div class="camera-manual-focus-panel" style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-top: 20px; border: 1px solid #eee; display: none;" id="manual-focus-container">
-                           </div>
+                            <h3 class="panel-title-sub" style="margin-top: 0; margin-bottom: 15px; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;"><i class="fas fa-magnifying-glass-plus"></i> Ajuste de Enfoque Manual</h3>
+                            <div class="form-group camera-control-group" id="focus-control-group" style="display:none; margin-bottom: 12px;">
+                                <label for="focus-slider" style="display: block; margin-bottom: 3px; font-weight: 600; color: #555; font-size: 0.85em;">Enfoque:</label>
+                                <input type="range" id="focus-slider" class="camera-slider" style="width: calc(100% - 70px); margin-right: 10px; vertical-align: middle;">
+                                <span id="focus-value" class="slider-value" style="display: inline-block; width: 50px; font-size: 0.8em; color: #333; vertical-align: middle;"></span>
+                            </div>
+                            <p class="note" style="font-size: 0.8em; margin-top:15px;">Nota: Si la imagen no es clara utilice la barra en enfoque hasta que la imagen mejore.</p>
+                        </div>
                         <div class="color-picker-instructions">
                             <p id="instruction-text" style="color: #212529; font-weight:bold;">Capture una imagen y dibuje un recuadro para seleccionar el área de color.</p>
                         </div>
                     </div>
-
                     <div class="color-analysis-panel">
                         <h3 class="panel-title-sub"><i class="fas fa-crop-alt"></i> 2. Área de Muestra y Estándar</h3>
                         <div class="captured-image-area">
                             <canvas id="display-captured-image-canvas" class="captured-image-canvas"></canvas> 
                             <p id="capture-prompt">Esperando imagen capturada...</p>
                         </div>
-                        
                         <div class="form-group">
                             <label for="standard-color-select">Seleccione Color Estándar Azor:</label>
                             <select id="standard-color-select" name="standard-color-select"></select>
@@ -132,15 +132,30 @@
                             <i class="fas fa-exchange-alt"></i> Comparar Colores
                         </button>
                     </div>
-
                     <div class="color-results-panel">
                         <h3 class="panel-title-sub"><i class="fas fa-tachometer-alt"></i> 3. Resultados</h3>
                         <div class="color-comparison-display">
+                            <div class="color-box-container">
+                                <p>Color de Muestra (Promedio):</p>
+                                <div id="captured-color-display" class="color-display-box"></div>
+                                <span id="captured-color-values" class="color-value-text">-</span>
                             </div>
+                            <div class="color-box-container">
+                                <p>Color Estándar:</p>
+                                <div id="standard-color-display" class="color-display-box"></div>
+                                <span id="standard-color-values" class="color-value-text">-</span>
+                            </div>
+                        </div>
                         <div class="delta-e-result">
+                            <h4>Diferencia de Color (ΔE*<sub_00</sub>):</h4>
+                            <p id="delta-e-value" class="delta-e-value-text">-</p>
+                            <div class="tolerance-bar-container">
+                                <div id="tolerance-bar" class="tolerance-bar-fill"></div>
                             </div>
+                            <p id="tolerance-status" class="tolerance-status-text">-</p>
+                        </div>
                          <p id="color-result-note" class="note" style="margin-top:10px;"></p>
-                         
+
                          <div id="auditor-section">
                             <p id="auditor-title">Asistente de Inspección</p>
                             <div id="auditor-image-container">
@@ -150,16 +165,14 @@
                                 <span id="auditor-text">Listo para iniciar.</span>
                             </div>
                         </div>
-                        
+
                         <button id="new-test-btn" class="button primary-action" style="width: 100%; font-size: 1.1em; display: none; margin-top: 20px;">
                             <i class="fas fa-redo"></i> Nueva Prueba
                         </button>
                     </div>
-
                 </div> 
             </section>
         </main>
-
         <footer class="app-footer">
             &copy; <span id="currentYearColorValidator"></span> Grupo Azor México. Todos los derechos reservados.
         </footer>
@@ -173,6 +186,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Referencias a elementos (Nuevos y Originales)
             const loginContainer = document.getElementById('login-container');
             const mainAppContent = document.getElementById('main-app-content');
             const startAuditBtn = document.getElementById('start-audit-btn');
@@ -181,19 +195,50 @@
             const auditorSection = document.getElementById('auditor-section');
             const auditorText = document.getElementById('auditor-text');
             const newTestBtn = document.getElementById('new-test-btn');
-            const controlsWrapper = document.querySelector('.color-validator-grid'); // Contenedor a deshabilitar
-
-            // Referencias originales
+            const controlsWrapper = document.querySelector('.color-validator-grid');
+            
             const videoElement = document.getElementById('color-video-feed');
+            const webcamLoadingPrompt = document.getElementById('webcam-loading-prompt');
+            const captureButton = document.getElementById('capture-color-btn');
             const standardColorSelect = document.getElementById('standard-color-select');
             const compareButton = document.getElementById('compare-colors-btn');
-            // ... (y todas las demás referencias a elementos originales)
+            const instructionTextEl = document.getElementById('instruction-text');
+            const mainInstructionTextEl = document.getElementById('main-instruction-text');
+            const displayCanvas = document.getElementById('display-captured-image-canvas');
+            const displayCtx = displayCanvas ? displayCanvas.getContext('2d', { willReadFrequently: true }) : null;
+            const captureCanvas = document.getElementById('color-capture-canvas'); 
+            const captureCtx = captureCanvas ? captureCanvas.getContext('2d', { willReadFrequently: true }) : null;
+            const calibrationHelperCanvas = document.getElementById('calibration-helper-canvas'); 
+            const calibrationHelperCtx = calibrationHelperCanvas ? calibrationHelperCanvas.getContext('2d', { willReadFrequently: true }) : null; 
+            const capturePrompt = document.getElementById('capture-prompt');
+            const capturedColorDisplay = document.getElementById('captured-color-display');
+            const capturedColorValuesEl = document.getElementById('captured-color-values');
+            const standardColorDisplay = document.getElementById('standard-color-display');
+            const standardColorValuesEl = document.getElementById('standard-color-values');
+            const deltaEValueEl = document.getElementById('delta-e-value');
+            const toleranceBar = document.getElementById('tolerance-bar');
+            const toleranceStatusEl = document.getElementById('tolerance-status'); 
+            const colorResultNoteEl = document.getElementById('color-result-note');
+            const manualFocusContainer = document.getElementById('manual-focus-container');
+            const focusControlGroup = document.getElementById('focus-control-group');
+            const focusSlider = document.getElementById('focus-slider');
+            const focusValueEl = document.getElementById('focus-value');
 
+            // Variables de estado (Nuevas y Originales)
             let operatorData = {};
             let choices = new Choices(standardColorSelect, { searchEnabled: true, itemSelectText: 'Seleccionar', shouldSort: false });
             let coloresEstandarAzor = {};
-            // ... (y todas las demás variables de estado originales)
+            let stream = null;
+            let pickedColorRGB = null; 
+            let currentStandardColorData = null;
+            let imageIsCaptured = false; 
+            let isDrawingSelection = false;
+            let selectionRect = { startX: 0, startY: 0, currentX: 0, currentY: 0, width: 0, height: 0 };
+            let videoTrack = null; 
+            let cameraCapabilities = {}; 
+            let isCameraReady = false; 
             
+            // --- NUEVAS FUNCIONES DE UI ---
             function setAuditorState(state, message) {
                 if (!auditorSection) return;
                 auditorSection.classList.remove('auditor-neutral', 'auditor-pensando', 'auditor-aprobado', 'auditor-rechazado');
@@ -201,6 +246,29 @@
                 if(auditorText) auditorText.textContent = message;
             }
 
+            function resetAppForNewSession() {
+                mainAppContent.style.display = 'none';
+                loginContainer.style.display = 'block';
+                colaboradorInput.value = '';
+                jobInput.value = '';
+
+                if(controlsWrapper) {
+                    controlsWrapper.style.pointerEvents = 'auto';
+                    controlsWrapper.style.opacity = '1';
+                }
+                newTestBtn.style.display = 'none';
+
+                resetUIForNewCapture();
+                if (displayCtx) displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+                if (capturePrompt) capturePrompt.textContent = "Esperando imagen capturada...";
+                
+                choices.clearStore();
+                choices.setChoices([{ value: '', label: '-- Elija un estándar --', selected: true, disabled: true }], 'value', 'label', false);
+                
+                setAuditorState('neutral', 'Bienvenido. Aplicación lista para una nueva validación.');
+            }
+
+            // --- FUNCIONES ORIGINALES MODIFICADAS ---
             async function escribirEnSheet(datos) {
               try {
                 const datosCompletos = [...datos, operatorData.colaborador, operatorData.job];
@@ -216,9 +284,9 @@
                 alert('Error: No se pudo guardar el resultado.');
               }
             }
-            
+
             function populateStandardColors() {
-                 if (!choices) return;
+                if (!choices) return;
                 choices.clearStore();
                 const colorChoices = Object.keys(coloresEstandarAzor).map(key => ({
                     value: key,
@@ -227,59 +295,7 @@
                 choices.setChoices([{ value: '', label: '-- Elija un estándar --', selected: true, disabled: true }, ...colorChoices], 'value', 'label', false);
             }
 
-            if (compareButton) {
-                compareButton.addEventListener('click', () => {
-                    // ... (lógica original de comparación)
-                    setAuditorState('pensando', 'Calculando diferencia de color...');
-                    
-                    // Al final de la lógica, donde se determina statusText
-                    // ...
-                    
-                    if (statusText.includes('Aprobado')) {
-                        setAuditorState('aprobado', `Resultado: ${statusText}`);
-                    } else {
-                        setAuditorState('rechazado', `Resultado: ${statusText}`);
-                    }
-                    
-                    // Se llama a escribirEnSheet que ahora incluye los datos del operador
-                    escribirEnSheet(datosParaSheet);
-
-                    // Bloqueamos controles y mostramos el botón de Nueva Prueba
-                    if(controlsWrapper) {
-                        controlsWrapper.style.pointerEvents = 'none';
-                        controlsWrapper.style.opacity = '0.5';
-                    }
-                    newTestBtn.style.display = 'block';
-                });
-            }
-            
-            function resetAppForNewSession() {
-                // Ocultamos la app y mostramos el login
-                mainAppContent.style.display = 'none';
-                loginContainer.style.display = 'block';
-
-                // Limpiamos campos de login
-                colaboradorInput.value = '';
-                jobInput.value = '';
-
-                // Reactivamos los controles
-                if(controlsWrapper) {
-                    controlsWrapper.style.pointerEvents = 'auto';
-                    controlsWrapper.style.opacity = '1';
-                }
-                newTestBtn.style.display = 'none';
-
-                // Reseteamos la UI de la app de color
-                resetUIForNewCapture();
-                if (displayCtx) displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
-                if (capturePrompt) capturePrompt.textContent = "Esperando imagen capturada...";
-                choices.clearStore();
-                choices.setChoices([{ value: '', label: '-- Elija un estándar --', selected: true, disabled: true }], 'value', 'label', false);
-                setAuditorState('neutral', 'Bienvenido. Aplicación lista para una nueva validación.');
-            }
-
-            newTestBtn.addEventListener('click', resetAppForNewSession);
-
+            // --- NUEVOS LISTENERS DE UI ---
             startAuditBtn.addEventListener('click', () => {
                 const numColaborador = colaboradorInput.value.trim();
                 const numJob = jobInput.value.trim();
@@ -294,24 +310,285 @@
                 }
 
                 operatorData = { colaborador: numColaborador, job: numJob };
-
                 loginContainer.style.display = 'none';
                 mainAppContent.style.display = 'block';
-                
-                setAuditorState('neutral', 'Bienvenido. Aplicación de color iniciada.');
+                setAuditorState('neutral', 'Bienvenido. Iniciando aplicación...');
                 inicializarAplicacion();
             });
 
-            // Aquí debe ir el resto de tu código JS original sin modificar
-            // (la función inicializarAplicacion, startWebcam, rgbToHex, listeners del canvas, etc.)
-            // Asegúrate de que todo tu código original esté presente.
+            newTestBtn.addEventListener('click', resetAppForNewSession);
+
+            // --- TODO EL CÓDIGO ORIGINAL RESTANTE ---
+            async function inicializarAplicacion() {
+                try {
+                    const response = await fetch('Archivos/colores.JSON');
+                    if (!response.ok) {
+                        throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+                    }
+                    coloresEstandarAzor = await response.json();
+                    console.log("Colores estándar cargados exitosamente.");
+                    populateStandardColors();
+                    startWebcam();
+                } catch (error) {
+                    console.error("Error crítico al cargar el archivo de colores JSON:", error);
+                    if (mainInstructionTextEl) {
+                        mainInstructionTextEl.textContent = "Error: No se pudo cargar el archivo de colores estándar (colores.JSON).";
+                        mainInstructionTextEl.style.color = '#dc3545';
+                    }
+                    if(webcamLoadingPrompt) webcamLoadingPrompt.style.display = 'none';
+                    alert("Error crítico: No se pudo cargar la configuración de colores desde 'Archivos/colores.JSON'.");
+                }
+            }
+
+            function rgbToHex(r, g, b) {
+                const toHex = c => (c < 16 ? '0' : '') + c.toString(16);
+                return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+            }
+
+            function setAppControlsActive(isActive) {
+                isCameraReady = isActive;
+                if (captureButton) captureButton.disabled = !isActive;
+                if (standardColorSelect) standardColorSelect.disabled = !isActive;
+                if(isActive) {
+                    if(mainInstructionTextEl) mainInstructionTextEl.textContent = "Cámara lista. Proceda a capturar la imagen.";
+                    if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#28a745';
+                } else {
+                    if(mainInstructionTextEl) mainInstructionTextEl.textContent = "Cargando cámara con ajustes predefinidos.";
+                    if(mainInstructionTextEl) mainInstructionTextEl.style.color = '#007bff';
+                }
+            }
             
-            // ...
-            // Tu función original: async function inicializarAplicacion() { ... }
-            // Tu función original: function rgbToHex(r, g, b) { ... }
-            // Tu función original: function setAppControlsActive(isActive) { ... }
-            // Y así sucesivamente con todas las demás.
-            // ...
+            function updateSliderValue(sliderElement, valueElement, value, unit = "") {
+                if (valueElement) { 
+                    let displayValue = parseFloat(value).toFixed(0);
+                    valueElement.textContent = `${displayValue}${unit}`;
+                }
+                if (sliderElement) sliderElement.value = value;
+            }
+
+            async function startWebcam() {
+                setAppControlsActive(false); 
+                videoElement.style.display = 'block';
+                webcamLoadingPrompt.style.display = 'block';
+                try {
+                    if (stream) { stream.getTracks().forEach(track => track.stop()); }
+                    const constraints = { video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } } };
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    videoElement.srcObject = stream;
+                    videoTrack = stream.getVideoTracks()[0]; 
+                    cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+                    
+                    await new Promise((resolve, reject) => {
+                       videoElement.onloadedmetadata = () => {
+                            if (videoElement.videoWidth > 0) {
+                                captureCanvas.width = videoElement.videoWidth;
+                                captureCanvas.height = videoElement.videoHeight;
+                                resolve();
+                            } else {
+                                reject(new Error("Dimensiones del video son 0."));
+                            }
+                       };
+                       videoElement.onerror = (e) => reject(new Error("Error al cargar video: " + e));
+                       setTimeout(() => reject(new Error("Timeout esperando metadata.")), 4000); 
+                    });
+                    
+                    webcamLoadingPrompt.style.display = 'none';
+                    await applyFixedCameraSettings();
+                    initializeFocusControl(); 
+                    setAppControlsActive(true); 
+                    checkEnableCompareButton();
+                } catch (err) {
+                    console.error("Validador Color: Error al acceder/configurar webcam: ", err);
+                    webcamLoadingPrompt.style.display = 'none';
+                    if (capturePrompt) capturePrompt.textContent = "Error webcam: " + (err.message || "Desconocido");
+                    setAppControlsActive(false); 
+                }
+            }
+
+            async function applyCameraSetting(settingName, value) {
+                if (!videoTrack || !videoTrack.applyConstraints) return false;
+                try {
+                    await videoTrack.applyConstraints({ advanced: [{[settingName]: value}] });
+                    return true;
+                } catch (err) { console.error(`Error al aplicar ${settingName} = ${value}: `, err); return false; }
+            }
+
+            async function applyFixedCameraSettings() {
+                console.log("Aplicando ajustes de cámara fijos...");
+                if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
+                if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
+                if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
+                if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
+                console.log("Ajustes fijos completados.");
+            }
+
+            function initializeFocusControl() {
+                if (cameraCapabilities.focusMode && cameraCapabilities.focusMode.includes('manual') && cameraCapabilities.focusDistance && manualFocusContainer) {
+                    manualFocusContainer.style.display = 'block'; 
+                    focusControlGroup.style.display = 'block';
+                    const focusCaps = cameraCapabilities.focusDistance;
+                    focusSlider.min = focusCaps.min;
+                    focusSlider.max = focusCaps.max;
+                    focusSlider.step = focusCaps.step || 1;
+                    const initialFocusValue = ((focusCaps.max - focusCaps.min) / 2 + focusCaps.min);
+                    updateSliderValue(focusSlider, focusValueEl, initialFocusValue);
+                    applyCameraSetting('focusMode', 'manual').then(success => {
+                        if(success) { applyCameraSetting('focusDistance', initialFocusValue); }
+                    });
+                    focusSlider.oninput = () => updateSliderValue(null, focusValueEl, focusSlider.value);
+                    focusSlider.onchange = () => applyCameraSetting('focusDistance', parseFloat(focusSlider.value));
+                } else {
+                    if (manualFocusContainer) manualFocusContainer.style.display = 'none';
+                }
+            }
+
+            function resetUIForNewCapture() {
+                capturePrompt.style.display = 'none'; 
+                imageIsCaptured = true; 
+                pickedColorRGB = null; 
+                compareButton.disabled = true; 
+                if(capturedColorDisplay) capturedColorDisplay.style.backgroundColor = 'transparent';
+                if(capturedColorValuesEl) capturedColorValuesEl.textContent = 'Dibuje un área en la imagen';
+                if(deltaEValueEl) deltaEValueEl.textContent = '-';
+                if(toleranceStatusEl) {
+                    toleranceStatusEl.textContent = '-';
+                    toleranceStatusEl.className = 'tolerance-status-text';
+                }
+                if(toleranceBar) { 
+                    toleranceBar.style.width = '0%'; 
+                    toleranceBar.className = 'tolerance-bar-fill';
+                }
+                if (instructionTextEl) {
+                     instructionTextEl.textContent = "Dibuje un recuadro en la imagen para seleccionar el área de color.";
+                     instructionTextEl.style.color = '#212529'; 
+                }
+                if(colorResultNoteEl) colorResultNoteEl.textContent = '';
+                checkEnableCompareButton();
+            }
+
+            if (captureButton) {
+                captureButton.addEventListener('click', () => {
+                    if (!isCameraReady) { return; }
+                    captureCtx.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
+                    displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height); 
+                    displayCtx.drawImage(captureCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
+                    resetUIForNewCapture();
+                });
+            }
+
+            function checkEnableCompareButton() {
+                 if (compareButton) {
+                    const standardSelected = standardColorSelect && standardColorSelect.value !== "";
+                    compareButton.disabled = !(isCameraReady && pickedColorRGB && standardSelected && currentStandardColorData);
+                }
+            }
+
+            if (displayCanvas) {
+                 displayCanvas.addEventListener('mousedown', (e) => {
+                    if (!imageIsCaptured) return;  
+                    isDrawingSelection = true; const rect = displayCanvas.getBoundingClientRect();
+                    selectionRect.startX = e.clientX - rect.left; selectionRect.startY = e.clientY - rect.top;
+                });
+
+                displayCanvas.addEventListener('mousemove', (e) => {
+                    if (!isDrawingSelection) return;
+                    const rect = displayCanvas.getBoundingClientRect();
+                    selectionRect.currentX = e.clientX - rect.left; selectionRect.currentY = e.clientY - rect.top;
+                    selectionRect.width = selectionRect.currentX - selectionRect.startX;
+                    selectionRect.height = selectionRect.currentY - selectionRect.startY;
+                    displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+                    displayCtx.drawImage(captureCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
+                    displayCtx.strokeStyle = 'rgba(0, 123, 255, 0.8)'; displayCtx.lineWidth = 2;
+                    displayCtx.strokeRect(selectionRect.startX, selectionRect.startY, selectionRect.width, selectionRect.height);
+                });
+
+                displayCanvas.addEventListener('mouseup', () => {
+                    if (!isDrawingSelection) return;
+                    isDrawingSelection = false;
+                    const scaleX = captureCanvas.width / displayCanvas.width; const scaleY = captureCanvas.height / displayCanvas.height;
+                    const x = Math.min(selectionRect.startX, selectionRect.currentX) * scaleX;
+                    const y = Math.min(selectionRect.startY, selectionRect.currentY) * scaleY;
+                    const w = Math.abs(selectionRect.width) * scaleX;
+                    const h = Math.abs(selectionRect.height) * scaleY;
+
+                    if (w < 1 || h < 1) return;
+                    const imageData = captureCtx.getImageData(x, y, w, h);
+                    const data = imageData.data; let sumR = 0, sumG = 0, sumB = 0;
+                    for (let i = 0; i < data.length; i += 4) {
+                        sumR += data[i]; sumG += data[i+1]; sumB += data[i+2];
+                    }
+                    const pixelCount = data.length / 4;
+                    pickedColorRGB = { r: Math.round(sumR / pixelCount), g: Math.round(sumG / pixelCount), b: Math.round(sumB / pixelCount) };
+                    const hexPicked = rgbToHex(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b);
+                    capturedColorDisplay.style.backgroundColor = hexPicked;
+                    capturedColorValuesEl.textContent = `RGB: ${pickedColorRGB.r}, ${pickedColorRGB.g}, ${pickedColorRGB.b}`;
+                    instructionTextEl.textContent = "Área seleccionada. Elija un estándar y compare.";
+                    checkEnableCompareButton();
+                });
+            }
+            
+            if (standardColorSelect) {
+                standardColorSelect.addEventListener('change', () => {
+                     const selectedKey = standardColorSelect.value;
+                    if (selectedKey && coloresEstandarAzor[selectedKey]) {
+                        currentStandardColorData = coloresEstandarAzor[selectedKey];
+                        standardColorDisplay.style.backgroundColor = currentStandardColorData.hex;
+                        standardColorValuesEl.textContent = `HEX: ${currentStandardColorData.hex.toUpperCase()}`;
+                    } else {
+                        currentStandardColorData = null;
+                        standardColorDisplay.style.backgroundColor = 'transparent';
+                        standardColorValuesEl.textContent = '-';
+                    }
+                    checkEnableCompareButton(); 
+                });
+            }
+
+            if (compareButton) {
+                compareButton.addEventListener('click', () => {
+                     if (!pickedColorRGB || !currentStandardColorData) return;
+                    setAuditorState('pensando', 'Calculando diferencia...');
+                    const labSample = { L: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[0], A: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[1], B: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[2] };
+                    const labStandard = { L: currentStandardColorData.lab.L, A: currentStandardColorData.lab.a, B: currentStandardColorData.lab.b };
+                    const deltaE = window.DeltaE.getDeltaE00(labSample, labStandard);
+                    
+                    deltaEValueEl.textContent = deltaE.toFixed(2);
+                    
+                    let statusText = ''; let statusClass = ''; let barWidthPercentage = 0;
+                    const umbralExcelente = 1.5; const umbralAceptable = 3.5; const maxDeltaEForBar = 10;
+
+                    if (deltaE <= umbralExcelente) {
+                        statusText = 'Aprobado (Excelente)'; statusClass = 'status-ok';
+                        barWidthPercentage = (deltaE / umbralExcelente) * (100 / 3);
+                    } else if (deltaE <= umbralAceptable) {
+                        statusText = 'Aprobado (Aceptable)'; statusClass = 'status-warning';
+                        barWidthPercentage = (100 / 3) + ((deltaE - umbralExcelente) / (umbralAceptable - umbralExcelente)) * (100 / 3);
+                    } else {
+                        statusText = 'Rechazado (Fuera de Tolerancia)'; statusClass = 'status-danger';
+                        barWidthPercentage = (200 / 3) + Math.min(1, (deltaE - umbralAceptable) / (maxDeltaEForBar - umbralAceptable)) * (100 / 3);
+                    }
+                    toleranceStatusEl.textContent = statusText;
+                    toleranceStatusEl.className = `tolerance-status-text ${statusClass}`; 
+                    toleranceBar.style.width = `${Math.min(100, barWidthPercentage)}%`;
+                    toleranceBar.className = `tolerance-bar-fill ${statusClass}`;
+                    
+                    if (statusText.includes('Aprobado')) {
+                        setAuditorState('aprobado', `Resultado: ${statusText}`);
+                    } else {
+                        setAuditorState('rechazado', `Resultado: ${statusText}`);
+                    }
+                    
+                    const timestamp = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                    const datosParaSheet = [timestamp, currentStandardColorData.nombre, parseFloat(deltaE.toFixed(2)), statusText];
+                    escribirEnSheet(datosParaSheet);
+
+                    if(controlsWrapper) {
+                        controlsWrapper.style.pointerEvents = 'none';
+                        controlsWrapper.style.opacity = '0.5';
+                    }
+                    newTestBtn.style.display = 'block';
+                });
+            }
+
         });
     </script>
 </body>
