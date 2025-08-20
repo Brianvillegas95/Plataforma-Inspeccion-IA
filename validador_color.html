@@ -32,7 +32,9 @@
         .compact-results-container .auditor-section {
             padding: 0; margin: 0; flex-shrink: 0; border: none; background-color: transparent;
         }
-        .compact-results-container .auditor-image { max-width: 60px; }
+        /* --- AJUSTE REALIZADO AQUÍ --- */
+        /* Se cambió el selector de .auditor-image a #auditor-image para que apunte correctamente a la imagen por su ID */
+        .compact-results-container #auditor-image { max-width: 60px; }
         .compact-results-container .auditor-message-bubble { display: none; } /* Ocultamos la burbuja de texto */
 
         .result-data { text-align: center; }
@@ -45,16 +47,18 @@
         .auditor-section {
             transition: all 0.5s ease;
         }
-        .auditor-image {
+        /* --- AJUSTE REALIZADO AQUÍ --- */
+        /* También se corrigieron los selectores en las animaciones para que funcionen correctamente */
+        #auditor-image {
             transition: transform 0.3s ease, filter 0.4s ease;
         }
-        .auditor-pensando .auditor-image { animation: pulse-blue 1.5s infinite; }
+        .auditor-pensando #auditor-image { animation: pulse-blue 1.5s infinite; }
         .auditor-aprobado .auditor-section { background-color: #e9f7ef !important; border-color: #28a745 !important; }
-        .auditor-aprobado .auditor-image {
+        .auditor-aprobado #auditor-image {
             filter: drop-shadow(0 0 15px rgba(40, 167, 69, 0.9)); animation: pop-in-happy 0.5s ease-out;
         }
         .auditor-rechazado .auditor-section { background-color: #f8d7da !important; border-color: #dc3545 !important; }
-        .auditor-rechazado .auditor-image {
+        .auditor-rechazado #auditor-image {
             filter: drop-shadow(0 0 15px rgba(220, 53, 69, 0.9)); animation: shake-horizontal 0.5s ease-out;
         }
 
