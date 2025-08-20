@@ -128,7 +128,11 @@
                         <select id="product-select"></select>
                     </div>
                     <div id="image-input-container" style="margin-top: 20px;">
-                        <h3 class="panel-title"><i class="fas fa-camera"></i> 2. Iniciar Inspección</h3>
+                        <h3 class="panel-title"><i class="fas fa-camera"></i> 2. Proporcionar Imagen</h3>
+                        <label for="upload-input" id="upload-label" class="button primary-action" style="display: block; text-align: center; opacity: 0.5; cursor: not-allowed;">
+                            <i class="fas fa-upload"></i> Subir Archivo
+                        </label>
+                        <input type="file" id="upload-input" accept="image/*" style="display: none;" disabled>
                          <button id="webcam-btn" class="button secondary-action" style="width: 100%;" disabled>
                             <i class="fas fa-video"></i> Activar Cámara
                         </button>
@@ -174,6 +178,8 @@
         const productSelectEl = document.getElementById('product-select');
         const statusContainer = document.getElementById('status-container');
         const auditorText = document.getElementById('auditor-text');
+        const uploadLabel = document.getElementById('upload-label');
+        const uploadInput = document.getElementById('upload-input');
         const webcamBtn = document.getElementById('webcam-btn');
         const videoFeed = document.getElementById('video-feed');
         const imagePrompt = document.getElementById('image-prompt');
@@ -196,8 +202,9 @@
         let operatorData = {};
         let scannerTimeout = null;
         
+        // --- Variables para el detector de velocidad del escáner ---
         let lastKeyTime = 0;
-        const SCANNER_INPUT_SPEED = 50;
+        const SCANNER_INPUT_SPEED = 50; // ms. Ajustar si es necesario.
 
         function updateAuditor(message) { auditorText.textContent = message; }
         
@@ -373,6 +380,22 @@
                 }
             });
         }
+        
+        async function procesarImagen(imageUrl) {
+                statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando código de barras...</div>`;
+                setAuditorState('pensando', 'Analizando la imagen...');
+                manualInputContainer.style.display = 'none';
+                try {
+                    const result = await codeReader.decodeFromImageUrl(imageUrl);
+                    realizarValidacion(result.getText(), 'Archivo');
+                } catch (error) {
+                    console.error("Error de lectura con ZXing:", error);
+                    statusContainer.innerHTML = `<div class="veredicto-rechazado">FALLO LECTURA: No se pudo encontrar un código en la imagen.</div>`;
+                    setAuditorState('neutral', 'Lectura de archivo falló. Use el escáner manual.');
+                    manualInputContainer.style.display = 'block';
+                    manualInput.focus();
+                }
+        }
 
         startAuditBtn.addEventListener('click', () => {
             const numColaborador = colaboradorInput.value.trim();
@@ -396,7 +419,8 @@
                     statusContainer.innerHTML = `Producto seleccionado: <strong>${productoSeleccionado.sku}</strong>. Esperando imagen.`;
                     setAuditorState('neutral', `Listo para validar el producto ${productoSeleccionado.sku}.`);
                     imagePrompt.textContent = "Listo para recibir imagen...";
-                    webcamBtn.disabled = false;
+                    uploadInput.disabled = false; webcamBtn.disabled = false;
+                    uploadLabel.style.opacity = '1'; uploadLabel.style.cursor = 'pointer';
                     manualInputContainer.style.display = 'none';
                     imageDisplay.style.display = 'none';
                     imagePrompt.style.display = 'block';
@@ -405,9 +429,21 @@
                     productoSeleccionado = null;
                     statusContainer.textContent = 'Esperando selección de producto...';
                     setAuditorState('neutral', 'Por favor, seleccione un producto de la lista.');
-                    webcamBtn.disabled = true;
+                    uploadInput.disabled = true; webcamBtn.disabled = true;
+                    uploadLabel.style.opacity = '0.5'; uploadLabel.style.cursor = 'not-allowed';
                     if (isCameraActive) stopWebcam();
                 }
+        });
+
+        uploadInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file || !productoSeleccionado) return;
+                stopWebcam();
+                const imageUrl = URL.createObjectURL(file);
+                imageDisplay.src = imageUrl;
+                imageDisplay.style.display = 'block';
+                imagePrompt.style.display = 'none';
+                procesarImagen(imageUrl);
         });
 
         manualValidateBtn.addEventListener('click', () => {
@@ -429,28 +465,35 @@
 
         newTestBtn.addEventListener('click', resetAppForNewSession);
 
+        // --- NUEVA LÓGICA PARA DETECTOR DE VELOCIDAD DEL ESCÁNER ---
         manualInput.addEventListener('keydown', (e) => {
             const currentTime = performance.now();
             const timeDifference = currentTime - lastKeyTime;
 
+            // La primera tecla siempre se permite si el campo está vacío
             if (manualInput.value.length === 0) {
                 lastKeyTime = currentTime;
                 return;
             }
 
+            // Si el tiempo entre teclas es muy largo, es un humano. Se bloquea.
             if (timeDifference > SCANNER_INPUT_SPEED) {
                 console.log(`Entrada manual bloqueada. Tiempo entre teclas: ${timeDifference.toFixed(0)}ms`);
+                // Limpiamos el campo para evitar ingresos a medias
                 manualInput.value = "";
                 e.preventDefault();
                 return false;
             }
             
+            // Si es rápido, es un escáner. Se permite y se actualiza el tiempo.
             lastKeyTime = currentTime;
         });
 
+        // La mayoría de los escáners presionan "Enter" al final.
+        // Esto valida el código automáticamente al terminar la lectura.
         manualInput.addEventListener('change', (e) => {
              const code = manualInput.value.trim();
-             if(code.length > 0) {
+             if(code.length > 0) { // Validar solo si hay algo en el campo
                 console.log("Scanner finalizó la entrada. Validando...");
                 manualValidateBtn.click();
              }
