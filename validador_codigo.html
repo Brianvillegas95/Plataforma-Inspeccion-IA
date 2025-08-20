@@ -140,7 +140,7 @@
                     <div id="manual-input-container" style="display: none;">
                         <h3 class="panel-title"><i class="fas fa-barcode-read"></i> 3. Entrada Scanner</h3>
                         <p class="note">Acerque el escáner para leer el código.</p>
-                        <input type="text" id="manual-barcode-input" class="form-control" placeholder="Esperando lectura de escáner..." readonly>
+                        <input type="text" id="manual-barcode-input" class="form-control" placeholder="Esperando lectura de escáner...">
                         <button id="manual-validate-btn" class="button secondary-action" style="width: 100%;">Validar Código</button>
                     </div>
                 </div>
@@ -201,6 +201,10 @@
         let isCameraActive = false;
         let operatorData = {};
         let scannerTimeout = null;
+        
+        // --- Variables para el detector de velocidad del escáner ---
+        let lastKeyTime = 0;
+        const SCANNER_INPUT_SPEED = 50; // ms. Ajustar si es necesario.
 
         function updateAuditor(message) { auditorText.textContent = message; }
         
@@ -359,7 +363,7 @@
                 stopWebcam();
                 setAuditorState('neutral', 'Lectura automática falló. Use el escáner manual.');
                 manualInputContainer.style.display = 'block';
-                manualInput.focus(); // <-- NUEVO: Pone el cursor automáticamente
+                manualInput.focus();
             }, 15000);
 
             codeReader.decodeFromVideoDevice(undefined, 'video-feed', (result, err) => {
@@ -389,7 +393,7 @@
                     statusContainer.innerHTML = `<div class="veredicto-rechazado">FALLO LECTURA: No se pudo encontrar un código en la imagen.</div>`;
                     setAuditorState('neutral', 'Lectura de archivo falló. Use el escáner manual.');
                     manualInputContainer.style.display = 'block';
-                    manualInput.focus(); // <-- NUEVO: Pone el cursor automáticamente
+                    manualInput.focus();
                 }
         }
 
@@ -461,23 +465,38 @@
 
         newTestBtn.addEventListener('click', resetAppForNewSession);
 
-        // --- NUEVO: Lógica para bloquear teclado en entrada de escáner ---
-        manualInput.addEventListener('paste', (e) => {
-            e.preventDefault();
-            return false;
-        });
-
+        // --- NUEVA LÓGICA PARA DETECTOR DE VELOCIDAD DEL ESCÁNER ---
         manualInput.addEventListener('keydown', (e) => {
-            // Permite solo teclas de control como Enter, Tab, etc.
-            if (e.key.length > 1 && e.key !== 'Enter') {
+            const currentTime = performance.now();
+            const timeDifference = currentTime - lastKeyTime;
+
+            // La primera tecla siempre se permite si el campo está vacío
+            if (manualInput.value.length === 0) {
+                lastKeyTime = currentTime;
                 return;
             }
-            // Si se presiona una tecla de caracter, se previene la acción
-            // Un escáner no dispara 'keydown' de esta manera, sino que llena el valor directamente.
-            if (e.key.length === 1) {
-                 e.preventDefault();
-                 return false;
+
+            // Si el tiempo entre teclas es muy largo, es un humano. Se bloquea.
+            if (timeDifference > SCANNER_INPUT_SPEED) {
+                console.log(`Entrada manual bloqueada. Tiempo entre teclas: ${timeDifference.toFixed(0)}ms`);
+                // Limpiamos el campo para evitar ingresos a medias
+                manualInput.value = "";
+                e.preventDefault();
+                return false;
             }
+            
+            // Si es rápido, es un escáner. Se permite y se actualiza el tiempo.
+            lastKeyTime = currentTime;
+        });
+
+        // La mayoría de los escáners presionan "Enter" al final.
+        // Esto valida el código automáticamente al terminar la lectura.
+        manualInput.addEventListener('change', (e) => {
+             const code = manualInput.value.trim();
+             if(code.length > 0) { // Validar solo si hay algo en el campo
+                console.log("Scanner finalizó la entrada. Validando...");
+                manualValidateBtn.click();
+             }
         });
 
     });
