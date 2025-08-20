@@ -433,7 +433,11 @@
             imagePrompt.style.display = 'none';
             videoFeed.style.display = 'block';
             
-            setAuditorState('neutral', 'Buscando cámara y aplicando ajustes...');
+            // --- CÓDIGO CORREGIDO ---
+            // Deshabilitamos el botón y mostramos un estado de carga para evitar clics prematuros
+            webcamBtn.disabled = true;
+            webcamBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando Cámara...';
+            setAuditorState('pensando', 'Iniciando cámara...');
             
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
@@ -460,23 +464,34 @@
 
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 videoFeed.srcObject = stream;
-                await videoFeed.play();
-                videoTrack = stream.getVideoTracks()[0];
-                cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
-
-                await applyFixedCameraSettings();
-                initializeFocusControl();
-                initializeZoomControl();
                 
-                isCameraActive = true;
-                webcamBtn.innerHTML = '<i class="fas fa-camera"></i> Tomar Captura';
-                webcamBtn.classList.remove('secondary-action');
-                webcamBtn.classList.add('primary-action');
-                setAuditorState('neutral', 'Cámara activada. Centre el código y tome la captura.');
+                // Esperamos a que el video se reproduzca
+                await videoFeed.play();
+
+                // Añadimos un listener que se ejecutará SOLO cuando el video esté listo y tenga dimensiones
+                videoFeed.addEventListener('loadedmetadata', async () => {
+                    console.log("Metadatos del video cargados. Dimensiones:", videoFeed.videoWidth, "x", videoFeed.videoHeight);
+                    videoTrack = stream.getVideoTracks()[0];
+                    cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+
+                    await applyFixedCameraSettings();
+                    initializeFocusControl();
+                    initializeZoomControl();
+                    
+                    isCameraActive = true;
+                    // Ahora que estamos seguros de que el video está listo, activamos el botón
+                    webcamBtn.disabled = false; 
+                    webcamBtn.innerHTML = '<i class="fas fa-camera"></i> Tomar Captura';
+                    webcamBtn.classList.remove('secondary-action');
+                    webcamBtn.classList.add('primary-action');
+                    setAuditorState('neutral', 'Cámara activada. Centre el código y tome la captura.');
+                });
+                // --- FIN DE LA CORRECCIÓN ---
 
             } catch (err) {
                 console.error("Fallo al iniciar la cámara:", err);
                 setAuditorState('rechazado', 'No se pudo acceder a la cámara.');
+                webcamBtn.disabled = false; // Reactivamos el botón si hay error
                 stopWebcam();
             }
         }
@@ -497,10 +512,7 @@
             imageDisplay.style.display = 'block';
 
             try {
-                // --- CÓDIGO CORREGIDO ---
-                // Se cambió decodeFromCanvas por el método correcto: decode
                 const result = await codeReader.decode(snapshotCanvas);
-                // --- FIN DE LA CORRECCIÓN ---
                 realizarValidacion(result.getText(), 'Webcam');
             } catch (error) {
                 console.error("Error de lectura desde el snapshot:", error);
