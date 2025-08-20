@@ -122,7 +122,8 @@
             <section class="vision-panel">
                 <h2 class="panel-title"><i class="fas fa-barcode"></i> Vista del Código de Barras</h2>
                 <div id="image-container" class="webcam-view" style="display: flex; align-items: center; justify-content: center; background-color: #f0f0f0;">
-                    <video id="video-feed"></video>
+                    <video id="video-feed" playsinline></video>
+                    <canvas id="snapshot-canvas" style="display: none;"></canvas>
                     <img id="image-display" style="display: none; max-width: 100%; max-height: 100%; object-fit: contain;">
                     <p id="image-prompt" style="color: #888;">Seleccione un producto para comenzar...</p>
                 </div>
@@ -185,6 +186,7 @@
         const uploadInput = document.getElementById('upload-input');
         const webcamBtn = document.getElementById('webcam-btn');
         const videoFeed = document.getElementById('video-feed');
+        const snapshotCanvas = document.getElementById('snapshot-canvas');
         const imagePrompt = document.getElementById('image-prompt');
         const imageDisplay = document.getElementById('image-display');
         const manualInputContainer = document.getElementById('manual-input-container');
@@ -313,42 +315,74 @@
                 if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
                 if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
         }
+        
         function stopWebcam() {
-                if (isCameraActive) {
-                    codeReader.reset();
-                    videoFeed.style.display = 'none';
-                    if(!imageDisplay.src.includes('blob')) imagePrompt.style.display = 'block';
-                    isCameraActive = false;
-                    webcamBtn.innerHTML = '<i class="fas fa-video"></i> Activar Cámara';
-                }
+            if (videoTrack) {
+                videoTrack.stop();
+                videoTrack = null;
+            }
+            videoFeed.style.display = 'none';
+            if(!imageDisplay.src.includes('blob') && !imageDisplay.src.includes('data:image')) {
+                 imagePrompt.style.display = 'block';
+            }
+            isCameraActive = false;
+            webcamBtn.innerHTML = '<i class="fas fa-video"></i> Activar Cámara';
+            webcamBtn.classList.remove('primary-action');
+            webcamBtn.classList.add('secondary-action');
         }
-        async function startWebcam() {
-                if (isCameraActive) { stopWebcam(); return; }
-                imageDisplay.style.display = 'none';
-                imagePrompt.style.display = 'none';
-                videoFeed.style.display = 'block';
+
+        async function startWebcamPreview() {
+            imageDisplay.style.display = 'none';
+            imagePrompt.style.display = 'none';
+            videoFeed.style.display = 'block';
+            
+            setAuditorState('neutral', 'Cámara activada. Centre el código y tome la captura.');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                videoFeed.srcObject = stream;
+                await videoFeed.play();
+                videoTrack = stream.getVideoTracks()[0];
+                await applyFixedCameraSettings();
+                
                 isCameraActive = true;
-                webcamBtn.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
-                setAuditorState('pensando', 'Cámara activada. Buscando código...');
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                    videoFeed.srcObject = stream;
-                    videoTrack = stream.getVideoTracks()[0];
-                    await applyFixedCameraSettings();
-                    codeReader.decodeFromVideoDevice(undefined, 'video-feed', (result, err) => {
-                        if (result) { realizarValidacion(result.getText(), 'Webcam'); }
-                        if (err && !(err instanceof ZXing.NotFoundException)) {
-                            console.error("Error de la cámara con ZXing:", err);
-                            setAuditorState('rechazado', 'Error con la cámara.');
-                            stopWebcam();
-                        }
-                    });
-                } catch (err) {
-                    console.error("Fallo al iniciar la cámara:", err);
-                    setAuditorState('rechazado', 'No se pudo acceder a la cámara.');
-                    stopWebcam();
-                }
+                webcamBtn.innerHTML = '<i class="fas fa-camera"></i> Tomar Captura';
+                webcamBtn.classList.remove('secondary-action');
+                webcamBtn.classList.add('primary-action');
+
+            } catch (err) {
+                console.error("Fallo al iniciar la cámara:", err);
+                setAuditorState('rechazado', 'No se pudo acceder a la cámara.');
+                stopWebcam();
+            }
         }
+        
+        async function takeWebcamSnapshotAndDecode() {
+            if (!videoTrack) return;
+            
+            setAuditorState('pensando', 'Capturando y analizando imagen...');
+            
+            snapshotCanvas.width = videoFeed.videoWidth;
+            snapshotCanvas.height = videoFeed.videoHeight;
+            const context = snapshotCanvas.getContext('2d');
+            context.drawImage(videoFeed, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+            
+            stopWebcam();
+
+            imageDisplay.src = snapshotCanvas.toDataURL('image/png');
+            imageDisplay.style.display = 'block';
+
+            try {
+                const result = await codeReader.decodeFromCanvas(snapshotCanvas);
+                realizarValidacion(result.getText(), 'Webcam');
+            } catch (error) {
+                console.error("Error de lectura desde el snapshot:", error);
+                statusContainer.innerHTML = `<div class="veredicto-rechazado">FALLO LECTURA: No se pudo encontrar un código en la captura.</div>`;
+                setAuditorState('neutral', 'No pude leer el código en la captura. Ingréselo manualmente.');
+                manualInputContainer.style.display = 'block';
+            }
+        }
+
         async function procesarImagen(imageUrl) {
                 statusContainer.innerHTML = `<div class="veredicto-pensando">Analizando código de barras...</div>`;
                 setAuditorState('pensando', 'Analizando la imagen...');
@@ -428,7 +462,13 @@
                     setAuditorState('neutral', 'Por favor, ingrese un código en el campo manual.');
                 }
         });
-        webcamBtn.addEventListener('click', startWebcam);
+        webcamBtn.addEventListener('click', () => {
+            if (!isCameraActive) {
+                startWebcamPreview();
+            } else {
+                takeWebcamSnapshotAndDecode();
+            }
+        });
     });
     </script>
 </body>
