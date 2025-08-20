@@ -132,25 +132,27 @@
                 </div>
             </section>
             <aside class="controls-panel">
-                <div id="product-selection-container">
-                    <h3 class="panel-title"><i class="fas fa-box-open"></i> 1. Seleccionar Producto</h3>
-                    <select id="product-select"></select>
-                </div>
-                <div id="image-input-container" style="margin-top: 20px;">
-                    <h3 class="panel-title"><i class="fas fa-camera"></i> 2. Proporcionar Imagen</h3>
-                    <label for="upload-input" id="upload-label" class="button primary-action" style="display: block; text-align: center; opacity: 0.5; cursor: not-allowed;">
-                        <i class="fas fa-upload"></i> Subir Archivo
-                    </label>
-                    <input type="file" id="upload-input" accept="image/*" style="display: none;" disabled>
-                     <button id="webcam-btn" class="button secondary-action" style="width: 100%;" disabled>
-                        <i class="fas fa-video"></i> Activar Cámara
-                    </button>
-                </div>
-                <div id="manual-input-container" style="display: none;">
-                    <h3 class="panel-title"><i class="fas fa-keyboard"></i> 3. Entrada Manual</h3>
-                    <p class="note">Lectura automática falló. Ingrese el código manualmente.</p>
-                    <input type="text" id="manual-barcode-input" class="form-control" placeholder="Teclear o escanear código EAN-13...">
-                    <button id="manual-validate-btn" class="button secondary-action" style="width: 100%;">Validar Código Manual</button>
+                <div id="controls-wrapper">
+                    <div id="product-selection-container">
+                        <h3 class="panel-title"><i class="fas fa-box-open"></i> 1. Seleccionar Producto</h3>
+                        <select id="product-select"></select>
+                    </div>
+                    <div id="image-input-container" style="margin-top: 20px;">
+                        <h3 class="panel-title"><i class="fas fa-camera"></i> 2. Proporcionar Imagen</h3>
+                        <label for="upload-input" id="upload-label" class="button primary-action" style="display: block; text-align: center; opacity: 0.5; cursor: not-allowed;">
+                            <i class="fas fa-upload"></i> Subir Archivo
+                        </label>
+                        <input type="file" id="upload-input" accept="image/*" style="display: none;" disabled>
+                         <button id="webcam-btn" class="button secondary-action" style="width: 100%;" disabled>
+                            <i class="fas fa-video"></i> Activar Cámara
+                        </button>
+                    </div>
+                    <div id="manual-input-container" style="display: none;">
+                        <h3 class="panel-title"><i class="fas fa-keyboard"></i> 3. Entrada Manual</h3>
+                        <p class="note">Lectura automática falló. Ingrese el código manualmente.</p>
+                        <input type="text" id="manual-barcode-input" class="form-control" placeholder="Teclear o escanear código EAN-13...">
+                        <button id="manual-validate-btn" class="button secondary-action" style="width: 100%;">Validar Código Manual</button>
+                    </div>
                 </div>
 
                 <div id="auditor-section">
@@ -162,6 +164,10 @@
                         <span id="auditor-text">Listo para iniciar.</span>
                     </div>
                 </div>
+
+                <button id="new-test-btn" class="button primary-action" style="width: 100%; font-size: 1.1em; display: none;">
+                    <i class="fas fa-redo"></i> Nueva Prueba
+                </button>
             </aside>
         </main>
         
@@ -193,9 +199,11 @@
         const manualInput = document.getElementById('manual-barcode-input');
         const manualValidateBtn = document.getElementById('manual-validate-btn');
         const auditorSection = document.getElementById('auditor-section');
+        const controlsWrapper = document.getElementById('controls-wrapper');
+        const newTestBtn = document.getElementById('new-test-btn');
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-        const choices = new Choices(productSelectEl, { searchEnabled: true, itemSelectText: 'Seleccionar', shouldSort: false });
+        let choices = new Choices(productSelectEl, { searchEnabled: true, itemSelectText: 'Seleccionar', shouldSort: false });
         const codeReader = new ZXing.BrowserMultiFormatReader();
 
         let productos = [];
@@ -216,7 +224,7 @@
 
         async function cargarProductos() {
             choices.clearStore();
-            choices.setChoices([{ value: '', label: 'Cargando productos...', disabled: true }], 'value', 'label', true);
+            choices.setChoices([{ value: '', label: 'Cargando productos...', disabled: true, selected: true }], 'value', 'label', true);
             try {
                 const response = await fetch('/.netlify/functions/leer-sheet-privada');
                 if (!response.ok) throw new Error(`Error: ${response.statusText}`);
@@ -235,7 +243,7 @@
             } catch (error) {
                 console.error('Error al cargar productos:', error);
                 choices.clearStore();
-                choices.setChoices([{ value: '', label: '-- Error al cargar --', disabled: true }], 'value', 'label', true);
+                choices.setChoices([{ value: '', label: '-- Error al cargar --', disabled: true, selected: true }], 'value', 'label', true);
                 setAuditorState('rechazado', 'Error: No se pudo cargar la lista de productos.');
             }
         }
@@ -289,8 +297,38 @@
                     console.error("El registro en Google Sheets falló:", err);
                     setAuditorState('rechazado', 'ALERTA: El resultado fue validado pero no se pudo guardar en el registro.');
                 });
+
+            controlsWrapper.style.pointerEvents = 'none';
+            controlsWrapper.style.opacity = '0.5';
+            newTestBtn.style.display = 'block';
         }
         
+        function resetAppForNewSession() {
+            mainAppContent.style.display = 'none';
+            loginContainer.style.display = 'block';
+
+            colaboradorInput.value = '';
+            jobInput.value = '';
+
+            setAuditorState('neutral', 'Bienvenido. Por favor, seleccione un producto.');
+            
+            choices.clearStore();
+            choices.setChoices([{ value: '', label: 'Cargando...', selected: true, disabled: true }], 'value', 'label', true);
+            
+            productoSeleccionado = null;
+            statusContainer.textContent = 'Esperando selección de producto...';
+            imageDisplay.style.display = 'none';
+            imageDisplay.src = '';
+            imagePrompt.style.display = 'block';
+            manualInputContainer.style.display = 'none';
+            manualInput.value = '';
+            stopWebcam();
+            
+            controlsWrapper.style.pointerEvents = 'auto';
+            controlsWrapper.style.opacity = '1';
+            newTestBtn.style.display = 'none';
+        }
+
         function validateEAN13Checksum(code) {
                 if (typeof code !== 'string' || !/^\d{13}$/.test(code)) return false;
                 const digits = code.split('').map(Number);
@@ -469,6 +507,7 @@
                 takeWebcamSnapshotAndDecode();
             }
         });
+        newTestBtn.addEventListener('click', resetAppForNewSession);
     });
     </script>
 </body>
