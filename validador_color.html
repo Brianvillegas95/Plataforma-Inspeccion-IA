@@ -11,33 +11,50 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
     <script src="deltae.js"></script> 
     <style>
+        /* Estilos de Login y Layout */
         #login-container {
             padding: 25px; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             max-width: 500px; margin: 40px auto;
         }
         #main-app-content { display: none; }
 
+        /* Estilos de Cropper y Resultados */
         .captured-image-area {
-            width: 100%; height: 250px; background-color: #e9ecef;
+            width: 100%; height: 250px; background-color: #e9ecef; border: 1px solid #ccc;
         }
         #cropper-image { display: block; max-width: 100%; max-height: 100%; }
         
-        .delta-e-result { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
-        #auditor-section {
-            padding: 10px; margin-top: 0; flex-shrink: 0; transition: all 0.5s ease;
-            border-radius: 8px; border: 2px solid #dee2e6; background-color: #f8f9fa;
+        .compact-results-container {
+            display: flex; align-items: center; justify-content: space-between; gap: 15px;
+            padding: 10px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9;
+            visibility: hidden; /* Oculto hasta que haya resultados */
         }
-        #auditor-image {
-            transition: transform 0.3s ease, filter 0.4s ease; max-width: 80px;
+        .compact-results-container .auditor-section {
+            padding: 0; margin: 0; flex-shrink: 0; border: none; background-color: transparent;
         }
-        .auditor-state {}
-        .auditor-pensando #auditor-image { animation: pulse-blue 1.5s infinite; }
-        .auditor-aprobado { background-color: #e9f7ef !important; border-color: #28a745 !important; }
-        .auditor-aprobado #auditor-image {
+        .compact-results-container .auditor-image { max-width: 60px; }
+        .compact-results-container .auditor-message-bubble { display: none; }
+
+        .result-data { text-align: center; }
+        .result-data .delta-e-value-text { font-size: 2.2em; font-weight: bold; line-height: 1; margin: 0; }
+        .result-data .tolerance-status-text { font-weight: bold; margin: 0; }
+        
+        .tolerance-bar-wrapper { flex-grow: 1; }
+        
+        /* Animaciones del Inspector */
+        .auditor-section {
+            transition: all 0.5s ease;
+        }
+        .auditor-image {
+            transition: transform 0.3s ease, filter 0.4s ease;
+        }
+        .auditor-pensando .auditor-image { animation: pulse-blue 1.5s infinite; }
+        .auditor-aprobado .auditor-section { background-color: #e9f7ef !important; border-color: #28a745 !important; }
+        .auditor-aprobado .auditor-image {
             filter: drop-shadow(0 0 15px rgba(40, 167, 69, 0.9)); animation: pop-in-happy 0.5s ease-out;
         }
-        .auditor-rechazado { background-color: #f8d7da !important; border-color: #dc3545 !important; }
-        .auditor-rechazado #auditor-image {
+        .auditor-rechazado .auditor-section { background-color: #f8d7da !important; border-color: #dc3545 !important; }
+        .auditor-rechazado .auditor-image {
             filter: drop-shadow(0 0 15px rgba(220, 53, 69, 0.9)); animation: shake-horizontal 0.5s ease-out;
         }
 
@@ -99,7 +116,7 @@
                 <div class="section-header">
                     <i class="fas fa-palette feature-icon"></i>
                     <h2>Estación Digital de Validación de Color</h2>
-                    <p id="main-instruction-text" style="font-weight: bold; color: #007bff;">Cargando cámara con ajustes predefinidos.</p>
+                    <p id="main-instruction-text" style="font-weight: bold; color: #007bff;">Cargando cámara...</p>
                 </div>
                 <div class="color-validator-grid">
                     <div class="color-capture-panel">
@@ -144,36 +161,34 @@
                         <h3 class="panel-title-sub"><i class="fas fa-tachometer-alt"></i> 3. Resultados</h3>
                         <div class="color-comparison-display">
                             <div class="color-box-container">
-                                <p>Color de Muestra (Promedio):</p>
-                                <div id="captured-color-display" class="color-display-box"></div>
-                                <span id="captured-color-values" class="color-value-text">-</span>
-                            </div>
-                            <div class="color-box-container">
                                 <p>Color Estándar:</p>
                                 <div id="standard-color-display" class="color-display-box"></div>
                                 <span id="standard-color-values" class="color-value-text">-</span>
                             </div>
-                        </div>
-                        <div class="delta-e-result">
-                            <div>
-                                <h4>Diferencia (ΔE*<sub_00</sub>):</h4>
-                                <p id="delta-e-value" class="delta-e-value-text">-</p>
-                                <div class="tolerance-bar-container">
-                                    <div id="tolerance-bar" class="tolerance-bar-fill"></div>
-                                </div>
-                                <p id="tolerance-status" class="tolerance-status-text">-</p>
+                            <div class="color-box-container">
+                                <p>Color de Muestra (Promedio):</p>
+                                <div id="captured-color-display" class="color-display-box"></div>
+                                <span id="captured-color-values" class="color-value-text">-</span>
                             </div>
-                            <div id="auditor-section">
+                        </div>
+                        <div id="compact-results-container" class="compact-results-container">
+                            <div id="auditor-section" class="auditor-state">
                                 <div id="auditor-image-container">
                                     <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente IA" class="auditor-image-estilizada">
                                 </div>
-                                <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered">
-                                    <span id="auditor-text"></span>
+                            </div>
+                            <div class="result-data">
+                                <p id="delta-e-value" class="delta-e-value-text">-</p>
+                                <p id="tolerance-status" class="tolerance-status-text">-</p>
+                            </div>
+                            <div class="tolerance-bar-wrapper">
+                                <div class="tolerance-bar-container">
+                                    <div id="tolerance-bar" class="tolerance-bar-fill"></div>
                                 </div>
                             </div>
                         </div>
                          <p id="color-result-note" class="note" style="margin-top:10px;"></p>
-                         <button id="new-test-btn" class="button" style="width: 100%; display: none; margin-top: 20px;">
+                         <button id="new-test-btn" class="button" style="width: 100%; display: none; margin-top: 10px;">
                             <i class="fas fa-redo"></i> Nueva Prueba
                         </button>
                     </div>
@@ -195,21 +210,19 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Referencias a elementos
             const loginContainer = document.getElementById('login-container');
             const mainAppContent = document.getElementById('main-app-content');
             const startAuditBtn = document.getElementById('start-audit-btn');
             const colaboradorInput = document.getElementById('colaborador-input');
             const jobInput = document.getElementById('job-input');
             const auditorSection = document.getElementById('auditor-section');
-            const auditorText = document.getElementById('auditor-text');
+            const auditorText = document.getElementById('auditor-text'); // Aunque no hay burbuja visible, la lógica puede usarla
             const newTestBtn = document.getElementById('new-test-btn');
             const videoElement = document.getElementById('color-video-feed');
             const webcamLoadingPrompt = document.getElementById('webcam-loading-prompt');
             const captureButton = document.getElementById('capture-color-btn');
             const standardColorSelect = document.getElementById('standard-color-select');
             const compareButton = document.getElementById('compare-colors-btn');
-            const instructionTextEl = document.getElementById('instruction-text');
             const mainInstructionTextEl = document.getElementById('main-instruction-text');
             const captureCanvas = document.getElementById('color-capture-canvas'); 
             const captureCtx = captureCanvas.getContext('2d', { willReadFrequently: true });
@@ -230,8 +243,8 @@
             const zoomControlGroup = document.getElementById('zoom-control-group');
             const zoomSlider = document.getElementById('zoom-slider');
             const zoomValueEl = document.getElementById('zoom-value');
+            const compactResultsContainer = document.getElementById('compact-results-container');
 
-            // Variables de estado
             let operatorData = {};
             let choices = new Choices(standardColorSelect, { searchEnabled: true, itemSelectText: 'Seleccionar', shouldSort: false });
             let coloresEstandarAzor = {};
@@ -244,38 +257,12 @@
             let cameraCapabilities = {}; 
             let isCameraReady = false; 
             
-            // --- NUEVAS FUNCIONES DE UI ---
-            function setAuditorState(state, message) {
+            function setAuditorState(state) {
                 if (!auditorSection) return;
-                auditorSection.className = `auditor-${state}`;
-                if(auditorText) auditorText.textContent = message;
+                auditorSection.classList.remove('auditor-neutral', 'auditor-pensando', 'auditor-aprobado', 'auditor-rechazado');
+                auditorSection.classList.add(`auditor-${state}`);
             }
 
-            function resetForNewTest() {
-                setAuditorState('neutral', 'Listo para una nueva prueba.');
-                if (cropper) cropper.destroy();
-                cropper = null;
-                cropperImage.style.display = 'none';
-                capturePrompt.style.display = 'block';
-                imageIsCaptured = false;
-                pickedColorRGB = null;
-                compareButton.disabled = true;
-                if(capturedColorDisplay) capturedColorDisplay.style.backgroundColor = 'transparent';
-                if(capturedColorValuesEl) capturedColorValuesEl.textContent = '-';
-                if(deltaEValueEl) deltaEValueEl.textContent = '-';
-                if(toleranceStatusEl) {
-                    toleranceStatusEl.textContent = '-';
-                    toleranceStatusEl.className = 'tolerance-status-text';
-                }
-                if(toleranceBar) {
-                    toleranceBar.style.width = '0%';
-                    toleranceBar.className = 'tolerance-bar-fill';
-                }
-                if(colorResultNoteEl) colorResultNoteEl.textContent = '';
-                newTestBtn.style.display = 'none';
-            }
-
-            // --- FUNCIONES ORIGINALES MODIFICADAS ---
             async function escribirEnSheet(datos) {
               try {
                 const datosCompletos = [...datos, operatorData.colaborador, operatorData.job];
@@ -302,11 +289,9 @@
                 choices.setChoices([{ value: '', label: '-- Elija un estándar --', selected: true, disabled: true }, ...colorChoices], 'value', 'label', false);
             }
 
-            // --- LÓGICA DE INICIO Y LISTENERS ---
             startAuditBtn.addEventListener('click', () => {
                 const numColaborador = colaboradorInput.value.trim();
                 const numJob = jobInput.value.trim();
-
                 if (!/^\d{4}$/.test(numColaborador)) {
                     alert('Error: El "Número de Colaborador" debe contener exactamente 4 dígitos.');
                     return;
@@ -315,17 +300,18 @@
                     alert('Error: El "Número de Job" debe contener exactamente 6 dígitos.');
                     return;
                 }
-
                 operatorData = { colaborador: numColaborador, job: numJob };
                 loginContainer.style.display = 'none';
                 mainAppContent.style.display = 'block';
-                setAuditorState('neutral', 'Bienvenido. Iniciando aplicación...');
+                setAuditorState('neutral');
                 inicializarAplicacion();
             });
 
-            newTestBtn.addEventListener('click', resetForNewTest);
+            newTestBtn.addEventListener('click', () => {
+                resetForNewTest();
+                checkEnableCompareButton();
+            });
 
-            // --- CÓDIGO ORIGINAL ÍNTEGRO ---
             async function inicializarAplicacion() {
                 try {
                     const response = await fetch('Archivos/colores.JSON');
@@ -350,9 +336,7 @@
             }
             
             function updateSliderValue(sliderElement, valueElement, value, unit = "") {
-                if (valueElement) { 
-                    valueElement.textContent = `${parseFloat(value).toFixed(0)}${unit}`;
-                }
+                if (valueElement) valueElement.textContent = `${parseFloat(value).toFixed(0)}${unit}`;
                 if (sliderElement) sliderElement.value = value;
             }
 
@@ -367,11 +351,9 @@
                     videoElement.srcObject = stream;
                     videoTrack = stream.getVideoTracks()[0];
                     cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
-                    
                     await videoElement.play();
                     captureCanvas.width = videoElement.videoWidth;
                     captureCanvas.height = videoElement.videoHeight;
-                    
                     webcamLoadingPrompt.style.display = 'none';
                     await applyFixedCameraSettings();
                     initializeFocusControl();
@@ -389,10 +371,8 @@
             
             async function applyCameraSetting(settingName, value) {
                 if (!videoTrack || !videoTrack.applyConstraints) return false;
-                try {
-                    await videoTrack.applyConstraints({ advanced: [{[settingName]: value}] });
-                    return true;
-                } catch (err) { console.error(`Error al aplicar ${settingName} = ${value}: `, err); return false; }
+                try { await videoTrack.applyConstraints({ advanced: [{[settingName]: value}] }); return true; } 
+                catch (err) { console.error(`Error al aplicar ${settingName} = ${value}: `, err); return false; }
             }
 
             async function applyFixedCameraSettings() {
@@ -412,9 +392,7 @@
                     focusSlider.min = focusCaps.min; focusSlider.max = focusCaps.max; focusSlider.step = focusCaps.step || 1;
                     const initialFocus = videoTrack.getSettings().focusDistance || focusCaps.min;
                     updateSliderValue(focusSlider, focusValueEl, initialFocus);
-                    applyCameraSetting('focusMode', 'manual').then(success => {
-                        if (success) applyCameraSetting('focusDistance', initialFocus);
-                    });
+                    applyCameraSetting('focusMode', 'manual').then(success => { if (success) applyCameraSetting('focusDistance', initialFocus); });
                     focusSlider.oninput = () => updateSliderValue(null, focusValueEl, focusSlider.value);
                     focusSlider.onchange = () => applyCameraSetting('focusDistance', parseFloat(focusSlider.value));
                 }
@@ -433,6 +411,25 @@
                 }
             }
 
+            function resetForNewTest() {
+                setAuditorState('neutral');
+                if (cropper) cropper.destroy();
+                cropper = null;
+                cropperImage.style.display = 'none';
+                capturePrompt.style.display = 'block';
+                imageIsCaptured = false;
+                pickedColorRGB = null;
+                compareButton.disabled = true;
+                if(capturedColorDisplay) capturedColorDisplay.style.backgroundColor = 'transparent';
+                if(capturedColorValuesEl) capturedColorValuesEl.textContent = '-';
+                if(standardColorDisplay) standardColorDisplay.style.backgroundColor = 'transparent';
+                if(standardColorValuesEl) standardColorValuesEl.textContent = '-';
+                choices.clearSelection();
+                compactResultsContainer.style.visibility = 'hidden';
+                if(colorResultNoteEl) colorResultNoteEl.textContent = '';
+                newTestBtn.style.display = 'none';
+            }
+
             captureButton.addEventListener('click', () => {
                 if (!isCameraReady) return;
                 captureCtx.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
@@ -442,10 +439,11 @@
                 capturePrompt.style.display = 'none';
                 if (cropper) cropper.destroy();
                 cropper = new Cropper(cropperImage, {
-                    viewMode: 1, autoCropArea: 0.5, background: false, movable: true, zoomable: false,
+                    viewMode: 1, autoCrop: false, dragMode: 'crop', background: false, movable: true, zoomable: false,
                 });
                 imageIsCaptured = true;
                 compareButton.disabled = false;
+                resetForNewTest(); // Resetea los resultados anteriores
             });
             
             function checkEnableCompareButton() {
@@ -460,7 +458,7 @@
                 if (selectedKey && coloresEstandarAzor[selectedKey]) {
                     currentStandardColorData = coloresEstandarAzor[selectedKey];
                     standardColorDisplay.style.backgroundColor = currentStandardColorData.hex;
-                    standardColorValuesEl.textContent = `HEX: ${currentStandardColorData.hex.toUpperCase()}`;
+                    standardColorValuesEl.textContent = `LAB: ${currentStandardColorData.lab.L.toFixed(1)}, ${currentStandardColorData.lab.a.toFixed(1)}, ${currentStandardColorData.lab.b.toFixed(1)}`;
                 } else {
                     currentStandardColorData = null;
                     standardColorDisplay.style.backgroundColor = 'transparent';
@@ -470,9 +468,8 @@
             });
 
             compareButton.addEventListener('click', () => {
-                if (!cropper || !currentStandardColorData) return;
-                setAuditorState('pensando', 'Calculando diferencia...');
-
+                if (!cropper || !cropper.getCroppedCanvas() || !currentStandardColorData) return;
+                setAuditorState('pensando');
                 const croppedCanvas = cropper.getCroppedCanvas();
                 const croppedCtx = croppedCanvas.getContext('2d');
                 const imageData = croppedCtx.getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
@@ -485,9 +482,10 @@
                 
                 const hexPicked = rgbToHex(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b);
                 capturedColorDisplay.style.backgroundColor = hexPicked;
-                capturedColorValuesEl.textContent = `RGB: ${pickedColorRGB.r}, ${pickedColorRGB.g}, ${pickedColorRGB.b}`;
                 
                 const labSample = { L: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[0], A: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[1], B: chroma(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b).lab()[2] };
+                capturedColorValuesEl.textContent = `LAB: ${labSample.L.toFixed(1)}, ${labSample.A.toFixed(1)}, ${labSample.B.toFixed(1)}`;
+                
                 const labStandard = { L: currentStandardColorData.lab.L, A: currentStandardColorData.lab.a, B: currentStandardColorData.lab.b };
                 const deltaE = window.DeltaE.getDeltaE00(labSample, labStandard);
                 
@@ -501,7 +499,7 @@
                     barWidthPercentage = (deltaE / umbralAceptable) * 50;
                 } else if (deltaE <= umbralAceptable) {
                     statusText = 'Aprobado (Aceptable)'; statusClass = 'status-warning';
-                    barWidthPercentage = 50 + ((deltaE - umbralAceptable) / (umbralAceptable - umbralAceptable)) * 50;
+                    barWidthPercentage = 50 + ((deltaE - umbralAceptable) / (maxDeltaEForBar - umbralAceptable)) * 50;
                 } else {
                     statusText = 'Rechazado (Fuera de Tolerancia)'; statusClass = 'status-danger';
                     barWidthPercentage = 100;
@@ -511,15 +509,13 @@
                 toleranceBar.style.width = `${Math.min(100, barWidthPercentage)}%`;
                 toleranceBar.className = `tolerance-bar-fill ${statusClass}`;
                 
-                if (statusText.includes('Aprobado')) {
-                    setAuditorState('aprobado', `Resultado: ${statusText}`);
-                } else {
-                    setAuditorState('rechazado', `Resultado: ${statusText}`);
-                }
+                if (statusText.includes('Aprobado')) setAuditorState('aprobado'); else setAuditorState('rechazado');
                 
                 const timestamp = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
                 const datosParaSheet = [timestamp, currentStandardColorData.nombre, parseFloat(deltaE.toFixed(2)), statusText];
                 escribirEnSheet(datosParaSheet);
+                
+                compactResultsContainer.style.visibility = 'visible';
                 newTestBtn.style.display = 'block';
             });
         });
