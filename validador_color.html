@@ -33,7 +33,7 @@
             padding: 0; margin: 0; flex-shrink: 0; border: none; background-color: transparent;
         }
         .compact-results-container .auditor-image { max-width: 60px; }
-        .compact-results-container .auditor-message-bubble { display: none; }
+        .compact-results-container .auditor-message-bubble { display: none; } /* Ocultamos la burbuja de texto */
 
         .result-data { text-align: center; }
         .result-data .delta-e-value-text { font-size: 2.2em; font-weight: bold; line-height: 1; margin: 0; }
@@ -79,7 +79,7 @@
                 <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
             </div>
             <nav class="main-nav">
-                <ul>
+                 <ul>
                     <li class="dropdown"><a href="index.html" class="dropdown-toggle">Inicio</a></li>
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle active" data-area="Herramientas IA">Herramientas IA <i class="fas fa-angle-down nav-arrow"></i></a>
@@ -195,7 +195,6 @@
                 </div> 
             </section>
         </main>
-
         <footer class="app-footer">
             &copy; <span id="currentYearColorValidator"></span> Grupo Azor México. Todos los derechos reservados.
         </footer>
@@ -216,7 +215,6 @@
             const colaboradorInput = document.getElementById('colaborador-input');
             const jobInput = document.getElementById('job-input');
             const auditorSection = document.getElementById('auditor-section');
-            const auditorText = document.getElementById('auditor-text'); // Aunque no hay burbuja visible, la lógica puede usarla
             const newTestBtn = document.getElementById('new-test-btn');
             const videoElement = document.getElementById('color-video-feed');
             const webcamLoadingPrompt = document.getElementById('webcam-loading-prompt');
@@ -289,6 +287,27 @@
                 choices.setChoices([{ value: '', label: '-- Elija un estándar --', selected: true, disabled: true }, ...colorChoices], 'value', 'label', false);
             }
 
+            function resetForNewTest() {
+                setAuditorState('neutral');
+                if (cropper) {
+                    cropper.destroy();
+                    cropper = null;
+                }
+                cropperImage.style.display = 'none';
+                capturePrompt.style.display = 'block';
+                imageIsCaptured = false;
+                pickedColorRGB = null;
+                compareButton.disabled = true;
+                if(capturedColorDisplay) capturedColorDisplay.style.backgroundColor = 'transparent';
+                if(capturedColorValuesEl) capturedColorValuesEl.textContent = '-';
+                if(standardColorDisplay) standardColorDisplay.style.backgroundColor = 'transparent';
+                if(standardColorValuesEl) standardColorValuesEl.textContent = '-';
+                choices.clearSelection();
+                compactResultsContainer.style.visibility = 'hidden';
+                if(colorResultNoteEl) colorResultNoteEl.textContent = '';
+                newTestBtn.style.display = 'none';
+            }
+
             startAuditBtn.addEventListener('click', () => {
                 const numColaborador = colaboradorInput.value.trim();
                 const numJob = jobInput.value.trim();
@@ -307,10 +326,7 @@
                 inicializarAplicacion();
             });
 
-            newTestBtn.addEventListener('click', () => {
-                resetForNewTest();
-                checkEnableCompareButton();
-            });
+            newTestBtn.addEventListener('click', resetForNewTest);
 
             async function inicializarAplicacion() {
                 try {
@@ -411,10 +427,11 @@
                 }
             }
 
-            function resetForNewTest() {
-                setAuditorState('neutral');
-                if (cropper) cropper.destroy();
-                cropper = null;
+            function resetUIForNewCapture() {
+                if (cropper) {
+                    cropper.destroy();
+                    cropper = null;
+                }
                 cropperImage.style.display = 'none';
                 capturePrompt.style.display = 'block';
                 imageIsCaptured = false;
@@ -422,33 +439,42 @@
                 compareButton.disabled = true;
                 if(capturedColorDisplay) capturedColorDisplay.style.backgroundColor = 'transparent';
                 if(capturedColorValuesEl) capturedColorValuesEl.textContent = '-';
-                if(standardColorDisplay) standardColorDisplay.style.backgroundColor = 'transparent';
-                if(standardColorValuesEl) standardColorValuesEl.textContent = '-';
-                choices.clearSelection();
-                compactResultsContainer.style.visibility = 'hidden';
+                if(deltaEValueEl) deltaEValueEl.textContent = '-';
+                if(toleranceStatusEl) {
+                    toleranceStatusEl.textContent = '-';
+                    toleranceStatusEl.className = 'tolerance-status-text';
+                }
+                if(toleranceBar) {
+                    toleranceBar.style.width = '0%';
+                    toleranceBar.className = 'tolerance-bar-fill';
+                }
                 if(colorResultNoteEl) colorResultNoteEl.textContent = '';
+                checkEnableCompareButton();
                 newTestBtn.style.display = 'none';
+                compactResultsContainer.style.visibility = 'hidden';
             }
-
+            
             captureButton.addEventListener('click', () => {
                 if (!isCameraReady) return;
+                
+                resetUIForNewCapture();
+
                 captureCtx.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
                 const imageUrl = captureCanvas.toDataURL("image/png");
                 cropperImage.src = imageUrl;
                 cropperImage.style.display = 'block';
                 capturePrompt.style.display = 'none';
-                if (cropper) cropper.destroy();
+                
                 cropper = new Cropper(cropperImage, {
                     viewMode: 1, autoCrop: false, dragMode: 'crop', background: false, movable: true, zoomable: false,
                 });
                 imageIsCaptured = true;
-                compareButton.disabled = false;
-                resetForNewTest(); // Resetea los resultados anteriores
+                checkEnableCompareButton();
             });
             
             function checkEnableCompareButton() {
                 if (compareButton) {
-                    const standardSelected = standardColorSelect.value !== "";
+                    const standardSelected = choices.getValue(true);
                     compareButton.disabled = !(imageIsCaptured && standardSelected);
                 }
             }
@@ -471,6 +497,7 @@
                 if (!cropper || !cropper.getCroppedCanvas() || !currentStandardColorData) return;
                 setAuditorState('pensando');
                 const croppedCanvas = cropper.getCroppedCanvas();
+                if (!croppedCanvas) return;
                 const croppedCtx = croppedCanvas.getContext('2d');
                 const imageData = croppedCtx.getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
                 const data = imageData.data; let sumR = 0, sumG = 0, sumB = 0;
@@ -478,6 +505,8 @@
                     sumR += data[i]; sumG += data[i+1]; sumB += data[i+2];
                 }
                 const pixelCount = data.length / 4;
+                if(pixelCount === 0) return;
+
                 pickedColorRGB = { r: Math.round(sumR / pixelCount), g: Math.round(sumG / pixelCount), b: Math.round(sumB / pixelCount) };
                 
                 const hexPicked = rgbToHex(pickedColorRGB.r, pickedColorRGB.g, pickedColorRGB.b);
