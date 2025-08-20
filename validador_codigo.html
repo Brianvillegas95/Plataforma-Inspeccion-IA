@@ -137,19 +137,6 @@
                             <i class="fas fa-video"></i> Activar Cámara
                         </button>
                     </div>
-                    <div class="camera-manual-focus-panel" style="display: none; margin-top: 15px; border-top: 2px solid #eee; padding-top: 15px;" id="manual-focus-container">
-                        <h3 class="panel-title-sub"><i class="fas fa-camera-retro"></i> Controles de Cámara</h3>
-                        <div class="form-group camera-control-group" id="focus-control-group" style="display:none;">
-                            <label for="focus-slider">Enfoque:</label>
-                            <input type="range" id="focus-slider" class="camera-slider">
-                            <span id="focus-value" class="slider-value"></span>
-                        </div>
-                        <div class="form-group camera-control-group" id="zoom-control-group" style="display:none;">
-                            <label for="zoom-slider">Zoom:</label>
-                            <input type="range" id="zoom-slider" class="camera-slider">
-                            <span id="zoom-value" class="slider-value"></span>
-                        </div>
-                    </div>
                     <div id="manual-input-container" style="display: none;">
                         <h3 class="panel-title"><i class="fas fa-keyboard"></i> 3. Entrada Manual</h3>
                         <p class="note">Lectura automática falló. Ingrese el código manualmente.</p>
@@ -203,8 +190,6 @@
         const auditorSection = document.getElementById('auditor-section');
         const controlsWrapper = document.getElementById('controls-wrapper');
         const newTestBtn = document.getElementById('new-test-btn');
-        const focusSlider = document.getElementById('focus-slider');
-        const zoomSlider = document.getElementById('zoom-slider');
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
@@ -337,77 +322,6 @@
                 return checksum === calculatedChecksum;
         }
 
-        // --- BLOQUE DE AJUSTES DE CÁMARA (REINCORPORADO) ---
-        function updateSliderValue(sliderElement, valueElement, value, unit = "") {
-            if (valueElement) valueElement.textContent = `${parseFloat(value).toFixed(0)}${unit}`;
-            if (sliderElement) sliderElement.value = value;
-        }
-
-        async function applyCameraSetting(settingName, value) {
-                if (!videoTrack || !videoTrack.applyConstraints) return false;
-                try {
-                    await videoTrack.applyConstraints({ advanced: [{[settingName]: value}] });
-                    return true;
-                } catch (err) { console.error(`Error al aplicar ${settingName} = ${value}:`, err); return false; }
-        }
-
-        async function applyFixedCameraSettings(capabilities) {
-            console.log("Aplicando ajustes de cámara fijos...");
-            if (capabilities.brightness) { await applyCameraSetting('brightness', 120); }
-            if (capabilities.contrast) { await applyCameraSetting('contrast', 143); }
-            if (capabilities.saturation) { await applyCameraSetting('saturation', 140); }
-            if (capabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
-
-            if (capabilities.exposureMode && capabilities.exposureMode.includes('manual')) {
-                await applyCameraSetting('exposureMode', 'manual');
-                if (capabilities.exposureTime) {
-                    await applyCameraSetting('exposureTime', 78.125); 
-                    console.log("Modo de exposición manual aplicado.");
-                } else { console.warn("La cámara no soporta el control de exposureTime."); }
-            } else { console.warn("La cámara no soporta el modo de exposición manual. Los ajustes de tiempo de exposición pueden no aplicarse."); }
-            console.log("Ajustes fijos completados.");
-        }
-
-        function initializeFocusControl(capabilities, track) {
-            const manualFocusContainer = document.getElementById('manual-focus-container');
-            const focusControlGroup = document.getElementById('focus-control-group');
-            const focusValueEl = document.getElementById('focus-value');
-            const settings = track.getSettings();
-            if (capabilities.focusMode && capabilities.focusMode.includes('manual') && capabilities.focusDistance) {
-                manualFocusContainer.style.display = 'block';
-                focusControlGroup.style.display = 'block';
-                const focusCaps = capabilities.focusDistance;
-                focusSlider.min = focusCaps.min; focusSlider.max = focusCaps.max; focusSlider.step = focusCaps.step || 1;
-                const initialFocus = settings.focusDistance || focusCaps.min;
-                updateSliderValue(focusSlider, focusValueEl, initialFocus);
-                applyCameraSetting('focusMode', 'manual').then(success => { if (success) applyCameraSetting('focusDistance', initialFocus); });
-                focusSlider.oninput = () => updateSliderValue(null, focusValueEl, focusSlider.value);
-                focusSlider.onchange = () => applyCameraSetting('focusDistance', parseFloat(focusSlider.value));
-            } else {
-                 focusControlGroup.style.display = 'none';
-            }
-        }
-
-        function initializeZoomControl(capabilities, track) {
-            const manualFocusContainer = document.getElementById('manual-focus-container');
-            const zoomControlGroup = document.getElementById('zoom-control-group');
-            const zoomValueEl = document.getElementById('zoom-value');
-            const settings = track.getSettings();
-            if (capabilities.zoom) {
-                manualFocusContainer.style.display = 'block';
-                zoomControlGroup.style.display = 'block';
-                const zoomCaps = capabilities.zoom;
-                zoomSlider.min = zoomCaps.min; zoomSlider.max = zoomCaps.max; zoomSlider.step = zoomCaps.step || 1;
-                const initialZoom = settings.zoom || zoomCaps.min;
-                updateSliderValue(zoomSlider, zoomValueEl, initialZoom);
-                zoomSlider.oninput = () => updateSliderValue(null, zoomValueEl, zoomSlider.value);
-                zoomSlider.onchange = () => applyCameraSetting('zoom', parseFloat(zoomSlider.value));
-            } else {
-                zoomControlGroup.style.display = 'none';
-            }
-        }
-        // --- FIN DEL BLOQUE DE AJUSTES ---
-
         function stopWebcam() {
             console.log("Deteniendo webcam y reseteando el lector de códigos...");
             codeReader.reset();
@@ -418,7 +332,6 @@
                 videoFeed.srcObject = null;
             }
             videoFeed.style.display = 'none';
-            videoTrack = null;
             if(!imageDisplay.src.includes('blob') && !imageDisplay.src.includes('data:image')) {
                  imagePrompt.style.display = 'block';
             }
@@ -426,70 +339,30 @@
             webcamBtn.innerHTML = '<i class="fas fa-video"></i> Activar Cámara';
             webcamBtn.classList.remove('primary-action');
             webcamBtn.classList.add('secondary-action');
-            document.getElementById('manual-focus-container').style.display = 'none';
         }
 
-        async function startCameraAndScan() {
+        function iniciarEscaneoContinuo() {
             imageDisplay.style.display = 'none';
             imagePrompt.style.display = 'none';
             videoFeed.style.display = 'block';
             isCameraActive = true;
 
-            webcamBtn.disabled = true;
-            webcamBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Configurando Cámara...';
-            setAuditorState('pensando', 'Iniciando y configurando cámara...');
+            webcamBtn.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
+            webcamBtn.classList.remove('secondary-action');
+            webcamBtn.classList.add('primary-action');
+            setAuditorState('pensando', 'Buscando código de barras...');
 
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                let preferredDeviceId = null;
-                const rearCamera = videoDevices.find(device => /back|rear|environment/i.test(device.label));
-                const externalCamera = videoDevices.find(device => !/front|face/i.test(device.label));
-                
-                if (rearCamera) preferredDeviceId = rearCamera.deviceId;
-                else if (externalCamera) preferredDeviceId = externalCamera.deviceId;
-                else if (videoDevices.length > 0) preferredDeviceId = videoDevices[0].deviceId;
-                else throw new Error("No se encontraron cámaras.");
-
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: preferredDeviceId } } });
-                
-                videoTrack = stream.getVideoTracks()[0];
-                const capabilities = videoTrack.getCapabilities();
-
-                await applyFixedCameraSettings(capabilities);
-                initializeFocusControl(capabilities, videoTrack);
-                initializeZoomControl(capabilities, videoTrack);
-
-                videoFeed.srcObject = stream;
-                videoFeed.play();
-
-                await new Promise(resolve => {
-                    videoFeed.addEventListener('loadedmetadata', resolve, { once: true });
-                });
-                
-                webcamBtn.disabled = false;
-                webcamBtn.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
-                webcamBtn.classList.remove('secondary-action');
-                webcamBtn.classList.add('primary-action');
-                setAuditorState('pensando', 'Buscando código de barras...');
-
-                codeReader.decodeFromVideoElement('video-feed', (result, err) => {
-                    if (result) {
-                        console.log('Código encontrado:', result.getText());
-                        realizarValidacion(result.getText(), 'Webcam (Automático)');
-                    }
-                    if (err && !(err instanceof ZXing.NotFoundException)) {
-                        console.error(err);
-                        setAuditorState('rechazado', 'Ocurrió un error con la cámara.');
-                        stopWebcam();
-                    }
-                });
-
-            } catch (err) {
-                console.error("Fallo al iniciar o configurar la cámara:", err);
-                setAuditorState('rechazado', `Error de cámara: ${err.message}`);
-                stopWebcam();
-            }
+            codeReader.decodeFromVideoDevice(undefined, 'video-feed', (result, err) => {
+                if (result) {
+                    console.log('Código encontrado:', result.getText());
+                    realizarValidacion(result.getText(), 'Webcam (Automático)');
+                }
+                if (err && !(err instanceof ZXing.NotFoundException)) {
+                    console.error(err);
+                    setAuditorState('rechazado', 'Ocurrió un error con la cámara.');
+                    stopWebcam();
+                }
+            });
         }
         
         async function procesarImagen(imageUrl) {
@@ -567,7 +440,7 @@
 
         webcamBtn.addEventListener('click', () => {
             if (!isCameraActive) {
-                startCameraAndScan();
+                iniciarEscaneoContinuo();
             } else {
                 stopWebcam();
             }
