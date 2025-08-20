@@ -206,7 +206,6 @@
         const controlsWrapper = document.getElementById('controls-wrapper');
         const newTestBtn = document.getElementById('new-test-btn');
         
-        // Elementos de control de cámara
         const manualFocusContainer = document.getElementById('manual-focus-container');
         const focusControlGroup = document.getElementById('focus-control-group');
         const focusSlider = document.getElementById('focus-slider');
@@ -365,14 +364,24 @@
                 } catch (err) { console.error(`Error al aplicar ${settingName} = ${value}:`, err); return false; }
         }
 
+        // MODIFICACIÓN INICIA: Función de ajustes de cámara actualizada
         async function applyFixedCameraSettings() {
-                console.log("Aplicando ajustes de cámara fijos...");
-                if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
-                if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
-                if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
-                if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
-                console.log("Ajustes fijos completados.");
+            console.log("Aplicando ajustes de cámara fijos...");
+            if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
+            if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
+            if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
+            if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
+
+            if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
+                await applyCameraSetting('exposureMode', 'manual');
+                if (cameraCapabilities.exposureTime) {
+                    await applyCameraSetting('exposureTime', 78.125); 
+                    console.log("Modo de exposición manual aplicado.");
+                } else { console.warn("La cámara no soporta el control de exposureTime."); }
+            } else { console.warn("La cámara no soporta el modo de exposición manual. Los ajustes de tiempo de exposición pueden no aplicarse."); }
+            console.log("Ajustes fijos completados.");
         }
+        // MODIFICACIÓN TERMINA
 
         function initializeFocusControl() {
             if (cameraCapabilities.focusMode && cameraCapabilities.focusMode.includes('manual') && cameraCapabilities.focusDistance) {
@@ -418,19 +427,40 @@
             webcamBtn.innerHTML = '<i class="fas fa-video"></i> Activar Cámara';
             webcamBtn.classList.remove('primary-action');
             webcamBtn.classList.add('secondary-action');
-            manualFocusContainer.style.display = 'none'; // Oculta los controles
+            manualFocusContainer.style.display = 'none';
         }
 
+        // MODIFICACIÓN INICIA: Lógica de selección de cámara y activación
         async function startWebcamPreview() {
             imageDisplay.style.display = 'none';
             imagePrompt.style.display = 'none';
             videoFeed.style.display = 'block';
             
-            setAuditorState('neutral', 'Cámara activada. Centre el código y tome la captura.');
+            setAuditorState('neutral', 'Buscando cámara y aplicando ajustes...');
             
             try {
-                // Prioriza la cámara externa (USB)
-                const constraints = { video: { facingMode: "environment" } };
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                let preferredDeviceId = null;
+                const rearCamera = videoDevices.find(device => /back|rear|environment/i.test(device.label));
+                const externalCamera = videoDevices.find(device => !/front|face/i.test(device.label));
+                
+                if (rearCamera) {
+                    preferredDeviceId = rearCamera.deviceId;
+                } else if (externalCamera) {
+                    preferredDeviceId = externalCamera.deviceId;
+                } else if (videoDevices.length > 0) {
+                    preferredDeviceId = videoDevices[0].deviceId;
+                } else {
+                    throw new Error("No se encontraron cámaras.");
+                }
+
+                const constraints = {
+                    video: {
+                        deviceId: { exact: preferredDeviceId }
+                    }
+                };
+
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 videoFeed.srcObject = stream;
                 await videoFeed.play();
@@ -445,6 +475,7 @@
                 webcamBtn.innerHTML = '<i class="fas fa-camera"></i> Tomar Captura';
                 webcamBtn.classList.remove('secondary-action');
                 webcamBtn.classList.add('primary-action');
+                setAuditorState('neutral', 'Cámara activada. Centre el código y tome la captura.');
 
             } catch (err) {
                 console.error("Fallo al iniciar la cámara:", err);
@@ -452,6 +483,7 @@
                 stopWebcam();
             }
         }
+        // MODIFICACIÓN TERMINA
         
         async function takeWebcamSnapshotAndDecode() {
             if (!videoTrack) return;
@@ -552,6 +584,8 @@
                 setAuditorState('neutral', 'Acción de pegar deshabilitada. Por favor, teclee o escanee el código.');
                 return false;
         });
+
+
 
         manualValidateBtn.addEventListener('click', () => {
                 const codigoManual = manualInput.value.trim();
