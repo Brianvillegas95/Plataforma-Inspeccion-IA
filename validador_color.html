@@ -11,14 +11,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
     <script src="deltae.js"></script> 
     <style>
-        /* Estilos de Login y Layout */
         #login-container {
             padding: 25px; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             max-width: 500px; margin: 40px auto;
         }
         #main-app-content { display: none; }
 
-        /* Estilos de Cropper y Resultados */
         .captured-image-area {
             width: 100%; height: 250px; background-color: #e9ecef; border: 1px solid #ccc;
         }
@@ -27,13 +25,13 @@
         .compact-results-container {
             display: flex; align-items: center; justify-content: space-between; gap: 15px;
             padding: 10px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9;
-            visibility: hidden; /* Oculto hasta que haya resultados */
+            visibility: hidden;
         }
         .compact-results-container .auditor-section {
             padding: 0; margin: 0; flex-shrink: 0; border: none; background-color: transparent;
         }
         .compact-results-container .auditor-image { max-width: 60px; }
-        .compact-results-container .auditor-message-bubble { display: none; } /* Ocultamos la burbuja de texto */
+        .compact-results-container .auditor-message-bubble { display: none; }
 
         .result-data { text-align: center; }
         .result-data .delta-e-value-text { font-size: 2.2em; font-weight: bold; line-height: 1; margin: 0; }
@@ -41,20 +39,27 @@
         
         .tolerance-bar-wrapper { flex-grow: 1; }
         
-        /* Animaciones del Inspector */
-        .auditor-section {
+        #auditor-section {
             transition: all 0.5s ease;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border: 2px solid #dee2e6;
         }
-        .auditor-image {
+        #auditor-image {
             transition: transform 0.3s ease, filter 0.4s ease;
+            /* --- LA CORRECCIÓN ESTÁ AQUÍ --- */
+            max-width: 120px; 
+            height: auto;
         }
-        .auditor-pensando .auditor-image { animation: pulse-blue 1.5s infinite; }
-        .auditor-aprobado .auditor-section { background-color: #e9f7ef !important; border-color: #28a745 !important; }
-        .auditor-aprobado .auditor-image {
+        .auditor-state {}
+        .auditor-pensando #auditor-image { animation: pulse-blue 1.5s infinite; }
+        .auditor-aprobado { background-color: #e9f7ef !important; border-color: #28a745 !important; }
+        .auditor-aprobado #auditor-image {
             filter: drop-shadow(0 0 15px rgba(40, 167, 69, 0.9)); animation: pop-in-happy 0.5s ease-out;
         }
-        .auditor-rechazado .auditor-section { background-color: #f8d7da !important; border-color: #dc3545 !important; }
-        .auditor-rechazado .auditor-image {
+        .auditor-rechazado { background-color: #f8d7da !important; border-color: #dc3545 !important; }
+        .auditor-rechazado #auditor-image {
             filter: drop-shadow(0 0 15px rgba(220, 53, 69, 0.9)); animation: shake-horizontal 0.5s ease-out;
         }
 
@@ -79,7 +84,7 @@
                 <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
             </div>
             <nav class="main-nav">
-                 <ul>
+                <ul>
                     <li class="dropdown"><a href="index.html" class="dropdown-toggle">Inicio</a></li>
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle active" data-area="Herramientas IA">Herramientas IA <i class="fas fa-angle-down nav-arrow"></i></a>
@@ -426,38 +431,11 @@
                     zoomSlider.onchange = () => applyCameraSetting('zoom', parseFloat(zoomSlider.value));
                 }
             }
-
-            function resetUIForNewCapture() {
-                if (cropper) {
-                    cropper.destroy();
-                    cropper = null;
-                }
-                cropperImage.style.display = 'none';
-                capturePrompt.style.display = 'block';
-                imageIsCaptured = false;
-                pickedColorRGB = null;
-                compareButton.disabled = true;
-                if(capturedColorDisplay) capturedColorDisplay.style.backgroundColor = 'transparent';
-                if(capturedColorValuesEl) capturedColorValuesEl.textContent = '-';
-                if(deltaEValueEl) deltaEValueEl.textContent = '-';
-                if(toleranceStatusEl) {
-                    toleranceStatusEl.textContent = '-';
-                    toleranceStatusEl.className = 'tolerance-status-text';
-                }
-                if(toleranceBar) {
-                    toleranceBar.style.width = '0%';
-                    toleranceBar.className = 'tolerance-bar-fill';
-                }
-                if(colorResultNoteEl) colorResultNoteEl.textContent = '';
-                checkEnableCompareButton();
-                newTestBtn.style.display = 'none';
-                compactResultsContainer.style.visibility = 'hidden';
-            }
             
             captureButton.addEventListener('click', () => {
                 if (!isCameraReady) return;
                 
-                resetUIForNewCapture();
+                resetForNewTest();
 
                 captureCtx.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
                 const imageUrl = captureCanvas.toDataURL("image/png");
@@ -494,7 +472,10 @@
             });
 
             compareButton.addEventListener('click', () => {
-                if (!cropper || !cropper.getCroppedCanvas() || !currentStandardColorData) return;
+                if (!cropper || !cropper.getCropBoxData() || !currentStandardColorData) {
+                     alert("Por favor, seleccione un área en la imagen antes de comparar.");
+                    return;
+                }
                 setAuditorState('pensando');
                 const croppedCanvas = cropper.getCroppedCanvas();
                 if (!croppedCanvas) return;
