@@ -364,7 +364,6 @@
                 } catch (err) { console.error(`Error al aplicar ${settingName} = ${value}:`, err); return false; }
         }
 
-        // MODIFICACIÓN INICIA: Función de ajustes de cámara actualizada
         async function applyFixedCameraSettings() {
             console.log("Aplicando ajustes de cámara fijos...");
             if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
@@ -381,7 +380,6 @@
             } else { console.warn("La cámara no soporta el modo de exposición manual. Los ajustes de tiempo de exposición pueden no aplicarse."); }
             console.log("Ajustes fijos completados.");
         }
-        // MODIFICACIÓN TERMINA
 
         function initializeFocusControl() {
             if (cameraCapabilities.focusMode && cameraCapabilities.focusMode.includes('manual') && cameraCapabilities.focusDistance) {
@@ -430,7 +428,6 @@
             manualFocusContainer.style.display = 'none';
         }
 
-        // MODIFICACIÓN INICIA: Lógica de selección de cámara y activación
         async function startWebcamPreview() {
             imageDisplay.style.display = 'none';
             imagePrompt.style.display = 'none';
@@ -483,7 +480,6 @@
                 stopWebcam();
             }
         }
-        // MODIFICACIÓN TERMINA
         
         async function takeWebcamSnapshotAndDecode() {
             if (!videoTrack) return;
@@ -501,7 +497,10 @@
             imageDisplay.style.display = 'block';
 
             try {
-                const result = await codeReader.decodeFromCanvas(snapshotCanvas);
+                // --- CÓDIGO CORREGIDO ---
+                // Se cambió decodeFromCanvas por el método correcto: decode
+                const result = await codeReader.decode(snapshotCanvas);
+                // --- FIN DE LA CORRECCIÓN ---
                 realizarValidacion(result.getText(), 'Webcam');
             } catch (error) {
                 console.error("Error de lectura desde el snapshot:", error);
