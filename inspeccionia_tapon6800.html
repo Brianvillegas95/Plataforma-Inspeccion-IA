@@ -3,33 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inspección IA v2.0 - Tapon 6800</title>
+    <title>Inspección IA v2.1 - Tapon 6800</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <style>
+        /* --- MEJORA 1: CORRECCIÓN VISUAL DE LA IMAGEN --- */
         .vision-panel #webcam-container {
             position: relative;
             background-color: #000;
-            min-height: 480px;
+            /* Se elimina la altura mínima para que el contenedor se adapte a la imagen */
             border-radius: 4px;
             overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 100%;
         }
-        /* MEJORA: Estilos para la técnica de superposición */
-        #uploaded-image-preview, #overlay-canvas {
+        #uploaded-image-preview, #overlay-canvas, #video-feed {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+        }
+        /* La imagen ya no está forzada a una altura, se ajustará al ancho */
+        #uploaded-image-preview {
+            position: relative; /* Cambiado a relativo para que defina el tamaño del contenedor */
             object-fit: contain;
         }
         #overlay-canvas {
-            pointer-events: none; /* El canvas no interfiere con el mouse */
+            pointer-events: none;
         }
+        /* --- FIN DE LA MEJORA 1 --- */
+        
         .action-buttons {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -37,7 +41,6 @@
             align-items: center;
             margin-bottom: 15px;
         }
-        .summary-list { list-style-type: none; padding: 0; margin-top: 5px; font-size: 0.9em; }
         #file-input { display: none; }
         .button {
             display: inline-block; padding: 12px 24px; font-size: 1.0em; cursor: pointer;
@@ -45,6 +48,7 @@
             background-color: #6c757d; border: none; border-radius: 5px;
             transition: background-color 0.3s;
         }
+        .button.primary-action:disabled { background-color: #cccccc; cursor: not-allowed; }
         .button:hover { background-color: #5a6268; }
         .secondary-action {
             grid-column: 1 / -1; background-color: #e9ecef; color: #495057;
@@ -68,12 +72,11 @@
             <section class="vision-panel">
                 <h2 class="panel-title"><i class="fas fa-eye"></i> Visor de Inspección</h2>
                 <div id="webcam-container">
-                    <span style="color:#fff;">Sube una imagen para comenzar</span>
+                    <span style="color:#6c757d; font-size: 1.2em;">Sube una imagen para comenzar</span>
                 </div>
                 <div class="label-container" id="label-container">
                     <p>Los resultados del análisis aparecerán aquí.</p>
                 </div>
-                <div class="error-message" id="error-container" style="display: none;"></div>
             </section>
             <aside class="controls-panel">
                 <h3 class="panel-title"><i class="fas fa-list-ol"></i> Controles</h3>
@@ -87,14 +90,13 @@
                     <input type="file" id="file-input" accept="image/*">
                 </div>
                 <button id="camera-button" class="button secondary-action"><i class="fas fa-video"></i> Activar Modo Cámara</button>
-
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
                         <img id="auditor-image" src="imagenes/Auditor.png" alt="Asistente IA" class="auditor-image-estilizada">
                     </div>
                     <div id="auditor-message-bubble" class="auditor-bubble auditor-bubble-centered"> 
-                        <span>Listo para inspeccionar.</span>
+                        <span>Preparando sistema...</span>
                     </div>
                 </div>
             </aside>
@@ -120,50 +122,60 @@
         const auditorBubbleSpan = document.querySelector('#auditor-message-bubble span');
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-        // --- VARIABLES DE ESTADO ---
+        // --- MEJORA 2: VARIABLES DE ESTADO PARA CONTROLAR LA CARGA ---
         let onnxSession;
-        let currentSource = null; // Puede ser un <img> o <video>
+        let currentSource = null;
+        let isModelReady = false;
+        let isImageReady = false;
         
-        // --- LÓGICA PRINCIPAL ---
+        // --- LÓGICA DE INICIALIZACIÓN DEL MODELO ---
         async function initModel() {
             try {
                 if (!onnxSession) {
-                    setAuditorSpeech('Cargando modelo IA...', 'loading');
+                    setAuditorSpeech('Cargando modelo IA...');
                     onnxSession = await ort.InferenceSession.create(MODELO_ONNX_PATH);
-                    setAuditorSpeech('Sistema listo. Sube una imagen.', 'idle');
+                    isModelReady = true; // El modelo ya está listo
+                    setAuditorSpeech('Sistema listo. Sube una imagen.');
+                    // Si una imagen ya se había cargado mientras el modelo iniciaba, activamos el botón ahora
+                    if(isImageReady) {
+                        analyzeButton.disabled = false;
+                    }
                 }
             } catch (error) {
                 console.error("Error al cargar el modelo:", error);
-                setAuditorSpeech('Error al cargar el modelo.', 'error');
+                setAuditorSpeech('Error fatal al cargar el modelo.');
+                labelContainer.innerHTML = `<p style="color:red;">No se pudo cargar el modelo IA. Revise la ruta y el archivo.</p>`;
             }
         }
         
+        // --- FUNCIÓN PRINCIPAL DE ANÁLISIS ---
         async function analyze() {
-            if (!onnxSession || !currentSource) { return; }
+            if (!isModelReady || !isImageReady || !currentSource) { 
+                alert("Asegúrese de que el modelo esté cargado y haya subido una imagen.");
+                return; 
+            }
 
             analyzeButton.disabled = true;
             analyzeButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando...';
-            setAuditorSpeech('Procesando...', 'thinking');
+            setAuditorSpeech('Procesando...');
 
             const tensor = await preprocess(currentSource);
             const results = await onnxSession.run({ 'images': tensor });
             
-            // MEJORA: Obtenemos el canvas de superposición para dibujar solo los resultados
             const overlayCanvas = document.getElementById('overlay-canvas');
             const ctx = overlayCanvas.getContext('2d');
             
-            // Ajustamos el tamaño del canvas al de la imagen mostrada
+            // Sincronizamos el tamaño del canvas con el de la imagen mostrada
             overlayCanvas.width = currentSource.clientWidth;
             overlayCanvas.height = currentSource.clientHeight;
 
-            drawBoundingBoxes(results.output0, ctx, currentSource.naturalWidth, currentSource.naturalHeight);
+            drawBoundingBoxes(results.output0, ctx);
             
             analyzeButton.disabled = false;
-            // MEJORA: El botón de subir se reactiva
-            analyzeButton.innerHTML = '<i class="fas fa-search"></i> Analizar'; 
+            analyzeButton.innerHTML = '<i class="fas fa-search"></i> Analizar';
         }
 
-        // --- FUNCIONES DE PREPROCESAMIENTO Y MANEJO DE IMAGEN ---
+        // --- FUNCIONES DE PREPROCESAMIENTO Y DIBUJO ---
         async function preprocess(source) {
             const canvas = document.createElement('canvas');
             canvas.width = MODEL_WIDTH;
@@ -171,7 +183,6 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(source, 0, 0, MODEL_WIDTH, MODEL_HEIGHT);
             const imageData = ctx.getImageData(0, 0, MODEL_WIDTH, MODEL_HEIGHT);
-            
             const float32Data = new Float32Array(3 * MODEL_WIDTH * MODEL_HEIGHT);
             for (let i = 0; i < imageData.data.length; i += 4) {
                 const j = i / 4;
@@ -182,10 +193,10 @@
             return new ort.Tensor('float32', float32Data, [1, 3, MODEL_HEIGHT, MODEL_WIDTH]);
         }
         
-        // --- FUNCIONES DE DIBUJO Y POSTPROCESAMIENTO ---
-        function drawBoundingBoxes(outputTensor, ctx, originalWidth, originalHeight) {
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // Limpiar canvas previo
-            const outputData = outputTensor.data;
+        function drawBoundingBoxes(outputTensor, ctx) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            // (El resto de la lógica de esta función no necesita cambios, ya dibuja sobre el overlay)
+             const outputData = outputTensor.data;
             const numClasses = NOMBRES_CLASES.length;
             const numProposals = outputTensor.dims[2];
 
@@ -205,24 +216,20 @@
                 }
             }
             
-            const finalDetections = nonMaxSuppression(detections.map(d=>d.box), detections.map(d=>d.score), UMBRAL_IOU_NMS)
-                                      .map(i => detections[i]);
+            const finalDetections = nonMaxSuppression(detections);
 
             finalDetections.forEach(det => {
                 const [x1, y1, x2, y2] = det.box;
                 const x_ratio = ctx.canvas.width / MODEL_WIDTH;
                 const y_ratio = ctx.canvas.height / MODEL_HEIGHT;
-
                 const x = x1 * x_ratio;
                 const y = y1 * y_ratio;
                 const w = (x2 - x1) * x_ratio;
                 const h = (y2 - y1) * y_ratio;
                 const color = COLORES_CLASES[det.classId];
-                
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 3;
                 ctx.strokeRect(x, y, w, h);
-
                 const label = `${det.label} (${(det.score * 100).toFixed(0)}%)`;
                 ctx.font = 'bold 16px sans-serif';
                 const textMetrics = ctx.measureText(label);
@@ -237,30 +244,54 @@
         }
 
         function updateSummary(detections) {
-            // ... (Lógica para crear tabla, sin cambios)
+            // (La lógica para crear la tabla no necesita cambios)
         }
-        function nonMaxSuppression(boxes, scores, iouThreshold) { /* ... (sin cambios) ... */ }
-        function iou(boxA, boxB) { /* ... (sin cambios) ... */ }
-        function setAuditorSpeech(message, status) { /* ... (función simplificada para brevedad) ... */ 
-            if(auditorBubbleSpan) auditorBubbleSpan.textContent = message;
+        function nonMaxSuppression(detections) {
+            // Lógica NMS simplificada para claridad
+            detections.sort((a,b) => b.score - a.score);
+            const selected = [];
+            const active = new Array(detections.length).fill(true);
+            for(let i=0; i < detections.length; i++) {
+                if(active[i]) {
+                    selected.push(detections[i]);
+                    for(let j=i+1; j < detections.length; j++) {
+                        if(active[j] && iou(detections[i].box, detections[j].box) > UMBRAL_IOU_NMS) {
+                            active[j] = false;
+                        }
+                    }
+                }
+            }
+            return selected;
+        }
+        function iou(boxA, boxB) {
+            const x1 = Math.max(boxA[0], boxB[0]);
+            const y1 = Math.max(boxA[1], boxB[1]);
+            const x2 = Math.min(boxA[2], boxB[2]);
+            const y2 = Math.min(boxA[3], boxB[3]);
+            const interArea = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+            const boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1]);
+            const boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1]);
+            return interArea / (boxAArea + boxBArea - interArea);
+        }
+        function setAuditorSpeech(message) {
+             if(auditorBubbleSpan) auditorBubbleSpan.textContent = message;
         }
 
-        // --- ASIGNACIÓN DE EVENTOS ---
+        // --- EVENTOS ---
         analyzeButton.addEventListener('click', analyze);
         
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            // Limpiar resultados anteriores
-            labelContainer.innerHTML = "<p>Imagen cargada. Lista para analizar.</p>";
-            webcamContainer.innerHTML = ''; // Limpiar el contenedor
+            // Reiniciar estado
+            isImageReady = false;
+            analyzeButton.disabled = true;
+            labelContainer.innerHTML = "<p>Cargando imagen...</p>";
+            webcamContainer.innerHTML = '';
 
-            // Crear y mostrar la imagen
             const img = document.createElement('img');
             img.id = 'uploaded-image-preview';
-            
-            // Crear el canvas para superposición
             const overlay = document.createElement('canvas');
             overlay.id = 'overlay-canvas';
             
@@ -269,16 +300,20 @@
 
             img.onload = () => {
                 currentSource = img;
-                setAuditorSpeech('Imagen lista. Presiona Analizar.', 'idle');
-                analyzeButton.disabled = false;
+                isImageReady = true;
+                setAuditorSpeech('Imagen lista. Presiona Analizar.');
+                // MEJORA 2: Solo activar el botón si el modelo también está listo
+                if (isModelReady) {
+                    analyzeButton.disabled = false;
+                } else {
+                    setAuditorSpeech('Imagen lista. Esperando al modelo IA...');
+                }
             };
             img.src = URL.createObjectURL(file);
         });
 
-        // Evento para activar la cámara (aún no implementado, es un placeholder)
         cameraButton.addEventListener('click', () => {
             alert("El modo cámara en vivo se implementará en una futura versión.");
-            // Aquí iría la lógica de init(true) si se quisiera reactivar
         });
         
         document.addEventListener('DOMContentLoaded', initModel);
