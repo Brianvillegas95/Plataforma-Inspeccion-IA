@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inspección IA v4.1 (Coordenadas Corregidas) - Tapon 6800</title>
+    <title>Inspección IA v4.2 (Cámara Web Integrada) - Tapon 6800</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
@@ -14,9 +14,9 @@
             overflow: hidden; width: 100%; display: flex; align-items: center;
             justify-content: center; min-height: 300px;
         }
-        #image-wrapper { position: relative; width: 100%; line-height: 0; }
-        #uploaded-image, #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        #uploaded-image { position: relative; width: 100%; height: auto; display: block; }
+        #image-wrapper, #video-wrapper { position: relative; width: 100%; line-height: 0; }
+        #uploaded-image, #video-feed, #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #uploaded-image, #video-feed { position: relative; width: 100%; height: auto; display: block; background-color: #000; }
         #overlay-canvas { pointer-events: none; }
         .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 15px; }
         #file-input { display: none; }
@@ -31,9 +31,10 @@
         label.button { background-color: #6c757d; }
         label.button:hover { background-color: #5a6268; }
         .secondary-action {
-            grid-column: 1 / -1; background-color: #e9ecef; color: #495057;
+            grid-column: 1 / -1; background-color: #28a745; color: white;
             font-size: 0.9em; padding: 8px 16px;
         }
+        .secondary-action.stop { background-color: #dc3545; }
         .results-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 8px; text-align: left; }
         .results-table th { background-color: #f8f9fa; font-weight: bold; }
@@ -51,7 +52,7 @@
             <section class="vision-panel">
                 <h2 class="panel-title"><i class="fas fa-eye"></i> Visor de Inspección</h2>
                 <div id="display-container">
-                    <span style="color:#6c757d; font-size: 1.2em;">Sube una imagen para comenzar</span>
+                    <span style="color:#6c757d; font-size: 1.2em;">Sube una imagen o activa la cámara</span>
                 </div>
                 <div class="label-container" id="label-container">
                     <p>Los resultados del análisis aparecerán aquí.</p>
@@ -63,12 +64,12 @@
                     <button id="analyze-button" class="button primary-action" disabled>
                         <i class="fas fa-search"></i> Analizar
                     </button>
-                    <label for="file-input" class="button">
+                    <label for="file-input" class="button" id="file-label">
                         <i class="fas fa-upload"></i> Subir Imagen
                     </label>
                     <input type="file" id="file-input" accept="image/*">
                 </div>
-                <button id="camera-button" class="button secondary-action" disabled><i class="fas fa-video"></i> Modo Cámara (Próximamente)</button>
+                <button id="camera-button" class="button secondary-action"><i class="fas fa-video"></i> Modo Cámara</button>
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
@@ -94,16 +95,22 @@
 
         const analyzeButton = document.getElementById('analyze-button');
         const fileInput = document.getElementById('file-input');
+        const fileLabel = document.getElementById('file-label'); // NUEVO: Referencia al label del input
         const displayContainer = document.getElementById('display-container');
         const labelContainer = document.getElementById('label-container');
         const auditorBubbleSpan = document.querySelector('#auditor-message-bubble span');
+        const cameraButton = document.getElementById('camera-button'); // NUEVO: Referencia al botón de cámara
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
         let session;
         let imageSource = null;
         let isModelReady = false;
         let isImageReady = false;
-        
+
+        // NUEVO: Variables para el control de la cámara
+        let videoStream = null;
+        let isCameraActive = false;
+
         function setAuditorSpeech(message) {
             if(auditorBubbleSpan) auditorBubbleSpan.textContent = message;
         }
@@ -113,18 +120,137 @@
                 analyzeButton.disabled = false;
                 setAuditorSpeech('Imagen lista. Presiona Analizar.');
             } else if (isModelReady && !isImageReady) {
-                setAuditorSpeech('Modelo listo. Por favor, sube una imagen.');
+                setAuditorSpeech('Modelo listo. Sube una imagen o usa la cámara.');
             } else {
-                setAuditorSpeech('Cargando imagen...');
+                setAuditorSpeech('Cargando modelo...');
+            }
+        }
+        
+        // NUEVO: Función para limpiar el visor
+        function clearDisplay() {
+            displayContainer.innerHTML = '<span style="color:#6c757d; font-size: 1.2em;">Sube una imagen o activa la cámara</span>';
+            labelContainer.innerHTML = "<p>Los resultados del análisis aparecerán aquí.</p>";
+            imageSource = null;
+            isImageReady = false;
+            analyzeButton.disabled = true;
+        }
+
+        // NUEVO: Función para iniciar la cámara
+        async function startCamera() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    videoStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
+                    isCameraActive = true;
+                    setAuditorSpeech('Cámara activada. ¡Listo para capturar!');
+                    
+                    displayContainer.innerHTML = ''; // Limpiar el contenedor
+                    const wrapper = document.createElement('div');
+                    wrapper.id = 'video-wrapper';
+                    const video = document.createElement('video');
+                    video.id = 'video-feed';
+                    video.srcObject = videoStream;
+                    video.autoplay = true;
+                    video.playsInline = true;
+                    
+                    wrapper.appendChild(video);
+                    displayContainer.appendChild(wrapper);
+
+                    // Actualizar UI
+                    cameraButton.innerHTML = '<i class="fas fa-camera"></i> Capturar y Analizar';
+                    cameraButton.classList.remove('secondary-action');
+                    cameraButton.classList.add('primary-action');
+
+                    const stopButton = document.createElement('button');
+                    stopButton.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
+                    stopButton.className = 'button secondary-action stop';
+                    stopButton.onclick = stopCamera;
+                    cameraButton.parentNode.insertBefore(stopButton, cameraButton.nextSibling);
+
+                    fileLabel.style.display = 'none';
+                    analyzeButton.style.display = 'none';
+
+                } catch (error) {
+                    console.error("Error al acceder a la cámara:", error);
+                    setAuditorSpeech('No se pudo acceder a la cámara.');
+                    isCameraActive = false;
+                }
+            } else {
+                setAuditorSpeech('Tu navegador no soporta la API de cámara.');
             }
         }
 
+        // NUEVO: Función para detener la cámara
+        function stopCamera() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+            isCameraActive = false;
+            videoStream = null;
+            
+            // Restaurar UI
+            cameraButton.innerHTML = '<i class="fas fa-video"></i> Modo Cámara';
+            cameraButton.classList.remove('primary-action');
+            cameraButton.classList.add('secondary-action');
+            
+            const stopButton = document.querySelector('.button.stop');
+            if (stopButton) stopButton.remove();
+            
+            fileLabel.style.display = 'inline-block';
+            analyzeButton.style.display = 'inline-block';
+            
+            // Si no hay una imagen analizada, limpiar el display
+            if (!isImageReady) {
+                clearDisplay();
+            }
+            setAuditorSpeech('Cámara detenida. Sube una imagen o activa la cámara.');
+        }
+
+        // NUEVO: Función para capturar un cuadro del video y analizarlo
+        function captureAndAnalyze() {
+            const video = document.getElementById('video-feed');
+            if (!video) return;
+
+            setAuditorSpeech('Capturando imagen...');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const img = new Image();
+            img.onload = () => {
+                // Mostrar la imagen capturada
+                displayContainer.innerHTML = '';
+                const wrapper = document.createElement('div');
+                wrapper.id = 'image-wrapper';
+                img.id = 'uploaded-image';
+                const overlay = document.createElement('canvas');
+                overlay.id = 'overlay-canvas';
+                
+                wrapper.appendChild(img);
+                wrapper.appendChild(overlay);
+                displayContainer.appendChild(wrapper);
+
+                imageSource = img;
+                isImageReady = true;
+
+                // Detener la cámara después de la captura
+                stopCamera();
+                
+                // Ejecutar el análisis
+                runAnalysis();
+            };
+            img.src = canvas.toDataURL('image/png');
+        }
+
         async function initializeModel() {
+            cameraButton.disabled = true; // Deshabilitar hasta que el modelo cargue
             try {
                 if (!session) {
                     setAuditorSpeech('Cargando modelo IA (puede tardar)...');
                     session = await ort.InferenceSession.create(MODEL_PATH);
                     isModelReady = true;
+                    cameraButton.disabled = false; // Habilitar el botón de la cámara
                     checkReadyState();
                 }
             } catch (error) {
@@ -144,6 +270,8 @@
             const results = await session.run({ 'images': tensor });
             
             const overlayCanvas = document.getElementById('overlay-canvas');
+            if (!overlayCanvas) return; // Chequeo de seguridad
+            
             const ctx = overlayCanvas.getContext('2d');
             overlayCanvas.width = imageSource.clientWidth;
             overlayCanvas.height = imageSource.clientHeight;
@@ -160,9 +288,12 @@
             canvas.height = MODEL_HEIGHT;
             const ctx = canvas.getContext('2d');
             
-            const scale = Math.min(MODEL_WIDTH / source.naturalWidth, MODEL_HEIGHT / source.naturalHeight);
-            const scaledWidth = source.naturalWidth * scale;
-            const scaledHeight = source.naturalHeight * scale;
+            const naturalWidth = source.naturalWidth || source.videoWidth; // MODIFICADO: Compatible con video/imagen
+            const naturalHeight = source.naturalHeight || source.videoHeight; // MODIFICADO: Compatible con video/imagen
+
+            const scale = Math.min(MODEL_WIDTH / naturalWidth, MODEL_HEIGHT / naturalHeight);
+            const scaledWidth = naturalWidth * scale;
+            const scaledHeight = naturalHeight * scale;
             const xOffset = (MODEL_WIDTH - scaledWidth) / 2;
             const yOffset = (MODEL_HEIGHT - scaledHeight) / 2;
             
@@ -189,14 +320,11 @@
             detections.forEach(det => {
                 const [model_x1, model_y1, model_x2, model_y2] = det.box;
                 
-                // --- LA CORRECCIÓN CLAVE DE COORDENADAS ---
-                // 1. Quitar el padding (bandas grises) de las coordenadas del modelo
                 const original_x1 = (model_x1 - preprocInfo.xOffset) / preprocInfo.scale;
                 const original_y1 = (model_y1 - preprocInfo.yOffset) / preprocInfo.scale;
                 const original_x2 = (model_x2 - preprocInfo.xOffset) / preprocInfo.scale;
                 const original_y2 = (model_y2 - preprocInfo.yOffset) / preprocInfo.scale;
                 
-                // 2. Escalar estas coordenadas correctas al tamaño de la imagen mostrada en pantalla
                 const display_x1 = (ctx.canvas.width * original_x1) / imageSource.naturalWidth;
                 const display_y1 = (ctx.canvas.height * original_y1) / imageSource.naturalHeight;
                 const display_w = ((original_x2 - original_x1) * ctx.canvas.width) / imageSource.naturalWidth;
@@ -297,6 +425,7 @@
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            if (isCameraActive) stopCamera(); // Detener cámara si está activa
 
             isImageReady = false;
             analyzeButton.disabled = true;
@@ -322,6 +451,15 @@
                 checkReadyState();
             };
             img.src = URL.createObjectURL(file);
+        });
+
+        // MODIFICADO: Evento para el botón de la cámara
+        cameraButton.addEventListener('click', () => {
+            if (isCameraActive) {
+                captureAndAnalyze();
+            } else {
+                startCamera();
+            }
         });
         
         document.addEventListener('DOMContentLoaded', initializeModel);
