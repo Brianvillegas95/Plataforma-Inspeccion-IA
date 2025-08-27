@@ -3,56 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inspección IA v4.0 (Final) - Tapon 6800</title>
+    <title>Inspección IA v4.1 (Coordenadas Corregidas) - Tapon 6800</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <style>
-        .main-content-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-            padding: 20px;
-        }
+        .main-content-grid { display: grid; grid-template-columns: 1fr; gap: 20px; padding: 20px; }
         .vision-panel #display-container {
-            position: relative;
-            background-color: #e9ecef;
-            border-radius: 4px;
-            overflow: hidden;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 300px;
+            position: relative; background-color: #e9ecef; border-radius: 4px;
+            overflow: hidden; width: 100%; display: flex; align-items: center;
+            justify-content: center; min-height: 300px;
         }
-        #image-wrapper {
-            position: relative;
-            width: 100%;
-            line-height: 0;
-        }
-        #uploaded-image, #overlay-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-        #uploaded-image {
-            position: relative;
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        #overlay-canvas {
-            pointer-events: none;
-        }
-        .action-buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 15px;
-        }
+        #image-wrapper { position: relative; width: 100%; line-height: 0; }
+        #uploaded-image, #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #uploaded-image { position: relative; width: 100%; height: auto; display: block; }
+        #overlay-canvas { pointer-events: none; }
+        .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 15px; }
         #file-input { display: none; }
         .button {
             display: inline-block; padding: 12px 24px; font-size: 1.0em; cursor: pointer;
@@ -68,7 +34,6 @@
             grid-column: 1 / -1; background-color: #e9ecef; color: #495057;
             font-size: 0.9em; padding: 8px 16px;
         }
-        .secondary-action:hover { background-color: #ced4da; }
         .results-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 8px; text-align: left; }
         .results-table th { background-color: #f8f9fa; font-weight: bold; }
@@ -119,7 +84,6 @@
     </div>
 
     <script type="text/javascript">
-        // --- CONFIGURACIÓN ---
         const MODEL_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
         const CLASS_NAMES = ['Incompleto', 'Rebaba', 'Sin Defecto', 'Punto Alto'];
         const CLASS_COLORS = ['#FFA500', '#FF4500', '#2E8B57', '#FFD700'];
@@ -128,7 +92,6 @@
         const MODEL_WIDTH = 1280;
         const MODEL_HEIGHT = 1280;
 
-        // --- REFERENCIAS DOM ---
         const analyzeButton = document.getElementById('analyze-button');
         const fileInput = document.getElementById('file-input');
         const displayContainer = document.getElementById('display-container');
@@ -136,7 +99,6 @@
         const auditorBubbleSpan = document.querySelector('#auditor-message-bubble span');
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-        // --- ESTADO DE LA APLICACIÓN ---
         let session;
         let imageSource = null;
         let isModelReady = false;
@@ -150,6 +112,10 @@
             if (isModelReady && isImageReady) {
                 analyzeButton.disabled = false;
                 setAuditorSpeech('Imagen lista. Presiona Analizar.');
+            } else if (isModelReady && !isImageReady) {
+                setAuditorSpeech('Modelo listo. Por favor, sube una imagen.');
+            } else {
+                setAuditorSpeech('Cargando imagen...');
             }
         }
 
@@ -159,12 +125,11 @@
                     setAuditorSpeech('Cargando modelo IA (puede tardar)...');
                     session = await ort.InferenceSession.create(MODEL_PATH);
                     isModelReady = true;
-                    setAuditorSpeech('Modelo listo. Por favor, sube una imagen.');
+                    checkReadyState();
                 }
             } catch (error) {
                 console.error("Error al cargar el modelo:", error);
                 setAuditorSpeech('Error fatal al cargar el modelo.');
-                labelContainer.innerHTML = `<p style="color:red;">No se pudo cargar el modelo IA. Revise la ruta y el archivo.</p>`;
             }
         }
         
@@ -175,16 +140,15 @@
             analyzeButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando...';
             setAuditorSpeech('Procesando imagen...');
 
-            const tensor = await preprocess(imageSource);
+            const { tensor, scale, xOffset, yOffset } = await preprocess(imageSource);
             const results = await session.run({ 'images': tensor });
             
             const overlayCanvas = document.getElementById('overlay-canvas');
             const ctx = overlayCanvas.getContext('2d');
-            
             overlayCanvas.width = imageSource.clientWidth;
             overlayCanvas.height = imageSource.clientHeight;
 
-            drawResults(results.output0, ctx, imageSource);
+            drawResults(results.output0, ctx, { scale, xOffset, yOffset });
             
             analyzeButton.disabled = false;
             analyzeButton.innerHTML = '<i class="fas fa-search"></i> Analizar de nuevo';
@@ -196,14 +160,13 @@
             canvas.height = MODEL_HEIGHT;
             const ctx = canvas.getContext('2d');
             
-            // --- Lógica de Letterboxing ---
             const scale = Math.min(MODEL_WIDTH / source.naturalWidth, MODEL_HEIGHT / source.naturalHeight);
             const scaledWidth = source.naturalWidth * scale;
             const scaledHeight = source.naturalHeight * scale;
             const xOffset = (MODEL_WIDTH - scaledWidth) / 2;
             const yOffset = (MODEL_HEIGHT - scaledHeight) / 2;
             
-            ctx.fillStyle = "#808080"; // Bandas grises
+            ctx.fillStyle = "#808080";
             ctx.fillRect(0, 0, MODEL_WIDTH, MODEL_HEIGHT);
             ctx.drawImage(source, xOffset, yOffset, scaledWidth, scaledHeight);
             
@@ -215,34 +178,29 @@
                 float32Data[j + MODEL_WIDTH * MODEL_HEIGHT] = imageData.data[i + 1] / 255.0;
                 float32Data[j + 2 * MODEL_WIDTH * MODEL_HEIGHT] = imageData.data[i + 2] / 255.0;
             }
-            return new ort.Tensor('float32', float32Data, [1, 3, MODEL_HEIGHT, MODEL_WIDTH]);
+            const tensor = new ort.Tensor('float32', float32Data, [1, 3, MODEL_HEIGHT, MODEL_WIDTH]);
+            return { tensor, scale, xOffset, yOffset };
         }
         
-        function drawResults(outputTensor, ctx, sourceImage) {
+        function drawResults(outputTensor, ctx, preprocInfo) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             const detections = postprocess(outputTensor.data, outputTensor.dims[2]);
             
-            // --- LÓGICA DE CORRECCIÓN DE COORDENADAS ---
-            const scale = Math.min(ctx.canvas.width / sourceImage.naturalWidth, ctx.canvas.height / sourceImage.naturalHeight);
-            const scaledWidth = sourceImage.naturalWidth * scale;
-            const scaledHeight = sourceImage.naturalHeight * scale;
-            const xOffset = (ctx.canvas.width - scaledWidth) / 2;
-            const yOffset = (ctx.canvas.height - scaledHeight) / 2;
-            
             detections.forEach(det => {
                 const [model_x1, model_y1, model_x2, model_y2] = det.box;
-
-                // Re-escalar coordenadas al tamaño de la imagen dentro del canvas de 1280
-                const natural_x1 = (model_x1 - (MODEL_WIDTH - (sourceImage.naturalWidth*scale)) / 2) / scale;
-                const natural_y1 = (model_y1 - (MODEL_HEIGHT - (sourceImage.naturalHeight*scale)) / 2) / scale;
-                const natural_x2 = (model_x2 - (MODEL_WIDTH - (sourceImage.naturalWidth*scale)) / 2) / scale;
-                const natural_y2 = (model_y2 - (MODEL_HEIGHT - (sourceImage.naturalHeight*scale)) / 2) / scale;
                 
-                // Escalar a las dimensiones de la imagen mostrada en pantalla
-                const display_x1 = natural_x1 * (ctx.canvas.width / sourceImage.naturalWidth);
-                const display_y1 = natural_y1 * (ctx.canvas.height / sourceImage.naturalHeight);
-                const display_w = (natural_x2 - natural_x1) * (ctx.canvas.width / sourceImage.naturalWidth);
-                const display_h = (natural_y2 - natural_y1) * (ctx.canvas.height / sourceImage.naturalHeight);
+                // --- LA CORRECCIÓN CLAVE DE COORDENADAS ---
+                // 1. Quitar el padding (bandas grises) de las coordenadas del modelo
+                const original_x1 = (model_x1 - preprocInfo.xOffset) / preprocInfo.scale;
+                const original_y1 = (model_y1 - preprocInfo.yOffset) / preprocInfo.scale;
+                const original_x2 = (model_x2 - preprocInfo.xOffset) / preprocInfo.scale;
+                const original_y2 = (model_y2 - preprocInfo.yOffset) / preprocInfo.scale;
+                
+                // 2. Escalar estas coordenadas correctas al tamaño de la imagen mostrada en pantalla
+                const display_x1 = (ctx.canvas.width * original_x1) / imageSource.naturalWidth;
+                const display_y1 = (ctx.canvas.height * original_y1) / imageSource.naturalHeight;
+                const display_w = ((original_x2 - original_x1) * ctx.canvas.width) / imageSource.naturalWidth;
+                const display_h = ((original_y2 - original_y1) * ctx.canvas.height) / imageSource.naturalHeight;
 
                 const color = CLASS_COLORS[det.classId];
                 
@@ -254,9 +212,8 @@
                 ctx.font = 'bold 16px sans-serif';
                 const textMetrics = ctx.measureText(label);
                 const textHeight = 16;
-                
                 let textY = display_y1 > textHeight + 5 ? display_y1 - 5 : display_y1 + display_h + textHeight + 5;
-                if (textY + textHeight > ctx.canvas.height) { textY = display_y1 - 5; } // Evitar que el texto se salga por abajo
+                if (textY + textHeight > ctx.canvas.height) { textY = display_y1 - 5; }
                 
                 ctx.fillStyle = color;
                 ctx.fillRect(display_x1 - 1, textY - textHeight - 3, textMetrics.width + 6, textHeight + 6);
@@ -299,10 +256,8 @@
         }
 
         function iou(boxA, boxB) {
-            const x1 = Math.max(boxA[0], boxB[0]);
-            const y1 = Math.max(boxA[1], boxB[1]);
-            const x2 = Math.min(boxA[2], boxB[2]);
-            const y2 = Math.min(boxA[3], boxB[3]);
+            const x1 = Math.max(boxA[0], boxB[0]); const y1 = Math.max(boxA[1], boxB[1]);
+            const x2 = Math.min(boxA[2], boxB[2]); const y2 = Math.min(boxA[3], boxB[3]);
             const interArea = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
             const boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1]);
             const boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1]);
@@ -317,24 +272,18 @@
                 conteoClases[det.label]++;
                 if (det.label !== 'Sin Defecto') muestreoAprobado = false;
             });
-
             if (detections.length === 0) {
-                labelContainer.innerHTML = "No se encontraron piezas en la muestra.";
-                setAuditorSpeech('No encontré hallazgos. ¡Todo bien!');
-                return;
+                labelContainer.innerHTML = "<p>No se encontraron hallazgos en la muestra.</p>";
+                setAuditorSpeech('No encontré hallazgos. ¡Todo bien!'); return;
             }
-
             let statusMessage = muestreoAprobado ? 'Muestreo Aprobado' : 'Prueba no aprobada';
             let statusColor = muestreoAprobado ? 'green' : 'red';
             let auditorMessage = muestreoAprobado ? '¡Excelente! Todas las piezas están sin defectos.' : 'Se encontraron defectos en la muestra.';
-            
-            let summaryHtml = `Resultado: <strong style="color:${statusColor};">${statusMessage}</strong>`;
-            summaryHtml += `<br>Total de Piezas: <strong>${detections.length}</strong>`;
+            let summaryHtml = `Resultado: <strong style="color:${statusColor};">${statusMessage}</strong><br>Total de Piezas: <strong>${detections.length}</strong>`;
             summaryHtml += `<table class="results-table"><tr><th>Clase</th><th>Cantidad</th></tr>`;
             for (const clase in conteoClases) {
                 if (conteoClases[clase] > 0) {
-                    const color = CLASS_COLORS[CLASS_NAMES.indexOf(clase)];
-                    summaryHtml += `<tr><td><span style="color:${color};">■</span> ${clase}</td><td><strong>${conteoClases[clase]}</strong></td></tr>`;
+                    summaryHtml += `<tr><td><span style="color:${CLASS_COLORS[CLASS_NAMES.indexOf(clase)]};">■</span> ${clase}</td><td><strong>${conteoClases[clase]}</strong></td></tr>`;
                 }
             }
             summaryHtml += `</table>`;
@@ -356,10 +305,8 @@
 
             const wrapper = document.createElement('div');
             wrapper.id = 'image-wrapper';
-            
             const img = document.createElement('img');
             img.id = 'uploaded-image';
-            
             const overlay = document.createElement('canvas');
             overlay.id = 'overlay-canvas';
             
