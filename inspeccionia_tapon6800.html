@@ -39,7 +39,7 @@
         .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 8px; text-align: left; }
         .results-table th { background-color: #f8f9fa; font-weight: bold; }
 
-        /* NUEVO: Estilos para el control de enfoque */
+        /* Estilos para el control de enfoque */
         #focus-controls {
             display: none; /* Oculto por defecto */
             padding: 10px 0;
@@ -136,7 +136,6 @@
         
         let videoStream = null;
         let isCameraActive = false;
-        // NUEVO: Variable para la pista de video y control de enfoque
         let videoTrack = null; 
 
         function setAuditorSpeech(message) {
@@ -162,11 +161,9 @@
             analyzeButton.disabled = true;
         }
         
-        // MODIFICADO: Función para iniciar la cámara con control de enfoque
         async function startCamera() {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
-                    // Se solicita el modo de enfoque manual
                     videoStream = await navigator.mediaDevices.getUserMedia({ 
                         video: { 
                             width: { ideal: 1280 }, 
@@ -195,19 +192,23 @@
                     videoTrack = videoStream.getVideoTracks()[0];
                     const capabilities = videoTrack.getCapabilities();
 
+                    // !! LÍNEAS DE DIAGNÓSTICO AÑADIDAS !!
+                    console.log("Capacidades de la cámara:", capabilities);
+                    console.log("Configuración actual:", videoTrack.getSettings());
+                    // !! FIN DE LÍNEAS DE DIAGNÓSTICO !!
+
                     // Comprobar si la cámara soporta el ajuste de 'focusDistance'
                     if (capabilities.focusDistance) {
-                        focusControls.style.display = 'block'; // Mostrar la barra
+                        focusControls.style.display = 'block';
                         focusSlider.min = capabilities.focusDistance.min;
                         focusSlider.max = capabilities.focusDistance.max;
-                        focusSlider.step = capabilities.focusDistance.step || 0.1; // Un paso razonable por defecto
+                        focusSlider.step = capabilities.focusDistance.step || 0.1;
                         
                         const currentSettings = videoTrack.getSettings();
                         if (currentSettings.focusDistance) {
                             focusSlider.value = currentSettings.focusDistance;
                         }
                         
-                        // Añadir evento para aplicar el enfoque cuando se mueve la barra
                         focusSlider.addEventListener('input', () => {
                             if (videoTrack) {
                                 videoTrack.applyConstraints({
@@ -245,16 +246,14 @@
             }
         }
 
-        // MODIFICADO: Función para detener la cámara y ocultar controles de enfoque
         function stopCamera() {
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
             }
             isCameraActive = false;
             videoStream = null;
-            videoTrack = null; // Limpiar referencia a la pista
+            videoTrack = null; 
 
-            // NUEVO: Ocultar la barra de enfoque
             document.getElementById('focus-controls').style.display = 'none';
             
             // Restaurar UI
