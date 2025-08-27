@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inspección IA v4.3 (Análisis en Vivo) - Tapon 6800</title>
+    <title>Inspección IA v4.2 (Cámara Web Integrada) - Tapon 6800</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
@@ -14,14 +14,10 @@
             overflow: hidden; width: 100%; display: flex; align-items: center;
             justify-content: center; min-height: 300px;
         }
-        /* MODIFICADO: El wrapper ahora contiene el video y el canvas */
-        #video-wrapper { position: relative; width: 100%; height: auto; line-height: 0; }
-        #video-feed { display: block; width: 100%; height: auto; background-color: #000; }
-        #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        
-        #image-wrapper { position: relative; width: 100%; line-height: 0; }
-        #uploaded-image { display: block; width: 100%; height: auto; }
-
+        #image-wrapper, #video-wrapper { position: relative; width: 100%; line-height: 0; }
+        #uploaded-image, #video-feed, #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #uploaded-image, #video-feed { position: relative; width: 100%; height: auto; display: block; background-color: #000; }
+        #overlay-canvas { pointer-events: none; }
         .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 15px; }
         #file-input { display: none; }
         .button {
@@ -42,9 +38,29 @@
         .results-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 8px; text-align: left; }
         .results-table th { background-color: #f8f9fa; font-weight: bold; }
-        #focus-controls { display: none; padding: 10px 0; text-align: center; background-color: #f8f9fa; border-top: 1px solid #dee2e6; }
-        #focus-slider { width: 70%; max-width: 400px; vertical-align: middle; cursor: pointer; }
-        #focus-controls label { margin-right: 10px; font-size: 0.9em; color: #495057; font-weight: bold; }
+
+        /* Estilos para el control de enfoque */
+        #focus-controls {
+            display: none; /* Oculto por defecto */
+            padding: 10px 0;
+            text-align: center;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+        #focus-slider {
+            width: 70%;
+            max-width: 400px;
+            vertical-align: middle;
+            cursor: pointer;
+        }
+        #focus-controls label {
+            margin-right: 10px;
+            font-size: 0.9em;
+            color: #495057;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body class="inspector-body">
@@ -80,7 +96,7 @@
                     </label>
                     <input type="file" id="file-input" accept="image/*">
                 </div>
-                <button id="camera-button" class="button secondary-action"><i class="fas fa-video"></i> Análisis en Vivo</button>
+                <button id="camera-button" class="button secondary-action"><i class="fas fa-video"></i> Modo Cámara</button>
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
@@ -96,7 +112,6 @@
     </div>
 
     <script type="text/javascript">
-        // --- CONSTANTES Y VARIABLES GLOBALES ---
         const MODEL_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
         const CLASS_NAMES = ['Incompleto', 'Punto Alto', 'Rebaba', 'Sin Defecto'];
         const CLASS_COLORS = ['#FFA500', '#FF4500', '#FFD700', '#2E8B57'];  
@@ -115,29 +130,24 @@
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
         let session;
-        let imageSource = null; // Para análisis de imagen estática
+        let imageSource = null;
         let isModelReady = false;
         let isImageReady = false;
         
         let videoStream = null;
+        let isCameraActive = false;
         let videoTrack = null; 
-        // NUEVO: Variables para controlar el estado del análisis en vivo
-        let isAnalyzingLive = false;
-        let animationFrameId = null;
-
-        // --- FUNCIONES PRINCIPALES ---
 
         function setAuditorSpeech(message) {
             if(auditorBubbleSpan) auditorBubbleSpan.textContent = message;
         }
 
-        // MODIFICADO: Ahora solo se usa para imágenes estáticas
         function checkReadyState() {
             if (isModelReady && isImageReady) {
                 analyzeButton.disabled = false;
                 setAuditorSpeech('Imagen lista. Presiona Analizar.');
             } else if (isModelReady && !isImageReady) {
-                setAuditorSpeech('Modelo listo. Sube una imagen o inicia el análisis en vivo.');
+                setAuditorSpeech('Modelo listo. Sube una imagen o usa la cámara.');
             } else {
                 setAuditorSpeech('Cargando modelo...');
             }
@@ -152,7 +162,6 @@
         }
         
         async function startCamera() {
-            if (videoStream) return true; // Si la cámara ya está activa, no hacer nada.
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
                     videoStream = await navigator.mediaDevices.getUserMedia({ 
@@ -162,8 +171,10 @@
                             focusMode: 'manual'
                         } 
                     });
+                    isCameraActive = true;
+                    setAuditorSpeech('Cámara activada. ¡Listo para capturar!');
                     
-                    displayContainer.innerHTML = '';
+                    displayContainer.innerHTML = ''; 
                     const wrapper = document.createElement('div');
                     wrapper.id = 'video-wrapper';
                     const video = document.createElement('video');
@@ -171,91 +182,129 @@
                     video.srcObject = videoStream;
                     video.autoplay = true;
                     video.playsInline = true;
-                    const overlay = document.createElement('canvas'); // El canvas para dibujar
-                    overlay.id = 'overlay-canvas';
                     
                     wrapper.appendChild(video);
-                    wrapper.appendChild(overlay);
                     displayContainer.appendChild(wrapper);
 
-                    await new Promise(resolve => video.onloadedmetadata = resolve); // Esperar a que el video tenga dimensiones
-
+                    // --- INICIO: Lógica de control de enfoque ---
                     const focusControls = document.getElementById('focus-controls');
                     const focusSlider = document.getElementById('focus-slider');
                     videoTrack = videoStream.getVideoTracks()[0];
                     const capabilities = videoTrack.getCapabilities();
+
+                    // !! LÍNEAS DE DIAGNÓSTICO AÑADIDAS !!
+                    console.log("Capacidades de la cámara:", capabilities);
+                    console.log("Configuración actual:", videoTrack.getSettings());
+                    // !! FIN DE LÍNEAS DE DIAGNÓSTICO !!
+
+                    // Comprobar si la cámara soporta el ajuste de 'focusDistance'
                     if (capabilities.focusDistance) {
                         focusControls.style.display = 'block';
                         focusSlider.min = capabilities.focusDistance.min;
                         focusSlider.max = capabilities.focusDistance.max;
                         focusSlider.step = capabilities.focusDistance.step || 0.1;
-                        const currentSettings = videoTrack.getSettings();
-                        if (currentSettings.focusDistance) focusSlider.value = currentSettings.focusDistance;
                         
-                        focusSlider.oninput = () => {
-                           if (videoTrack) videoTrack.applyConstraints({ advanced: [{ focusDistance: focusSlider.value }] });
-                        };
+                        const currentSettings = videoTrack.getSettings();
+                        if (currentSettings.focusDistance) {
+                            focusSlider.value = currentSettings.focusDistance;
+                        }
+                        
+                        focusSlider.addEventListener('input', () => {
+                            if (videoTrack) {
+                                videoTrack.applyConstraints({
+                                    advanced: [{ focusDistance: focusSlider.value }]
+                                }).catch(e => console.error("Error al aplicar el enfoque:", e));
+                            }
+                        });
+                    } else {
+                        console.warn("El control de enfoque manual no es soportado por esta cámara.");
+                        focusControls.style.display = 'none';
                     }
-                    return true;
+                    // --- FIN: Lógica de control de enfoque ---
+
+                    // Actualizar UI
+                    cameraButton.innerHTML = '<i class="fas fa-camera"></i> Capturar y Analizar';
+                    cameraButton.classList.remove('secondary-action');
+                    cameraButton.classList.add('primary-action');
+
+                    const stopButton = document.createElement('button');
+                    stopButton.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
+                    stopButton.className = 'button secondary-action stop';
+                    stopButton.onclick = stopCamera;
+                    cameraButton.parentNode.insertBefore(stopButton, cameraButton.nextSibling);
+
+                    fileLabel.style.display = 'none';
+                    analyzeButton.style.display = 'none';
+
                 } catch (error) {
                     console.error("Error al acceder a la cámara:", error);
                     setAuditorSpeech('No se pudo acceder a la cámara.');
-                    return false;
+                    isCameraActive = false;
                 }
             } else {
                 setAuditorSpeech('Tu navegador no soporta la API de cámara.');
-                return false;
             }
         }
-        
-        // MODIFICADO: La función ahora solo detiene el stream y el ciclo de análisis
-        function stopAnalysis() {
-            isAnalyzingLive = false;
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId); // Detener el ciclo
-                animationFrameId = null;
-            }
+
+        function stopCamera() {
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
-                videoStream = null;
-                videoTrack = null;
             }
-            
+            isCameraActive = false;
+            videoStream = null;
+            videoTrack = null; 
+
             document.getElementById('focus-controls').style.display = 'none';
             
             // Restaurar UI
-            cameraButton.innerHTML = '<i class="fas fa-video"></i> Análisis en Vivo';
-            cameraButton.classList.remove('stop');
+            cameraButton.innerHTML = '<i class="fas fa-video"></i> Modo Cámara';
+            cameraButton.classList.remove('primary-action');
             cameraButton.classList.add('secondary-action');
+            
+            const stopButton = document.querySelector('.button.stop');
+            if (stopButton) stopButton.remove();
             
             fileLabel.style.display = 'inline-block';
             analyzeButton.style.display = 'inline-block';
             
-            clearDisplay();
-            setAuditorSpeech('Análisis detenido. Sube una imagen o inicia de nuevo.');
+            if (!isImageReady) {
+                clearDisplay();
+            }
+            setAuditorSpeech('Cámara detenida. Sube una imagen o activa la cámara.');
         }
 
-        // NUEVO: La función que controla el ciclo de análisis en vivo
-        async function analysisLoop() {
-            if (!isAnalyzingLive) return; // Condición para detener el ciclo
-
+        function captureAndAnalyze() {
             const video = document.getElementById('video-feed');
-            const overlay = document.getElementById('overlay-canvas');
-            if (!video || !overlay) return;
+            if (!video) return;
 
-            // Asegurar que el canvas tenga el mismo tamaño que el video
-            overlay.width = video.clientWidth;
-            overlay.height = video.clientHeight;
+            setAuditorSpeech('Capturando imagen...');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // Ejecutar el análisis en el fotograma actual del video
-            const { tensor, scale, xOffset, yOffset } = await preprocess(video);
-            const results = await session.run({ 'images': tensor });
-            
-            const ctx = overlay.getContext('2d');
-            drawResults(results.output0, ctx, { scale, xOffset, yOffset }, video);
-            
-            // Solicitar el siguiente fotograma para continuar el ciclo
-            animationFrameId = requestAnimationFrame(analysisLoop);
+            const img = new Image();
+            img.onload = () => {
+                displayContainer.innerHTML = '';
+                const wrapper = document.createElement('div');
+                wrapper.id = 'image-wrapper';
+                img.id = 'uploaded-image';
+                const overlay = document.createElement('canvas');
+                overlay.id = 'overlay-canvas';
+                
+                wrapper.appendChild(img);
+                wrapper.appendChild(overlay);
+                displayContainer.appendChild(wrapper);
+
+                imageSource = img;
+                isImageReady = true;
+
+                stopCamera();
+                
+                runAnalysis();
+            };
+            img.src = canvas.toDataURL('image/png');
         }
 
         async function initializeModel() {
@@ -274,8 +323,7 @@
             }
         }
         
-        // MODIFICADO: Ahora solo para imágenes estáticas
-        async function runStaticAnalysis() {
+        async function runAnalysis() {
             if (!isModelReady || !isImageReady || !imageSource) return;
 
             analyzeButton.disabled = true;
@@ -292,7 +340,7 @@
             overlayCanvas.width = imageSource.clientWidth;
             overlayCanvas.height = imageSource.clientHeight;
 
-            drawResults(results.output0, ctx, { scale, xOffset, yOffset }, imageSource);
+            drawResults(results.output0, ctx, { scale, xOffset, yOffset });
             
             analyzeButton.disabled = false;
             analyzeButton.innerHTML = '<i class="fas fa-search"></i> Analizar de nuevo';
@@ -329,14 +377,10 @@
             return { tensor, scale, xOffset, yOffset };
         }
         
-        // MODIFICADO: Acepta la fuente (imagen o video) para calcular las dimensiones correctas
-        function drawResults(outputTensor, ctx, preprocInfo, source) {
+        function drawResults(outputTensor, ctx, preprocInfo) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             const detections = postprocess(outputTensor.data, outputTensor.dims[2]);
             
-            const sourceWidth = source.naturalWidth || source.videoWidth;
-            const sourceHeight = source.naturalHeight || source.videoHeight;
-
             detections.forEach(det => {
                 const [model_x1, model_y1, model_x2, model_y2] = det.box;
                 
@@ -345,10 +389,10 @@
                 const original_x2 = (model_x2 - preprocInfo.xOffset) / preprocInfo.scale;
                 const original_y2 = (model_y2 - preprocInfo.yOffset) / preprocInfo.scale;
                 
-                const display_x1 = (ctx.canvas.width * original_x1) / sourceWidth;
-                const display_y1 = (ctx.canvas.height * original_y1) / sourceHeight;
-                const display_w = ((original_x2 - original_x1) * ctx.canvas.width) / sourceWidth;
-                const display_h = ((original_y2 - original_y1) * ctx.canvas.height) / sourceHeight;
+                const display_x1 = (ctx.canvas.width * original_x1) / imageSource.naturalWidth;
+                const display_y1 = (ctx.canvas.height * original_y1) / imageSource.naturalHeight;
+                const display_w = ((original_x2 - original_x1) * ctx.canvas.width) / imageSource.naturalWidth;
+                const display_h = ((original_y2 - original_y1) * ctx.canvas.height) / imageSource.naturalHeight;
 
                 const color = CLASS_COLORS[det.classId];
                 
@@ -421,12 +465,12 @@
                 if (det.label !== 'Sin Defecto') muestreoAprobado = false;
             });
             if (detections.length === 0) {
-                labelContainer.innerHTML = "<p>Esperando detección...</p>";
-                setAuditorSpeech('Apuntando cámara... Buscando piezas.'); return;
+                labelContainer.innerHTML = "<p>No se encontraron hallazgos en la muestra.</p>";
+                setAuditorSpeech('No encontré hallazgos. ¡Todo bien!'); return;
             }
             let statusMessage = muestreoAprobado ? 'Muestreo Aprobado' : 'Prueba no aprobada';
             let statusColor = muestreoAprobado ? 'green' : 'red';
-            let auditorMessage = muestreoAprobado ? '¡Excelente! Piezas sin defectos a la vista.' : '¡Atención! Se detectaron defectos.';
+            let auditorMessage = muestreoAprobado ? '¡Excelente! Todas las piezas están sin defectos.' : 'Se encontraron defectos en la muestra.';
             let summaryHtml = `Resultado: <strong style="color:${statusColor};">${statusMessage}</strong><br>Total de Piezas: <strong>${detections.length}</strong>`;
             summaryHtml += `<table class="results-table"><tr><th>Clase</th><th>Cantidad</th></tr>`;
             for (const clase in conteoClases) {
@@ -440,12 +484,12 @@
         }
 
         // --- EVENTOS ---
-        analyzeButton.addEventListener('click', runStaticAnalysis);
+        analyzeButton.addEventListener('click', runAnalysis);
         
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            if (isAnalyzingLive) stopAnalysis(); 
+            if (isCameraActive) stopCamera(); 
 
             isImageReady = false;
             analyzeButton.disabled = true;
@@ -473,24 +517,11 @@
             img.src = URL.createObjectURL(file);
         });
 
-        // MODIFICADO: El botón de cámara ahora controla el ciclo de análisis en vivo
-        cameraButton.addEventListener('click', async () => {
-            if (isAnalyzingLive) {
-                stopAnalysis();
+        cameraButton.addEventListener('click', () => {
+            if (isCameraActive) {
+                captureAndAnalyze();
             } else {
-                const cameraStarted = await startCamera();
-                if (cameraStarted) {
-                    isAnalyzingLive = true;
-                    setAuditorSpeech('Análisis en vivo iniciado.');
-                    // Actualizar UI
-                    cameraButton.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Análisis';
-                    cameraButton.classList.remove('secondary-action');
-                    cameraButton.classList.add('stop'); // Clase para el color rojo
-                    fileLabel.style.display = 'none';
-                    analyzeButton.style.display = 'none';
-                    
-                    analysisLoop(); // Iniciar el ciclo
-                }
+                startCamera();
             }
         });
         
