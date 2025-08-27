@@ -3,51 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inspección IA v3.0 (Final) - Tapon 6800</title>
+    <title>Inspección IA v4.0 (Final) - Tapon 6800</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-
     <style>
-        /* --- ESTILOS MEJORADOS PARA ROBUSTEZ --- */
-        .vision-panel #webcam-container {
+        .main-content-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+        .vision-panel #display-container {
             position: relative;
-            background-color: #e9ecef; /* Color de fondo más suave */
+            background-color: #e9ecef;
             border-radius: 4px;
             overflow: hidden;
             width: 100%;
-            display: flex; /* Centra el texto inicial */
+            display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 300px; /* Altura mínima para cuando está vacío */
+            min-height: 300px;
         }
-        
-        #image-display-wrapper {
+        #image-wrapper {
             position: relative;
             width: 100%;
-            line-height: 0; /* Elimina espacio extra debajo de la imagen */
+            line-height: 0;
         }
-
-        #uploaded-image-preview, #overlay-canvas {
+        #uploaded-image, #overlay-canvas {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
         }
-        
-        #uploaded-image-preview {
-            position: relative; /* La imagen ahora define el tamaño */
+        #uploaded-image {
+            position: relative;
             width: 100%;
-            height: auto; /* La altura se ajusta automáticamente */
+            height: auto;
             display: block;
         }
-
         #overlay-canvas {
             pointer-events: none;
         }
-        
         .action-buttons {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -55,25 +53,22 @@
             align-items: center;
             margin-bottom: 15px;
         }
-
         #file-input { display: none; }
-
         .button {
             display: inline-block; padding: 12px 24px; font-size: 1.0em; cursor: pointer;
             text-align: center; text-decoration: none; outline: none; color: #fff;
-            background-color: #6c757d; border: none; border-radius: 5px;
+            background-color: #0056b3; border: none; border-radius: 5px;
             transition: background-color 0.3s, opacity 0.3s;
         }
-        
-        .button.primary-action:disabled { background-color: #cccccc; cursor: not-allowed; opacity: 0.6; }
-        .button:hover:not(:disabled) { background-color: #5a6268; }
-        
+        .button:disabled { background-color: #cccccc; cursor: not-allowed; opacity: 0.7; }
+        .button:hover:not(:disabled) { background-color: #003d82; }
+        label.button { background-color: #6c757d; }
+        label.button:hover { background-color: #5a6268; }
         .secondary-action {
             grid-column: 1 / -1; background-color: #e9ecef; color: #495057;
             font-size: 0.9em; padding: 8px 16px;
         }
         .secondary-action:hover { background-color: #ced4da; }
-        
         .results-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 8px; text-align: left; }
         .results-table th { background-color: #f8f9fa; font-weight: bold; }
@@ -90,7 +85,7 @@
         <main class="main-content-grid"> 
             <section class="vision-panel">
                 <h2 class="panel-title"><i class="fas fa-eye"></i> Visor de Inspección</h2>
-                <div id="webcam-container">
+                <div id="display-container">
                     <span style="color:#6c757d; font-size: 1.2em;">Sube una imagen para comenzar</span>
                 </div>
                 <div class="label-container" id="label-container">
@@ -103,12 +98,12 @@
                     <button id="analyze-button" class="button primary-action" disabled>
                         <i class="fas fa-search"></i> Analizar
                     </button>
-                    <label for="file-input" id="upload-label" class="button">
+                    <label for="file-input" class="button">
                         <i class="fas fa-upload"></i> Subir Imagen
                     </label>
                     <input type="file" id="file-input" accept="image/*">
                 </div>
-                <button id="camera-button" class="button secondary-action" disabled><i class="fas fa-video"></i> Activar Modo Cámara (Próximamente)</button>
+                <button id="camera-button" class="button secondary-action" disabled><i class="fas fa-video"></i> Modo Cámara (Próximamente)</button>
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
@@ -125,25 +120,25 @@
 
     <script type="text/javascript">
         // --- CONFIGURACIÓN ---
-        const MODELO_ONNX_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
-        const NOMBRES_CLASES = ['Incompleto', 'Rebaba', 'Sin Defecto', 'Punto Alto'];
-        const COLORES_CLASES = ['#FFA500', '#FF4500', '#2E8B57', '#FFD700'];
-        const UMBRAL_CONFIANZA = 0.25;
-        const UMBRAL_IOU_NMS = 0.45;
+        const MODEL_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
+        const CLASS_NAMES = ['Incompleto', 'Rebaba', 'Sin Defecto', 'Punto Alto'];
+        const CLASS_COLORS = ['#FFA500', '#FF4500', '#2E8B57', '#FFD700'];
+        const CONFIDENCE_THRESHOLD = 0.25;
+        const IOU_THRESHOLD = 0.45;
         const MODEL_WIDTH = 1280;
         const MODEL_HEIGHT = 1280;
 
         // --- REFERENCIAS DOM ---
         const analyzeButton = document.getElementById('analyze-button');
         const fileInput = document.getElementById('file-input');
-        const webcamContainer = document.getElementById('webcam-container');
+        const displayContainer = document.getElementById('display-container');
         const labelContainer = document.getElementById('label-container');
         const auditorBubbleSpan = document.querySelector('#auditor-message-bubble span');
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-        // --- VARIABLES DE ESTADO ---
-        let onnxSession;
-        let currentSource = null;
+        // --- ESTADO DE LA APLICACIÓN ---
+        let session;
+        let imageSource = null;
         let isModelReady = false;
         let isImageReady = false;
         
@@ -155,45 +150,41 @@
             if (isModelReady && isImageReady) {
                 analyzeButton.disabled = false;
                 setAuditorSpeech('Imagen lista. Presiona Analizar.');
-            } else if (isModelReady && !isImageReady) {
-                setAuditorSpeech('Modelo listo. Por favor, sube una imagen.');
-            } else if (!isModelReady && isImageReady) {
-                setAuditorSpeech('Imagen cargada. Esperando al modelo IA...');
             }
         }
 
-        async function initModel() {
+        async function initializeModel() {
             try {
-                if (!onnxSession) {
-                    setAuditorSpeech('Cargando modelo IA (esto puede tardar)...');
-                    onnxSession = await ort.InferenceSession.create(MODELO_ONNX_PATH);
+                if (!session) {
+                    setAuditorSpeech('Cargando modelo IA (puede tardar)...');
+                    session = await ort.InferenceSession.create(MODEL_PATH);
                     isModelReady = true;
-                    checkReadyState();
+                    setAuditorSpeech('Modelo listo. Por favor, sube una imagen.');
                 }
             } catch (error) {
                 console.error("Error al cargar el modelo:", error);
                 setAuditorSpeech('Error fatal al cargar el modelo.');
-                labelContainer.innerHTML = `<p style="color:red;">No se pudo cargar el modelo IA. Revise la ruta y el archivo en la consola (F12).</p>`;
+                labelContainer.innerHTML = `<p style="color:red;">No se pudo cargar el modelo IA. Revise la ruta y el archivo.</p>`;
             }
         }
         
-        async function analyze() {
-            if (!isModelReady || !isImageReady || !currentSource) { return; }
+        async function runAnalysis() {
+            if (!isModelReady || !isImageReady || !imageSource) return;
 
             analyzeButton.disabled = true;
             analyzeButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando...';
             setAuditorSpeech('Procesando imagen...');
 
-            const tensor = await preprocess(currentSource);
-            const results = await onnxSession.run({ 'images': tensor });
+            const tensor = await preprocess(imageSource);
+            const results = await session.run({ 'images': tensor });
             
             const overlayCanvas = document.getElementById('overlay-canvas');
             const ctx = overlayCanvas.getContext('2d');
             
-            overlayCanvas.width = currentSource.clientWidth;
-            overlayCanvas.height = currentSource.clientHeight;
+            overlayCanvas.width = imageSource.clientWidth;
+            overlayCanvas.height = imageSource.clientHeight;
 
-            drawBoundingBoxes(results.output0, ctx);
+            drawResults(results.output0, ctx, imageSource);
             
             analyzeButton.disabled = false;
             analyzeButton.innerHTML = '<i class="fas fa-search"></i> Analizar de nuevo';
@@ -204,7 +195,18 @@
             canvas.width = MODEL_WIDTH;
             canvas.height = MODEL_HEIGHT;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(source, 0, 0, MODEL_WIDTH, MODEL_HEIGHT);
+            
+            // --- Lógica de Letterboxing ---
+            const scale = Math.min(MODEL_WIDTH / source.naturalWidth, MODEL_HEIGHT / source.naturalHeight);
+            const scaledWidth = source.naturalWidth * scale;
+            const scaledHeight = source.naturalHeight * scale;
+            const xOffset = (MODEL_WIDTH - scaledWidth) / 2;
+            const yOffset = (MODEL_HEIGHT - scaledHeight) / 2;
+            
+            ctx.fillStyle = "#808080"; // Bandas grises
+            ctx.fillRect(0, 0, MODEL_WIDTH, MODEL_HEIGHT);
+            ctx.drawImage(source, xOffset, yOffset, scaledWidth, scaledHeight);
+            
             const imageData = ctx.getImageData(0, 0, MODEL_WIDTH, MODEL_HEIGHT);
             const float32Data = new Float32Array(3 * MODEL_WIDTH * MODEL_HEIGHT);
             for (let i = 0; i < imageData.data.length; i += 4) {
@@ -216,58 +218,100 @@
             return new ort.Tensor('float32', float32Data, [1, 3, MODEL_HEIGHT, MODEL_WIDTH]);
         }
         
-        function drawBoundingBoxes(outputTensor, ctx) {
+        function drawResults(outputTensor, ctx, sourceImage) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            const outputData = outputTensor.data;
-            const numClasses = NOMBRES_CLASES.length;
-            const numProposals = outputTensor.dims[2];
-            const detections = [];
-
-            for (let i = 0; i < numProposals; i++) {
-                let maxProb = 0; let classId = -1;
-                for (let j = 0; j < numClasses; j++) {
-                    const prob = outputData[(4 + j) * numProposals + i];
-                    if (prob > maxProb) { maxProb = prob; classId = j; }
-                }
-                if (maxProb > UMBRAL_CONFIANZA) {
-                    const x_center = outputData[0 * numProposals + i];
-                    const y_center = outputData[1 * numProposals + i];
-                    const width = outputData[2 * numProposals + i];
-                    const height = outputData[3 * numProposals + i];
-                    detections.push({ label: NOMBRES_CLASES[classId], score: maxProb, classId: classId, box: [x_center - width / 2, y_center - height / 2, x_center + width / 2, y_center + height / 2] });
-                }
-            }
+            const detections = postprocess(outputTensor.data, outputTensor.dims[2]);
             
-            const finalDetections = nonMaxSuppression(detections);
+            // --- LÓGICA DE CORRECCIÓN DE COORDENADAS ---
+            const scale = Math.min(ctx.canvas.width / sourceImage.naturalWidth, ctx.canvas.height / sourceImage.naturalHeight);
+            const scaledWidth = sourceImage.naturalWidth * scale;
+            const scaledHeight = sourceImage.naturalHeight * scale;
+            const xOffset = (ctx.canvas.width - scaledWidth) / 2;
+            const yOffset = (ctx.canvas.height - scaledHeight) / 2;
+            
+            detections.forEach(det => {
+                const [model_x1, model_y1, model_x2, model_y2] = det.box;
 
-            finalDetections.forEach(det => {
-                const [x1, y1, x2, y2] = det.box;
-                const x_ratio = ctx.canvas.width / MODEL_WIDTH;
-                const y_ratio = ctx.canvas.height / MODEL_HEIGHT;
-                const x = x1 * x_ratio;
-                const y = y1 * y_ratio;
-                const w = (x2 - x1) * x_ratio;
-                const h = (y2 - y1) * y_ratio;
-                const color = COLORES_CLASES[det.classId];
+                // Re-escalar coordenadas al tamaño de la imagen dentro del canvas de 1280
+                const natural_x1 = (model_x1 - (MODEL_WIDTH - (sourceImage.naturalWidth*scale)) / 2) / scale;
+                const natural_y1 = (model_y1 - (MODEL_HEIGHT - (sourceImage.naturalHeight*scale)) / 2) / scale;
+                const natural_x2 = (model_x2 - (MODEL_WIDTH - (sourceImage.naturalWidth*scale)) / 2) / scale;
+                const natural_y2 = (model_y2 - (MODEL_HEIGHT - (sourceImage.naturalHeight*scale)) / 2) / scale;
+                
+                // Escalar a las dimensiones de la imagen mostrada en pantalla
+                const display_x1 = natural_x1 * (ctx.canvas.width / sourceImage.naturalWidth);
+                const display_y1 = natural_y1 * (ctx.canvas.height / sourceImage.naturalHeight);
+                const display_w = (natural_x2 - natural_x1) * (ctx.canvas.width / sourceImage.naturalWidth);
+                const display_h = (natural_y2 - natural_y1) * (ctx.canvas.height / sourceImage.naturalHeight);
+
+                const color = CLASS_COLORS[det.classId];
+                
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 3;
-                ctx.strokeRect(x, y, w, h);
+                ctx.strokeRect(display_x1, display_y1, display_w, display_h);
+
                 const label = `${det.label} (${(det.score * 100).toFixed(0)}%)`;
                 ctx.font = 'bold 16px sans-serif';
                 const textMetrics = ctx.measureText(label);
                 const textHeight = 16;
-                const textY = y > textHeight + 5 ? y - 5 : y + textHeight + 5;
+                
+                let textY = display_y1 > textHeight + 5 ? display_y1 - 5 : display_y1 + display_h + textHeight + 5;
+                if (textY + textHeight > ctx.canvas.height) { textY = display_y1 - 5; } // Evitar que el texto se salga por abajo
+                
                 ctx.fillStyle = color;
-                ctx.fillRect(x - 1, textY - textHeight - 3, textMetrics.width + 6, textHeight + 6);
+                ctx.fillRect(display_x1 - 1, textY - textHeight - 3, textMetrics.width + 6, textHeight + 6);
                 ctx.fillStyle = '#FFFFFF';
-                ctx.fillText(label, x + 2, textY);
+                ctx.fillText(label, display_x1 + 2, textY);
             });
-            updateSummary(finalDetections);
+            updateSummary(detections);
+        }
+
+        function postprocess(outputData, numProposals) {
+            const detections = [];
+            for (let i = 0; i < numProposals; i++) {
+                let maxProb = 0, classId = -1;
+                for (let j = 0; j < CLASS_NAMES.length; j++) {
+                    const prob = outputData[(4 + j) * numProposals + i];
+                    if (prob > maxProb) { maxProb = prob; classId = j; }
+                }
+                if (maxProb > CONFIDENCE_THRESHOLD) {
+                    const x_center = outputData[0 * numProposals + i];
+                    const y_center = outputData[1 * numProposals + i];
+                    const width = outputData[2 * numProposals + i];
+                    const height = outputData[3 * numProposals + i];
+                    detections.push({ label: CLASS_NAMES[classId], score: maxProb, classId: classId, box: [x_center - width / 2, y_center - height / 2, x_center + width / 2, y_center + height / 2] });
+                }
+            }
+            detections.sort((a, b) => b.score - a.score);
+            const selected = [];
+            const active = new Array(detections.length).fill(true);
+            for (let i = 0; i < detections.length; i++) {
+                if (active[i]) {
+                    selected.push(detections[i]);
+                    for (let j = i + 1; j < detections.length; j++) {
+                        if (active[j] && iou(detections[i].box, detections[j].box) > IOU_THRESHOLD) {
+                            active[j] = false;
+                        }
+                    }
+                }
+            }
+            return selected;
+        }
+
+        function iou(boxA, boxB) {
+            const x1 = Math.max(boxA[0], boxB[0]);
+            const y1 = Math.max(boxA[1], boxB[1]);
+            const x2 = Math.min(boxA[2], boxB[2]);
+            const y2 = Math.min(boxA[3], boxB[3]);
+            const interArea = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+            const boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1]);
+            const boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1]);
+            return interArea / (boxAArea + boxBArea - interArea);
         }
 
         function updateSummary(detections) {
             let conteoClases = {};
-            NOMBRES_CLASES.forEach(nombre => conteoClases[nombre] = 0);
+            CLASS_NAMES.forEach(nombre => conteoClases[nombre] = 0);
             let muestreoAprobado = true;
             detections.forEach(det => {
                 conteoClases[det.label]++;
@@ -289,7 +333,7 @@
             summaryHtml += `<table class="results-table"><tr><th>Clase</th><th>Cantidad</th></tr>`;
             for (const clase in conteoClases) {
                 if (conteoClases[clase] > 0) {
-                    const color = COLORES_CLASES[NOMBRES_CLASES.indexOf(clase)];
+                    const color = CLASS_COLORS[CLASS_NAMES.indexOf(clase)];
                     summaryHtml += `<tr><td><span style="color:${color};">■</span> ${clase}</td><td><strong>${conteoClases[clase]}</strong></td></tr>`;
                 }
             }
@@ -297,37 +341,9 @@
             setAuditorSpeech(auditorMessage);
             labelContainer.innerHTML = summaryHtml;
         }
-        
-        function nonMaxSuppression(detections) {
-            detections.sort((a,b) => b.score - a.score);
-            const selected = [];
-            const active = new Array(detections.length).fill(true);
-            for(let i=0; i < detections.length; i++) {
-                if(active[i]) {
-                    selected.push(detections[i]);
-                    for(let j=i+1; j < detections.length; j++) {
-                        if(active[j] && iou(detections[i].box, detections[j].box) > UMBRAL_IOU_NMS) {
-                            active[j] = false;
-                        }
-                    }
-                }
-            }
-            return selected;
-        }
-
-        function iou(boxA, boxB) {
-            const x1 = Math.max(boxA[0], boxB[0]);
-            const y1 = Math.max(boxA[1], boxB[1]);
-            const x2 = Math.min(boxA[2], boxB[2]);
-            const y2 = Math.min(boxA[3], boxB[3]);
-            const interArea = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-            const boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1]);
-            const boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1]);
-            return interArea / (boxAArea + boxBArea - interArea);
-        }
 
         // --- EVENTOS ---
-        analyzeButton.addEventListener('click', analyze);
+        analyzeButton.addEventListener('click', runAnalysis);
         
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
@@ -336,30 +352,32 @@
             isImageReady = false;
             analyzeButton.disabled = true;
             labelContainer.innerHTML = "<p>Cargando imagen...</p>";
-            webcamContainer.innerHTML = '';
+            displayContainer.innerHTML = '';
 
             const wrapper = document.createElement('div');
-            wrapper.id = 'image-display-wrapper';
+            wrapper.id = 'image-wrapper';
             
             const img = document.createElement('img');
-            img.id = 'uploaded-image-preview';
+            img.id = 'uploaded-image';
             
             const overlay = document.createElement('canvas');
             overlay.id = 'overlay-canvas';
             
             wrapper.appendChild(img);
             wrapper.appendChild(overlay);
-            webcamContainer.appendChild(wrapper);
+            displayContainer.appendChild(wrapper);
 
             img.onload = () => {
-                currentSource = img;
+                imageSource = img;
                 isImageReady = true;
+                overlay.width = img.clientWidth;
+                overlay.height = img.clientHeight;
                 checkReadyState();
             };
             img.src = URL.createObjectURL(file);
         });
         
-        document.addEventListener('DOMContentLoaded', initModel);
+        document.addEventListener('DOMContentLoaded', initializeModel);
     </script>
 </body>
 </html>
