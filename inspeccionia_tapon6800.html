@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inspección IA v4.2 (Cámara Web Integrada) - Tapon 6800</title>
+    <title>Inspección IA v4.3 (Controles Avanzados) - Tapon 6800</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
@@ -39,28 +39,40 @@
         .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 8px; text-align: left; }
         .results-table th { background-color: #f8f9fa; font-weight: bold; }
 
-        /* Estilos para el control de enfoque */
-        #focus-controls {
+        /* --- MODIFICACIÓN INICIA: Estilos para nuevos controles de cámara --- */
+        #camera-controls-container {
             display: none; /* Oculto por defecto */
-            padding: 10px 0;
-            text-align: center;
+            padding: 15px;
             background-color: #f8f9fa;
             border-top: 1px solid #dee2e6;
             border-bottom-left-radius: 4px;
             border-bottom-right-radius: 4px;
         }
-        #focus-slider {
-            width: 70%;
-            max-width: 400px;
-            vertical-align: middle;
-            cursor: pointer;
+        .camera-control-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
         }
-        #focus-controls label {
-            margin-right: 10px;
-            font-size: 0.9em;
-            color: #495057;
+        .camera-control-group label {
             font-weight: bold;
+            color: #495057;
+            flex-basis: 80px;
+            flex-shrink: 0;
         }
+        .camera-control-group input[type="range"] {
+            flex-grow: 1;
+            margin: 0 10px;
+        }
+        .slider-value {
+            font-family: monospace;
+            background-color: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            min-width: 40px;
+            text-align: center;
+        }
+        /* --- MODIFICACIÓN TERMINA --- */
     </style>
 </head>
 <body class="inspector-body">
@@ -77,9 +89,17 @@
                 <div id="display-container">
                     <span style="color:#6c757d; font-size: 1.2em;">Sube una imagen o activa la cámara</span>
                 </div>
-                <div id="focus-controls">
-                    <label for="focus-slider"><i class="fas fa-search-location"></i> Enfoque:</label>
-                    <input type="range" id="focus-slider" title="Ajustar Enfoque">
+                <div id="camera-controls-container">
+                    <div class="camera-control-group" id="focus-control-group" style="display:none;">
+                        <label for="focus-slider"><i class="fas fa-search-location"></i> Enfoque:</label>
+                        <input type="range" id="focus-slider" class="camera-slider" title="Ajustar Enfoque">
+                        <span id="focus-value" class="slider-value"></span>
+                    </div>
+                    <div class="camera-control-group" id="zoom-control-group" style="display:none;">
+                        <label for="zoom-slider"><i class="fas fa-search-plus"></i> Zoom:</label>
+                        <input type="range" id="zoom-slider" class="camera-slider" title="Ajustar Zoom">
+                        <span id="zoom-value" class="slider-value"></span>
+                    </div>
                 </div>
                 <div class="label-container" id="label-container">
                     <p>Los resultados del análisis aparecerán aquí.</p>
@@ -129,6 +149,17 @@
         const cameraButton = document.getElementById('camera-button'); 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
+        // --- MODIFICACIÓN INICIA: Nuevas variables para controles avanzados ---
+        const cameraControlsContainer = document.getElementById('camera-controls-container');
+        const focusControlGroup = document.getElementById('focus-control-group');
+        const focusSlider = document.getElementById('focus-slider');
+        const focusValueEl = document.getElementById('focus-value');
+        const zoomControlGroup = document.getElementById('zoom-control-group');
+        const zoomSlider = document.getElementById('zoom-slider');
+        const zoomValueEl = document.getElementById('zoom-value');
+        let cameraCapabilities = {};
+        // --- MODIFICACIÓN TERMINA ---
+
         let session;
         let imageSource = null;
         let isModelReady = false;
@@ -160,92 +191,160 @@
             isImageReady = false;
             analyzeButton.disabled = true;
         }
-        
+
+        // --- MODIFICACIÓN INICIA: Lógica de cámara completamente nueva ---
         async function startCamera() {
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                try {
-                    videoStream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 },
-                            // Forzamos el modo de enfoque a manual de forma más explícita
-                            // usando el set de restricciones avanzadas.
-                            advanced: [{ focusMode: "manual" }]
-                        }
-                    });
-
-                    isCameraActive = true;
-                    setAuditorSpeech('Cámara activada. ¡Listo para capturar!');
-                    
-                    displayContainer.innerHTML = ''; 
-                    const wrapper = document.createElement('div');
-                    wrapper.id = 'video-wrapper';
-                    const video = document.createElement('video');
-                    video.id = 'video-feed';
-                    video.srcObject = videoStream;
-                    video.autoplay = true;
-                    video.playsInline = true;
-                    
-                    wrapper.appendChild(video);
-                    displayContainer.appendChild(wrapper);
-
-                    // --- INICIO: Lógica de control de enfoque ---
-                    const focusControls = document.getElementById('focus-controls');
-                    const focusSlider = document.getElementById('focus-slider');
-                    videoTrack = videoStream.getVideoTracks()[0];
-                    const capabilities = videoTrack.getCapabilities();
-
-                    console.log("Capacidades de la cámara:", capabilities);
-                    console.log("Configuración actual:", videoTrack.getSettings());
-
-                    // Comprobar si la cámara soporta el ajuste de 'focusDistance'
-                    if (capabilities.focusDistance) {
-                        focusControls.style.display = 'block';
-                        focusSlider.min = capabilities.focusDistance.min;
-                        focusSlider.max = capabilities.focusDistance.max;
-                        focusSlider.step = capabilities.focusDistance.step || 0.1;
-                        
-                        const currentSettings = videoTrack.getSettings();
-                        if (currentSettings.focusDistance) {
-                            focusSlider.value = currentSettings.focusDistance;
-                        }
-                        
-                        focusSlider.addEventListener('input', () => {
-                            if (videoTrack) {
-                                videoTrack.applyConstraints({
-                                    advanced: [{ focusDistance: focusSlider.value }]
-                                }).catch(e => console.error("Error al aplicar el enfoque:", e));
-                            }
-                        });
-                    } else {
-                        console.warn("El control de enfoque manual no es soportado por esta cámara.");
-                        focusControls.style.display = 'none';
-                    }
-                    // --- FIN: Lógica de control de enfoque ---
-
-                    // Actualizar UI
-                    cameraButton.innerHTML = '<i class="fas fa-camera"></i> Capturar y Analizar';
-                    cameraButton.classList.remove('secondary-action');
-                    cameraButton.classList.add('primary-action');
-
-                    const stopButton = document.createElement('button');
-                    stopButton.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
-                    stopButton.className = 'button secondary-action stop';
-                    stopButton.onclick = stopCamera;
-                    cameraButton.parentNode.insertBefore(stopButton, cameraButton.nextSibling);
-
-                    fileLabel.style.display = 'none';
-                    analyzeButton.style.display = 'none';
-
-                } catch (error) {
-                    console.error("Error al acceder a la cámara:", error);
-                    setAuditorSpeech('No se pudo acceder a la cámara.');
-                    isCameraActive = false;
-                }
-            } else {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 setAuditorSpeech('Tu navegador no soporta la API de cámara.');
+                return;
+            }
+
+            isCameraActive = true;
+            setAuditorSpeech('Buscando cámara y aplicando ajustes...');
+
+            try {
+                if (videoStream) { videoStream.getTracks().forEach(track => track.stop()); }
+
+                // 1. Obtener lista de dispositivos
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+                // 2. Priorizar cámara externa/trasera
+                let preferredDeviceId = null;
+                const rearCamera = videoDevices.find(device => /back|rear|environment/i.test(device.label));
+                const externalCamera = videoDevices.find(device => !/front|face/i.test(device.label));
+                
+                if (rearCamera) {
+                    preferredDeviceId = rearCamera.deviceId;
+                    console.log("Cámara trasera encontrada:", rearCamera.label);
+                } else if (externalCamera) {
+                    preferredDeviceId = externalCamera.deviceId;
+                    console.log("Cámara externa/predeterminada encontrada:", externalCamera.label);
+                } else if (videoDevices.length > 0) {
+                    preferredDeviceId = videoDevices[0].deviceId;
+                    console.log("Usando la primera cámara disponible:", videoDevices[0].label);
+                } else {
+                    throw new Error("No se encontraron cámaras disponibles.");
+                }
+
+                // 3. Establecer las restricciones
+                const constraints = {
+                    video: {
+                        deviceId: { exact: preferredDeviceId },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoTrack = videoStream.getVideoTracks()[0];
+                cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+
+                displayContainer.innerHTML = ''; 
+                const wrapper = document.createElement('div');
+                wrapper.id = 'video-wrapper';
+                const video = document.createElement('video');
+                video.id = 'video-feed';
+                video.srcObject = videoStream;
+                video.autoplay = true;
+                video.playsInline = true;
+                
+                wrapper.appendChild(video);
+                displayContainer.appendChild(wrapper);
+                
+                await video.play();
+
+                // 4. Aplicar ajustes y activar controles
+                await applyFixedCameraSettings();
+                initializeCameraControls();
+                
+                setAuditorSpeech('Cámara activada. ¡Listo para capturar!');
+                updateUIAfterCameraStart();
+
+            } catch (error) {
+                console.error("Error al acceder a la cámara:", error);
+                setAuditorSpeech('Error de cámara. Revisa permisos o recarga.');
+                isCameraActive = false;
             }
         }
+
+        async function applyCameraSetting(settingName, value) {
+            if (!videoTrack || !videoTrack.applyConstraints) return false;
+            try { 
+                await videoTrack.applyConstraints({ advanced: [{[settingName]: value}] }); 
+                return true; 
+            } 
+            catch (err) { console.error(`Error al aplicar ${settingName} = ${value}: `, err); return false; }
+        }
+
+        async function applyFixedCameraSettings() {
+            console.log("Aplicando ajustes de cámara fijos...");
+            if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
+            if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
+            if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
+            if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
+        }
+
+        function updateSliderValue(sliderElement, valueElement, value, unit = "") {
+            if (valueElement) valueElement.textContent = `${parseFloat(value).toFixed(0)}${unit}`;
+            if (sliderElement) sliderElement.value = value;
+        }
+
+        function initializeCameraControls() {
+            let controlsVisible = false;
+
+            // Control de Enfoque
+            if (cameraCapabilities.focusMode && cameraCapabilities.focusMode.includes('manual') && cameraCapabilities.focusDistance) {
+                focusControlGroup.style.display = 'flex';
+                controlsVisible = true;
+                const focusCaps = cameraCapabilities.focusDistance;
+                focusSlider.min = focusCaps.min; focusSlider.max = focusCaps.max; focusSlider.step = focusCaps.step || 1;
+                const initialFocus = videoTrack.getSettings().focusDistance || focusCaps.min;
+                updateSliderValue(focusSlider, focusValueEl, initialFocus);
+                
+                applyCameraSetting('focusMode', 'manual').then(success => { 
+                    if (success) applyCameraSetting('focusDistance', initialFocus); 
+                });
+                focusSlider.oninput = () => updateSliderValue(null, focusValueEl, focusSlider.value);
+                focusSlider.onchange = () => applyCameraSetting('focusDistance', parseFloat(focusSlider.value));
+            } else {
+                focusControlGroup.style.display = 'none';
+            }
+
+            // Control de Zoom
+            if (cameraCapabilities.zoom) {
+                zoomControlGroup.style.display = 'flex';
+                controlsVisible = true;
+                const zoomCaps = cameraCapabilities.zoom;
+                zoomSlider.min = zoomCaps.min; zoomSlider.max = zoomCaps.max; zoomSlider.step = zoomCaps.step || 1;
+                const initialZoom = videoTrack.getSettings().zoom || zoomCaps.min;
+                updateSliderValue(zoomSlider, zoomValueEl, initialZoom);
+
+                zoomSlider.oninput = () => updateSliderValue(null, zoomValueEl, zoomSlider.value);
+                zoomSlider.onchange = () => applyCameraSetting('zoom', parseFloat(zoomSlider.value));
+            } else {
+                zoomControlGroup.style.display = 'none';
+            }
+
+            // Mostrar el contenedor principal si al menos un control está visible
+            cameraControlsContainer.style.display = controlsVisible ? 'block' : 'none';
+        }
+
+        function updateUIAfterCameraStart() {
+            cameraButton.innerHTML = '<i class="fas fa-camera"></i> Capturar y Analizar';
+            cameraButton.classList.remove('secondary-action');
+            cameraButton.classList.add('primary-action');
+
+            const stopButton = document.createElement('button');
+            stopButton.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
+            stopButton.className = 'button secondary-action stop';
+            stopButton.onclick = stopCamera;
+            cameraButton.parentNode.insertBefore(stopButton, cameraButton.nextSibling);
+
+            fileLabel.style.display = 'none';
+            analyzeButton.style.display = 'none';
+        }
+        // --- MODIFICACIÓN TERMINA ---
 
         function stopCamera() {
             if (videoStream) {
@@ -255,7 +354,9 @@
             videoStream = null;
             videoTrack = null; 
 
-            document.getElementById('focus-controls').style.display = 'none';
+            // --- MODIFICACIÓN INICIA: Ocultar controles de cámara ---
+            cameraControlsContainer.style.display = 'none';
+            // --- MODIFICACIÓN TERMINA ---
             
             // Restaurar UI
             cameraButton.innerHTML = '<i class="fas fa-video"></i> Modo Cámara';
