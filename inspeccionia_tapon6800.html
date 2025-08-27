@@ -15,58 +15,9 @@
             justify-content: center; min-height: 300px;
         }
         #image-wrapper, #video-wrapper { position: relative; width: 100%; line-height: 0; }
-        #uploaded-image, #video-feed, #overlay-canvas, #camera-preview-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #uploaded-image, #video-feed, #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
         #uploaded-image, #video-feed { position: relative; width: 100%; height: auto; display: block; background-color: #000; }
         #overlay-canvas { pointer-events: none; }
-
-        /* NUEVO: Estilos para el control de enfoque */
-        #focus-control-container {
-            margin-top: 15px;
-            padding: 10px;
-            background-color: #f0f2f5;
-            border-radius: 5px;
-            display: none; /* Oculto por defecto */
-        }
-        #focus-control-container.active {
-            display: block; /* Visible cuando la cámara está activa */
-        }
-        #focus-control-container label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: #333;
-        }
-        #focus-slider {
-            width: 100%;
-            -webkit-appearance: none;
-            height: 8px;
-            background: #d3d3d3;
-            outline: none;
-            opacity: 0.7;
-            -webkit-transition: .2s;
-            transition: opacity .2s;
-            border-radius: 4px;
-        }
-        #focus-slider:hover { opacity: 1; }
-        #focus-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #0056b3;
-            cursor: pointer;
-            border: 2px solid #fff;
-        }
-        #focus-slider::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #0056b3;
-            cursor: pointer;
-            border: 2px solid #fff;
-        }
-
         .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 15px; }
         #file-input { display: none; }
         .button {
@@ -119,12 +70,6 @@
                     <input type="file" id="file-input" accept="image/*">
                 </div>
                 <button id="camera-button" class="button secondary-action"><i class="fas fa-video"></i> Modo Cámara</button>
-
-                <div id="focus-control-container">
-                    <label for="focus-slider"><i class="fas fa-magic"></i> Nivel de Enfoque:</label>
-                    <input type="range" id="focus-slider" min="0" max="100" value="0">
-                </div>
-
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
@@ -150,15 +95,11 @@
 
         const analyzeButton = document.getElementById('analyze-button');
         const fileInput = document.getElementById('file-input');
-        const fileLabel = document.getElementById('file-label');
+        const fileLabel = document.getElementById('file-label'); // NUEVO: Referencia al label del input
         const displayContainer = document.getElementById('display-container');
         const labelContainer = document.getElementById('label-container');
         const auditorBubbleSpan = document.querySelector('#auditor-message-bubble span');
-        const cameraButton = document.getElementById('camera-button');
-        // NUEVO: Referencias al control de enfoque
-        const focusControlContainer = document.getElementById('focus-control-container');
-        const focusSlider = document.getElementById('focus-slider');
-
+        const cameraButton = document.getElementById('camera-button'); // NUEVO: Referencia al botón de cámara
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
         let session;
@@ -166,14 +107,9 @@
         let isModelReady = false;
         let isImageReady = false;
 
+        // NUEVO: Variables para el control de la cámara
         let videoStream = null;
         let isCameraActive = false;
-        // NUEVO: Canvas para previsualización de cámara con filtro
-        let cameraPreviewCanvas = null;
-        let cameraPreviewCtx = null;
-        let videoFeed = null; // Referencia al elemento <video> para el bucle de renderizado
-
-        let animationFrameId = null; // Para controlar el bucle de renderizado
 
         function setAuditorSpeech(message) {
             if(auditorBubbleSpan) auditorBubbleSpan.textContent = message;
@@ -190,6 +126,7 @@
             }
         }
         
+        // NUEVO: Función para limpiar el visor
         function clearDisplay() {
             displayContainer.innerHTML = '<span style="color:#6c757d; font-size: 1.2em;">Sube una imagen o activa la cámara</span>';
             labelContainer.innerHTML = "<p>Los resultados del análisis aparecerán aquí.</p>";
@@ -198,39 +135,25 @@
             analyzeButton.disabled = true;
         }
 
+        // NUEVO: Función para iniciar la cámara
         async function startCamera() {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
                     videoStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
                     isCameraActive = true;
-                    setAuditorSpeech('Cámara activada. Ajusta el enfoque.');
+                    setAuditorSpeech('Cámara activada. ¡Listo para capturar!');
                     
-                    displayContainer.innerHTML = '';
+                    displayContainer.innerHTML = ''; // Limpiar el contenedor
                     const wrapper = document.createElement('div');
                     wrapper.id = 'video-wrapper';
-
-                    videoFeed = document.createElement('video'); // Referencia actualizada
-                    videoFeed.id = 'video-feed';
-                    videoFeed.srcObject = videoStream;
-                    videoFeed.autoplay = true;
-                    videoFeed.playsInline = true;
-                    videoFeed.style.display = 'none'; // Ocultar el video directo, usaremos el canvas
-
-                    cameraPreviewCanvas = document.createElement('canvas'); // NUEVO: Canvas para la previsualización
-                    cameraPreviewCanvas.id = 'camera-preview-canvas';
-                    cameraPreviewCtx = cameraPreviewCanvas.getContext('2d');
+                    const video = document.createElement('video');
+                    video.id = 'video-feed';
+                    video.srcObject = videoStream;
+                    video.autoplay = true;
+                    video.playsInline = true;
                     
-                    wrapper.appendChild(videoFeed);
-                    wrapper.appendChild(cameraPreviewCanvas);
+                    wrapper.appendChild(video);
                     displayContainer.appendChild(wrapper);
-
-                    // Asegurarse de que el video esté listo antes de dibujar en canvas
-                    videoFeed.onloadedmetadata = () => {
-                        cameraPreviewCanvas.width = videoFeed.videoWidth;
-                        cameraPreviewCanvas.height = videoFeed.videoHeight;
-                        // Iniciar el bucle de renderizado solo cuando el video esté listo
-                        animationFrameId = requestAnimationFrame(renderCameraFrame);
-                    };
 
                     // Actualizar UI
                     cameraButton.innerHTML = '<i class="fas fa-camera"></i> Capturar y Analizar';
@@ -245,12 +168,10 @@
 
                     fileLabel.style.display = 'none';
                     analyzeButton.style.display = 'none';
-                    focusControlContainer.classList.add('active'); // Mostrar control de enfoque
-                    focusSlider.value = 0; // Resetear el slider al activar la cámara
 
                 } catch (error) {
                     console.error("Error al acceder a la cámara:", error);
-                    setAuditorSpeech('No se pudo acceder a la cámara. Asegúrate de dar permisos.');
+                    setAuditorSpeech('No se pudo acceder a la cámara.');
                     isCameraActive = false;
                 }
             } else {
@@ -258,17 +179,13 @@
             }
         }
 
+        // NUEVO: Función para detener la cámara
         function stopCamera() {
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
             }
             isCameraActive = false;
             videoStream = null;
-            videoFeed = null;
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId); // Detener el bucle de renderizado
-                animationFrameId = null;
-            }
             
             // Restaurar UI
             cameraButton.innerHTML = '<i class="fas fa-video"></i> Modo Cámara';
@@ -280,8 +197,7 @@
             
             fileLabel.style.display = 'inline-block';
             analyzeButton.style.display = 'inline-block';
-            focusControlContainer.classList.remove('active'); // Ocultar control de enfoque
-
+            
             // Si no hay una imagen analizada, limpiar el display
             if (!isImageReady) {
                 clearDisplay();
@@ -289,93 +205,33 @@
             setAuditorSpeech('Cámara detenida. Sube una imagen o activa la cámara.');
         }
 
-        // NUEVO: Bucle para renderizar el video en el canvas con el filtro de enfoque
-        function renderCameraFrame() {
-            if (!videoFeed || videoFeed.paused || videoFeed.ended || !isCameraActive || !cameraPreviewCtx) {
-                return;
-            }
-
-            // Dibuja el frame del video en el canvas de previsualización
-            cameraPreviewCtx.drawImage(videoFeed, 0, 0, cameraPreviewCanvas.width, cameraPreviewCanvas.height);
-
-            // Aplica el filtro de nitidez si el slider no está en 0
-            const focusLevel = parseFloat(focusSlider.value);
-            if (focusLevel > 0) {
-                applySharpenFilter(cameraPreviewCtx, cameraPreviewCanvas, focusLevel);
-            }
-
-            animationFrameId = requestAnimationFrame(renderCameraFrame);
-        }
-
-        // NUEVO: Función para aplicar el filtro de nitidez (sharpness)
-        function applySharpenFilter(ctx, canvas, level) {
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const pixels = imageData.data;
-            const width = canvas.width;
-            const height = canvas.height;
-
-            // Kernel de nitidez (ejemplo básico, se puede refinar)
-            // Un valor de 'level' alto hará el filtro más intenso.
-            // Aquí lo escalamos para que 0 sea sin efecto y 100 sea un efecto notable.
-            const factor = level / 100 * 2.5; // Ajusta el multiplicador según la intensidad deseada
-            const kernel = [
-                0, -factor, 0,
-                -factor, 1 + (4 * factor), -factor,
-                0, -factor, 0
-            ];
-            const kernelSize = 3;
-            const kernelMiddle = Math.floor(kernelSize / 2);
-
-            const outputPixels = new Uint8ClampedArray(pixels.length);
-
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    let r = 0, g = 0, b = 0;
-
-                    for (let ky = 0; ky < kernelSize; ky++) {
-                        for (let kx = 0; kx < kernelSize; kx++) {
-                            const pixelX = x + kx - kernelMiddle;
-                            const pixelY = y + ky - kernelMiddle;
-
-                            if (pixelX >= 0 && pixelX < width && pixelY >= 0 && pixelY < height) {
-                                const index = (pixelY * width + pixelX) * 4;
-                                const kernelValue = kernel[ky * kernelSize + kx];
-
-                                r += pixels[index] * kernelValue;
-                                g += pixels[index + 1] * kernelValue;
-                                b += pixels[index + 2] * kernelValue;
-                            }
-                        }
-                    }
-                    const outputIndex = (y * width + x) * 4;
-                    outputPixels[outputIndex] = Math.min(255, Math.max(0, r));
-                    outputPixels[outputIndex + 1] = Math.min(255, Math.max(0, g));
-                    outputPixels[outputIndex + 2] = Math.min(255, Math.max(0, b));
-                    outputPixels[outputIndex + 3] = pixels[outputIndex + 3]; // Alpha channel
-                }
-            }
-            ctx.putImageData(new ImageData(outputPixels, width, height), 0, 0);
-        }
-
+        // NUEVO: Función para capturar un cuadro del video y analizarlo
         function captureAndAnalyze() {
-            if (!cameraPreviewCanvas) return; // Asegurarse de que el canvas exista
+            const video = document.getElementById('video-feed');
+            if (!video) return;
 
             setAuditorSpeech('Capturando imagen...');
-            const capturedImg = new Image();
-            capturedImg.onload = () => {
-                // Mostrar la imagen capturada (que ya tiene el enfoque aplicado)
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const img = new Image();
+            img.onload = () => {
+                // Mostrar la imagen capturada
                 displayContainer.innerHTML = '';
                 const wrapper = document.createElement('div');
                 wrapper.id = 'image-wrapper';
-                capturedImg.id = 'uploaded-image';
+                img.id = 'uploaded-image';
                 const overlay = document.createElement('canvas');
                 overlay.id = 'overlay-canvas';
                 
-                wrapper.appendChild(capturedImg);
+                wrapper.appendChild(img);
                 wrapper.appendChild(overlay);
                 displayContainer.appendChild(wrapper);
 
-                imageSource = capturedImg;
+                imageSource = img;
                 isImageReady = true;
 
                 // Detener la cámara después de la captura
@@ -384,17 +240,17 @@
                 // Ejecutar el análisis
                 runAnalysis();
             };
-            capturedImg.src = cameraPreviewCanvas.toDataURL('image/png'); // Captura del canvas con filtro
+            img.src = canvas.toDataURL('image/png');
         }
 
         async function initializeModel() {
-            cameraButton.disabled = true;
+            cameraButton.disabled = true; // Deshabilitar hasta que el modelo cargue
             try {
                 if (!session) {
                     setAuditorSpeech('Cargando modelo IA (puede tardar)...');
                     session = await ort.InferenceSession.create(MODEL_PATH);
                     isModelReady = true;
-                    cameraButton.disabled = false;
+                    cameraButton.disabled = false; // Habilitar el botón de la cámara
                     checkReadyState();
                 }
             } catch (error) {
@@ -414,7 +270,7 @@
             const results = await session.run({ 'images': tensor });
             
             const overlayCanvas = document.getElementById('overlay-canvas');
-            if (!overlayCanvas) return;
+            if (!overlayCanvas) return; // Chequeo de seguridad
             
             const ctx = overlayCanvas.getContext('2d');
             overlayCanvas.width = imageSource.clientWidth;
@@ -432,8 +288,8 @@
             canvas.height = MODEL_HEIGHT;
             const ctx = canvas.getContext('2d');
             
-            const naturalWidth = source.naturalWidth || source.videoWidth; 
-            const naturalHeight = source.naturalHeight || source.videoHeight;
+            const naturalWidth = source.naturalWidth || source.videoWidth; // MODIFICADO: Compatible con video/imagen
+            const naturalHeight = source.naturalHeight || source.videoHeight; // MODIFICADO: Compatible con video/imagen
 
             const scale = Math.min(MODEL_WIDTH / naturalWidth, MODEL_HEIGHT / naturalHeight);
             const scaledWidth = naturalWidth * scale;
@@ -569,7 +425,7 @@
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            if (isCameraActive) stopCamera();
+            if (isCameraActive) stopCamera(); // Detener cámara si está activa
 
             isImageReady = false;
             analyzeButton.disabled = true;
@@ -597,21 +453,12 @@
             img.src = URL.createObjectURL(file);
         });
 
+        // MODIFICADO: Evento para el botón de la cámara
         cameraButton.addEventListener('click', () => {
             if (isCameraActive) {
                 captureAndAnalyze();
             } else {
                 startCamera();
-            }
-        });
-
-        // NUEVO: Evento para el slider de enfoque
-        focusSlider.addEventListener('input', () => {
-            if (isCameraActive) {
-                // No es necesario llamar a renderCameraFrame directamente aquí,
-                // ya que el requestAnimationFrame lo hará continuamente.
-                // Simplemente aseguramos que el valor del slider actualice el filtro en el siguiente frame.
-                setAuditorSpeech(`Enfoque ajustado a ${focusSlider.value}%.`);
             }
         });
         
