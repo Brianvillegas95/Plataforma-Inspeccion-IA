@@ -38,6 +38,29 @@
         .results-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 8px; text-align: left; }
         .results-table th { background-color: #f8f9fa; font-weight: bold; }
+
+        /* NUEVO: Estilos para el control de enfoque */
+        #focus-controls {
+            display: none; /* Oculto por defecto */
+            padding: 10px 0;
+            text-align: center;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+        #focus-slider {
+            width: 70%;
+            max-width: 400px;
+            vertical-align: middle;
+            cursor: pointer;
+        }
+        #focus-controls label {
+            margin-right: 10px;
+            font-size: 0.9em;
+            color: #495057;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body class="inspector-body">
@@ -53,6 +76,10 @@
                 <h2 class="panel-title"><i class="fas fa-eye"></i> Visor de Inspección</h2>
                 <div id="display-container">
                     <span style="color:#6c757d; font-size: 1.2em;">Sube una imagen o activa la cámara</span>
+                </div>
+                <div id="focus-controls">
+                    <label for="focus-slider"><i class="fas fa-search-location"></i> Enfoque:</label>
+                    <input type="range" id="focus-slider" title="Ajustar Enfoque">
                 </div>
                 <div class="label-container" id="label-container">
                     <p>Los resultados del análisis aparecerán aquí.</p>
@@ -95,21 +122,22 @@
 
         const analyzeButton = document.getElementById('analyze-button');
         const fileInput = document.getElementById('file-input');
-        const fileLabel = document.getElementById('file-label'); // NUEVO: Referencia al label del input
+        const fileLabel = document.getElementById('file-label'); 
         const displayContainer = document.getElementById('display-container');
         const labelContainer = document.getElementById('label-container');
         const auditorBubbleSpan = document.querySelector('#auditor-message-bubble span');
-        const cameraButton = document.getElementById('camera-button'); // NUEVO: Referencia al botón de cámara
+        const cameraButton = document.getElementById('camera-button'); 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
         let session;
         let imageSource = null;
         let isModelReady = false;
         let isImageReady = false;
-
-        // NUEVO: Variables para el control de la cámara
+        
         let videoStream = null;
         let isCameraActive = false;
+        // NUEVO: Variable para la pista de video y control de enfoque
+        let videoTrack = null; 
 
         function setAuditorSpeech(message) {
             if(auditorBubbleSpan) auditorBubbleSpan.textContent = message;
@@ -126,7 +154,6 @@
             }
         }
         
-        // NUEVO: Función para limpiar el visor
         function clearDisplay() {
             displayContainer.innerHTML = '<span style="color:#6c757d; font-size: 1.2em;">Sube una imagen o activa la cámara</span>';
             labelContainer.innerHTML = "<p>Los resultados del análisis aparecerán aquí.</p>";
@@ -134,16 +161,23 @@
             isImageReady = false;
             analyzeButton.disabled = true;
         }
-
-        // NUEVO: Función para iniciar la cámara
+        
+        // MODIFICADO: Función para iniciar la cámara con control de enfoque
         async function startCamera() {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
-                    videoStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
+                    // Se solicita el modo de enfoque manual
+                    videoStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 1280 }, 
+                            height: { ideal: 720 },
+                            focusMode: 'manual'
+                        } 
+                    });
                     isCameraActive = true;
                     setAuditorSpeech('Cámara activada. ¡Listo para capturar!');
                     
-                    displayContainer.innerHTML = ''; // Limpiar el contenedor
+                    displayContainer.innerHTML = ''; 
                     const wrapper = document.createElement('div');
                     wrapper.id = 'video-wrapper';
                     const video = document.createElement('video');
@@ -154,6 +188,38 @@
                     
                     wrapper.appendChild(video);
                     displayContainer.appendChild(wrapper);
+
+                    // --- INICIO: Lógica de control de enfoque ---
+                    const focusControls = document.getElementById('focus-controls');
+                    const focusSlider = document.getElementById('focus-slider');
+                    videoTrack = videoStream.getVideoTracks()[0];
+                    const capabilities = videoTrack.getCapabilities();
+
+                    // Comprobar si la cámara soporta el ajuste de 'focusDistance'
+                    if (capabilities.focusDistance) {
+                        focusControls.style.display = 'block'; // Mostrar la barra
+                        focusSlider.min = capabilities.focusDistance.min;
+                        focusSlider.max = capabilities.focusDistance.max;
+                        focusSlider.step = capabilities.focusDistance.step || 0.1; // Un paso razonable por defecto
+                        
+                        const currentSettings = videoTrack.getSettings();
+                        if (currentSettings.focusDistance) {
+                            focusSlider.value = currentSettings.focusDistance;
+                        }
+                        
+                        // Añadir evento para aplicar el enfoque cuando se mueve la barra
+                        focusSlider.addEventListener('input', () => {
+                            if (videoTrack) {
+                                videoTrack.applyConstraints({
+                                    advanced: [{ focusDistance: focusSlider.value }]
+                                }).catch(e => console.error("Error al aplicar el enfoque:", e));
+                            }
+                        });
+                    } else {
+                        console.warn("El control de enfoque manual no es soportado por esta cámara.");
+                        focusControls.style.display = 'none';
+                    }
+                    // --- FIN: Lógica de control de enfoque ---
 
                     // Actualizar UI
                     cameraButton.innerHTML = '<i class="fas fa-camera"></i> Capturar y Analizar';
@@ -179,13 +245,17 @@
             }
         }
 
-        // NUEVO: Función para detener la cámara
+        // MODIFICADO: Función para detener la cámara y ocultar controles de enfoque
         function stopCamera() {
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
             }
             isCameraActive = false;
             videoStream = null;
+            videoTrack = null; // Limpiar referencia a la pista
+
+            // NUEVO: Ocultar la barra de enfoque
+            document.getElementById('focus-controls').style.display = 'none';
             
             // Restaurar UI
             cameraButton.innerHTML = '<i class="fas fa-video"></i> Modo Cámara';
@@ -198,14 +268,12 @@
             fileLabel.style.display = 'inline-block';
             analyzeButton.style.display = 'inline-block';
             
-            // Si no hay una imagen analizada, limpiar el display
             if (!isImageReady) {
                 clearDisplay();
             }
             setAuditorSpeech('Cámara detenida. Sube una imagen o activa la cámara.');
         }
 
-        // NUEVO: Función para capturar un cuadro del video y analizarlo
         function captureAndAnalyze() {
             const video = document.getElementById('video-feed');
             if (!video) return;
@@ -219,7 +287,6 @@
 
             const img = new Image();
             img.onload = () => {
-                // Mostrar la imagen capturada
                 displayContainer.innerHTML = '';
                 const wrapper = document.createElement('div');
                 wrapper.id = 'image-wrapper';
@@ -234,23 +301,21 @@
                 imageSource = img;
                 isImageReady = true;
 
-                // Detener la cámara después de la captura
                 stopCamera();
                 
-                // Ejecutar el análisis
                 runAnalysis();
             };
             img.src = canvas.toDataURL('image/png');
         }
 
         async function initializeModel() {
-            cameraButton.disabled = true; // Deshabilitar hasta que el modelo cargue
+            cameraButton.disabled = true; 
             try {
                 if (!session) {
                     setAuditorSpeech('Cargando modelo IA (puede tardar)...');
                     session = await ort.InferenceSession.create(MODEL_PATH);
                     isModelReady = true;
-                    cameraButton.disabled = false; // Habilitar el botón de la cámara
+                    cameraButton.disabled = false; 
                     checkReadyState();
                 }
             } catch (error) {
@@ -270,7 +335,7 @@
             const results = await session.run({ 'images': tensor });
             
             const overlayCanvas = document.getElementById('overlay-canvas');
-            if (!overlayCanvas) return; // Chequeo de seguridad
+            if (!overlayCanvas) return; 
             
             const ctx = overlayCanvas.getContext('2d');
             overlayCanvas.width = imageSource.clientWidth;
@@ -288,8 +353,8 @@
             canvas.height = MODEL_HEIGHT;
             const ctx = canvas.getContext('2d');
             
-            const naturalWidth = source.naturalWidth || source.videoWidth; // MODIFICADO: Compatible con video/imagen
-            const naturalHeight = source.naturalHeight || source.videoHeight; // MODIFICADO: Compatible con video/imagen
+            const naturalWidth = source.naturalWidth || source.videoWidth; 
+            const naturalHeight = source.naturalHeight || source.videoHeight; 
 
             const scale = Math.min(MODEL_WIDTH / naturalWidth, MODEL_HEIGHT / naturalHeight);
             const scaledWidth = naturalWidth * scale;
@@ -425,7 +490,7 @@
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            if (isCameraActive) stopCamera(); // Detener cámara si está activa
+            if (isCameraActive) stopCamera(); 
 
             isImageReady = false;
             analyzeButton.disabled = true;
@@ -453,7 +518,6 @@
             img.src = URL.createObjectURL(file);
         });
 
-        // MODIFICADO: Evento para el botón de la cámara
         cameraButton.addEventListener('click', () => {
             if (isCameraActive) {
                 captureAndAnalyze();
