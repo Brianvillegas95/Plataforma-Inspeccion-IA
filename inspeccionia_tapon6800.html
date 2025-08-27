@@ -38,9 +38,27 @@
             margin-top: 5px;
             font-size: 0.9em;
         }
-        /* Ocultamos el input de archivo por defecto */
+        /* Ocultamos el input de archivo por defecto para estilizar el label como un botón */
         #file-input {
             display: none;
+        }
+        /* Estilo para que el label parezca un botón (puedes ajustarlo en tu CSS) */
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            font-size: 1.1em;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            outline: none;
+            color: #fff;
+            background-color: #6c757d;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #5a6268;
         }
     </style>
 </head>
@@ -82,6 +100,7 @@
                     </label>
                     <input type="file" id="file-input" accept="image/*">
                 </div>
+
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
@@ -101,7 +120,7 @@
     </div>
 
     <script type="text/javascript">
-        // --- SECCIÓN DE CONFIGURACIÓN (SIN CAMBIOS) ---
+        // --- SECCIÓN DE CONFIGURACIÓN ---
         const MODELO_ONNX_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
         const NOMBRES_CLASES = ['Incompleto', 'Rebaba', 'Sin Defecto', 'Punto Alto'];
         const COLORES_CLASES = ['#FFA500', '#FF4500', '#2E8B57', '#FFD700'];
@@ -119,19 +138,17 @@
         if(document.getElementById('currentYearInspector')) { 
             document.getElementById('currentYearInspector').textContent = new Date().getFullYear();
         }
-        // NUEVAS REFERENCIAS PARA LA CARGA DE ARCHIVOS
         const fileInput = document.getElementById('file-input');
         const uploadLabel = document.getElementById('upload-label');
-
 
         // --- VARIABLES DE ESTADO ---
         let onnxSession;
         let videoElement;
         let stream = null; 
-        let currentSource = null; // Para saber si estamos usando la cámara o una imagen
+        let currentSource = null;
         let typingTimeoutAuditorInspector;
 
-        // --- LÓGICA DEL ASISTENTE (SIN CAMBIOS) ---
+        // --- LÓGICA DEL ASISTENTE ---
         function setAuditorInspectorSpeech(message, isTypingEffect = false, status = 'idle') {
             if (!auditorBubbleSpanInspector) return;
             clearTimeout(typingTimeoutAuditorInspector);
@@ -160,39 +177,29 @@
         async function init() {
             setAuditorInspectorSpeech('Configurando cámara...', true, 'loading');
             labelContainerInspector.innerHTML = "Iniciando cámara...";
-            
             if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
-
             try {
-                // 1. INICIALIZAR CÁMARA
                 videoElement = document.createElement('video');
                 videoElement.id = 'video-feed';
                 videoElement.autoplay = true;
                 videoElement.playsInline = true;
                 webcamContainerInspector.innerHTML = '';
                 webcamContainerInspector.appendChild(videoElement);
-
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 videoElement.srcObject = stream;
                 currentSource = videoElement;
                 await new Promise((resolve) => { videoElement.onloadedmetadata = resolve; });
-                
-                // 2. CARGAR MODELO ONNX (si no está cargado)
                 if (!onnxSession) {
                     setAuditorInspectorSpeech('Cargando modelo IA...', false, 'loading');
                     labelContainerInspector.innerHTML = "Cargando modelo IA...";
                     onnxSession = await ort.InferenceSession.create(MODELO_ONNX_PATH);
                 }
-
-                // 3. HABILITAR BOTONES
                 labelContainerInspector.innerHTML = "Sistema listo. Encuadre las piezas o suba una imagen.";
                 setAuditorInspectorSpeech('Sistema listo. Encuadre las piezas o suba una imagen.', true, 'idle');
                 captureButtonInspector.disabled = false;
                 captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Analizar';
                 uploadLabel.style.display = 'inline-block';
-
             } catch (error) {
-                // Manejo de errores (sin cambios)
                 console.error("Error al inicializar:", error);
                 let errMsg = `Error: ${error.message}`;
                 if (String(error).includes("onnx")) {
@@ -209,10 +216,10 @@
             }
         }
         
-        // --- FUNCIÓN PRINCIPAL DE ANÁLISIS (MODIFICADA) ---
+        // --- FUNCIÓN PRINCIPAL DE ANÁLISIS ---
         async function analyze() {
             if (!onnxSession || !currentSource) {
-                alert("El sistema no está listo o no hay imagen/video.");
+                alert("El sistema no está listo o no hay imagen/video para analizar.");
                 return;
             }
 
@@ -221,8 +228,9 @@
             setAuditorInspectorSpeech('Procesando imagen...', true, 'thinking');
             labelContainerInspector.innerHTML = "Analizando la imagen...";
 
-            const modelWidth = 640; // Resolución estándar de YOLOv8s
-            const modelHeight = 640;
+            // --- CAMBIO CLAVE: Ajustar la resolución al modelo (1280x1280) ---
+            const modelWidth = 1280; 
+            const modelHeight = 1280;
 
             const canvas = document.createElement('canvas');
             canvas.width = modelWidth;
@@ -242,10 +250,8 @@
 
             const tensor = new ort.Tensor('float32', float32Data, [1, 3, modelHeight, modelWidth]);
             const feeds = { 'images': tensor };
-
             const results = await onnxSession.run(feeds);
             
-            // Reutilizamos el canvas para dibujar los resultados
             const displayWidth = currentSource.videoWidth || currentSource.width;
             const displayHeight = currentSource.videoHeight || currentSource.height;
             canvas.width = displayWidth;
@@ -262,7 +268,7 @@
             captureButtonInspector.innerHTML = '<i class="fas fa-redo"></i> Iniciar de Nuevo';
         }
 
-        // --- FUNCIONES DE SOPORTE PARA DIBUJO Y NMS (SIN CAMBIOS) ---
+        // --- FUNCIONES DE SOPORTE PARA DIBUJO Y PROCESAMIENTO ---
         function nonMaxSuppression(boxes, scores, iouThreshold) {
             const indices = scores.map((_, i) => i);
             indices.sort((a, b) => scores[b] - scores[a]);
@@ -294,7 +300,6 @@
         }
 
         function drawBoundingBoxes(outputTensor, ctx) {
-            // Lógica ajustada para el formato de salida de YOLOv8 ONNX
             const outputData = outputTensor.data;
             const numClasses = NOMBRES_CLASES.length;
             const numProposals = outputTensor.dims[2];
@@ -342,8 +347,11 @@
                 }
 
                 const [x1, y1, x2, y2] = det.box;
-                const x_ratio = ctx.canvas.width / 640;
-                const y_ratio = ctx.canvas.height / 640;
+                
+                // --- CAMBIO CLAVE: El ratio de escala ahora usa la dimensión correcta del modelo ---
+                const x_ratio = ctx.canvas.width / 1280;
+                const y_ratio = ctx.canvas.height / 1280;
+
                 const x = x1 * x_ratio;
                 const y = y1 * y_ratio;
                 const w = (x2 - x1) * x_ratio;
@@ -365,14 +373,12 @@
         }
         
         function updateSummary(detections, conteo, aprobado) {
-            // Lógica para mostrar el resumen (sin cambios)
              let summaryHtml = '';
             if (detections.length === 0) {
                 summaryHtml = "No se encontraron hallazgos en la muestra.";
                 setAuditorInspectorSpeech('No encontré hallazgos. ¡Todo bien!', false, 'ok');
             } else {
                 let statusMessage, statusColor, auditorStatus, auditorMessage;
-
                 if (aprobado) {
                     statusMessage = 'Muestreo Aprobado'; statusColor = 'var(--success-color, green)';
                     auditorStatus = 'ok'; auditorMessage = '¡Excelente! Todas las piezas están sin defectos.';
@@ -380,7 +386,6 @@
                     statusMessage = 'Prueba no aprobada'; statusColor = 'var(--error-color, red)';
                     auditorStatus = 'error'; auditorMessage = 'Se encontraron defectos en la muestra.';
                 }
-                
                 summaryHtml = `Resultado: <strong style="color:${statusColor};">${statusMessage}</strong>`;
                 summaryHtml += `<br>Total de Piezas: <strong>${detections.length}</strong>`;
                 summaryHtml += `<ul class="summary-list">`;
@@ -399,25 +404,22 @@
         // --- ASIGNACIÓN DE EVENTOS ---
         captureButtonInspector.addEventListener('click', () => {
             if (captureButtonInspector.innerHTML.includes('Iniciar de Nuevo')) {
-                init(); // Reinicia el proceso para mostrar el video en vivo de nuevo
+                init();
             } else {
                 analyze();
             }
         });
         
-        // NUEVO EVENT LISTENER PARA EL INPUT DE ARCHIVO
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
                 if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
-                
                 const uploadedImage = new Image();
                 uploadedImage.id = 'uploaded-image-preview';
                 uploadedImage.onload = () => {
                     webcamContainerInspector.innerHTML = '';
                     webcamContainerInspector.appendChild(uploadedImage);
-                    currentSource = uploadedImage; // Actualizamos la fuente para el análisis
-                    
+                    currentSource = uploadedImage;
                     labelContainerInspector.innerHTML = "Imagen cargada. Lista para analizar.";
                     setAuditorInspectorSpeech('Imagen cargada. Presiona Analizar.', true, 'idle');
                     captureButtonInspector.disabled = false;
