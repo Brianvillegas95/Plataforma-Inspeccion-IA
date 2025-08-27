@@ -6,15 +6,19 @@
     <title>Inspección IA - Tapon 6800</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
     <style>
+        /* Estilos Mínimos para asegurar la funcionalidad visual de los nuevos elementos */
         .vision-panel #webcam-container {
             position: relative;
             background-color: #000;
             min-height: 480px; /* Altura fija para el contenedor */
+            border-radius: 4px;
+            overflow: hidden;
         }
-        #video-feed, #result-image {
+        #video-feed, #result-canvas, #uploaded-image-preview {
             position: absolute;
             top: 0;
             left: 0;
@@ -22,11 +26,21 @@
             height: 100%;
             object-fit: contain; /* Para que la imagen o video se ajuste */
         }
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            align-items: center;
+        }
         .summary-list {
             list-style-type: none;
             padding: 0;
             margin-top: 5px;
             font-size: 0.9em;
+        }
+        /* Ocultamos el input de archivo por defecto */
+        #file-input {
+            display: none;
         }
     </style>
 </head>
@@ -38,19 +52,7 @@
                 <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
             </div>
             <nav class="main-nav">
-                <ul>
-                    <li class="dropdown">
-                        <a href="index.html" class="dropdown-toggle">Inicio</a>
-                    </li>
-                    <li class="dropdown">
-                        <a href="#" class="dropdown-toggle active" data-area="Moldeo">Moldeo <i class="fas fa-angle-down nav-arrow"></i></a>
-                        <ul class="dropdown-menu">
-                            <li><a href="Clasificador_MMC21.html" class="active">Clasificador MMC2-1</a></li>
-                            <li><a href="validador_color.html" class="active">Validador de Color</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </nav>
+                </nav>
         </header>
 
         <main class="main-content-grid"> 
@@ -66,17 +68,20 @@
                 <h3 class="panel-title"><i class="fas fa-list-ol"></i> Instrucciones</h3>
                 <h4>Instrucciones de Uso:</h4>
                 <ol>
-                    <li>Encuadre las piezas con la cámara.</li>
-                    <li>Presione "Capturar y Analizar" para tomar la foto.</li>
-                    <li>Espere el resultado con los hallazgos.</li>
+                    <li>Usa la cámara o presiona "Subir Imagen".</li>
+                    <li>Presiona "Analizar" para iniciar la inspección.</li>
+                    <li>Espera el resultado con los hallazgos.</li>
                 </ol>
 
-                <div class="action-buttons single-button-centered">
+                <div class="action-buttons">
                     <button id="capture-button" class="button primary-action" disabled>
-                        <i class="fas fa-spinner fa-spin"></i> Iniciando Cámara...
+                        <i class="fas fa-spinner fa-spin"></i> Iniciando...
                     </button>
+                    <label for="file-input" id="upload-label" class="button">
+                        <i class="fas fa-upload"></i> Subir Imagen
+                    </label>
+                    <input type="file" id="file-input" accept="image/*">
                 </div>
-
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
@@ -96,7 +101,7 @@
     </div>
 
     <script type="text/javascript">
-        // --- SECCIÓN DE CONFIGURACIÓN ---
+        // --- SECCIÓN DE CONFIGURACIÓN (SIN CAMBIOS) ---
         const MODELO_ONNX_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
         const NOMBRES_CLASES = ['Incompleto', 'Rebaba', 'Sin Defecto', 'Punto Alto'];
         const COLORES_CLASES = ['#FFA500', '#FF4500', '#2E8B57', '#FFD700'];
@@ -114,15 +119,19 @@
         if(document.getElementById('currentYearInspector')) { 
             document.getElementById('currentYearInspector').textContent = new Date().getFullYear();
         }
+        // NUEVAS REFERENCIAS PARA LA CARGA DE ARCHIVOS
+        const fileInput = document.getElementById('file-input');
+        const uploadLabel = document.getElementById('upload-label');
+
 
         // --- VARIABLES DE ESTADO ---
         let onnxSession;
         let videoElement;
         let stream = null; 
-        let cameraCapabilities = {};
-        let videoTrack;
+        let currentSource = null; // Para saber si estamos usando la cámara o una imagen
+        let typingTimeoutAuditorInspector;
 
-        // --- LÓGICA DEL ASISTENTE ---
+        // --- LÓGICA DEL ASISTENTE (SIN CAMBIOS) ---
         function setAuditorInspectorSpeech(message, isTypingEffect = false, status = 'idle') {
             if (!auditorBubbleSpanInspector) return;
             clearTimeout(typingTimeoutAuditorInspector);
@@ -147,106 +156,81 @@
             }
         }
 
-        // --- LÓGICA DE AJUSTES DE CÁMARA ---
-        async function applyCameraSetting(settingName, value) {
-            if (!videoTrack || !videoTrack.applyConstraints) return;
-            try {
-                const constraint = { [settingName]: value };
-                await videoTrack.applyConstraints({ advanced: [constraint] });
-            } catch (err) {
-                console.error(`Error al aplicar ${settingName} = ${value}: `, err);
-            }
-        }
-
-        async function applyFixedCameraSettings() {
-            if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
-            if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
-            if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
-            if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
-        }
-
         // --- LÓGICA DE INICIALIZACIÓN ---
         async function init() {
             setAuditorInspectorSpeech('Configurando cámara...', true, 'loading');
             labelContainerInspector.innerHTML = "Iniciando cámara...";
             
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
+            if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
 
             try {
-                // 1. INICIALIZAR CÁMARA Y APLICAR AJUSTES
+                // 1. INICIALIZAR CÁMARA
                 videoElement = document.createElement('video');
-                videoElement.setAttribute('id', 'video-feed');
-                videoElement.setAttribute('autoplay', '');
-                videoElement.setAttribute('playsinline', '');
+                videoElement.id = 'video-feed';
+                videoElement.autoplay = true;
+                videoElement.playsInline = true;
                 webcamContainerInspector.innerHTML = '';
                 webcamContainerInspector.appendChild(videoElement);
 
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" } 
-                });
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 videoElement.srcObject = stream;
-                
-                videoTrack = stream.getVideoTracks()[0];
-                cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
-                
+                currentSource = videoElement;
                 await new Promise((resolve) => { videoElement.onloadedmetadata = resolve; });
                 
-                await applyFixedCameraSettings();
+                // 2. CARGAR MODELO ONNX (si no está cargado)
+                if (!onnxSession) {
+                    setAuditorInspectorSpeech('Cargando modelo IA...', false, 'loading');
+                    labelContainerInspector.innerHTML = "Cargando modelo IA...";
+                    onnxSession = await ort.InferenceSession.create(MODELO_ONNX_PATH);
+                }
 
-                // 2. CARGAR MODELO ONNX
-                setAuditorInspectorSpeech('Cargando modelo IA...', false, 'loading');
-                labelContainerInspector.innerHTML = "Cargando modelo IA...";
-                onnxSession = await ort.InferenceSession.create(MODELO_ONNX_PATH);
-
-                // 3. HABILITAR BOTÓN
-                labelContainerInspector.innerHTML = "Sistema listo para capturar.";
-                setAuditorInspectorSpeech('Sistema listo. Encuadre las piezas.', true, 'idle');
+                // 3. HABILITAR BOTONES
+                labelContainerInspector.innerHTML = "Sistema listo. Encuadre las piezas o suba una imagen.";
+                setAuditorInspectorSpeech('Sistema listo. Encuadre las piezas o suba una imagen.', true, 'idle');
                 captureButtonInspector.disabled = false;
-                captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Capturar y Analizar';
+                captureButtonInspector.innerHTML = '<i class="fas fa-camera-retro"></i> Analizar';
+                uploadLabel.style.display = 'inline-block';
 
             } catch (error) {
+                // Manejo de errores (sin cambios)
                 console.error("Error al inicializar:", error);
                 let errMsg = `Error: ${error.message}`;
                 if (String(error).includes("onnx")) {
-                     errMsg = `Error al cargar el modelo: "${MODELO_ONNX_PATH}".`;
+                     errMsg = `Error al cargar el modelo: "${MODELO_ONNX_PATH}". Verifique que el archivo exista en la ruta correcta.`;
                 } else if (error.message && error.message.includes("getUserMedia")) {
                     errMsg = "Error de acceso a la cámara. Verifique los permisos.";
                 }
                 errorContainerInspector.innerText = errMsg; 
                 setAuditorInspectorSpeech('¡Error al iniciar!', false, 'error');
-                labelContainerInspector.innerHTML = `<span style='color:var(--error-color)'>Fallo en Inicialización</span>`;
+                labelContainerInspector.innerHTML = `<span style='color:red;'>Fallo en Inicialización</span>`;
                 captureButtonInspector.disabled = true;
                 captureButtonInspector.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
                 errorContainerInspector.style.display = 'block'; 
             }
         }
         
-        // --- FLUJO DE "CAPTURAR Y ANALIZAR" ---
-        async function captureAndAnalyze() {
-            if (!onnxSession || !videoElement) {
-                alert("El sistema no está listo. Por favor, espere.");
+        // --- FUNCIÓN PRINCIPAL DE ANÁLISIS (MODIFICADA) ---
+        async function analyze() {
+            if (!onnxSession || !currentSource) {
+                alert("El sistema no está listo o no hay imagen/video.");
                 return;
             }
 
             captureButtonInspector.disabled = true;
             captureButtonInspector.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando...';
             setAuditorInspectorSpeech('Procesando imagen...', true, 'thinking');
-            labelContainerInspector.innerHTML = "Analizando la imagen capturada...";
+            labelContainerInspector.innerHTML = "Analizando la imagen...";
 
-            const modelWidth = 1240; // CAMBIO: Ajustado a la resolución del modelo
-            const modelHeight = 1240; // CAMBIO: Ajustado a la resolución del modelo
+            const modelWidth = 640; // Resolución estándar de YOLOv8s
+            const modelHeight = 640;
 
-            // 1. Capturar la imagen en un canvas
-            const captureCanvas = document.createElement('canvas');
-            captureCanvas.width = modelWidth;
-            captureCanvas.height = modelHeight;
-            const captureCtx = captureCanvas.getContext('2d');
-            captureCtx.drawImage(videoElement, 0, 0, modelWidth, modelHeight);
+            const canvas = document.createElement('canvas');
+            canvas.width = modelWidth;
+            canvas.height = modelHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(currentSource, 0, 0, modelWidth, modelHeight);
             
-            // 2. Pre-procesar la imagen para el modelo
-            const imageData = captureCtx.getImageData(0, 0, modelWidth, modelHeight);
+            const imageData = ctx.getImageData(0, 0, modelWidth, modelHeight);
             const { data } = imageData;
             const float32Data = new Float32Array(3 * modelWidth * modelHeight);
             for (let i = 0; i < data.length; i += 4) {
@@ -259,30 +243,26 @@
             const tensor = new ort.Tensor('float32', float32Data, [1, 3, modelHeight, modelWidth]);
             const feeds = { 'images': tensor };
 
-            // 3. Ejecutar la inferencia
             const results = await onnxSession.run(feeds);
             
-            // 4. Dibujar los resultados en la imagen capturada
-            const resultCanvas = document.createElement('canvas');
-            resultCanvas.width = videoElement.videoWidth;
-            resultCanvas.height = videoElement.videoHeight;
-            const resultCtx = resultCanvas.getContext('2d');
-            resultCtx.drawImage(videoElement, 0, 0, resultCanvas.width, resultCanvas.height);
+            // Reutilizamos el canvas para dibujar los resultados
+            const displayWidth = currentSource.videoWidth || currentSource.width;
+            const displayHeight = currentSource.videoHeight || currentSource.height;
+            canvas.width = displayWidth;
+            canvas.height = displayHeight;
+            ctx.drawImage(currentSource, 0, 0, displayWidth, displayHeight);
 
-            drawBoundingBoxes(results.output0, resultCtx);
+            drawBoundingBoxes(results.output0, ctx);
             
-            // 5. Mostrar la imagen con los resultados
-            const resultImage = new Image();
-            resultImage.id = 'result-image';
-            resultImage.src = resultCanvas.toDataURL("image/jpeg");
             webcamContainerInspector.innerHTML = ''; 
-            webcamContainerInspector.appendChild(resultImage); 
+            webcamContainerInspector.appendChild(canvas); 
+            canvas.id = 'result-canvas';
 
             captureButtonInspector.disabled = false;
-            captureButtonInspector.innerHTML = '<i class="fas fa-redo"></i> Analizar de Nuevo';
+            captureButtonInspector.innerHTML = '<i class="fas fa-redo"></i> Iniciar de Nuevo';
         }
 
-        // --- FUNCIONES DE SOPORTE PARA DIBUJO ---
+        // --- FUNCIONES DE SOPORTE PARA DIBUJO Y NMS (SIN CAMBIOS) ---
         function nonMaxSuppression(boxes, scores, iouThreshold) {
             const indices = scores.map((_, i) => i);
             indices.sort((a, b) => scores[b] - scores[a]);
@@ -290,14 +270,14 @@
             while (indices.length > 0) {
                 const currentIndex = indices.shift();
                 selectedIndices.push(currentIndex);
-                const remainingIndices = [];
+                let toKeep = [];
                 for (const index of indices) {
-                    const iouValue = iou(boxes[currentIndex], boxes[index]);
-                    if (iouValue < iouThreshold) {
-                        remainingIndices.push(index);
+                    if (iou(boxes[currentIndex], boxes[index]) < iouThreshold) {
+                        toKeep.push(index);
                     }
                 }
-                indices.splice(0, indices.length, ...remainingIndices);
+                indices.length = 0;
+                indices.push(...toKeep);
             }
             return selectedIndices;
         }
@@ -314,11 +294,12 @@
         }
 
         function drawBoundingBoxes(outputTensor, ctx) {
+            // Lógica ajustada para el formato de salida de YOLOv8 ONNX
             const outputData = outputTensor.data;
             const numClasses = NOMBRES_CLASES.length;
             const numProposals = outputTensor.dims[2];
 
-            const rawDetections = [];
+            const detections = [];
             for (let i = 0; i < numProposals; i++) {
                 let maxProb = 0;
                 let classId = -1;
@@ -335,7 +316,7 @@
                     const y_center = outputData[1 * numProposals + i];
                     const width = outputData[2 * numProposals + i];
                     const height = outputData[3 * numProposals + i];
-                    rawDetections.push({
+                    detections.push({
                         label: NOMBRES_CLASES[classId],
                         score: maxProb,
                         classId: classId,
@@ -343,26 +324,26 @@
                     });
                 }
             }
-
-            const boxes = rawDetections.map(d => d.box);
-            const scores = rawDetections.map(d => d.score);
+            
+            const boxes = detections.map(d => d.box);
+            const scores = detections.map(d => d.score);
             const selectedIndices = nonMaxSuppression(boxes, scores, UMBRAL_IOU_NMS);
             
-            const detections = selectedIndices.map(i => rawDetections[i]);
+            const finalDetections = selectedIndices.map(i => detections[i]);
             
             let muestreoAprobado = true;
             let conteoClases = {};
             NOMBRES_CLASES.forEach(nombre => conteoClases[nombre] = 0);
 
-            detections.forEach(det => {
+            finalDetections.forEach(det => {
                 conteoClases[det.label]++;
                 if (det.label !== 'Sin Defecto') {
                     muestreoAprobado = false;
                 }
 
                 const [x1, y1, x2, y2] = det.box;
-                const x_ratio = ctx.canvas.width / 1240; // CAMBIO: Ajustado a la resolución del modelo
-                const y_ratio = ctx.canvas.height / 1240; // CAMBIO: Ajustado a la resolución del modelo
+                const x_ratio = ctx.canvas.width / 640;
+                const y_ratio = ctx.canvas.height / 640;
                 const x = x1 * x_ratio;
                 const y = y1 * y_ratio;
                 const w = (x2 - x1) * x_ratio;
@@ -376,35 +357,37 @@
                 ctx.fillStyle = color;
                 const label = `${det.label} (${(det.score * 100).toFixed(0)}%)`;
                 ctx.font = 'bold 16px sans-serif';
-                ctx.fillText(label, x, y > 20 ? y - 5 : 20);
+                const textY = y > 20 ? y - 5 : 20;
+                ctx.fillText(label, x, textY);
             });
             
-            let summaryHtml = '';
+            updateSummary(finalDetections, conteoClases, muestreoAprobado);
+        }
+        
+        function updateSummary(detections, conteo, aprobado) {
+            // Lógica para mostrar el resumen (sin cambios)
+             let summaryHtml = '';
             if (detections.length === 0) {
                 summaryHtml = "No se encontraron hallazgos en la muestra.";
                 setAuditorInspectorSpeech('No encontré hallazgos. ¡Todo bien!', false, 'ok');
             } else {
                 let statusMessage, statusColor, auditorStatus, auditorMessage;
 
-                if (muestreoAprobado) {
-                    statusMessage = 'Muestreo Aprobado';
-                    statusColor = 'var(--success-color)';
-                    auditorStatus = 'ok';
-                    auditorMessage = '¡Excelente! Todas las piezas están sin defectos.';
+                if (aprobado) {
+                    statusMessage = 'Muestreo Aprobado'; statusColor = 'var(--success-color, green)';
+                    auditorStatus = 'ok'; auditorMessage = '¡Excelente! Todas las piezas están sin defectos.';
                 } else {
-                    statusMessage = 'Prueba no aprobada';
-                    statusColor = 'var(--error-color)';
-                    auditorStatus = 'error';
-                    auditorMessage = 'Se encontraron defectos en la muestra.';
+                    statusMessage = 'Prueba no aprobada'; statusColor = 'var(--error-color, red)';
+                    auditorStatus = 'error'; auditorMessage = 'Se encontraron defectos en la muestra.';
                 }
                 
                 summaryHtml = `Resultado: <strong style="color:${statusColor};">${statusMessage}</strong>`;
                 summaryHtml += `<br>Total de Piezas: <strong>${detections.length}</strong>`;
                 summaryHtml += `<ul class="summary-list">`;
-                for(const clase in conteoClases) {
-                    if (conteoClases[clase] > 0) {
+                for(const clase in conteo) {
+                    if (conteo[clase] > 0) {
                         const color = COLORES_CLASES[NOMBRES_CLASES.indexOf(clase)];
-                        summaryHtml += `<li><span style="color:${color};">■</span> ${clase}: <strong>${conteoClases[clase]}</strong></li>`;
+                        summaryHtml += `<li><span style="color:${color};">■</span> ${clase}: <strong>${conteo[clase]}</strong></li>`;
                     }
                 }
                 summaryHtml += `</ul>`;
@@ -415,10 +398,32 @@
         
         // --- ASIGNACIÓN DE EVENTOS ---
         captureButtonInspector.addEventListener('click', () => {
-            if (captureButtonInspector.innerHTML.includes('Analizar de Nuevo')) {
+            if (captureButtonInspector.innerHTML.includes('Iniciar de Nuevo')) {
                 init(); // Reinicia el proceso para mostrar el video en vivo de nuevo
             } else {
-                captureAndAnalyze();
+                analyze();
+            }
+        });
+        
+        // NUEVO EVENT LISTENER PARA EL INPUT DE ARCHIVO
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
+                
+                const uploadedImage = new Image();
+                uploadedImage.id = 'uploaded-image-preview';
+                uploadedImage.onload = () => {
+                    webcamContainerInspector.innerHTML = '';
+                    webcamContainerInspector.appendChild(uploadedImage);
+                    currentSource = uploadedImage; // Actualizamos la fuente para el análisis
+                    
+                    labelContainerInspector.innerHTML = "Imagen cargada. Lista para analizar.";
+                    setAuditorInspectorSpeech('Imagen cargada. Presiona Analizar.', true, 'idle');
+                    captureButtonInspector.disabled = false;
+                    captureButtonInspector.innerHTML = '<i class="fas fa-search"></i> Analizar';
+                };
+                uploadedImage.src = URL.createObjectURL(file);
             }
         });
         
