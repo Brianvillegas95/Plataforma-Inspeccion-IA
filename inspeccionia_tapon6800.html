@@ -164,13 +164,16 @@
         async function startCamera() {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
-                    videoStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { 
-                            width: { ideal: 1280 }, 
+                    videoStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 1280 },
                             height: { ideal: 720 },
-                            focusMode: 'manual'
-                        } 
+                            // Forzamos el modo de enfoque a manual de forma más explícita
+                            // usando el set de restricciones avanzadas.
+                            advanced: [{ focusMode: "manual" }]
+                        }
                     });
+
                     isCameraActive = true;
                     setAuditorSpeech('Cámara activada. ¡Listo para capturar!');
                     
@@ -192,10 +195,8 @@
                     videoTrack = videoStream.getVideoTracks()[0];
                     const capabilities = videoTrack.getCapabilities();
 
-                    // !! LÍNEAS DE DIAGNÓSTICO AÑADIDAS !!
                     console.log("Capacidades de la cámara:", capabilities);
                     console.log("Configuración actual:", videoTrack.getSettings());
-                    // !! FIN DE LÍNEAS DE DIAGNÓSTICO !!
 
                     // Comprobar si la cámara soporta el ajuste de 'focusDistance'
                     if (capabilities.focusDistance) {
