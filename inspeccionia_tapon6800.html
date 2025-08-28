@@ -169,6 +169,9 @@
         const colaboradorInput = document.getElementById('colaborador-input');
         const jobInput = document.getElementById('job-input');
         
+        // MODIFICACIÓN: Variable para guardar los datos del auditor
+        let auditorData = {};
+
         startAuditBtn.addEventListener('click', () => {
             const numColaborador = colaboradorInput.value.trim();
             const numJob = jobInput.value.trim();
@@ -180,6 +183,9 @@
                 alert('Error: El "Número de Job" debe contener exactamente 7 dígitos.'); 
                 return;
             }
+            // MODIFICACIÓN: Guardamos los datos del auditor para usarlos después
+            auditorData = { colaborador: numColaborador, job: numJob };
+
             loginContainer.style.display = 'none';
             mainAppContent.style.display = 'grid';
         });
@@ -223,25 +229,37 @@
         let isCameraActive = false;
         let videoTrack = null; 
 
-        // --- MODIFICACIÓN: La función ahora reinicia la sesión completa ---
+        // --- MODIFICACIÓN INICIA: Nueva función para escribir en Google Sheets ---
+        async function escribirAuditoriaTapon(datos) {
+            try {
+                const response = await fetch('/.netlify/functions/escribir-tapon6800', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ datos: datos }),
+                });
+                if (!response.ok) {
+                    throw new Error('La respuesta del servidor no fue exitosa.');
+                }
+                console.log('Registro de inspección guardado con éxito en Google Sheets.');
+                // Opcional: Notificar al usuario que se guardó
+                // setAuditorSpeech("Resultados guardados en el registro.");
+            } catch (err) {
+                console.error("Fallo el registro en Google Sheets:", err);
+                // Notificar al usuario del error de guardado
+                setAuditorSpeech("¡Alerta! El resultado se mostró pero no se pudo guardar.");
+            }
+        }
+        // --- MODIFICACIÓN TERMINA ---
+
         function resetForNewTest() {
-            // 1. Limpiar el estado de la aplicación de inspección
             clearDisplay();
             checkReadyState();
-            
-            // 2. Ocultar la aplicación y mostrar la pantalla de login
             mainAppContent.style.display = 'none';
             loginContainer.style.display = 'block';
-
-            // 3. Limpiar los campos del formulario de login
             colaboradorInput.value = '';
             jobInput.value = '';
-            
-            // 4. Restaurar la visibilidad de los controles para la próxima sesión
             newTestBtn.style.display = 'none';
             controlsWrapper.style.display = 'block';
-
-            // 5. Asegurarse de que el botón de analizar esté en su estado inicial
             analyzeButton.innerHTML = '<i class="fas fa-search"></i> Analizar';
         }
 
@@ -277,7 +295,6 @@
             setAuditorSpeech('Buscando cámara y aplicando ajustes...');
             try {
                 if (videoStream) { videoStream.getTracks().forEach(track => track.stop()); }
-
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
                 let preferredDeviceId = null;
@@ -319,13 +336,10 @@
                 displayContainer.appendChild(wrapper);
                 
                 await video.play();
-
                 await applyFixedCameraSettings();
                 initializeCameraControls();
-                
                 setAuditorSpeech('Cámara activada. ¡Listo para capturar!');
                 updateUIAfterCameraStart();
-
             } catch (error) {
                 console.error("Error al acceder a la cámara:", error);
                 setAuditorSpeech('Error de cámara. Revisa permisos o recarga.');
@@ -356,7 +370,6 @@
 
         function initializeCameraControls() {
             let controlsVisible = false;
-
             if (cameraCapabilities.focusMode && cameraCapabilities.focusMode.includes('manual') && cameraCapabilities.focusDistance) {
                 focusControlGroup.style.display = 'flex';
                 controlsVisible = true;
@@ -394,14 +407,11 @@
             cameraButton.innerHTML = '<i class="fas fa-camera"></i> Capturar y Analizar';
             cameraButton.classList.remove('secondary-action');
             cameraButton.classList.add('primary-action');
-
             const stopButton = document.createElement('button');
             stopButton.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
             stopButton.className = 'button secondary-action stop';
             stopButton.onclick = stopCamera;
-            
             controlsWrapper.appendChild(stopButton);
-
             fileLabel.style.display = 'none';
             analyzeButton.style.display = 'none';
         }
@@ -414,17 +424,13 @@
             videoStream = null;
             videoTrack = null; 
             cameraControlsContainer.style.display = 'none';
-            
             cameraButton.innerHTML = '<i class="fas fa-video"></i> Modo Cámara';
             cameraButton.classList.remove('primary-action');
             cameraButton.classList.add('secondary-action');
-            
             const stopButton = document.querySelector('.button.stop');
             if (stopButton) stopButton.remove();
-            
             fileLabel.style.display = 'inline-block';
             analyzeButton.style.display = 'inline-block';
-            
             if (!isImageReady) {
                 clearDisplay();
             }
@@ -434,14 +440,12 @@
         function captureAndAnalyze() {
             const video = document.getElementById('video-feed');
             if (!video) return;
-
             setAuditorSpeech('Capturando imagen...');
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
             const img = new Image();
             img.onload = () => {
                 displayContainer.innerHTML = '';
@@ -450,11 +454,9 @@
                 img.id = 'uploaded-image';
                 const overlay = document.createElement('canvas');
                 overlay.id = 'overlay-canvas';
-                
                 wrapper.appendChild(img);
                 wrapper.appendChild(overlay);
                 displayContainer.appendChild(wrapper);
-
                 imageSource = img;
                 isImageReady = true;
                 stopCamera();
@@ -481,25 +483,18 @@
         
         async function runAnalysis() {
             if (!isModelReady || !isImageReady || !imageSource) return;
-
             analyzeButton.disabled = true;
             analyzeButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando...';
             setAuditorSpeech('Procesando imagen...');
-
             const { tensor, scale, xOffset, yOffset } = await preprocess(imageSource);
             const results = await session.run({ 'images': tensor });
-            
             const overlayCanvas = document.getElementById('overlay-canvas');
             if (!overlayCanvas) return; 
-            
             const ctx = overlayCanvas.getContext('2d');
             overlayCanvas.width = imageSource.clientWidth;
             overlayCanvas.height = imageSource.clientHeight;
-
             drawResults(results.output0, ctx, { scale, xOffset, yOffset });
-            
             analyzeButton.disabled = false;
-            
             controlsWrapper.style.display = 'none';
             newTestBtn.style.display = 'block';
         }
@@ -509,20 +504,16 @@
             canvas.width = MODEL_WIDTH;
             canvas.height = MODEL_HEIGHT;
             const ctx = canvas.getContext('2d');
-            
             const naturalWidth = source.naturalWidth || source.videoWidth; 
             const naturalHeight = source.naturalHeight || source.videoHeight; 
-
             const scale = Math.min(MODEL_WIDTH / naturalWidth, MODEL_HEIGHT / naturalHeight);
             const scaledWidth = naturalWidth * scale;
             const scaledHeight = naturalHeight * scale;
             const xOffset = (MODEL_WIDTH - scaledWidth) / 2;
             const yOffset = (MODEL_HEIGHT - scaledHeight) / 2;
-            
             ctx.fillStyle = "#808080";
             ctx.fillRect(0, 0, MODEL_WIDTH, MODEL_HEIGHT);
             ctx.drawImage(source, xOffset, yOffset, scaledWidth, scaledHeight);
-            
             const imageData = ctx.getImageData(0, 0, MODEL_WIDTH, MODEL_HEIGHT);
             const float32Data = new Float32Array(3 * MODEL_WIDTH * MODEL_HEIGHT);
             for (let i = 0; i < imageData.data.length; i += 4) {
@@ -538,33 +529,26 @@
         function drawResults(outputTensor, ctx, preprocInfo) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             const detections = postprocess(outputTensor.data, outputTensor.dims[2]);
-            
             detections.forEach(det => {
                 const [model_x1, model_y1, model_x2, model_y2] = det.box;
-                
                 const original_x1 = (model_x1 - preprocInfo.xOffset) / preprocInfo.scale;
                 const original_y1 = (model_y1 - preprocInfo.yOffset) / preprocInfo.scale;
                 const original_x2 = (model_x2 - preprocInfo.xOffset) / preprocInfo.scale;
                 const original_y2 = (model_y2 - preprocInfo.yOffset) / preprocInfo.scale;
-                
                 const display_x1 = (ctx.canvas.width * original_x1) / imageSource.naturalWidth;
                 const display_y1 = (ctx.canvas.height * original_y1) / imageSource.naturalHeight;
                 const display_w = ((original_x2 - original_x1) * ctx.canvas.width) / imageSource.naturalWidth;
                 const display_h = ((original_y2 - original_y1) * ctx.canvas.height) / imageSource.naturalHeight;
-
                 const color = CLASS_COLORS[det.classId];
-                
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 3;
                 ctx.strokeRect(display_x1, display_y1, display_w, display_h);
-
                 const label = `${det.label} (${(det.score * 100).toFixed(0)}%)`;
                 ctx.font = 'bold 16px sans-serif';
                 const textMetrics = ctx.measureText(label);
                 const textHeight = 16;
-                let textY = display_y1 > textHeight + 5 ? display_y1 - 5 : display_y1 + display_h + textHeight + 5;
+                let textY = display_y1 > textHeight + 5 ? display_y1 - 5 : display_y1 + textHeight + 5;
                 if (textY + textHeight > ctx.canvas.height) { textY = display_y1 - 5; }
-                
                 ctx.fillStyle = color;
                 ctx.fillRect(display_x1 - 1, textY - textHeight - 3, textMetrics.width + 6, textHeight + 6);
                 ctx.fillStyle = '#FFFFFF';
@@ -622,13 +606,19 @@
                 conteoClases[det.label]++;
                 if (det.label !== 'Sin Defecto') muestreoAprobado = false;
             });
+
             if (detections.length === 0) {
-                labelContainer.innerHTML = "<p>No se encontraron hallazgos en la muestra.</p>";
-                setAuditorSpeech('No encontré hallazgos. ¡Todo bien!'); return;
+                 setAuditorSpeech('No encontré hallazgos. ¡Todo bien!');
             }
             let statusMessage = muestreoAprobado ? 'Muestreo Aprobado' : 'Prueba no aprobada';
             let statusColor = muestreoAprobado ? 'green' : 'red';
             let auditorMessage = muestreoAprobado ? '¡Excelente! Todas las piezas están sin defectos.' : 'Se encontraron defectos en la muestra.';
+            
+            if (detections.length === 0 && muestreoAprobado){
+                statusMessage = "N/A";
+                auditorMessage = "No se encontraron piezas para analizar.";
+            }
+
             let summaryHtml = `Resultado: <strong style="color:${statusColor};">${statusMessage}</strong><br>Total de Piezas: <strong>${detections.length}</strong>`;
             summaryHtml += `<table class="results-table"><tr><th>Clase</th><th>Cantidad</th></tr>`;
             for (const clase in conteoClases) {
@@ -639,6 +629,25 @@
             summaryHtml += `</table>`;
             setAuditorSpeech(auditorMessage);
             labelContainer.innerHTML = summaryHtml;
+
+            // --- MODIFICACIÓN INICIA: Preparar y enviar datos a Google Sheets ---
+            const timestamp = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+            
+            // Estructura de datos basada en las columnas de tu hoja
+            const datosParaSheet = [
+                timestamp,
+                detections.length, // # PIEZAS
+                conteoClases['Rebaba'] || 0,
+                conteoClases['Incompleto'] || 0,
+                conteoClases['Punto Alto'] || 0,
+                conteoClases['Sin Defecto'] || 0,
+                statusMessage, // RESULTADO
+                auditorData.colaborador, // COLABORADOR
+                auditorData.job, // JOB
+            ];
+
+            escribirAuditoriaTapon(datosParaSheet);
+            // --- MODIFICACIÓN TERMINA ---
         }
 
         // --- EVENTOS ---
@@ -648,23 +657,19 @@
             const file = e.target.files[0];
             if (!file) return;
             if (isCameraActive) stopCamera(); 
-
             isImageReady = false;
             analyzeButton.disabled = true;
             labelContainer.innerHTML = "<p>Cargando imagen...</p>";
             displayContainer.innerHTML = '';
-
             const wrapper = document.createElement('div');
             wrapper.id = 'image-wrapper';
             const img = document.createElement('img');
             img.id = 'uploaded-image';
             const overlay = document.createElement('canvas');
             overlay.id = 'overlay-canvas';
-            
             wrapper.appendChild(img);
             wrapper.appendChild(overlay);
             displayContainer.appendChild(wrapper);
-
             img.onload = () => {
                 imageSource = img;
                 isImageReady = true;
@@ -684,7 +689,6 @@
         });
         
         newTestBtn.addEventListener('click', resetForNewTest);
-
         document.addEventListener('DOMContentLoaded', initializeModel);
     </script>
 </body>
