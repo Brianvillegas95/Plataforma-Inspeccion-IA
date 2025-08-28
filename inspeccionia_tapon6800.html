@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <style>
+        /* --- ESTILOS ORIGINALES --- */
         .main-content-grid { display: grid; grid-template-columns: 1fr; gap: 20px; padding: 20px; }
         .vision-panel #display-container {
             position: relative; background-color: #e9ecef; border-radius: 4px;
@@ -39,40 +40,34 @@
         .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 8px; text-align: left; }
         .results-table th { background-color: #f8f9fa; font-weight: bold; }
 
-        /* --- MODIFICACIÓN INICIA: Estilos para nuevos controles de cámara --- */
         #camera-controls-container {
-            display: none; /* Oculto por defecto */
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-top: 1px solid #dee2e6;
-            border-bottom-left-radius: 4px;
+            display: none; padding: 15px; background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6; border-bottom-left-radius: 4px;
             border-bottom-right-radius: 4px;
         }
         .camera-control-group {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            display: flex; align-items: center; justify-content: space-between;
             margin-bottom: 10px;
         }
         .camera-control-group label {
-            font-weight: bold;
-            color: #495057;
-            flex-basis: 80px;
-            flex-shrink: 0;
+            font-weight: bold; color: #495057; flex-basis: 80px; flex-shrink: 0;
         }
-        .camera-control-group input[type="range"] {
-            flex-grow: 1;
-            margin: 0 10px;
-        }
+        .camera-control-group input[type="range"] { flex-grow: 1; margin: 0 10px; }
         .slider-value {
-            font-family: monospace;
-            background-color: #e9ecef;
-            padding: 2px 6px;
-            border-radius: 4px;
-            min-width: 40px;
-            text-align: center;
+            font-family: monospace; background-color: #e9ecef; padding: 2px 6px;
+            border-radius: 4px; min-width: 40px; text-align: center;
+        }
+        
+        /* --- MODIFICACIÓN INICIA: Estilos copiados de validador_codigo.html --- */
+        #login-container {
+            padding: 25px; border-radius: 8px; background-color: #fff; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        #main-app-content { 
+            display: none; /* Oculta la app principal por defecto */
         }
         /* --- MODIFICACIÓN TERMINA --- */
+
     </style>
 </head>
 <body class="inspector-body">
@@ -82,8 +77,40 @@
                 <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
                 <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
             </div>
-        </header>
-        <main class="main-content-grid"> 
+            <nav class="main-nav">
+                 <ul>
+                    <li><a href="index.html">Inicio</a></li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle active">Herramientas IA<i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="validador_color.html">Validador de Color</a></li>
+                            <li><a href="auditor_ean13.html">Auditor de Código EAN-13</a></li>
+                            <li><a href="inspeccionia_tapon6800.html" class="active">Inspector de Tapones</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+            </header>
+
+        <main id="login-container" class="main-content">
+             <div style="text-align: center; margin-bottom: 20px;">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h2>Registro de Auditoría</h2>
+                <p>Por favor, ingrese sus datos para comenzar.</p>
+            </div>
+            <div class="form-group">
+                <label for="colaborador-input"><strong>Número de Colaborador (4 dígitos):</strong></label>
+                <input type="text" id="colaborador-input" class="form-control" placeholder="Ej: 1234" maxlength="4">
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label for="job-input"><strong>Número de Job (7 dígitos):</strong></label>
+                <input type="text" id="job-input" class="form-control" placeholder="Ej: 9876507" maxlength="7">
+            </div>
+            <button id="start-audit-btn" class="button primary-action" style="width:100%; margin-top: 25px; padding: 15px; font-size: 1.2em;">
+                <i class="fas fa-play-circle"></i> Empezar Auditoría
+            </button>
+        </main>
+        <main id="main-app-content" class="main-content-grid"> 
             <section class="vision-panel">
                 <h2 class="panel-title"><i class="fas fa-eye"></i> Visor de Inspección</h2>
                 <div id="display-container">
@@ -132,6 +159,32 @@
     </div>
 
     <script type="text/javascript">
+        // --- SECCIÓN DE LÓGICA DE LOGIN ---
+        const loginContainer = document.getElementById('login-container');
+        const mainAppContent = document.getElementById('main-app-content');
+        const startAuditBtn = document.getElementById('start-audit-btn');
+        const colaboradorInput = document.getElementById('colaborador-input');
+        const jobInput = document.getElementById('job-input');
+        
+        startAuditBtn.addEventListener('click', () => {
+            const numColaborador = colaboradorInput.value.trim();
+            const numJob = jobInput.value.trim();
+            if (!/^\d{4}$/.test(numColaborador)) {
+                alert('Error: El "Número de Colaborador" debe contener exactamente 4 dígitos.'); 
+                return;
+            }
+            if (!/^\d{7}$/.test(numJob)) {
+                alert('Error: El "Número de Job" debe contener exactamente 7 dígitos.'); 
+                return;
+            }
+            
+            // Si la validación es correcta, ocultar login y mostrar la app
+            loginContainer.style.display = 'none';
+            mainAppContent.style.display = 'grid'; // Usamos 'grid' porque así está definido en el CSS
+        });
+
+
+        // --- SECCIÓN DE LÓGICA DE IA (SIN MODIFICACIONES) ---
         const MODEL_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
         const CLASS_NAMES = ['Incompleto', 'Punto Alto', 'Rebaba', 'Sin Defecto'];
         const CLASS_COLORS = ['#FFA500', '#FF4500', '#FFD700', '#2E8B57'];  
@@ -149,7 +202,6 @@
         const cameraButton = document.getElementById('camera-button'); 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-        // --- MODIFICACIÓN INICIA: Nuevas variables para controles avanzados ---
         const cameraControlsContainer = document.getElementById('camera-controls-container');
         const focusControlGroup = document.getElementById('focus-control-group');
         const focusSlider = document.getElementById('focus-slider');
@@ -158,7 +210,6 @@
         const zoomSlider = document.getElementById('zoom-slider');
         const zoomValueEl = document.getElementById('zoom-value');
         let cameraCapabilities = {};
-        // --- MODIFICACIÓN TERMINA ---
 
         let session;
         let imageSource = null;
@@ -192,7 +243,6 @@
             analyzeButton.disabled = true;
         }
 
-        // --- MODIFICACIÓN INICIA: Lógica de cámara completamente nueva ---
         async function startCamera() {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 setAuditorSpeech('Tu navegador no soporta la API de cámara.');
@@ -205,29 +255,22 @@
             try {
                 if (videoStream) { videoStream.getTracks().forEach(track => track.stop()); }
 
-                // 1. Obtener lista de dispositivos
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
-                // 2. Priorizar cámara externa/trasera
                 let preferredDeviceId = null;
                 const rearCamera = videoDevices.find(device => /back|rear|environment/i.test(device.label));
                 const externalCamera = videoDevices.find(device => !/front|face/i.test(device.label));
                 
                 if (rearCamera) {
                     preferredDeviceId = rearCamera.deviceId;
-                    console.log("Cámara trasera encontrada:", rearCamera.label);
                 } else if (externalCamera) {
                     preferredDeviceId = externalCamera.deviceId;
-                    console.log("Cámara externa/predeterminada encontrada:", externalCamera.label);
                 } else if (videoDevices.length > 0) {
                     preferredDeviceId = videoDevices[0].deviceId;
-                    console.log("Usando la primera cámara disponible:", videoDevices[0].label);
                 } else {
                     throw new Error("No se encontraron cámaras disponibles.");
                 }
 
-                // 3. Establecer las restricciones
                 const constraints = {
                     video: {
                         deviceId: { exact: preferredDeviceId },
@@ -254,7 +297,6 @@
                 
                 await video.play();
 
-                // 4. Aplicar ajustes y activar controles
                 await applyFixedCameraSettings();
                 initializeCameraControls();
                 
@@ -278,7 +320,6 @@
         }
 
         async function applyFixedCameraSettings() {
-            console.log("Aplicando ajustes de cámara fijos...");
             if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 120); }
             if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
             if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
@@ -293,7 +334,6 @@
         function initializeCameraControls() {
             let controlsVisible = false;
 
-            // Control de Enfoque
             if (cameraCapabilities.focusMode && cameraCapabilities.focusMode.includes('manual') && cameraCapabilities.focusDistance) {
                 focusControlGroup.style.display = 'flex';
                 controlsVisible = true;
@@ -311,7 +351,6 @@
                 focusControlGroup.style.display = 'none';
             }
 
-            // Control de Zoom
             if (cameraCapabilities.zoom) {
                 zoomControlGroup.style.display = 'flex';
                 controlsVisible = true;
@@ -326,7 +365,6 @@
                 zoomControlGroup.style.display = 'none';
             }
 
-            // Mostrar el contenedor principal si al menos un control está visible
             cameraControlsContainer.style.display = controlsVisible ? 'block' : 'none';
         }
 
@@ -344,7 +382,6 @@
             fileLabel.style.display = 'none';
             analyzeButton.style.display = 'none';
         }
-        // --- MODIFICACIÓN TERMINA ---
 
         function stopCamera() {
             if (videoStream) {
@@ -353,12 +390,8 @@
             isCameraActive = false;
             videoStream = null;
             videoTrack = null; 
-
-            // --- MODIFICACIÓN INICIA: Ocultar controles de cámara ---
             cameraControlsContainer.style.display = 'none';
-            // --- MODIFICACIÓN TERMINA ---
             
-            // Restaurar UI
             cameraButton.innerHTML = '<i class="fas fa-video"></i> Modo Cámara';
             cameraButton.classList.remove('primary-action');
             cameraButton.classList.add('secondary-action');
@@ -401,9 +434,7 @@
 
                 imageSource = img;
                 isImageReady = true;
-
                 stopCamera();
-                
                 runAnalysis();
             };
             img.src = canvas.toDataURL('image/png');
@@ -585,7 +616,6 @@
             labelContainer.innerHTML = summaryHtml;
         }
 
-        // --- EVENTOS ---
         analyzeButton.addEventListener('click', runAnalysis);
         
         fileInput.addEventListener('change', (e) => {
