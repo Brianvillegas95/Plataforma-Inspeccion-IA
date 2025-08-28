@@ -156,7 +156,7 @@
                 <button id="new-test-btn" class="button primary-action" style="width: 100%; font-size: 1.1em; display: none; margin-top: 15px;">
                     <i class="fas fa-redo"></i> Nueva Prueba
                 </button>
-                </aside>
+            </aside>
         </main>
         <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México.</footer>
     </div>
@@ -202,10 +202,8 @@
         const cameraButton = document.getElementById('camera-button'); 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-        // --- MODIFICACIÓN INICIA: Nuevas variables para control de UI ---
         const newTestBtn = document.getElementById('new-test-btn');
         const controlsWrapper = document.getElementById('controls-wrapper');
-        // --- MODIFICACIÓN TERMINA ---
 
         const cameraControlsContainer = document.getElementById('camera-controls-container');
         const focusControlGroup = document.getElementById('focus-control-group');
@@ -225,20 +223,27 @@
         let isCameraActive = false;
         let videoTrack = null; 
 
-        // --- MODIFICACIÓN INICIA: Nueva función para reiniciar la prueba ---
+        // --- MODIFICACIÓN: La función ahora reinicia la sesión completa ---
         function resetForNewTest() {
-            clearDisplay(); // Limpia el visor y los resultados
-            checkReadyState(); // Restablece el mensaje del auditor
+            // 1. Limpiar el estado de la aplicación de inspección
+            clearDisplay();
+            checkReadyState();
             
-            // Restaura la visibilidad de los controles
+            // 2. Ocultar la aplicación y mostrar la pantalla de login
+            mainAppContent.style.display = 'none';
+            loginContainer.style.display = 'block';
+
+            // 3. Limpiar los campos del formulario de login
+            colaboradorInput.value = '';
+            jobInput.value = '';
+            
+            // 4. Restaurar la visibilidad de los controles para la próxima sesión
             newTestBtn.style.display = 'none';
             controlsWrapper.style.display = 'block';
 
-            // Asegura que el botón de analizar esté en su estado inicial
+            // 5. Asegurarse de que el botón de analizar esté en su estado inicial
             analyzeButton.innerHTML = '<i class="fas fa-search"></i> Analizar';
-            analyzeButton.disabled = true;
         }
-        // --- MODIFICACIÓN TERMINA ---
 
         function setAuditorSpeech(message) {
             if(auditorBubbleSpan) auditorBubbleSpan.textContent = message;
@@ -395,7 +400,6 @@
             stopButton.className = 'button secondary-action stop';
             stopButton.onclick = stopCamera;
             
-            // Se inserta dentro del wrapper de controles
             controlsWrapper.appendChild(stopButton);
 
             fileLabel.style.display = 'none';
@@ -495,12 +499,9 @@
             drawResults(results.output0, ctx, { scale, xOffset, yOffset });
             
             analyzeButton.disabled = false;
-            analyzeButton.innerHTML = '<i class="fas fa-search"></i> Analizar de nuevo';
-
-            // --- MODIFICACIÓN INICIA: Mostrar botón de nueva prueba y ocultar controles ---
+            
             controlsWrapper.style.display = 'none';
             newTestBtn.style.display = 'block';
-            // --- MODIFICACIÓN TERMINA ---
         }
 
         async function preprocess(source) {
@@ -561,7 +562,7 @@
                 ctx.font = 'bold 16px sans-serif';
                 const textMetrics = ctx.measureText(label);
                 const textHeight = 16;
-                let textY = display_y1 > textHeight + 5 ? display_y1 - 5 : display_y1 + textHeight + 5;
+                let textY = display_y1 > textHeight + 5 ? display_y1 - 5 : display_y1 + display_h + textHeight + 5;
                 if (textY + textHeight > ctx.canvas.height) { textY = display_y1 - 5; }
                 
                 ctx.fillStyle = color;
@@ -682,9 +683,7 @@
             }
         });
         
-        // --- MODIFICACIÓN INICIA: Event listener para el nuevo botón ---
         newTestBtn.addEventListener('click', resetForNewTest);
-        // --- MODIFICACIÓN TERMINA ---
 
         document.addEventListener('DOMContentLoaded', initializeModel);
     </script>
