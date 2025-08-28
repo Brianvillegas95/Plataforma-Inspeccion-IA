@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herramienta de Calibración de Visión - IA PRO</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Estilos base copiados de tus otros archivos para consistencia */
+        .main-content-grid { 
+            display: grid; 
+            grid-template-columns: 2fr 1fr; /* Más espacio para el visor */
+            gap: 20px; 
+            padding: 20px; 
+        }
+        .button {
+            display: inline-block; padding: 12px 24px; font-size: 1.0em; cursor: pointer;
+            text-align: center; text-decoration: none; outline: none; color: #fff;
+            background-color: #0056b3; border: none; border-radius: 5px;
+            transition: background-color 0.3s, opacity 0.3s;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .button:disabled { background-color: #cccccc; cursor: not-allowed; opacity: 0.7; }
+        .button:hover:not(:disabled) { background-color: #003d82; }
+        .button.secondary { background-color: #6c757d; }
+        .button.secondary:hover:not(:disabled) { background-color: #5a6268; }
+
+        /* Estilos específicos para esta herramienta */
+        #display-container {
+            position: relative;
+            width: 100%;
+            background-color: #000;
+            border-radius: 4px;
+            overflow: hidden;
+            line-height: 0; /* Evita espacios extra */
+        }
+        #video-feed, #snapshot-canvas, #drawing-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #drawing-canvas {
+            cursor: crosshair;
+        }
+        .instructions {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 5px solid #0056b3;
+        }
+        .instructions p { margin: 0; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+        .form-group input, .form-group span {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group span {
+            background-color: #e9ecef;
+            font-family: monospace;
+            font-size: 1.2em;
+        }
+        #result-section {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            border-radius: 5px;
+            text-align: center;
+        }
+        #result-section h4 { margin-top: 0; }
+        #calibration-ratio {
+            font-size: 1.5em;
+            font-weight: bold;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body class="inspector-body">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>Inspección de Calidad <span class="ia-badge">IA PRO</span></h1>
+            </div>
+            <nav class="main-nav">
+                 <ul>
+                    <li><a href="index.html">Inicio</a></li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle active">Herramientas IA<i class="fas fa-angle-down nav-arrow"></i></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="inspeccionia_tapon6800.html">Inspector de Tapones</a></li>
+                            <li><a href="calibrador-vision.html" class="active">Calibrador de Visión</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="main-content-grid">
+            <section class="vision-panel">
+                <h2 class="panel-title"><i class="fas fa-camera"></i> Visor de Calibración</h2>
+                <div id="display-container">
+                    <video id="video-feed" playsinline autoplay></video>
+                    <canvas id="snapshot-canvas"></canvas>
+                    <canvas id="drawing-canvas"></canvas>
+                </div>
+            </section>
+            
+            <aside class="controls-panel">
+                <h3 class="panel-title"><i class="fas fa-ruler-combined"></i> Controles</h3>
+                <div class="instructions">
+                    <p id="instruction-text"><strong>Paso 1:</strong> Coloque un objeto de tamaño conocido (medido con su calibrador) bajo la cámara y presione "Capturar Imagen".</p>
+                </div>
+
+                <button id="capture-button" class="button"><i class="fas fa-camera"></i> Capturar Imagen</button>
+                <button id="reset-button" class="button secondary" disabled><i class="fas fa-sync-alt"></i> Reiniciar</button>
+
+                <div id="measurement-section" style="display: none;">
+                    <hr style="margin: 20px 0;">
+                    <div class="form-group">
+                        <label for="pixel-distance">Distancia en Píxeles:</label>
+                        <span id="pixel-distance">0.00</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="real-measurement">Distancia REAL (en mm):</label>
+                        <input type="number" id="real-measurement" placeholder="Ej: 66.5">
+                    </div>
+                    <button id="calculate-button" class="button"><i class="fas fa-calculator"></i> Calcular Ratio</button>
+                </div>
+                
+                <div id="result-section" style="display: none;">
+                    <h4>¡Calibración Completa!</h4>
+                    <p>Tu ratio es:</p>
+                    <span id="calibration-ratio">0.00</span>
+                    <p style="margin-bottom: 0;">píxeles por milímetro</p>
+                </div>
+            </aside>
+        </main>
+        
+        <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.</footer>
+    </div>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Elementos del DOM
+        const video = document.getElementById('video-feed');
+        const displayContainer = document.getElementById('display-container');
+        const snapshotCanvas = document.getElementById('snapshot-canvas');
+        const drawingCanvas = document.getElementById('drawing-canvas');
+        const captureButton = document.getElementById('capture-button');
+        const resetButton = document.getElementById('reset-button');
+        const calculateButton = document.getElementById('calculate-button');
+        const measurementSection = document.getElementById('measurement-section');
+        const resultSection = document.getElementById('result-section');
+        const instructionText = document.getElementById('instruction-text');
+        const pixelDistanceEl = document.getElementById('pixel-distance');
+        const realMeasurementInput = document.getElementById('real-measurement');
+        const calibrationRatioEl = document.getElementById('calibration-ratio');
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        const snapCtx = snapshotCanvas.getContext('2d');
+        const drawCtx = drawingCanvas.getContext('2d');
+        
+        // Variables de estado
+        let isDrawing = false;
+        let startPoint = { x: 0, y: 0 };
+        let endPoint = { x: 0, y: 0 };
+        let pixelDistance = 0;
+        let snapshotTaken = false;
+
+        // Iniciar la cámara al cargar la página
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment', // Prioriza la cámara trasera/externa
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    } 
+                });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    // Ajustar el tamaño del contenedor y los canvas al del video
+                    const aspectRatio = video.videoWidth / video.videoHeight;
+                    displayContainer.style.aspectRatio = aspectRatio;
+                    snapshotCanvas.width = video.videoWidth;
+                    snapshotCanvas.height = video.videoHeight;
+                    drawingCanvas.width = video.videoWidth;
+                    drawingCanvas.height = video.videoHeight;
+                };
+            } catch (err) {
+                console.error("Error al acceder a la cámara:", err);
+                instructionText.innerHTML = "<strong>Error:</strong> No se pudo acceder a la cámara. Revisa los permisos y recarga la página.";
+            }
+        }
+
+        // Evento para capturar una imagen
+        captureButton.addEventListener('click', () => {
+            snapCtx.drawImage(video, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+            video.style.display = 'none'; // Oculta el video
+            snapshotTaken = true;
+            
+            // Actualizar UI
+            captureButton.disabled = true;
+            resetButton.disabled = false;
+            measurementSection.style.display = 'block';
+            instructionText.innerHTML = '<strong>Paso 2:</strong> Haz clic y arrastra sobre la imagen para medir la longitud de tu objeto.';
+        });
+
+        // Evento para reiniciar
+        resetButton.addEventListener('click', () => {
+            video.style.display = 'block';
+            snapshotTaken = false;
+            pixelDistance = 0;
+            
+            // Limpiar canvas y valores
+            drawCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            pixelDistanceEl.textContent = '0.00';
+            realMeasurementInput.value = '';
+
+            // Restaurar UI
+            captureButton.disabled = false;
+            resetButton.disabled = true;
+            measurementSection.style.display = 'none';
+            resultSection.style.display = 'none';
+            instructionText.innerHTML = '<strong>Paso 1:</strong> Coloque un objeto de tamaño conocido (medido con su calibrador) bajo la cámara y presione "Capturar Imagen".';
+        });
+
+        // Evento para calcular el ratio
+        calculateButton.addEventListener('click', () => {
+            const realMeasurement = parseFloat(realMeasurementInput.value);
+            if (!realMeasurement || realMeasurement <= 0 || pixelDistance <= 0) {
+                alert('Por favor, dibuja una línea y proporciona una medida real válida.');
+                return;
+            }
+            
+            const ratio = pixelDistance / realMeasurement;
+            calibrationRatioEl.textContent = ratio.toFixed(4);
+            resultSection.style.display = 'block';
+            instructionText.innerHTML = '<strong>¡Listo!</strong> Guarda este ratio. Lo necesitarás para tu herramienta de medición.';
+        });
+
+        // Lógica de dibujo en el canvas
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+                y: (evt.clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        drawingCanvas.addEventListener('mousedown', (e) => {
+            if (!snapshotTaken) return;
+            isDrawing = true;
+            startPoint = getMousePos(drawingCanvas, e);
+            endPoint = startPoint;
+        });
+        
+        drawingCanvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing || !snapshotTaken) return;
+            endPoint = getMousePos(drawingCanvas, e);
+            
+            // Calcular distancia en tiempo real
+            const dx = endPoint.x - startPoint.x;
+            const dy = endPoint.y - startPoint.y;
+            pixelDistance = Math.sqrt(dx*dx + dy*dy);
+            pixelDistanceEl.textContent = pixelDistance.toFixed(2);
+            
+            // Dibujar la línea
+            drawCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            drawCtx.beginPath();
+            drawCtx.moveTo(startPoint.x, startPoint.y);
+            drawCtx.lineTo(endPoint.x, endPoint.y);
+            drawCtx.strokeStyle = '#ff0000'; // Rojo brillante
+            drawCtx.lineWidth = 3;
+            drawCtx.stroke();
+        });
+
+        drawingCanvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+            instructionText.innerHTML = '<strong>Paso 3:</strong> Ingresa la medida real en milímetros y presiona "Calcular Ratio".';
+        });
+        
+        drawingCanvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+        });
+
+        startCamera();
+    });
+    </script>
+</body>
+</html>
