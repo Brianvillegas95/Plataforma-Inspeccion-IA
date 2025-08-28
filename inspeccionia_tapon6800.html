@@ -58,16 +58,13 @@
             border-radius: 4px; min-width: 40px; text-align: center;
         }
         
-        /* --- MODIFICACIÓN INICIA: Estilos copiados de validador_codigo.html --- */
         #login-container {
             padding: 25px; border-radius: 8px; background-color: #fff; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         #main-app-content { 
-            display: none; /* Oculta la app principal por defecto */
+            display: none;
         }
-        /* --- MODIFICACIÓN TERMINA --- */
-
     </style>
 </head>
 <body class="inspector-body">
@@ -90,7 +87,7 @@
                     </li>
                 </ul>
             </nav>
-            </header>
+        </header>
 
         <main id="login-container" class="main-content">
              <div style="text-align: center; margin-bottom: 20px;">
@@ -110,6 +107,7 @@
                 <i class="fas fa-play-circle"></i> Empezar Auditoría
             </button>
         </main>
+
         <main id="main-app-content" class="main-content-grid"> 
             <section class="vision-panel">
                 <h2 class="panel-title"><i class="fas fa-eye"></i> Visor de Inspección</h2>
@@ -134,16 +132,18 @@
             </section>
             <aside class="controls-panel">
                 <h3 class="panel-title"><i class="fas fa-list-ol"></i> Controles</h3>
-                <div class="action-buttons">
-                    <button id="analyze-button" class="button primary-action" disabled>
-                        <i class="fas fa-search"></i> Analizar
-                    </button>
-                    <label for="file-input" class="button" id="file-label">
-                        <i class="fas fa-upload"></i> Subir Imagen
-                    </label>
-                    <input type="file" id="file-input" accept="image/*">
+                <div id="controls-wrapper">
+                    <div class="action-buttons">
+                        <button id="analyze-button" class="button primary-action" disabled>
+                            <i class="fas fa-search"></i> Analizar
+                        </button>
+                        <label for="file-input" class="button" id="file-label">
+                            <i class="fas fa-upload"></i> Subir Imagen
+                        </label>
+                        <input type="file" id="file-input" accept="image/*">
+                    </div>
+                    <button id="camera-button" class="button secondary-action"><i class="fas fa-video"></i> Modo Cámara</button>
                 </div>
-                <button id="camera-button" class="button secondary-action"><i class="fas fa-video"></i> Modo Cámara</button>
                 <div id="auditor-section"> 
                     <p id="auditor-title">Asistente de Inspección</p>
                     <div id="auditor-image-container">
@@ -153,7 +153,10 @@
                         <span>Iniciando sistema...</span>
                     </div>
                 </div>
-            </aside>
+                <button id="new-test-btn" class="button primary-action" style="width: 100%; font-size: 1.1em; display: none; margin-top: 15px;">
+                    <i class="fas fa-redo"></i> Nueva Prueba
+                </button>
+                </aside>
         </main>
         <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México.</footer>
     </div>
@@ -177,14 +180,11 @@
                 alert('Error: El "Número de Job" debe contener exactamente 7 dígitos.'); 
                 return;
             }
-            
-            // Si la validación es correcta, ocultar login y mostrar la app
             loginContainer.style.display = 'none';
-            mainAppContent.style.display = 'grid'; // Usamos 'grid' porque así está definido en el CSS
+            mainAppContent.style.display = 'grid';
         });
 
-
-        // --- SECCIÓN DE LÓGICA DE IA (SIN MODIFICACIONES) ---
+        // --- SECCIÓN DE LÓGICA DE IA ---
         const MODEL_PATH = "./modelos_ia/tapon_6800/tapon.onnx"; 
         const CLASS_NAMES = ['Incompleto', 'Punto Alto', 'Rebaba', 'Sin Defecto'];
         const CLASS_COLORS = ['#FFA500', '#FF4500', '#FFD700', '#2E8B57'];  
@@ -201,6 +201,11 @@
         const auditorBubbleSpan = document.querySelector('#auditor-message-bubble span');
         const cameraButton = document.getElementById('camera-button'); 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // --- MODIFICACIÓN INICIA: Nuevas variables para control de UI ---
+        const newTestBtn = document.getElementById('new-test-btn');
+        const controlsWrapper = document.getElementById('controls-wrapper');
+        // --- MODIFICACIÓN TERMINA ---
 
         const cameraControlsContainer = document.getElementById('camera-controls-container');
         const focusControlGroup = document.getElementById('focus-control-group');
@@ -219,6 +224,21 @@
         let videoStream = null;
         let isCameraActive = false;
         let videoTrack = null; 
+
+        // --- MODIFICACIÓN INICIA: Nueva función para reiniciar la prueba ---
+        function resetForNewTest() {
+            clearDisplay(); // Limpia el visor y los resultados
+            checkReadyState(); // Restablece el mensaje del auditor
+            
+            // Restaura la visibilidad de los controles
+            newTestBtn.style.display = 'none';
+            controlsWrapper.style.display = 'block';
+
+            // Asegura que el botón de analizar esté en su estado inicial
+            analyzeButton.innerHTML = '<i class="fas fa-search"></i> Analizar';
+            analyzeButton.disabled = true;
+        }
+        // --- MODIFICACIÓN TERMINA ---
 
         function setAuditorSpeech(message) {
             if(auditorBubbleSpan) auditorBubbleSpan.textContent = message;
@@ -248,10 +268,8 @@
                 setAuditorSpeech('Tu navegador no soporta la API de cámara.');
                 return;
             }
-
             isCameraActive = true;
             setAuditorSpeech('Buscando cámara y aplicando ajustes...');
-
             try {
                 if (videoStream) { videoStream.getTracks().forEach(track => track.stop()); }
 
@@ -364,7 +382,6 @@
             } else {
                 zoomControlGroup.style.display = 'none';
             }
-
             cameraControlsContainer.style.display = controlsVisible ? 'block' : 'none';
         }
 
@@ -377,7 +394,9 @@
             stopButton.innerHTML = '<i class="fas fa-stop-circle"></i> Detener Cámara';
             stopButton.className = 'button secondary-action stop';
             stopButton.onclick = stopCamera;
-            cameraButton.parentNode.insertBefore(stopButton, cameraButton.nextSibling);
+            
+            // Se inserta dentro del wrapper de controles
+            controlsWrapper.appendChild(stopButton);
 
             fileLabel.style.display = 'none';
             analyzeButton.style.display = 'none';
@@ -477,6 +496,11 @@
             
             analyzeButton.disabled = false;
             analyzeButton.innerHTML = '<i class="fas fa-search"></i> Analizar de nuevo';
+
+            // --- MODIFICACIÓN INICIA: Mostrar botón de nueva prueba y ocultar controles ---
+            controlsWrapper.style.display = 'none';
+            newTestBtn.style.display = 'block';
+            // --- MODIFICACIÓN TERMINA ---
         }
 
         async function preprocess(source) {
@@ -537,7 +561,7 @@
                 ctx.font = 'bold 16px sans-serif';
                 const textMetrics = ctx.measureText(label);
                 const textHeight = 16;
-                let textY = display_y1 > textHeight + 5 ? display_y1 - 5 : display_y1 + display_h + textHeight + 5;
+                let textY = display_y1 > textHeight + 5 ? display_y1 - 5 : display_y1 + textHeight + 5;
                 if (textY + textHeight > ctx.canvas.height) { textY = display_y1 - 5; }
                 
                 ctx.fillStyle = color;
@@ -616,6 +640,7 @@
             labelContainer.innerHTML = summaryHtml;
         }
 
+        // --- EVENTOS ---
         analyzeButton.addEventListener('click', runAnalysis);
         
         fileInput.addEventListener('change', (e) => {
@@ -657,6 +682,10 @@
             }
         });
         
+        // --- MODIFICACIÓN INICIA: Event listener para el nuevo botón ---
+        newTestBtn.addEventListener('click', resetForNewTest);
+        // --- MODIFICACIÓN TERMINA ---
+
         document.addEventListener('DOMContentLoaded', initializeModel);
     </script>
 </body>
