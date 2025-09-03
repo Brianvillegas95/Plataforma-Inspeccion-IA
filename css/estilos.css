@@ -374,7 +374,7 @@ body {
 @keyframes auditorEntrance { to { opacity: 1; transform: translateY(0); } }
 @keyframes contentFadeIn { to { opacity: 1; transform: translateY(0); } }
 #hero-auditor-image-dinamico {
-    max-width: 200px; height: auto; margin-bottom: 15px;
+    max-width: 240px; height: auto; margin-bottom: 15px;
     transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.3s ease;
     filter: drop-shadow(0px 5px 15px rgba(0, 0, 0, 0.2)); 
 }
