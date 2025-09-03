@@ -12,28 +12,20 @@
 
     <style>
         /* --- ESTILOS MEJORADOS --- */
-        
-        /* NUEVO: Fondo sutil para la página para dar contraste */
         body.inspector-body {
             background-color: #f4f7fa;
         }
-
-        .main-content {
-            padding: 20px;
-        }
-
+        .main-content { padding: 20px; }
         .dashboard-panel {
             background-color: #ffffff;
-            border-radius: 12px; /* Bordes un poco más redondeados */
+            border-radius: 12px;
             padding: 25px;
-            /* Sombra más suave y profesional */
             box-shadow: 0 6px 20px rgba(0, 86, 179, 0.08); 
             margin-bottom: 25px; 
-            border: 1px solid #eef2f7; /* Borde sutil */
+            border: 1px solid #eef2f7;
         }
-
         .panel-title {
-            font-size: 1.7em; /* Ajuste de tamaño de fuente */
+            font-size: 1.7em;
             color: #343a40;
             margin-bottom: 20px;
             border-bottom: 2px solid #0056b3;
@@ -41,53 +33,60 @@
             display: flex;
             align-items: center;
         }
-
-        .panel-title .fas {
-            margin-right: 12px;
+        .panel-title .fas { margin-right: 12px; color: #0056b3; }
+        
+        /* --- NUEVO: Estilos para el panel de filtros --- */
+        .filter-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px; /* Espacio entre todos los elementos */
+            align-items: center;
+        }
+        #month-filter-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .filter-btn {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            font-weight: 600;
+            border: 2px solid #dbe1e8;
+            border-radius: 20px; /* Botones tipo "píldora" */
+            background-color: #f8f9fa;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .filter-btn:hover {
+            border-color: #0056b3;
             color: #0056b3;
         }
+        .filter-btn.active {
+            background-color: #0056b3;
+            color: #ffffff;
+            border-color: #0056b3;
+        }
+        .btn-reset {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            font-weight: 600;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-left: auto; /* Empuja este botón a la derecha */
+        }
+        /* --- Fin de estilos de filtros --- */
         
-        #chart-container {
-            position: relative;
-            height: 420px; /* Un poco más de altura */
-            width: 100%;
-            margin-bottom: 30px;
-        }
-
-        .results-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            font-size: 1.05em; /* Ajuste de fuente */
-        }
-
-        .results-table th,
-        .results-table td {
-            border: 1px solid #dee2e6;
-            padding: 14px 16px; /* Más espaciado */
-            text-align: left;
-        }
-
-        .results-table th {
-            background-color: #f8f9fa;
-            font-weight: 600; /* Fuente semi-bold */
-            color: #495057;
-        }
-
-        .results-table tbody tr:nth-child(even) {
-            background-color: #f9fafc;
-        }
-        
-        .results-table tbody tr:hover {
-            background-color: #e9ecef;
-        }
-
-        .status-message {
-            text-align: center;
-            font-size: 1.2em;
-            color: #6c757d;
-            padding: 40px;
-        }
+        #chart-container { position: relative; height: 420px; width: 100%; margin-bottom: 30px; }
+        .results-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 1.05em; }
+        .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 14px 16px; text-align: left; }
+        .results-table th { background-color: #f8f9fa; font-weight: 600; color: #495057; }
+        .results-table tbody tr:nth-child(even) { background-color: #f9fafc; }
+        .results-table tbody tr:hover { background-color: #e9ecef; }
+        .status-message { text-align: center; font-size: 1.2em; color: #6c757d; padding: 40px; }
     </style>
 </head>
 <body class="inspector-body">
@@ -105,35 +104,30 @@
         </header>
 
         <main class="main-content">
+            
             <section class="dashboard-panel">
-                <h2 class="panel-title">
-                    <i class="fas fa-chart-line"></i>
-                    Tendencia Mensual de Ajustes
-                </h2>
-                <div id="chart-container">
-                    <canvas id="ajustes-chart"></canvas>
+                <h2 class="panel-title"><i class="fas fa-filter"></i> Filtros</h2>
+                <div class="filter-controls">
+                    <div id="month-filter-container">
+                        </div>
+                    <button id="reset-filter-btn" class="btn-reset">Mostrar Todos</button>
                 </div>
+            </section>
+
+            <section class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-chart-line"></i> Tendencia Mensual de Ajustes</h2>
+                <div id="chart-container"><canvas id="ajustes-chart"></canvas></div>
             </section>
             
             <section class="dashboard-panel">
-                 <h2 class="panel-title">
-                    <i class="fas fa-table"></i>
-                    Datos de Ajustes de Inventario
-                </h2>
+                 <h2 class="panel-title"><i class="fas fa-table"></i> Datos de Ajustes de Inventario</h2>
                 <div id="table-container">
                     <table class="results-table">
                         <thead>
-                            <tr>
-                                <th>Mes</th>
-                                <th>Valor de Ajuste</th>
-                            </tr>
+                            <tr><th>Mes</th><th>Valor de Ajuste</th></tr>
                         </thead>
                         <tbody id="ajustes-table-body">
-                            <tr>
-                                <td colspan="2" class="status-message">
-                                    <i class="fas fa-spinner fa-spin"></i> Cargando datos...
-                                </td>
-                            </tr>
+                            <tr><td colspan="2" class="status-message"><i class="fas fa-spinner fa-spin"></i> Cargando datos...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -148,101 +142,111 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('currentYear').textContent = new Date().getFullYear();
-
-            // NUEVO: 2. Registramos el plugin de etiquetas para que Chart.js lo pueda usar
             Chart.register(ChartDataLabels);
 
             const tablaBody = document.getElementById('ajustes-table-body');
             const netlifyFunctionUrl = '/.netlify/functions/leer-sheet-ajustesinv';
-            
-            function crearGrafico(meses, valores) {
-                const ctx = document.getElementById('ajustes-chart').getContext('2d');
+            const filterContainer = document.getElementById('month-filter-container');
+            const resetBtn = document.getElementById('reset-filter-btn');
 
-                // NUEVO: Creación del gradiente para el fondo del gráfico
-                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                gradient.addColorStop(0, 'rgba(0, 86, 179, 0.4)'); // Color superior del gradiente
-                gradient.addColorStop(1, 'rgba(0, 86, 179, 0.05)'); // Color inferior (casi transparente)
+            // --- NUEVO: Variables para guardar el estado ---
+            let fullData = []; // Almacenará todos los datos originales
+            let ajustesChart;   // Almacenará la instancia del gráfico para poder actualizarla
+            
+            // --- NUEVO: Función para actualizar la tabla ---
+            function updateTable(data) {
+                tablaBody.innerHTML = '';
+                if (data.length === 0) {
+                    tablaBody.innerHTML = '<tr><td colspan="2" class="status-message">No hay datos para la selección actual.</td></tr>';
+                    return;
+                }
+                data.forEach(fila => {
+                    const tr = document.createElement('tr');
+                    const tdMes = document.createElement('td');
+                    tdMes.textContent = fila[0] || 'N/A';
+                    const tdAjuste = document.createElement('td');
+                    const valorNumerico = parseFloat(String(fila[1]).replace(/,/g, ''));
+                    tdAjuste.textContent = !isNaN(valorNumerico) ? valorNumerico.toLocaleString('es-MX') : 'N/A';
+                    
+                    tr.appendChild(tdMes);
+                    tr.appendChild(tdAjuste);
+                    tablaBody.appendChild(tr);
+                });
+            }
+            
+            // --- NUEVO: Función para actualizar el gráfico ---
+            function updateChart(data) {
+                if (!ajustesChart) return;
+                const meses = data.map(fila => fila[0]);
+                const valores = data.map(fila => parseFloat(String(fila[1]).replace(/,/g, '')));
                 
-                new Chart(ctx, {
+                ajustesChart.data.labels = meses;
+                ajustesChart.data.datasets[0].data = valores;
+                ajustesChart.update();
+            }
+
+            // --- NUEVO: Función principal que actualiza todo el dashboard ---
+            function updateDashboard() {
+                const activeButtons = document.querySelectorAll('.filter-btn.active');
+                const selectedMonths = Array.from(activeButtons).map(btn => btn.dataset.month);
+                
+                let filteredData;
+                if (selectedMonths.length === 0) {
+                    // Si no hay ninguno seleccionado, mostramos todos
+                    filteredData = fullData;
+                } else {
+                    filteredData = fullData.filter(fila => selectedMonths.includes(fila[0]));
+                }
+                
+                updateTable(filteredData);
+                updateChart(filteredData);
+            }
+            
+            function inicializarGrafico(data) {
+                const ctx = document.getElementById('ajustes-chart').getContext('2d');
+                const meses = data.map(fila => fila[0]);
+                const valores = data.map(fila => parseFloat(String(fila[1]).replace(/,/g, '')));
+                
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(0, 86, 179, 0.4)');
+                gradient.addColorStop(1, 'rgba(0, 86, 179, 0.05)');
+                
+                ajustesChart = new Chart(ctx, { // Guardamos la instancia del gráfico
                     type: 'line',
-                    data: {
-                        labels: meses,
-                        datasets: [{
-                            label: 'Valor de Ajuste',
-                            data: valores,
-                            fill: true, // Habilita el relleno debajo de la línea
-                            backgroundColor: gradient, // NUEVO: Usamos el gradiente como fondo
-                            borderColor: 'rgba(0, 86, 179, 1)',
-                            borderWidth: 3,
-                            pointBackgroundColor: 'rgba(0, 86, 179, 1)',
-                            pointRadius: 5, // Puntos un poco más grandes
-                            pointHoverRadius: 8, // Se hacen más grandes al pasar el cursor
-                            tension: 0.2 // Curvatura más suave
+                    data: { labels: meses, datasets: [{
+                            label: 'Valor de Ajuste', data: valores, fill: true,
+                            backgroundColor: gradient, borderColor: 'rgba(0, 86, 179, 1)',
+                            borderWidth: 3, pointBackgroundColor: 'rgba(0, 86, 179, 1)',
+                            pointRadius: 5, pointHoverRadius: 8, tension: 0.2
                         }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
+                    options: { /* ... Opciones del gráfico (sin cambios) ... */
+                        responsive: true, maintainAspectRatio: false,
                         scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: {
-                                    color: '#eef2f7' // Líneas de la cuadrícula más sutiles
-                                },
-                                ticks: {
-                                    callback: function(value) {
-                                        return value.toLocaleString('es-MX');
-                                    }
-                                }
+                            y: { beginAtZero: true, grid: { color: '#eef2f7' },
+                                ticks: { callback: (value) => value.toLocaleString('es-MX') }
                             },
-                            x: {
-                                grid: {
-                                    display: false // Ocultamos la cuadrícula vertical
-                                }
-                            }
+                            x: { grid: { display: false } }
                         },
                         plugins: {
-                            legend: {
-                                display: false, // Ocultamos la leyenda para un look más limpio
-                            },
-                            tooltip: {
-                                mode: 'index',
-                                intersect: false,
-                                displayColors: false, // No mostrar el cuadrito de color en el tooltip
+                            legend: { display: false },
+                            tooltip: { mode: 'index', intersect: false, displayColors: false,
                                 callbacks: {
-                                    label: function(context) {
+                                    label: (context) => {
                                         let label = context.dataset.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                        }
-                                        if (context.parsed.y !== null) {
-                                            label += context.parsed.y.toLocaleString('es-MX');
-                                        }
+                                        if (label) label += ': ';
+                                        if (context.parsed.y !== null) label += context.parsed.y.toLocaleString('es-MX');
                                         return label;
                                     }
                                 }
                             },
-                            // NUEVO: 3. Configuración para las etiquetas de datos
                             datalabels: {
-                                anchor: 'end', // Posición de la etiqueta (al final de la línea)
-                                align: 'top', // Alineación (arriba del punto)
-                                color: '#002b59', // Color oscuro para la fuente
-                                font: {
-                                    weight: 'bold', // Fuente en negrita
-                                    size: 12,
-                                },
-                                // Formato del número que se muestra
-                                formatter: function(value, context) {
-                                    // Muestra el número formateado con comas
-                                    return value.toLocaleString('es-MX');
-                                }
+                                anchor: 'end', align: 'top', color: '#002b59',
+                                font: { weight: 'bold', size: 12 },
+                                formatter: (value) => value.toLocaleString('es-MX')
                             }
                         },
-                        // Mejora la interacción al pasar el cursor
-                        interaction: {
-                            mode: 'index',
-                            intersect: false,
-                        },
+                        interaction: { mode: 'index', intersect: false }
                     }
                 });
             }
@@ -253,25 +257,22 @@
                     return response.json();
                 })
                 .then(data => {
-                    tablaBody.innerHTML = ''; 
                     if (data && data.length > 0) {
-                        const meses = data.map(fila => fila[0]);
-                        const valores = data.map(fila => parseFloat(String(fila[1]).replace(/,/g, '')));
+                        fullData = data; // Guardamos los datos originales
                         
-                        data.forEach(fila => {
-                            const tr = document.createElement('tr');
-                            const tdMes = document.createElement('td');
-                            tdMes.textContent = fila[0] || 'N/A';
-                            const tdAjuste = document.createElement('td');
-                            const valorNumerico = parseFloat(String(fila[1]).replace(/,/g, ''));
-                            tdAjuste.textContent = !isNaN(valorNumerico) ? valorNumerico.toLocaleString('es-MX') : 'N/A';
-                            
-                            tr.appendChild(tdMes);
-                            tr.appendChild(tdAjuste);
-                            tablaBody.appendChild(tr);
+                        // Generamos los botones de filtro
+                        const mesesUnicos = [...new Set(data.map(fila => fila[0]))];
+                        mesesUnicos.forEach(mes => {
+                            const btn = document.createElement('button');
+                            btn.className = 'filter-btn';
+                            btn.textContent = mes;
+                            btn.dataset.month = mes; // Guardamos el nombre del mes en el botón
+                            filterContainer.appendChild(btn);
                         });
-                        
-                        crearGrafico(meses, valores);
+
+                        inicializarGrafico(fullData);
+                        updateTable(fullData);
+
                     } else {
                         tablaBody.innerHTML = '<tr><td colspan="2" class="status-message">No se encontraron datos.</td></tr>';
                         document.getElementById('chart-container').style.display = 'none';
@@ -282,6 +283,21 @@
                     tablaBody.innerHTML = `<tr><td colspan="2" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos.</td></tr>`;
                     document.getElementById('chart-container').style.display = 'none';
                 });
+            
+            // --- NUEVO: Eventos para los filtros ---
+            filterContainer.addEventListener('click', function(e) {
+                if (e.target.classList.contains('filter-btn')) {
+                    e.target.classList.toggle('active'); // Activa/desactiva el botón
+                    updateDashboard(); // Actualiza la vista
+                }
+            });
+
+            resetBtn.addEventListener('click', function() {
+                document.querySelectorAll('.filter-btn.active').forEach(btn => {
+                    btn.classList.remove('active'); // Quita la selección de todos
+                });
+                updateDashboard(); // Actualiza la vista
+            });
         });
     </script>
 </body>
