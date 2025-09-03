@@ -7,9 +7,10 @@
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         /* --- ESTILOS ADAPTADOS DE TU APLICACIÓN --- */
-        /* Estilos generales para asegurar consistencia visual */
         .main-content {
             padding: 20px;
         }
@@ -19,6 +20,7 @@
             border-radius: 8px;
             padding: 25px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            margin-bottom: 20px; /* Espacio entre paneles */
         }
 
         .panel-title {
@@ -35,11 +37,18 @@
             margin-right: 12px;
             color: #0056b3;
         }
+        
+        /* NUEVO: Contenedor para el gráfico para controlar su tamaño */
+        #chart-container {
+            position: relative;
+            height: 400px; /* Altura del gráfico */
+            width: 100%;
+            margin-bottom: 30px; /* Espacio entre el gráfico y la tabla */
+        }
 
-        /* Estilos para la tabla de datos */
         .results-table {
             width: 100%;
-            border-collapse: collapse; /* Bordes unidos */
+            border-collapse: collapse;
             margin-top: 15px;
             font-size: 1.1em;
         }
@@ -47,7 +56,7 @@
         .results-table th,
         .results-table td {
             border: 1px solid #dee2e6;
-            padding: 12px 15px; /* Más espacio interno */
+            padding: 12px 15px;
             text-align: left;
         }
 
@@ -58,14 +67,13 @@
         }
 
         .results-table tbody tr:nth-child(even) {
-            background-color: #f2f2f2; /* Filas alternadas para mejor lectura */
+            background-color: #f2f2f2;
         }
         
         .results-table tbody tr:hover {
-            background-color: #e9ecef; /* Efecto al pasar el cursor */
+            background-color: #e9ecef;
         }
 
-        /* Estilos para los mensajes de estado (Cargando/Error) */
         .status-message {
             text-align: center;
             font-size: 1.2em;
@@ -84,7 +92,7 @@
             <nav class="main-nav">
                  <ul>
                     <li><a href="index.html">Inicio</a></li>
-                    </ul>
+                </ul>
             </nav>
         </header>
 
@@ -92,7 +100,17 @@
             <section class="dashboard-panel">
                 <h2 class="panel-title">
                     <i class="fas fa-chart-line"></i>
-                    Reporte de Ajustes de Inventario
+                    Tendencia Mensual de Ajustes
+                </h2>
+                <div id="chart-container">
+                    <canvas id="ajustes-chart"></canvas>
+                </div>
+            </section>
+            
+            <section class="dashboard-panel">
+                 <h2 class="panel-title">
+                    <i class="fas fa-table"></i>
+                    Datos de Ajustes de Inventario
                 </h2>
                 <div id="table-container">
                     <table class="results-table">
@@ -120,66 +138,115 @@
     </div>
 
     <script>
-        // Se ejecuta cuando todo el contenido de la página se ha cargado
         document.addEventListener('DOMContentLoaded', () => {
-            // Actualiza el año en el pie de página
             document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-            // Referencia al cuerpo de la tabla donde se mostrarán los datos
             const tablaBody = document.getElementById('ajustes-table-body');
-
-            // URL de tu función de Netlify para leer la hoja de cálculo
             const netlifyFunctionUrl = '/.netlify/functions/leer-sheet-ajustesinv';
+            
+            // NUEVO: 3. Función para dibujar el gráfico
+            function crearGrafico(meses, valores) {
+                const ctx = document.getElementById('ajustes-chart').getContext('2d');
+                
+                new Chart(ctx, {
+                    type: 'line', // Tipo de gráfico: línea
+                    data: {
+                        labels: meses, // Eje X: los meses
+                        datasets: [{
+                            label: 'Valor de Ajuste', // Etiqueta para la leyenda
+                            data: valores, // Eje Y: los valores
+                            backgroundColor: 'rgba(0, 86, 179, 0.2)', // Relleno semitransparente
+                            borderColor: 'rgba(0, 86, 179, 1)', // Color de la línea
+                            borderWidth: 3, // Grosor de la línea
+                            pointBackgroundColor: 'rgba(0, 86, 179, 1)', // Color de los puntos
+                            pointRadius: 5, // Tamaño de los puntos
+                            tension: 0.1 // Curvatura de la línea
+                        }]
+                    },
+                    options: {
+                        responsive: true, // El gráfico se ajusta al tamaño del contenedor
+                        maintainAspectRatio: false, // Permite controlar la altura de forma flexible
+                        scales: {
+                            y: {
+                                beginAtZero: true, // El eje Y empieza en 0
+                                ticks: {
+                                    callback: function(value, index, values) {
+                                        // Formatea los números del eje Y con comas
+                                        return value.toLocaleString('es-MX');
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top', // Posición de la leyenda
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            // Formatea los números dentro del tooltip
+                                            label += context.parsed.y.toLocaleString('es-MX');
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
 
-            // Usamos fetch para llamar a la función
             fetch(netlifyFunctionUrl)
                 .then(response => {
-                    // Primero, verificamos si la respuesta del servidor es exitosa (código 200)
                     if (!response.ok) {
-                        // Si no lo es, creamos un error para pasar al bloque catch
-                        throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
+                        throw new Error(`Error del servidor: ${response.status}`);
                     }
-                    // Si la respuesta es correcta, la convertimos a formato JSON
                     return response.json();
                 })
                 .then(data => {
-                    // Una vez que tenemos los datos en formato JSON...
-
-                    // Limpiamos el mensaje de "Cargando..."
                     tablaBody.innerHTML = ''; 
 
-                    // Verificamos si recibimos datos
                     if (data && data.length > 0) {
-                        // Iteramos sobre cada fila de datos recibida
+                        // NUEVO: 4. Preparamos los datos para el gráfico y la tabla
+                        const meses = data.map(fila => fila[0]); // Obtenemos todos los meses
+                        // Convertimos los valores a número, eliminando comas si las hubiera
+                        const valores = data.map(fila => parseFloat(String(fila[1]).replace(/,/g, '')));
+                        
+                        // Rellenamos la tabla (mismo código de antes)
                         data.forEach(fila => {
-                            // Creamos un nuevo elemento de fila de tabla (<tr>)
                             const tr = document.createElement('tr');
-
-                            // Creamos la celda para el Mes (columna A)
                             const tdMes = document.createElement('td');
-                            tdMes.textContent = fila[0] || 'N/A'; // Usamos fila[0] para el primer elemento
-                            
-                            // Creamos la celda para el Ajuste (columna B)
+                            tdMes.textContent = fila[0] || 'N/A';
                             const tdAjuste = document.createElement('td');
-                            tdAjuste.textContent = fila[1] || 'N/A'; // Usamos fila[1] para el segundo elemento
-
-                            // Añadimos las celdas a la fila
+                            // Formateamos el número en la tabla para que tenga comas
+                            const valorNumerico = parseFloat(String(fila[1]).replace(/,/g, ''));
+                            tdAjuste.textContent = !isNaN(valorNumerico) ? valorNumerico.toLocaleString('es-MX') : 'N/A';
+                            
                             tr.appendChild(tdMes);
                             tr.appendChild(tdAjuste);
-
-                            // Añadimos la fila completa al cuerpo de la tabla
                             tablaBody.appendChild(tr);
                         });
+                        
+                        // ¡Llamamos a la función para que dibuje el gráfico con los datos!
+                        crearGrafico(meses, valores);
+
                     } else {
-                        // Si no se recibieron datos, mostramos un mensaje
                         tablaBody.innerHTML = '<tr><td colspan="2" class="status-message">No se encontraron datos para mostrar.</td></tr>';
+                        // Opcional: Ocultar el contenedor del gráfico si no hay datos
+                        document.getElementById('chart-container').style.display = 'none';
                     }
                 })
                 .catch(error => {
-                    // Si ocurre cualquier error durante el proceso (red, servidor, etc.)
                     console.error('Error al obtener los datos:', error);
-                    // Mostramos un mensaje de error claro en la tabla
                     tablaBody.innerHTML = `<tr><td colspan="2" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos. Por favor, inténtalo más tarde.</td></tr>`;
+                    // Ocultar el contenedor del gráfico si hay un error
+                    document.getElementById('chart-container').style.display = 'none';
                 });
         });
     </script>
