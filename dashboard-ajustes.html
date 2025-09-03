@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Ajustes de Inventario</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        /* --- ESTILOS ADAPTADOS DE TU APLICACIÓN --- */
+        /* Estilos generales para asegurar consistencia visual */
+        .main-content {
+            padding: 20px;
+        }
+
+        .dashboard-panel {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+
+        .panel-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .panel-title .fas {
+            margin-right: 12px;
+            color: #0056b3;
+        }
+
+        /* Estilos para la tabla de datos */
+        .results-table {
+            width: 100%;
+            border-collapse: collapse; /* Bordes unidos */
+            margin-top: 15px;
+            font-size: 1.1em;
+        }
+
+        .results-table th,
+        .results-table td {
+            border: 1px solid #dee2e6;
+            padding: 12px 15px; /* Más espacio interno */
+            text-align: left;
+        }
+
+        .results-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .results-table tbody tr:nth-child(even) {
+            background-color: #f2f2f2; /* Filas alternadas para mejor lectura */
+        }
+        
+        .results-table tbody tr:hover {
+            background-color: #e9ecef; /* Efecto al pasar el cursor */
+        }
+
+        /* Estilos para los mensajes de estado (Cargando/Error) */
+        .status-message {
+            text-align: center;
+            font-size: 1.2em;
+            color: #6c757d;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body class="inspector-body">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>Dashboard <span class="ia-badge">AZOR</span></h1>
+            </div>
+            <nav class="main-nav">
+                 <ul>
+                    <li><a href="index.html">Inicio</a></li>
+                    </ul>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <section class="dashboard-panel">
+                <h2 class="panel-title">
+                    <i class="fas fa-chart-line"></i>
+                    Reporte de Ajustes de Inventario
+                </h2>
+                <div id="table-container">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>Mes</th>
+                                <th>Valor de Ajuste</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ajustes-table-body">
+                            <tr>
+                                <td colspan="2" class="status-message">
+                                    <i class="fas fa-spinner fa-spin"></i> Cargando datos...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            &copy; <span id="currentYear"></span> Grupo Azor México.
+        </footer>
+    </div>
+
+    <script>
+        // Se ejecuta cuando todo el contenido de la página se ha cargado
+        document.addEventListener('DOMContentLoaded', () => {
+            // Actualiza el año en el pie de página
+            document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+            // Referencia al cuerpo de la tabla donde se mostrarán los datos
+            const tablaBody = document.getElementById('ajustes-table-body');
+
+            // URL de tu función de Netlify para leer la hoja de cálculo
+            const netlifyFunctionUrl = '/.netlify/functions/leer-sheet-ajustesinv';
+
+            // Usamos fetch para llamar a la función
+            fetch(netlifyFunctionUrl)
+                .then(response => {
+                    // Primero, verificamos si la respuesta del servidor es exitosa (código 200)
+                    if (!response.ok) {
+                        // Si no lo es, creamos un error para pasar al bloque catch
+                        throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
+                    }
+                    // Si la respuesta es correcta, la convertimos a formato JSON
+                    return response.json();
+                })
+                .then(data => {
+                    // Una vez que tenemos los datos en formato JSON...
+
+                    // Limpiamos el mensaje de "Cargando..."
+                    tablaBody.innerHTML = ''; 
+
+                    // Verificamos si recibimos datos
+                    if (data && data.length > 0) {
+                        // Iteramos sobre cada fila de datos recibida
+                        data.forEach(fila => {
+                            // Creamos un nuevo elemento de fila de tabla (<tr>)
+                            const tr = document.createElement('tr');
+
+                            // Creamos la celda para el Mes (columna A)
+                            const tdMes = document.createElement('td');
+                            tdMes.textContent = fila[0] || 'N/A'; // Usamos fila[0] para el primer elemento
+                            
+                            // Creamos la celda para el Ajuste (columna B)
+                            const tdAjuste = document.createElement('td');
+                            tdAjuste.textContent = fila[1] || 'N/A'; // Usamos fila[1] para el segundo elemento
+
+                            // Añadimos las celdas a la fila
+                            tr.appendChild(tdMes);
+                            tr.appendChild(tdAjuste);
+
+                            // Añadimos la fila completa al cuerpo de la tabla
+                            tablaBody.appendChild(tr);
+                        });
+                    } else {
+                        // Si no se recibieron datos, mostramos un mensaje
+                        tablaBody.innerHTML = '<tr><td colspan="2" class="status-message">No se encontraron datos para mostrar.</td></tr>';
+                    }
+                })
+                .catch(error => {
+                    // Si ocurre cualquier error durante el proceso (red, servidor, etc.)
+                    console.error('Error al obtener los datos:', error);
+                    // Mostramos un mensaje de error claro en la tabla
+                    tablaBody.innerHTML = `<tr><td colspan="2" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos. Por favor, inténtalo más tarde.</td></tr>`;
+                });
+        });
+    </script>
+</body>
+</html>
