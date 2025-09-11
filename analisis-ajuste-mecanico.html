@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asesor de Ajuste por Presión (Interferencia)</title> <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        /* Estilos generales se mantienen */
+        body.inspector-body { background-color: #f4f7fa; }
+        .main-content { padding: 20px; }
+        .dashboard-panel { background-color: #ffffff; border-radius: 12px; padding: 25px; box-shadow: 0 6px 20px rgba(0, 86, 179, 0.08); margin-bottom: 25px; border: 1px solid #eef2f7; }
+        .panel-title { font-size: 1.7em; color: #343a40; margin-bottom: 20px; border-bottom: 2px solid #0056b3; padding-bottom: 10px; display: flex; align-items: center; }
+        .panel-title .fas { margin-right: 12px; color: #0056b3; }
+        .pieces-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; }
+        .piece-panel { border: 1px solid #eef2f7; border-radius: 8px; padding: 20px; }
+        .piece-title { font-weight: 600; color: #0056b3; margin-bottom: 15px; font-size: 1.2em; }
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .input-group { display: flex; flex-direction: column; }
+        .input-group label { font-weight: 600; color: #495057; margin-bottom: 8px; font-size: 0.9em; }
+        .input-group input { padding: 10px; font-size: 1.1em; border: 2px solid #dbe1e8; border-radius: 8px; }
+        .full-width { grid-column: 1 / -1; }
+        .btn-calcular { padding: 12px 25px; font-size: 1.1em; font-weight: 600; background-color: #0056b3; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 20px; }
+        .status-message { font-size: 1.8em; font-weight: bold; text-align: center; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .status-ok { background-color: #d4edda; color: #155724; }
+        .status-error { background-color: #f8d7da; color: #721c24; }
+        .summary-table, .combinations-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .summary-table td, .combinations-table td, .combinations-table th { padding: 12px; border: 1px solid #dee2e6; text-align: center; }
+        .summary-table td:first-child, .combinations-table th { font-weight: 600; background-color: #f8f9fa; }
+        #svg-container { width: 100%; margin-top: 10px; }
+        .diagnostics { margin-top: 25px; padding: 20px; border-radius: 8px; background-color: #f8f9fa; border-left: 5px solid #0056b3; }
+        .diagnostics h3 { margin-top: 0; color: #0056b3; font-size: 1.2em; }
+        .diagnostics p { line-height: 1.6; margin-bottom: 0; }
+        .diagnostics strong.bad { color: #dc3545; }
+        .diagnostics strong.good { color: #198754; }
+        .viz-title { font-size: 1.2em; font-weight: 600; color: #343a40; text-align: left; margin-top: 25px; margin-bottom: 10px; border-top: 1px solid #eef2f7; padding-top: 20px;}
+        .cell-ok { background-color: #d4edda; }
+        .cell-warn { background-color: #fff3cd; }
+        .cell-bad { background-color: #f8d7da; }
+    </style>
+</head>
+<body class="inspector-body">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container"><img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo"><h1>Asesor de Ajuste con Ingeniería Inversa <span class="ia-badge">IA</span></h1></div>
+            <nav class="main-nav"><ul><li><a href="index.html">Inicio</a></li></ul></nav>
+        </header>
+        <main class="main-content">
+            <section class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-ruler-combined"></i> Parámetros de los Componentes</h2>
+                <div class="pieces-container">
+                    <div class="piece-panel">
+                        <h3 class="piece-title">Pieza 1 (Macho / Eje)</h3>
+                        <div class="input-grid">
+                            <div class="input-group full-width"><label for="name-1">Nombre de la Pieza</label><input type="text" id="name-1" placeholder="Ej: Ferula" value="Ferula"></div>
+                            <div class="input-group"><label for="dim-1">Dimensión Nominal</label><input type="number" id="dim-1" step="0.001" value="0.380"></div><div></div>
+                            <div class="input-group"><label for="tol-sup-1">Tolerancia Superior (+)</label><input type="number" id="tol-sup-1" step="0.001" value="0.002"></div>
+                            <div class="input-group"><label for="tol-inf-1">Tolerancia Inferior (-)</label><input type="number" id="tol-inf-1" step="0.001" value="0.002"></div>
+                        </div>
+                    </div>
+                    <div class="piece-panel">
+                        <h3 class="piece-title">Pieza 2 (Hembra / Agujero)</h3>
+                        <div class="input-grid">
+                            <div class="input-group full-width"><label for="name-2">Nombre de la Pieza</label><input type="text" id="name-2" placeholder="Ej: Campana" value="Campana"></div>
+                            <div class="input-group"><label for="dim-2">Dimensión Nominal</label><input type="number" id="dim-2" step="0.001" value="0.369"></div><div></div>
+                            <div class="input-group"><label for="tol-sup-2">Tolerancia Superior (+)</label><input type="number" id="tol-sup-2" step="0.001" value="0.002"></div>
+                            <div class="input-group"><label for="tol-inf-2">Tolerancia Inferior (-)</label><input type="number" id="tol-inf-2" step="0.001" value="0.000"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-check-circle"></i> Criterios de Aceptación (Interferencia)</h2>
+                <div class="input-grid"><div class="input-group"><label for="interf-min">Interferencia Mínima Requerida</label><input type="number" id="interf-min" step="0.001" value="0.007"></div><div class="input-group"><label for="interf-max">Interferencia Máxima Permitida</label><input type="number" id="interf-max" step="0.001" value="0.013"></div></div>
+                <button id="calculate-btn" class="btn-calcular"><i class="fas fa-brain"></i> Calcular y Asesorar</button>
+            </section>
+
+        <section class="dashboard-panel">
+            <h2 class="panel-title"><i class="fas fa-tasks"></i> Resultados, Diagnóstico y Asesoría</h2>
+            <div id="results-container" class="results-container" style="display: none;">
+                <div id="status-message" class="status-message"></div>
+                <div id="svg-container">
+                    <svg id="final-viz" width="100%" height="220"></svg>
+                </div>
+                <div id="diagnostics-container"></div>
+                <div id="combinations-container"></div>
+                <div id="reverse-engineering-container"></div>
+            </div>
+        </section>
+        </main>
+        <footer class="app-footer">&copy; <span id="currentYear"></span> Grupo Azor México.</footer>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+        const calculateBtn = document.getElementById('calculate-btn');
+        
+        calculateBtn.addEventListener('click', () => {
+            document.getElementById('results-container').style.display = 'block';
+
+            requestAnimationFrame(() => {
+                const piece1 = { name: document.getElementById('name-1').value || 'Pieza Macho', dim: parseFloat(document.getElementById('dim-1').value), tolSup: parseFloat(document.getElementById('tol-sup-1').value), tolInf: parseFloat(document.getElementById('tol-inf-1').value) };
+                const piece2 = { name: document.getElementById('name-2').value || 'Pieza Hembra', dim: parseFloat(document.getElementById('dim-2').value), tolSup: parseFloat(document.getElementById('tol-sup-2').value), tolInf: parseFloat(document.getElementById('tol-inf-2').value) };
+                
+                // Calculamos las dimensiones máximas y mínimas para cada pieza
+                piece1.max = piece1.dim + piece1.tolSup; 
+                piece1.min = piece1.dim - piece1.tolInf;
+                piece2.max = piece2.dim + piece2.tolSup; 
+                piece2.min = piece2.dim - piece2.tolInf;
+                
+                // --- CAMBIO PRINCIPAL EN LA LÓGICA ---
+                // Asignamos directamente: Pieza 1 es el eje (shaft) y Pieza 2 es el agujero (hole).
+                // Se elimina la lógica condicional anterior.
+                const shaft = piece1;
+                const hole = piece2;
+
+                // El resto del cálculo de interferencia sigue siendo el mismo:
+                // Interferencia Mínima = Eje más pequeño - Agujero más grande
+                const interfMinCalc = shaft.min - hole.max;
+                // Interferencia Máxima = Eje más grande - Agujero más pequeño
+                const interfMaxCalc = shaft.max - hole.min;
+                
+                const interfMinReq = parseFloat(document.getElementById('interf-min').value);
+                const interfMaxReq = parseFloat(document.getElementById('interf-max').value);
+                
+                // La condición de éxito sigue siendo la misma.
+                const esExitoso = interfMinCalc >= interfMinReq && interfMaxCalc <= interfMaxReq;
+
+                // Actualización de la UI
+                const statusMessage = document.getElementById('status-message');
+                statusMessage.textContent = esExitoso ? 'DISEÑO APROBADO' : 'SE REQUIERE ACCIÓN';
+                statusMessage.className = 'status-message ' + (esExitoso ? 'status-ok' : 'status-error');
+                
+                // Generar Gráficos, Diagnóstico y las nuevas secciones
+                generarGraficoFinal({hole, shaft, interfMinReq, interfMaxReq, interfMinCalc, interfMaxCalc});
+                generarDiagnosticoIA({esExitoso, interfMinCalc, interfMaxCalc, interfMinReq, interfMaxReq, hole, shaft});
+                generarMatrizCombinaciones({hole, shaft, interfMinReq, interfMaxReq});
+                generarIngenieriaInversa({hole, shaft, interfMinReq, interfMaxReq});
+            });
+        });
+
+        const SVG_NS = "http://www.w3.org/2000/svg";
+        const createSvgElement = (el, attrs) => { const element = document.createElementNS(SVG_NS, el); for (const key in attrs) element.setAttribute(key, attrs[key]); return element; };
+        
+        function generarGraficoFinal(data) {
+            const {hole, shaft, interfMinReq, interfMaxReq, interfMinCalc, interfMaxCalc} = data;
+            const svg = document.getElementById('final-viz');
+            svg.innerHTML = '';
+            const width = svg.clientWidth;
+            if (width === 0) return;
+            
+            const allDims = [hole.min, hole.max, shaft.min, shaft.max];
+            const scaleMin = Math.min(...allDims) - (interfMaxReq * 1.2); // Ajuste de escala para mejor visualización
+            const scaleMax = Math.max(...allDims) + (interfMaxReq * 1.2);
+            const padding = (scaleMax - scaleMin) * 0.15;
+            const viewMin = scaleMin - padding;
+            const viewMax = scaleMax + padding;
+            const totalView = viewMax - viewMin;
+            const toSvgX = (val) => ((val - viewMin) / totalView) * width;
+
+            const createTextLabel = (x, y, content, color = '#343a40', size = '12px', anchor = 'middle') => {
+                const textEl = createSvgElement('text', { x, y, fill: color, 'font-size': size, 'text-anchor': anchor, 'font-family': 'sans-serif'});
+                textEl.textContent = content;
+                return textEl;
+            };
+
+            const yHole = 60, yShaft = 25, trackY = 130;
+
+            // Componentes (Agujero y Eje) con sus etiquetas
+            // CAMBIO: Se invierten las posiciones para que el eje (más grande) esté arriba visualmente
+            svg.appendChild(createTextLabel(toSvgX(shaft.min) + (toSvgX(shaft.max) - toSvgX(shaft.min))/2, yShaft - 8, shaft.name + " (Eje)", '#6c757d'));
+            const shaftBar = createSvgElement('rect', {x: toSvgX(shaft.min), y: yShaft, width: toSvgX(shaft.max) - toSvgX(shaft.min), height: 25, fill: 'rgba(13, 110, 253, 0.6)', stroke: '#0d6efd'});
+            svg.appendChild(shaftBar);
+            svg.appendChild(createTextLabel(toSvgX(shaft.min), yShaft + 38, `${shaft.min.toFixed(3)}"`, '#6c757d', '11px', 'start'));
+            svg.appendChild(createTextLabel(toSvgX(shaft.max), yShaft + 38, `${shaft.max.toFixed(3)}"`, '#6c757d', '11px', 'end'));
+
+            svg.appendChild(createTextLabel(toSvgX(hole.min) + (toSvgX(hole.max) - toSvgX(hole.min))/2, yHole - 8, hole.name + " (Agujero)", '#6c757d'));
+            const holeBar = createSvgElement('rect', {x: toSvgX(hole.min), y: yHole, width: toSvgX(hole.max) - toSvgX(hole.min), height: 25, fill: 'rgba(220, 53, 69, 0.6)', stroke: '#dc3545'});
+            svg.appendChild(holeBar);
+            svg.appendChild(createTextLabel(toSvgX(hole.min), yHole + 38, `${hole.min.toFixed(3)}"`, '#6c757d', '11px', 'start'));
+            svg.appendChild(createTextLabel(toSvgX(hole.max), yHole + 38, `${hole.max.toFixed(3)}"`, '#6c757d', '11px', 'end'));
+
+
+            // Pista de Interferencia con zonas
+            const trackHeight = 40;
+            const calcBarY = trackY + 5;
+            const zonaFugaX = toSvgX(hole.max);
+            const zonaOptimaX = toSvgX(hole.max + interfMinReq);
+            const zonaFisuraX = toSvgX(hole.max + interfMaxReq);
+
+            const zonaFuga = createSvgElement('rect', {x: zonaFugaX, y: trackY, width: zonaOptimaX - zonaFugaX, height: trackHeight, fill: 'rgba(255, 193, 7, 0.15)'});
+            const zonaOptima = createSvgElement('rect', {x: zonaOptimaX, y: trackY, width: zonaFisuraX - zonaOptimaX, height: trackHeight, fill: 'rgba(25, 135, 84, 0.15)'});
+            const zonaFisura = createSvgElement('rect', {x: zonaFisuraX, y: trackY, width: width - zonaFisuraX, height: trackHeight, fill: 'rgba(220, 53, 69, 0.15)'});
+            svg.appendChild(zonaFuga);
+            svg.appendChild(zonaOptima);
+            svg.appendChild(zonaFisura);
+
+            // Barra de Interferencia Calculada (Resultado Real)
+            const calcBarX = toSvgX(hole.max + interfMinCalc);
+            const calcBarWidth = toSvgX(hole.max + interfMaxCalc) - calcBarX;
+            const calcBar = createSvgElement('rect', {x: calcBarX, y: calcBarY, width: calcBarWidth, height: 30, fill: 'rgba(0, 86, 179, 0.7)', stroke: '#0056b3', 'stroke-width': 2, rx: 3});
+            svg.appendChild(calcBar);
+            svg.appendChild(createTextLabel(calcBarX, calcBarY + 45, `${interfMinCalc.toFixed(3)}"`, '#0056b3', '11px', 'start'));
+            svg.appendChild(createTextLabel(calcBarX + calcBarWidth, calcBarY + 45, `${interfMaxCalc.toFixed(3)}"`, '#0056b3', '11px', 'end'));
+
+            // Líneas de guía y etiquetas
+            const labelY = trackY + trackHeight + 20;
+            svg.appendChild(createTextLabel(zonaOptimaX, labelY, `Mín: ${interfMinReq.toFixed(3)}"`));
+            svg.appendChild(createTextLabel(zonaFisuraX, labelY, `Máx: ${interfMaxReq.toFixed(3)}"`));
+            svg.appendChild(createSvgElement('line', {x1: zonaOptimaX, y1: trackY, x2: zonaOptimaX, y2: labelY - 5, stroke: '#198754', 'stroke-dasharray': '2 2'}));
+            svg.appendChild(createSvgElement('line', {x1: zonaFisuraX, y1: trackY, x2: zonaFisuraX, y2: labelY - 5, stroke: '#dc3545', 'stroke-dasharray': '2 2'}));
+        }
+
+        function generarDiagnosticoIA(data) {
+            // CAMBIO: Se añade 'hole' y 'shaft' para poder hacer más validaciones
+            const {esExitoso, interfMinCalc, interfMaxCalc, interfMinReq, interfMaxReq, hole, shaft} = data;
+            const container = document.getElementById('diagnostics-container');
+            let content;
+            const diffMin = interfMinCalc - interfMinReq;
+            const diffMax = interfMaxCalc - interfMaxReq;
+
+            // CAMBIO: Añadida una validación inicial para asegurar que es un ajuste de interferencia
+            if (shaft.min < hole.max) {
+                 content = `<div class="diagnostics">
+                    <h3><i class="fas fa-exclamation-triangle" style="color: #ffc107;"></i> Diagnóstico IA: No es un Ajuste por Presión Garantizado</h3>
+                    <p>¡Atención! Existe un riesgo de <strong>ajuste con juego (holgura)</strong>. La dimensión mínima del eje (${shaft.min.toFixed(4)}") es menor que la dimensión máxima del agujero (${hole.max.toFixed(4)}"). Esto significa que en el peor de los casos, las piezas no tendrán interferencia y quedarán sueltas.</p>
+                    <p>Para garantizar un ajuste por presión, la dimensión <strong>mínima del eje debe ser siempre mayor</strong> que la dimensión <strong>máxima del agujero</strong>.</p>
+                </div>`;
+                container.innerHTML = content;
+                return; // Se detiene la función aquí porque este es el error principal.
+            }
+
+            if (esExitoso) {
+                content = `<div class="diagnostics">
+                    <h3><i class="fas fa-check-circle" style="color: #198754;"></i> Diagnóstico IA: Óptimo</h3>
+                    <p>El diseño cumple con todos los criterios de aceptación. El rango de interferencia calculado [${interfMinCalc.toFixed(4)}" - ${interfMaxCalc.toFixed(4)}"] se encuentra completamente dentro del rango requerido [${interfMinReq.toFixed(4)}" - ${interfMaxReq.toFixed(4)}"].</p>
+                </div>`;
+            } else {
+                content = `<div class="diagnostics">
+                    <h3><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i> Diagnóstico IA: Requiere Ajuste</h3>
+                    <p>El diseño no cumple con los criterios. El rango de interferencia calculado es de <strong>[${interfMinCalc.toFixed(4)}" a ${interfMaxCalc.toFixed(4)}"]</strong>, pero el rango aceptable es de [${interfMinReq.toFixed(4)}" a ${interfMaxReq.toFixed(4)}"].</p>
+                    <ul>`;
+                if (diffMin < 0) {
+                    content += `<li>La interferencia mínima calculada es <strong class="bad">${Math.abs(diffMin).toFixed(4)}" INFERIOR</strong> a la requerida. Existe riesgo de <strong>FUGA</strong> o falta de hermeticidad.</li>`;
+                }
+                if (diffMax > 0) {
+                    content += `<li>La interferencia máxima calculada es <strong class="bad">${diffMax.toFixed(4)}" SUPERIOR</strong> a la permitida. Existe riesgo de <strong>FISURA</strong> o daño en los componentes por estrés excesivo.</li>`;
+                }
+                content += `</ul></div>`;
+            }
+            container.innerHTML = content;
+        }
+
+        function generarMatrizCombinaciones(data) {
+            const {hole, shaft, interfMinReq, interfMaxReq} = data;
+            const container = document.getElementById('combinations-container');
+            
+            const classify = (val) => {
+                if (val < 0) return { class: 'cell-bad', text: 'JUEGO' }; // CAMBIO: Nueva clasificación para interferencia negativa
+                if (val < interfMinReq) return { class: 'cell-warn', text: 'FUGA' };
+                if (val > interfMaxReq) return { class: 'cell-bad', text: 'FISURA' };
+                return { class: 'cell-ok', text: 'ÓPTIMO' };
+            };
+            
+            let content = `<div class="viz-title">Análisis de Combinaciones de Tolerancia</div>
+            <table class="combinations-table">
+                <tr><th></th>
+                    <th>${shaft.name} (Mín: ${shaft.min.toFixed(3)}")</th>
+                    <th>${shaft.name} (Máx: ${shaft.max.toFixed(3)}")</th>
+                </tr>`;
+            
+            // Fila para Agujero Mínimo
+            content += `<tr><th>${hole.name} (Mín: ${hole.min.toFixed(3)}")</th>`;
+            let res1 = shaft.min - hole.min; let class1 = classify(res1);
+            let res2 = shaft.max - hole.min; let class2 = classify(res2);
+            content += `<td class="${class1.class}">${res1.toFixed(4)}"<br>(${class1.text})</td>
+                        <td class="${class2.class}">${res2.toFixed(4)}"<br>(${class2.text})</td></tr>`;
+            
+            // Fila para Agujero Máximo
+            content += `<tr><th>${hole.name} (Máx: ${hole.max.toFixed(3)}")</th>`;
+            let res3 = shaft.min - hole.max; let class3 = classify(res3);
+            let res4 = shaft.max - hole.max; let class4 = classify(res4);
+            content += `<td class="${class3.class}">${res3.toFixed(4)}"<br>(${class3.text})</td>
+                        <td class="${class4.class}">${res4.toFixed(4)}"<br>(${class4.text})</td></tr>`;
+            
+            content += `</table>`;
+            container.innerHTML = content;
+        }
+
+        function generarIngenieriaInversa(data) {
+            const container = document.getElementById('reverse-engineering-container');
+            container.innerHTML = '';
+        }
+    });
+    </script>
+</body>
+</html>
