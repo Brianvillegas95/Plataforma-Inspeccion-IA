@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Ajustes de Inventario</title>
+    <title>Dashboard Avanzado - Ajustes de Inventario</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 
     <style>
-        /* --- ESTILOS MEJORADOS --- */
+        /* --- ESTILOS MEJORADOS (Existentes) --- */
         body.inspector-body {
             background-color: #f4f7fa;
         }
@@ -35,55 +35,89 @@
         }
         .panel-title .fas { margin-right: 12px; color: #0056b3; }
         
-        /* --- NUEVO: Estilos para el panel de filtros --- */
+        /* --- NUEVO: Estilos para KPIs --- */
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .kpi-card {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 86, 179, 0.08);
+            border: 1px solid #eef2f7;
+            text-align: center;
+        }
+        .kpi-card .kpi-title {
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #6c757d;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        .kpi-card .kpi-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #0056b3;
+        }
+        .kpi-card.negativo .kpi-value { color: #dc3545; }
+        .kpi-card.positivo .kpi-value { color: #28a745; }
+
+
+        /* --- NUEVO: Estilos mejorados para filtros --- */
         .filter-controls {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px; /* Espacio entre todos los elementos */
+            gap: 15px;
             align-items: center;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-group label {
+            font-size: 0.8em;
+            margin-bottom: 5px;
+            color: #495057;
+            font-weight: 600;
+        }
+        .filter-group select, .filter-group input {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #dbe1e8;
+            background-color: #fff;
         }
         #month-filter-container {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
+            border-left: 2px solid #eef2f7;
+            padding-left: 15px;
+            margin-left: 5px;
         }
         .filter-btn {
-            padding: 8px 16px;
-            font-size: 0.9em;
-            font-weight: 600;
-            border: 2px solid #dbe1e8;
-            border-radius: 20px; /* Botones tipo "píldora" */
-            background-color: #f8f9fa;
-            color: #495057;
-            cursor: pointer;
-            transition: all 0.2s ease;
+            padding: 8px 16px; font-size: 0.9em; font-weight: 600;
+            border: 2px solid #dbe1e8; border-radius: 20px;
+            background-color: #f8f9fa; color: #495057;
+            cursor: pointer; transition: all 0.2s ease;
         }
-        .filter-btn:hover {
-            border-color: #0056b3;
-            color: #0056b3;
-        }
-        .filter-btn.active {
-            background-color: #0056b3;
-            color: #ffffff;
-            border-color: #0056b3;
-        }
+        .filter-btn:hover { border-color: #0056b3; color: #0056b3; }
+        .filter-btn.active { background-color: #0056b3; color: #ffffff; border-color: #0056b3; }
         .btn-reset {
-            padding: 8px 16px;
-            font-size: 0.9em;
-            font-weight: 600;
-            background-color: #6c757d;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            margin-left: auto; /* Empuja este botón a la derecha */
+            padding: 8px 16px; font-size: 0.9em; font-weight: 600;
+            background-color: #6c757d; color: white;
+            border: none; border-radius: 20px; cursor: pointer;
+            margin-left: auto;
         }
-        /* --- Fin de estilos de filtros --- */
         
-        #chart-container { position: relative; height: 420px; width: 100%; margin-bottom: 30px; }
-        .results-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 1.05em; }
-        .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 14px 16px; text-align: left; }
-        .results-table th { background-color: #f8f9fa; font-weight: 600; color: #495057; }
+        /* --- Estilos de la tabla y gráfico (sin cambios mayores) --- */
+        #chart-container { position: relative; height: 450px; width: 100%; margin-bottom: 30px; }
+        .table-wrapper { max-height: 600px; overflow-y: auto; }
+        .results-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.95em; }
+        .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 12px 15px; text-align: left; }
+        .results-table th { background-color: #f8f9fa; font-weight: 600; color: #495057; position: sticky; top: 0; }
         .results-table tbody tr:nth-child(even) { background-color: #f9fafc; }
         .results-table tbody tr:hover { background-color: #e9ecef; }
         .status-message { text-align: center; font-size: 1.2em; color: #6c757d; padding: 40px; }
@@ -105,29 +139,69 @@
 
         <main class="main-content">
             
-            <section class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-filter"></i> Filtros</h2>
-                <div class="filter-controls">
-                    <div id="month-filter-container">
-                        </div>
-                    <button id="reset-filter-btn" class="btn-reset">Mostrar Todos</button>
+            <section class="kpi-container">
+                <div class="kpi-card">
+                    <div class="kpi-title">Ajuste Neto Total</div>
+                    <div class="kpi-value" id="kpi-neto">0</div>
+                </div>
+                <div class="kpi-card positivo">
+                    <div class="kpi-title">Total Ajustes Positivos</div>
+                    <div class="kpi-value" id="kpi-positivo">0</div>
+                </div>
+                <div class="kpi-card negativo">
+                    <div class="kpi-title">Total Ajustes Negativos</div>
+                    <div class="kpi-value" id="kpi-negativo">0</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">Consumo Total</div>
+                    <div class="kpi-value" id="kpi-consumo">0</div>
                 </div>
             </section>
 
             <section class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-chart-line"></i> Tendencia Mensual de Ajustes</h2>
+                <h2 class="panel-title"><i class="fas fa-filter"></i> Filtros de Análisis</h2>
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="filter-area">Área</label>
+                        <select id="filter-area"><option value="">Todas</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-ano">Año</label>
+                        <select id="filter-ano"><option value="">Todos</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-item">Buscar por Item</label>
+                        <input type="text" id="filter-item" placeholder="Ej: 114.0000">
+                    </div>
+                    <div id="month-filter-container">
+                        </div>
+                    <button id="reset-filter-btn" class="btn-reset">Limpiar Filtros</button>
+                </div>
+            </section>
+
+            <section class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Análisis de Ajustes y Consumo</h2>
                 <div id="chart-container"><canvas id="ajustes-chart"></canvas></div>
             </section>
             
             <section class="dashboard-panel">
-                 <h2 class="panel-title"><i class="fas fa-table"></i> Datos de Ajustes de Inventario</h2>
-                <div id="table-container">
+                 <h2 class="panel-title"><i class="fas fa-table"></i> Datos Detallados de Ajustes</h2>
+                <div id="table-wrapper" class="table-wrapper">
                     <table class="results-table">
                         <thead>
-                            <tr><th>Mes</th><th>Valor de Ajuste</th></tr>
+                            <tr>
+                                <th>Item</th>
+                                <th>Mes</th>
+                                <th>Año</th>
+                                <th>Área</th>
+                                <th>UOM</th>
+                                <th>Ajuste Negativo</th>
+                                <th>Ajuste Positivo</th>
+                                <th>Consumo</th>
+                            </tr>
                         </thead>
                         <tbody id="ajustes-table-body">
-                            <tr><td colspan="2" class="status-message"><i class="fas fa-spinner fa-spin"></i> Cargando datos...</td></tr>
+                            <tr><td colspan="8" class="status-message"><i class="fas fa-spinner fa-spin"></i> Cargando datos...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -141,162 +215,243 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // --- CONFIGURACIÓN INICIAL ---
             document.getElementById('currentYear').textContent = new Date().getFullYear();
             Chart.register(ChartDataLabels);
 
-            const tablaBody = document.getElementById('ajustes-table-body');
+            // --- SELECTORES DEL DOM ---
             const netlifyFunctionUrl = '/.netlify/functions/leer-sheet-ajustesinv';
-            const filterContainer = document.getElementById('month-filter-container');
+            const tablaBody = document.getElementById('ajustes-table-body');
+            const filterArea = document.getElementById('filter-area');
+            const filterAno = document.getElementById('filter-ano');
+            const filterItem = document.getElementById('filter-item');
+            const monthFilterContainer = document.getElementById('month-filter-container');
             const resetBtn = document.getElementById('reset-filter-btn');
 
-            // --- NUEVO: Variables para guardar el estado ---
-            let fullData = []; // Almacenará todos los datos originales
-            let ajustesChart;   // Almacenará la instancia del gráfico para poder actualizarla
-            
-            // --- NUEVO: Función para actualizar la tabla ---
+            // --- VARIABLES GLOBALES ---
+            let fullData = []; // Almacenará todos los datos procesados
+            let ajustesChart;   // Almacenará la instancia del gráfico
+
+            // --- CONSTANTES DE COLUMNAS (para código más legible) ---
+            const COL = { ITEM: 0, MES: 1, ANO: 2, UOM: 3, AREA: 4, AJUSTE_NEG: 5, AJUSTE_POS: 6, CONSUMO: 7 };
+
+            // --- FUNCIÓN PARA PROCESAR VALORES NUMÉRICOS ---
+            // Limpia comas, porcentajes y convierte a número. Devuelve 0 si no es válido.
+            const parseValue = (value) => {
+                if (value === null || value === undefined || value === '') return 0;
+                const cleanedString = String(value).replace(/,/g, '').replace(/%/g, '');
+                const number = parseFloat(cleanedString);
+                return isNaN(number) ? 0 : number;
+            };
+
+            // --- FUNCIONES DE ACTUALIZACIÓN DEL DASHBOARD ---
+
+            /**
+             * Actualiza las tarjetas de KPI con los datos filtrados.
+             * @param {Array} data - El array de datos filtrados.
+             */
+            function updateKPIs(data) {
+                const totalPositivo = data.reduce((sum, row) => sum + row.ajustePos, 0);
+                const totalNegativo = data.reduce((sum, row) => sum + row.ajusteNeg, 0);
+                const totalConsumo = data.reduce((sum, row) => sum + row.consumo, 0);
+                const totalNeto = totalPositivo + totalNegativo; // Negativo ya tiene su signo
+
+                document.getElementById('kpi-positivo').textContent = totalPositivo.toLocaleString('es-MX');
+                document.getElementById('kpi-negativo').textContent = totalNegativo.toLocaleString('es-MX');
+                document.getElementById('kpi-consumo').textContent = totalConsumo.toLocaleString('es-MX');
+                document.getElementById('kpi-neto').textContent = totalNeto.toLocaleString('es-MX');
+            }
+
+            /**
+             * Actualiza la tabla con los datos filtrados.
+             * @param {Array} data - El array de datos filtrados.
+             */
             function updateTable(data) {
                 tablaBody.innerHTML = '';
                 if (data.length === 0) {
-                    tablaBody.innerHTML = '<tr><td colspan="2" class="status-message">No hay datos para la selección actual.</td></tr>';
+                    tablaBody.innerHTML = `<tr><td colspan="8" class="status-message">No se encontraron datos con los filtros aplicados.</td></tr>`;
                     return;
                 }
-                data.forEach(fila => {
+                const fragment = document.createDocumentFragment();
+                data.forEach(row => {
                     const tr = document.createElement('tr');
-                    const tdMes = document.createElement('td');
-                    tdMes.textContent = fila[0] || 'N/A';
-                    const tdAjuste = document.createElement('td');
-                    const valorNumerico = parseFloat(String(fila[1]).replace(/,/g, ''));
-                    tdAjuste.textContent = !isNaN(valorNumerico) ? valorNumerico.toLocaleString('es-MX') : 'N/A';
-                    
-                    tr.appendChild(tdMes);
-                    tr.appendChild(tdAjuste);
-                    tablaBody.appendChild(tr);
+                    tr.innerHTML = `
+                        <td>${row.item}</td>
+                        <td>${row.mes}</td>
+                        <td>${row.ano}</td>
+                        <td>${row.area}</td>
+                        <td>${row.uom}</td>
+                        <td>${row.ajusteNeg.toLocaleString('es-MX')}</td>
+                        <td>${row.ajustePos.toLocaleString('es-MX')}</td>
+                        <td>${row.consumo.toLocaleString('es-MX')}</td>
+                    `;
+                    fragment.appendChild(tr);
                 });
+                tablaBody.appendChild(fragment);
             }
-            
-            // --- NUEVO: Función para actualizar el gráfico ---
+
+            /**
+             * Actualiza el gráfico con los datos filtrados, agrupados por mes.
+             * @param {Array} data - El array de datos filtrados.
+             */
             function updateChart(data) {
                 if (!ajustesChart) return;
-                const meses = data.map(fila => fila[0]);
-                const valores = data.map(fila => parseFloat(String(fila[1]).replace(/,/g, '')));
                 
-                ajustesChart.data.labels = meses;
-                ajustesChart.data.datasets[0].data = valores;
+                // Agrupamos los datos por mes
+                const monthlyData = {};
+                const orderedMonths = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+                
+                data.forEach(row => {
+                    const month = row.mes.toLowerCase();
+                    if (!monthlyData[month]) {
+                        monthlyData[month] = { ajustePos: 0, ajusteNeg: 0, consumo: 0 };
+                    }
+                    monthlyData[month].ajustePos += row.ajustePos;
+                    monthlyData[month].ajusteNeg += row.ajusteNeg;
+                    monthlyData[month].consumo += row.consumo;
+                });
+
+                // Ordenamos los meses cronológicamente para el gráfico
+                const labels = orderedMonths.filter(m => monthlyData[m]);
+                const dataPos = labels.map(m => monthlyData[m].ajustePos);
+                const dataNeg = labels.map(m => monthlyData[m].ajusteNeg);
+                const dataConsumo = labels.map(m => monthlyData[m].consumo);
+                const dataNeto = labels.map(m => monthlyData[m].ajustePos + monthlyData[m].ajusteNeg);
+
+                ajustesChart.data.labels = labels;
+                ajustesChart.data.datasets[0].data = dataPos;
+                ajustesChart.data.datasets[1].data = dataNeg;
+                ajustesChart.data.datasets[2].data = dataConsumo;
+                ajustesChart.data.datasets[3].data = dataNeto;
                 ajustesChart.update();
             }
 
-            // --- NUEVO: Función principal que actualiza todo el dashboard ---
+            /**
+             * Función principal que filtra los datos y llama a las funciones de actualización.
+             */
             function updateDashboard() {
-                const activeButtons = document.querySelectorAll('.filter-btn.active');
-                const selectedMonths = Array.from(activeButtons).map(btn => btn.dataset.month);
-                
-                let filteredData;
-                if (selectedMonths.length === 0) {
-                    // Si no hay ninguno seleccionado, mostramos todos
-                    filteredData = fullData;
-                } else {
-                    filteredData = fullData.filter(fila => selectedMonths.includes(fila[0]));
-                }
-                
+                const area = filterArea.value;
+                const ano = filterAno.value;
+                const itemTerm = filterItem.value.toLowerCase();
+                const activeMonthButtons = document.querySelectorAll('.filter-btn.active');
+                const selectedMonths = Array.from(activeMonthButtons).map(btn => btn.dataset.month);
+
+                let filteredData = fullData.filter(row => {
+                    const areaMatch = !area || row.area === area;
+                    const anoMatch = !ano || row.ano === ano;
+                    const itemMatch = !itemTerm || row.item.toLowerCase().includes(itemTerm);
+                    const monthMatch = selectedMonths.length === 0 || selectedMonths.includes(row.mes);
+                    return areaMatch && anoMatch && itemMatch && monthMatch;
+                });
+
+                updateKPIs(filteredData);
                 updateTable(filteredData);
                 updateChart(filteredData);
             }
-            
-            function inicializarGrafico(data) {
+
+            /**
+             * Inicializa el gráfico de Chart.js con una configuración vacía.
+             */
+            function initializeChart() {
                 const ctx = document.getElementById('ajustes-chart').getContext('2d');
-                const meses = data.map(fila => fila[0]);
-                const valores = data.map(fila => parseFloat(String(fila[1]).replace(/,/g, '')));
-                
-                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                gradient.addColorStop(0, 'rgba(0, 86, 179, 0.4)');
-                gradient.addColorStop(1, 'rgba(0, 86, 179, 0.05)');
-                
-                ajustesChart = new Chart(ctx, { // Guardamos la instancia del gráfico
-                    type: 'line',
-                    data: { labels: meses, datasets: [{
-                            label: 'Valor de Ajuste', data: valores, fill: true,
-                            backgroundColor: gradient, borderColor: 'rgba(0, 86, 179, 1)',
-                            borderWidth: 3, pointBackgroundColor: 'rgba(0, 86, 179, 1)',
-                            pointRadius: 5, pointHoverRadius: 8, tension: 0.2
-                        }]
+                ajustesChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            { type: 'bar', label: 'Ajuste Positivo', data: [], backgroundColor: 'rgba(40, 167, 69, 0.7)', borderColor: 'rgba(40, 167, 69, 1)', borderWidth: 1 },
+                            { type: 'bar', label: 'Ajuste Negativo', data: [], backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: 'rgba(220, 53, 69, 1)', borderWidth: 1 },
+                            { type: 'bar', label: 'Consumo', data: [], backgroundColor: 'rgba(0, 86, 179, 0.7)', borderColor: 'rgba(0, 86, 179, 1)', borderWidth: 1 },
+                            { type: 'line', label: 'Ajuste Neto', data: [], borderColor: 'rgba(255, 193, 7, 1)', backgroundColor: 'rgba(255, 193, 7, 0.2)', fill: true, tension: 0.3 }
+                        ]
                     },
-                    options: { /* ... Opciones del gráfico (sin cambios) ... */
+                    options: {
                         responsive: true, maintainAspectRatio: false,
-                        scales: {
-                            y: { beginAtZero: true, grid: { color: '#eef2f7' },
-                                ticks: { callback: (value) => value.toLocaleString('es-MX') }
-                            },
-                            x: { grid: { display: false } }
-                        },
+                        scales: { y: { beginAtZero: true, ticks: { callback: (value) => value.toLocaleString('es-MX') } } },
                         plugins: {
-                            legend: { display: false },
-                            tooltip: { mode: 'index', intersect: false, displayColors: false,
-                                callbacks: {
-                                    label: (context) => {
-                                        let label = context.dataset.label || '';
-                                        if (label) label += ': ';
-                                        if (context.parsed.y !== null) label += context.parsed.y.toLocaleString('es-MX');
-                                        return label;
-                                    }
-                                }
-                            },
-                            datalabels: {
-                                anchor: 'end', align: 'top', color: '#002b59',
-                                font: { weight: 'bold', size: 12 },
-                                formatter: (value) => value.toLocaleString('es-MX')
-                            }
+                            legend: { position: 'top' },
+                            tooltip: { mode: 'index', intersect: false, callbacks: { label: (context) => `${context.dataset.label}: ${context.parsed.y.toLocaleString('es-MX')}` } },
+                            datalabels: { display: false } // Desactivado para no saturar el gráfico
                         },
                         interaction: { mode: 'index', intersect: false }
                     }
                 });
             }
 
+            /**
+             * Rellena los selectores de filtro (Área, Año) y los botones de mes.
+             * @param {Array} data - El array de datos completo.
+             */
+            function populateFilters(data) {
+                const areas = [...new Set(data.map(row => row.area))].sort();
+                const anos = [...new Set(data.map(row => row.ano))].sort();
+                const meses = [...new Set(data.map(row => row.mes))];
+                
+                areas.forEach(area => filterArea.innerHTML += `<option value="${area}">${area}</option>`);
+                anos.forEach(ano => filterAno.innerHTML += `<option value="${ano}">${ano}</option>`);
+                meses.forEach(mes => {
+                    monthFilterContainer.innerHTML += `<button class="filter-btn" data-month="${mes}">${mes}</button>`;
+                });
+            }
+
+            // --- EJECUCIÓN PRINCIPAL ---
+
+            // 1. Inicializa el gráfico vacío
+            initializeChart();
+
+            // 2. Busca los datos en la Netlify Function
             fetch(netlifyFunctionUrl)
                 .then(response => {
                     if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
                     return response.json();
                 })
-                .then(data => {
-                    if (data && data.length > 0) {
-                        fullData = data; // Guardamos los datos originales
-                        
-                        // Generamos los botones de filtro
-                        const mesesUnicos = [...new Set(data.map(fila => fila[0]))];
-                        mesesUnicos.forEach(mes => {
-                            const btn = document.createElement('button');
-                            btn.className = 'filter-btn';
-                            btn.textContent = mes;
-                            btn.dataset.month = mes; // Guardamos el nombre del mes en el botón
-                            filterContainer.appendChild(btn);
-                        });
-
-                        inicializarGrafico(fullData);
-                        updateTable(fullData);
-
-                    } else {
-                        tablaBody.innerHTML = '<tr><td colspan="2" class="status-message">No se encontraron datos.</td></tr>';
-                        document.getElementById('chart-container').style.display = 'none';
+                .then(rawData => {
+                    if (!rawData || rawData.length === 0) {
+                        tablaBody.innerHTML = '<tr><td colspan="8" class="status-message">No se encontraron datos en la fuente.</td></tr>';
+                        return;
                     }
+
+                    // 3. Procesa y limpia los datos, convirtiéndolos en objetos para fácil manejo
+                    fullData = rawData.map(row => ({
+                        item: row[COL.ITEM] || 'N/A',
+                        mes: row[COL.MES] || 'N/A',
+                        ano: row[COL.ANO] || 'N/A',
+                        uom: row[COL.UOM] || 'N/A',
+                        area: row[COL.AREA] || 'N/A',
+                        ajusteNeg: parseValue(row[COL.AJUSTE_NEG]),
+                        ajustePos: parseValue(row[COL.AJUSTE_POS]),
+                        consumo: parseValue(row[COL.CONSUMO])
+                    }));
+
+                    // 4. Rellena los controles de filtro con los datos obtenidos
+                    populateFilters(fullData);
+
+                    // 5. Carga inicial del dashboard con todos los datos
+                    updateDashboard();
+
                 })
                 .catch(error => {
                     console.error('Error al obtener los datos:', error);
-                    tablaBody.innerHTML = `<tr><td colspan="2" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos.</td></tr>`;
-                    document.getElementById('chart-container').style.display = 'none';
+                    tablaBody.innerHTML = `<tr><td colspan="8" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos. Revisa la consola para más detalles.</td></tr>`;
                 });
             
-            // --- NUEVO: Eventos para los filtros ---
-            filterContainer.addEventListener('click', function(e) {
+            // --- EVENT LISTENERS PARA LOS FILTROS ---
+            [filterArea, filterAno].forEach(el => el.addEventListener('change', updateDashboard));
+            filterItem.addEventListener('input', updateDashboard);
+
+            monthFilterContainer.addEventListener('click', (e) => {
                 if (e.target.classList.contains('filter-btn')) {
-                    e.target.classList.toggle('active'); // Activa/desactiva el botón
-                    updateDashboard(); // Actualiza la vista
+                    e.target.classList.toggle('active');
+                    updateDashboard();
                 }
             });
 
-            resetBtn.addEventListener('click', function() {
-                document.querySelectorAll('.filter-btn.active').forEach(btn => {
-                    btn.classList.remove('active'); // Quita la selección de todos
-                });
-                updateDashboard(); // Actualiza la vista
+            resetBtn.addEventListener('click', () => {
+                filterArea.value = '';
+                filterAno.value = '';
+                filterItem.value = '';
+                document.querySelectorAll('.filter-btn.active').forEach(btn => btn.classList.remove('active'));
+                updateDashboard();
             });
         });
     </script>
