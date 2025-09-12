@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Avanzado - Ajustes de Inventario</title>
+    <title>Dashboard Avanzado - Análisis de Pareto</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
@@ -11,10 +11,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 
     <style>
-        /* --- ESTILOS MEJORADOS (Existentes) --- */
-        body.inspector-body {
-            background-color: #f4f7fa;
-        }
+        /* --- ESTILOS GENERALES (Existentes y Mejorados) --- */
+        body.inspector-body { background-color: #f4f7fa; }
         .main-content { padding: 20px; }
         .dashboard-panel {
             background-color: #ffffff;
@@ -25,95 +23,66 @@
             border: 1px solid #eef2f7;
         }
         .panel-title {
-            font-size: 1.7em;
-            color: #343a40;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #0056b3;
-            padding-bottom: 10px;
-            display: flex;
-            align-items: center;
+            font-size: 1.7em; color: #343a40; margin-bottom: 20px;
+            border-bottom: 2px solid #0056b3; padding-bottom: 10px;
+            display: flex; align-items: center;
         }
         .panel-title .fas { margin-right: 12px; color: #0056b3; }
         
-        /* --- NUEVO: Estilos para KPIs --- */
+        /* --- Estilos para KPIs (Sin cambios) --- */
         .kpi-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
-            margin-bottom: 25px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px; margin-bottom: 25px;
         }
         .kpi-card {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 6px 20px rgba(0, 86, 179, 0.08);
-            border: 1px solid #eef2f7;
-            text-align: center;
+            background-color: #fff; padding: 20px; border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 86, 179, 0.08); border: 1px solid #eef2f7; text-align: center;
         }
-        .kpi-card .kpi-title {
-            font-size: 0.9em;
-            font-weight: 600;
-            color: #6c757d;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-        }
-        .kpi-card .kpi-value {
-            font-size: 2em;
-            font-weight: 700;
-            color: #0056b3;
-        }
+        .kpi-card .kpi-title { font-size: 0.9em; font-weight: 600; color: #6c757d; margin-bottom: 8px; text-transform: uppercase; }
+        .kpi-card .kpi-value { font-size: 2em; font-weight: 700; color: #0056b3; }
         .kpi-card.negativo .kpi-value { color: #dc3545; }
         .kpi-card.positivo .kpi-value { color: #28a745; }
 
-
-        /* --- NUEVO: Estilos mejorados para filtros --- */
-        .filter-controls {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            align-items: center;
-        }
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-        }
-        .filter-group label {
-            font-size: 0.8em;
-            margin-bottom: 5px;
-            color: #495057;
-            font-weight: 600;
-        }
-        .filter-group select, .filter-group input {
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid #dbe1e8;
-            background-color: #fff;
-        }
+        /* --- Estilos para Filtros (Actualizados) --- */
+        .filter-controls { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+        .filter-group { display: flex; flex-direction: column; }
+        .filter-group label { font-size: 0.8em; margin-bottom: 5px; color: #495057; font-weight: 600; }
+        .filter-group select, .filter-group input { padding: 8px 12px; border-radius: 8px; border: 1px solid #dbe1e8; background-color: #fff; }
         #month-filter-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            border-left: 2px solid #eef2f7;
-            padding-left: 15px;
-            margin-left: 5px;
+            display: flex; flex-wrap: wrap; gap: 10px;
+            border-left: 2px solid #eef2f7; padding-left: 15px; margin-left: 5px;
         }
         .filter-btn {
             padding: 8px 16px; font-size: 0.9em; font-weight: 600;
-            border: 2px solid #dbe1e8; border-radius: 20px;
-            background-color: #f8f9fa; color: #495057;
-            cursor: pointer; transition: all 0.2s ease;
+            border: 2px solid #dbe1e8; border-radius: 20px; background-color: #f8f9fa;
+            color: #495057; cursor: pointer; transition: all 0.2s ease;
         }
         .filter-btn:hover { border-color: #0056b3; color: #0056b3; }
         .filter-btn.active { background-color: #0056b3; color: #ffffff; border-color: #0056b3; }
         .btn-reset {
-            padding: 8px 16px; font-size: 0.9em; font-weight: 600;
-            background-color: #6c757d; color: white;
-            border: none; border-radius: 20px; cursor: pointer;
-            margin-left: auto;
+            padding: 8px 16px; font-size: 0.9em; font-weight: 600; background-color: #6c757d;
+            color: white; border: none; border-radius: 20px; cursor: pointer; margin-left: auto;
+        }
+
+        /* --- NUEVO: Estilos para control de métrica del Pareto --- */
+        .metric-selector {
+            margin-bottom: 25px; padding: 15px;
+            background-color: #f8f9fa; border-radius: 8px;
+            display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;
+        }
+        .metric-selector-title { font-weight: 600; color: #343a40; font-size: 1.1em; }
+        .metric-selector input[type="radio"] { display: none; }
+        .metric-selector label {
+            padding: 8px 15px; border-radius: 20px; font-size: 0.9em;
+            font-weight: 500; cursor: pointer; background-color: #e9ecef; color: #495057;
+            transition: all 0.2s ease-in-out;
+        }
+        .metric-selector input[type="radio"]:checked + label {
+            background-color: #0056b3; color: white; box-shadow: 0 4px 10px rgba(0, 86, 179, 0.3);
         }
         
-        /* --- Estilos de la tabla y gráfico (sin cambios mayores) --- */
-        #chart-container { position: relative; height: 450px; width: 100%; margin-bottom: 30px; }
+        /* --- Estilos de Gráfico y Tabla (Sin cambios mayores) --- */
+        #chart-container { position: relative; height: 500px; width: 100%; }
         .table-wrapper { max-height: 600px; overflow-y: auto; }
         .results-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.95em; }
         .results-table th, .results-table td { border: 1px solid #dee2e6; padding: 12px 15px; text-align: left; }
@@ -166,6 +135,10 @@
                         <select id="filter-area"><option value="">Todas</option></select>
                     </div>
                     <div class="filter-group">
+                        <label for="filter-uom">UOM</label>
+                        <select id="filter-uom"><option value="">Todas</option></select>
+                    </div>
+                    <div class="filter-group">
                         <label for="filter-ano">Año</label>
                         <select id="filter-ano"><option value="">Todos</option></select>
                     </div>
@@ -173,14 +146,27 @@
                         <label for="filter-item">Buscar por Item</label>
                         <input type="text" id="filter-item" placeholder="Ej: 114.0000">
                     </div>
-                    <div id="month-filter-container">
-                        </div>
+                    <div id="month-filter-container"></div>
                     <button id="reset-filter-btn" class="btn-reset">Limpiar Filtros</button>
                 </div>
             </section>
-
+            
             <section class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Análisis de Ajustes y Consumo</h2>
+                 <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Análisis de Pareto por Item</h2>
+                 <div class="metric-selector">
+                    <span class="metric-selector-title">Analizar por:</span>
+                    <input type="radio" id="metric-neto" name="pareto-metric" value="neto" checked>
+                    <label for="metric-neto">Ajuste Neto (Absoluto)</label>
+                    
+                    <input type="radio" id="metric-pos" name="pareto-metric" value="positivo">
+                    <label for="metric-pos">Ajuste Positivo</label>
+
+                    <input type="radio" id="metric-neg" name="pareto-metric" value="negativo">
+                    <label for="metric-neg">Ajuste Negativo</label>
+
+                    <input type="radio" id="metric-consumo" name="pareto-metric" value="consumo">
+                    <label for="metric-consumo">Consumo</label>
+                 </div>
                 <div id="chart-container"><canvas id="ajustes-chart"></canvas></div>
             </section>
             
@@ -213,247 +199,266 @@
         </footer>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- CONFIGURACIÓN INICIAL ---
-            document.getElementById('currentYear').textContent = new Date().getFullYear();
-            Chart.register(ChartDataLabels);
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- CONFIGURACIÓN INICIAL Y SELECTORES DEL DOM ---
+    document.getElementById('currentYear').textContent = new Date().getFullYear();
+    Chart.register(ChartDataLabels);
 
-            // --- SELECTORES DEL DOM ---
-            const netlifyFunctionUrl = '/.netlify/functions/leer-sheet-ajustesinv';
-            const tablaBody = document.getElementById('ajustes-table-body');
-            const filterArea = document.getElementById('filter-area');
-            const filterAno = document.getElementById('filter-ano');
-            const filterItem = document.getElementById('filter-item');
-            const monthFilterContainer = document.getElementById('month-filter-container');
-            const resetBtn = document.getElementById('reset-filter-btn');
+    const netlifyFunctionUrl = '/.netlify/functions/leer-sheet-ajustesinv';
+    const tablaBody = document.getElementById('ajustes-table-body');
+    const filterArea = document.getElementById('filter-area');
+    const filterUom = document.getElementById('filter-uom');
+    const filterAno = document.getElementById('filter-ano');
+    const filterItem = document.getElementById('filter-item');
+    const monthFilterContainer = document.getElementById('month-filter-container');
+    const resetBtn = document.getElementById('reset-filter-btn');
+    const paretoMetricRadios = document.querySelectorAll('input[name="pareto-metric"]');
 
-            // --- VARIABLES GLOBALES ---
-            let fullData = []; // Almacenará todos los datos procesados
-            let ajustesChart;   // Almacenará la instancia del gráfico
+    // --- VARIABLES GLOBALES Y CONSTANTES ---
+    let fullData = [];
+    let ajustesChart;
+    const COL = { ITEM: 0, MES: 1, ANO: 2, UOM: 3, AREA: 4, AJUSTE_NEG: 5, AJUSTE_POS: 6, CONSUMO: 7 };
 
-            // --- CONSTANTES DE COLUMNAS (para código más legible) ---
-            const COL = { ITEM: 0, MES: 1, ANO: 2, UOM: 3, AREA: 4, AJUSTE_NEG: 5, AJUSTE_POS: 6, CONSUMO: 7 };
+    // --- FUNCIONES AUXILIARES ---
+    const parseValue = (value) => {
+        if (value === null || value === undefined || value === '') return 0;
+        const cleanedString = String(value).replace(/,/g, '').replace(/%/g, '');
+        const number = parseFloat(cleanedString);
+        return isNaN(number) ? 0 : number;
+    };
 
-            // --- FUNCIÓN PARA PROCESAR VALORES NUMÉRICOS ---
-            // Limpia comas, porcentajes y convierte a número. Devuelve 0 si no es válido.
-            const parseValue = (value) => {
-                if (value === null || value === undefined || value === '') return 0;
-                const cleanedString = String(value).replace(/,/g, '').replace(/%/g, '');
-                const number = parseFloat(cleanedString);
-                return isNaN(number) ? 0 : number;
-            };
+    // --- FUNCIONES DE ACTUALIZACIÓN DEL DASHBOARD ---
 
-            // --- FUNCIONES DE ACTUALIZACIÓN DEL DASHBOARD ---
+    function updateKPIs(data) {
+        const totalPositivo = data.reduce((sum, row) => sum + row.ajustePos, 0);
+        const totalNegativo = data.reduce((sum, row) => sum + row.ajusteNeg, 0);
+        const totalConsumo = data.reduce((sum, row) => sum + row.consumo, 0);
+        const totalNeto = totalPositivo + totalNegativo;
 
-            /**
-             * Actualiza las tarjetas de KPI con los datos filtrados.
-             * @param {Array} data - El array de datos filtrados.
-             */
-            function updateKPIs(data) {
-                const totalPositivo = data.reduce((sum, row) => sum + row.ajustePos, 0);
-                const totalNegativo = data.reduce((sum, row) => sum + row.ajusteNeg, 0);
-                const totalConsumo = data.reduce((sum, row) => sum + row.consumo, 0);
-                const totalNeto = totalPositivo + totalNegativo; // Negativo ya tiene su signo
+        document.getElementById('kpi-positivo').textContent = totalPositivo.toLocaleString('es-MX');
+        document.getElementById('kpi-negativo').textContent = totalNegativo.toLocaleString('es-MX');
+        document.getElementById('kpi-consumo').textContent = totalConsumo.toLocaleString('es-MX');
+        document.getElementById('kpi-neto').textContent = totalNeto.toLocaleString('es-MX');
+    }
 
-                document.getElementById('kpi-positivo').textContent = totalPositivo.toLocaleString('es-MX');
-                document.getElementById('kpi-negativo').textContent = totalNegativo.toLocaleString('es-MX');
-                document.getElementById('kpi-consumo').textContent = totalConsumo.toLocaleString('es-MX');
-                document.getElementById('kpi-neto').textContent = totalNeto.toLocaleString('es-MX');
-            }
-
-            /**
-             * Actualiza la tabla con los datos filtrados.
-             * @param {Array} data - El array de datos filtrados.
-             */
-            function updateTable(data) {
-                tablaBody.innerHTML = '';
-                if (data.length === 0) {
-                    tablaBody.innerHTML = `<tr><td colspan="8" class="status-message">No se encontraron datos con los filtros aplicados.</td></tr>`;
-                    return;
-                }
-                const fragment = document.createDocumentFragment();
-                data.forEach(row => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${row.item}</td>
-                        <td>${row.mes}</td>
-                        <td>${row.ano}</td>
-                        <td>${row.area}</td>
-                        <td>${row.uom}</td>
-                        <td>${row.ajusteNeg.toLocaleString('es-MX')}</td>
-                        <td>${row.ajustePos.toLocaleString('es-MX')}</td>
-                        <td>${row.consumo.toLocaleString('es-MX')}</td>
-                    `;
-                    fragment.appendChild(tr);
-                });
-                tablaBody.appendChild(fragment);
-            }
-
-            /**
-             * Actualiza el gráfico con los datos filtrados, agrupados por mes.
-             * @param {Array} data - El array de datos filtrados.
-             */
-            function updateChart(data) {
-                if (!ajustesChart) return;
-                
-                // Agrupamos los datos por mes
-                const monthlyData = {};
-                const orderedMonths = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-                
-                data.forEach(row => {
-                    const month = row.mes.toLowerCase();
-                    if (!monthlyData[month]) {
-                        monthlyData[month] = { ajustePos: 0, ajusteNeg: 0, consumo: 0 };
-                    }
-                    monthlyData[month].ajustePos += row.ajustePos;
-                    monthlyData[month].ajusteNeg += row.ajusteNeg;
-                    monthlyData[month].consumo += row.consumo;
-                });
-
-                // Ordenamos los meses cronológicamente para el gráfico
-                const labels = orderedMonths.filter(m => monthlyData[m]);
-                const dataPos = labels.map(m => monthlyData[m].ajustePos);
-                const dataNeg = labels.map(m => monthlyData[m].ajusteNeg);
-                const dataConsumo = labels.map(m => monthlyData[m].consumo);
-                const dataNeto = labels.map(m => monthlyData[m].ajustePos + monthlyData[m].ajusteNeg);
-
-                ajustesChart.data.labels = labels;
-                ajustesChart.data.datasets[0].data = dataPos;
-                ajustesChart.data.datasets[1].data = dataNeg;
-                ajustesChart.data.datasets[2].data = dataConsumo;
-                ajustesChart.data.datasets[3].data = dataNeto;
-                ajustesChart.update();
-            }
-
-            /**
-             * Función principal que filtra los datos y llama a las funciones de actualización.
-             */
-            function updateDashboard() {
-                const area = filterArea.value;
-                const ano = filterAno.value;
-                const itemTerm = filterItem.value.toLowerCase();
-                const activeMonthButtons = document.querySelectorAll('.filter-btn.active');
-                const selectedMonths = Array.from(activeMonthButtons).map(btn => btn.dataset.month);
-
-                let filteredData = fullData.filter(row => {
-                    const areaMatch = !area || row.area === area;
-                    const anoMatch = !ano || row.ano === ano;
-                    const itemMatch = !itemTerm || row.item.toLowerCase().includes(itemTerm);
-                    const monthMatch = selectedMonths.length === 0 || selectedMonths.includes(row.mes);
-                    return areaMatch && anoMatch && itemMatch && monthMatch;
-                });
-
-                updateKPIs(filteredData);
-                updateTable(filteredData);
-                updateChart(filteredData);
-            }
-
-            /**
-             * Inicializa el gráfico de Chart.js con una configuración vacía.
-             */
-            function initializeChart() {
-                const ctx = document.getElementById('ajustes-chart').getContext('2d');
-                ajustesChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: [],
-                        datasets: [
-                            { type: 'bar', label: 'Ajuste Positivo', data: [], backgroundColor: 'rgba(40, 167, 69, 0.7)', borderColor: 'rgba(40, 167, 69, 1)', borderWidth: 1 },
-                            { type: 'bar', label: 'Ajuste Negativo', data: [], backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: 'rgba(220, 53, 69, 1)', borderWidth: 1 },
-                            { type: 'bar', label: 'Consumo', data: [], backgroundColor: 'rgba(0, 86, 179, 0.7)', borderColor: 'rgba(0, 86, 179, 1)', borderWidth: 1 },
-                            { type: 'line', label: 'Ajuste Neto', data: [], borderColor: 'rgba(255, 193, 7, 1)', backgroundColor: 'rgba(255, 193, 7, 0.2)', fill: true, tension: 0.3 }
-                        ]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        scales: { y: { beginAtZero: true, ticks: { callback: (value) => value.toLocaleString('es-MX') } } },
-                        plugins: {
-                            legend: { position: 'top' },
-                            tooltip: { mode: 'index', intersect: false, callbacks: { label: (context) => `${context.dataset.label}: ${context.parsed.y.toLocaleString('es-MX')}` } },
-                            datalabels: { display: false } // Desactivado para no saturar el gráfico
-                        },
-                        interaction: { mode: 'index', intersect: false }
-                    }
-                });
-            }
-
-            /**
-             * Rellena los selectores de filtro (Área, Año) y los botones de mes.
-             * @param {Array} data - El array de datos completo.
-             */
-            function populateFilters(data) {
-                const areas = [...new Set(data.map(row => row.area))].sort();
-                const anos = [...new Set(data.map(row => row.ano))].sort();
-                const meses = [...new Set(data.map(row => row.mes))];
-                
-                areas.forEach(area => filterArea.innerHTML += `<option value="${area}">${area}</option>`);
-                anos.forEach(ano => filterAno.innerHTML += `<option value="${ano}">${ano}</option>`);
-                meses.forEach(mes => {
-                    monthFilterContainer.innerHTML += `<button class="filter-btn" data-month="${mes}">${mes}</button>`;
-                });
-            }
-
-            // --- EJECUCIÓN PRINCIPAL ---
-
-            // 1. Inicializa el gráfico vacío
-            initializeChart();
-
-            // 2. Busca los datos en la Netlify Function
-            fetch(netlifyFunctionUrl)
-                .then(response => {
-                    if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
-                    return response.json();
-                })
-                .then(rawData => {
-                    if (!rawData || rawData.length === 0) {
-                        tablaBody.innerHTML = '<tr><td colspan="8" class="status-message">No se encontraron datos en la fuente.</td></tr>';
-                        return;
-                    }
-
-                    // 3. Procesa y limpia los datos, convirtiéndolos en objetos para fácil manejo
-                    fullData = rawData.map(row => ({
-                        item: row[COL.ITEM] || 'N/A',
-                        mes: row[COL.MES] || 'N/A',
-                        ano: row[COL.ANO] || 'N/A',
-                        uom: row[COL.UOM] || 'N/A',
-                        area: row[COL.AREA] || 'N/A',
-                        ajusteNeg: parseValue(row[COL.AJUSTE_NEG]),
-                        ajustePos: parseValue(row[COL.AJUSTE_POS]),
-                        consumo: parseValue(row[COL.CONSUMO])
-                    }));
-
-                    // 4. Rellena los controles de filtro con los datos obtenidos
-                    populateFilters(fullData);
-
-                    // 5. Carga inicial del dashboard con todos los datos
-                    updateDashboard();
-
-                })
-                .catch(error => {
-                    console.error('Error al obtener los datos:', error);
-                    tablaBody.innerHTML = `<tr><td colspan="8" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos. Revisa la consola para más detalles.</td></tr>`;
-                });
-            
-            // --- EVENT LISTENERS PARA LOS FILTROS ---
-            [filterArea, filterAno].forEach(el => el.addEventListener('change', updateDashboard));
-            filterItem.addEventListener('input', updateDashboard);
-
-            monthFilterContainer.addEventListener('click', (e) => {
-                if (e.target.classList.contains('filter-btn')) {
-                    e.target.classList.toggle('active');
-                    updateDashboard();
-                }
-            });
-
-            resetBtn.addEventListener('click', () => {
-                filterArea.value = '';
-                filterAno.value = '';
-                filterItem.value = '';
-                document.querySelectorAll('.filter-btn.active').forEach(btn => btn.classList.remove('active'));
-                updateDashboard();
-            });
+    function updateTable(data) {
+        tablaBody.innerHTML = '';
+        if (data.length === 0) {
+            tablaBody.innerHTML = `<tr><td colspan="8" class="status-message">No se encontraron datos con los filtros aplicados.</td></tr>`;
+            return;
+        }
+        const fragment = document.createDocumentFragment();
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${row.item}</td>
+                <td>${row.mes}</td>
+                <td>${row.ano}</td>
+                <td>${row.area}</td>
+                <td>${row.uom}</td>
+                <td>${row.ajusteNeg.toLocaleString('es-MX')}</td>
+                <td>${row.ajustePos.toLocaleString('es-MX')}</td>
+                <td>${row.consumo.toLocaleString('es-MX')}</td>
+            `;
+            fragment.appendChild(tr);
         });
-    </script>
+        tablaBody.appendChild(fragment);
+    }
+
+    function updateParetoChart(data) {
+        if (!ajustesChart) return;
+        
+        const selectedMetric = document.querySelector('input[name="pareto-metric"]:checked').value;
+
+        const itemTotals = data.reduce((acc, row) => {
+            let value = 0;
+            switch (selectedMetric) {
+                case 'neto':     value = Math.abs(row.ajustePos + row.ajusteNeg); break;
+                case 'positivo': value = row.ajustePos; break;
+                case 'negativo': value = Math.abs(row.ajusteNeg); break;
+                case 'consumo':  value = row.consumo; break;
+            }
+            acc[row.item] = (acc[row.item] || 0) + value;
+            return acc;
+        }, {});
+
+        const sortedItems = Object.entries(itemTotals)
+            .map(([item, value]) => ({ item, value }))
+            .filter(d => d.value > 0)
+            .sort((a, b) => b.value - a.value);
+
+        const grandTotal = sortedItems.reduce((sum, d) => sum + d.value, 0);
+        let cumulative = 0;
+        const cumulativePercentage = sortedItems.map(d => {
+            cumulative += d.value;
+            return grandTotal > 0 ? (cumulative / grandTotal) * 100 : 0;
+        });
+
+        const labels = sortedItems.map(d => d.item);
+        const barData = sortedItems.map(d => d.value);
+
+        ajustesChart.data.labels = labels;
+        ajustesChart.data.datasets[0].data = barData;
+        ajustesChart.data.datasets[1].data = cumulativePercentage;
+        ajustesChart.update();
+    }
+
+    function updateDashboard() {
+        const area = filterArea.value;
+        const uom = filterUom.value;
+        const ano = filterAno.value;
+        const itemTerm = filterItem.value.toLowerCase();
+        const activeMonthButtons = document.querySelectorAll('.filter-btn.active');
+        const selectedMonths = Array.from(activeMonthButtons).map(btn => btn.dataset.month);
+
+        let filteredData = fullData.filter(row => {
+            const areaMatch = !area || row.area === area;
+            const uomMatch = !uom || row.uom === uom;
+            const anoMatch = !ano || row.ano === ano;
+            const itemMatch = !itemTerm || row.item.toLowerCase().includes(itemTerm);
+            const monthMatch = selectedMonths.length === 0 || selectedMonths.includes(row.mes);
+            return areaMatch && uomMatch && anoMatch && itemMatch && monthMatch;
+        });
+
+        updateKPIs(filteredData);
+        updateTable(filteredData);
+        updateParetoChart(filteredData);
+    }
+
+    // --- FUNCIONES DE INICIALIZACIÓN ---
+
+    function initializeChart() {
+        const ctx = document.getElementById('ajustes-chart').getContext('2d');
+        ajustesChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Valor',
+                        data: [],
+                        backgroundColor: 'rgba(0, 86, 179, 0.7)',
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: '% Acumulado',
+                        data: [],
+                        type: 'line',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        fill: false,
+                        tension: 0.1,
+                        yAxisID: 'y1',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { display: false } },
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        beginAtZero: true,
+                        title: { display: true, text: 'Valor de la Métrica' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        min: 0,
+                        max: 100,
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'Porcentaje Acumulado (%)' },
+                        ticks: { callback: (value) => value + '%' }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: { mode: 'index', intersect: false },
+                    datalabels: { display: false }
+                }
+            }
+        });
+    }
+
+    function populateFilters(data) {
+        const areas = [...new Set(data.map(row => row.area))].sort();
+        const uoms = [...new Set(data.map(row => row.uom))].sort();
+        const anos = [...new Set(data.map(row => row.ano))].sort();
+        const mesesUnicos = [...new Set(data.map(row => row.mes))];
+        
+        const monthOrder = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+        mesesUnicos.sort((a, b) => monthOrder.indexOf(a.toLowerCase()) - monthOrder.indexOf(b.toLowerCase()));
+
+        areas.forEach(area => filterArea.innerHTML += `<option value="${area}">${area}</option>`);
+        uoms.forEach(uom => filterUom.innerHTML += `<option value="${uom}">${uom}</option>`);
+        anos.forEach(ano => filterAno.innerHTML += `<option value="${ano}">${ano}</option>`);
+        
+        monthFilterContainer.innerHTML = '';
+        mesesUnicos.forEach(mes => {
+            monthFilterContainer.innerHTML += `<button class="filter-btn" data-month="${mes}">${mes}</button>`;
+        });
+    }
+
+    // --- EJECUCIÓN PRINCIPAL ---
+
+    initializeChart();
+
+    fetch(netlifyFunctionUrl)
+        .then(response => {
+            if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
+            return response.json();
+        })
+        .then(rawData => {
+            if (!rawData || rawData.length === 0) {
+                tablaBody.innerHTML = '<tr><td colspan="8" class="status-message">No se encontraron datos en la fuente.</td></tr>';
+                return;
+            }
+
+            fullData = rawData.map(row => ({
+                item: row[COL.ITEM] || 'N/A',
+                mes: row[COL.MES] || 'N/A',
+                ano: row[COL.ANO] || 'N/A',
+                uom: row[COL.UOM] || 'N/A',
+                area: row[COL.AREA] || 'N/A',
+                ajusteNeg: parseValue(row[COL.AJUSTE_NEG]),
+                ajustePos: parseValue(row[COL.AJUSTE_POS]),
+                consumo: parseValue(row[COL.CONSUMO])
+            }));
+
+            populateFilters(fullData);
+            updateDashboard();
+
+        })
+        .catch(error => {
+            console.error('Error al obtener los datos:', error);
+            tablaBody.innerHTML = `<tr><td colspan="8" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos.</td></tr>`;
+        });
+    
+    // --- EVENT LISTENERS ---
+    [filterArea, filterUom, filterAno].forEach(el => el.addEventListener('change', updateDashboard));
+    filterItem.addEventListener('input', updateDashboard);
+    paretoMetricRadios.forEach(radio => radio.addEventListener('change', updateDashboard));
+
+    monthFilterContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('filter-btn')) {
+            e.target.classList.toggle('active');
+            updateDashboard();
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        filterArea.value = '';
+        filterUom.value = '';
+        filterAno.value = '';
+        filterItem.value = '';
+        document.querySelectorAll('.filter-btn.active').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('metric-neto').checked = true;
+        updateDashboard();
+    });
+});
+</script>
 </body>
 </html>
