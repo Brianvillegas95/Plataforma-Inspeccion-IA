@@ -1108,3 +1108,61 @@ body.color-validator-body .main-content {
         height: 55px;
     }
 }
+/* --- ESTILOS ADICIONALES PARA VISTA DE CONVERSACIÓN --- */
+
+#chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.user-message {
+    background-color: var(--azor-blue); /* Usa el color principal de tu marca */
+    color: white;
+    padding: 10px 15px;
+    border-radius: 15px;
+    margin-bottom: 10px;
+    max-width: 80%;
+    align-self: flex-end; /* ¡Clave para alinear a la derecha! */
+    text-align: right;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+/* Estilo para los botones ya usados */
+.option-button:disabled {
+    background-color: #a9a9a9;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+/* --- ESTILOS PARA LA ENTRADA DE TEXTO --- */
+#chat-options-container {
+    padding: 10px;
+    border-top: 1px solid var(--border-color);
+}
+#chat-form {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+#chat-input {
+    flex-grow: 1;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 10px;
+    font-size: 0.95rem;
+}
+#send-button {
+    background-color: var(--azor-blue);
+    border: none;
+    color: white;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
