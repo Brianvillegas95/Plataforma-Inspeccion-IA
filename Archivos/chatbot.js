@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicia el chat solo la primera vez que se abre la ventana
     chatBubble.addEventListener('click', () => {
         if (!isChatInitiated && chatContainer.classList.contains('open')) {
-            getNextDialogue(1); // Carga el primer mensaje (ID 1)
+            getNextDialogue(0); // Carga el primer mensaje (ID 1)
             isChatInitiated = true; // Marca como iniciado para no volver a cargarlo
         }
     });
