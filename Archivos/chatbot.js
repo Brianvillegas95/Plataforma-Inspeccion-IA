@@ -46,49 +46,54 @@ document.addEventListener('DOMContentLoaded', () => {
         getNextDialogue(option.nextId);
     }
 
-    // --- FUNCIÓN MODIFICADA Y ACTUALIZADA ---
-    // Función para mostrar un nuevo paso de la conversación
-    function showDialogue(dialogue) {
-        // Limpiamos las opciones anteriores
-        optionsContainer.innerHTML = ''; 
+// --- FUNCIÓN MODIFICADA Y ACTUALIZADA ---
+// Función para mostrar un nuevo paso de la conversación
+function showDialogue(dialogue) {
+    // Limpiamos las opciones anteriores
+    optionsContainer.innerHTML = ''; 
 
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Definimos un umbral: si hay más de 7 opciones, activamos el scroll.
-        const scrollThreshold = 7;
-
-        // Verificamos si la cantidad de opciones supera nuestro umbral.
-        if (dialogue.options && dialogue.options.length > scrollThreshold) {
-            // Si hay muchas opciones, AÑADIMOS la clase para activar el scroll.
-            optionsContainer.classList.add('scrollable-options');
-        } else {
-            // Si hay pocas opciones, NOS ASEGURAMOS de que la clase NO esté.
-            // Esto es importante para cuando pasas de una lista larga a una corta.
-            optionsContainer.classList.remove('scrollable-options');
-        }
-        // --- FIN DE LA MODIFICACIÓN ---
-        
-        // Crea y muestra el nuevo mensaje del bot
-        const messageElement = document.createElement('div');
-        messageElement.classList.add('bot-message');
-        messageElement.textContent = dialogue.message;
-        messagesContainer.appendChild(messageElement);
-        
-        // Desplaza la vista al último mensaje
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-        // Crea y muestra los nuevos botones de opción, si existen
-        if (dialogue.options && dialogue.options.length > 0) {
-            dialogue.options.forEach(option => {
-                if (option.text && option.nextId) { // Solo crea el botón si tiene texto y un nextId
-                    const button = document.createElement('button');
-                    button.classList.add('option-button');
-                    button.textContent = option.text;
-                    button.onclick = () => handleOptionClick(option); 
-                    optionsContainer.appendChild(button);
-                }
-            });
-        }
+    // Lógica para el scroll condicional que ya teníamos
+    const scrollThreshold = 4;
+    if (dialogue.options && dialogue.options.length > scrollThreshold) {
+        optionsContainer.classList.add('scrollable-options');
+    } else {
+        optionsContainer.classList.remove('scrollable-options');
     }
+    
+    // Crea el div para el mensaje del bot
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('bot-message');
+
+    // --- INICIO DE LA NUEVA MODIFICACIÓN ---
+    // Verificamos si el diálogo contiene un 'title' y 'content' separados.
+    if (dialogue.title && dialogue.content) {
+        // Si es así, es un mensaje final y lo formateamos con HTML.
+        // Usamos <strong> para las negritas y <br> para el salto de línea.
+        messageElement.innerHTML = `<strong>${dialogue.title}</strong><br>${dialogue.content}`;
+    } else {
+        // Si no, es un mensaje normal (una pregunta), y lo mostramos como texto plano.
+        messageElement.textContent = dialogue.message;
+    }
+    // --- FIN DE LA NUEVA MODIFICACIÓN ---
+    
+    messagesContainer.appendChild(messageElement);
+    
+    // Desplaza la vista al último mensaje
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Crea y muestra los nuevos botones de opción, si existen
+    if (dialogue.options && dialogue.options.length > 0) {
+        dialogue.options.forEach(option => {
+            if (option.text && option.nextId) { 
+                const button = document.createElement('button');
+                button.classList.add('option-button');
+                button.textContent = option.text;
+                button.onclick = () => handleOptionClick(option); 
+                optionsContainer.appendChild(button);
+            }
+        });
+    }
+}
 
 
     // Función para llamar a nuestro "robot" (la Netlify Function)
