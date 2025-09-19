@@ -56,8 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         optionsContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Cargando...</p>';
         try {
             // La URL de nuestra función en Netlify. '/.netlify/functions/' es la ruta estándar.
-            const response = await fetch(`/.netlify/functions/get-dialogue?id=${id}`);
-            
+            const response = await fetch(`/.netlify/functions/chatbot?id=${id}`);
             if (!response.ok) {
                 throw new Error('La respuesta del servidor no fue exitosa.');
             }
