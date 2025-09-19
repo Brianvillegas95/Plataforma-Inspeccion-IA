@@ -1194,3 +1194,29 @@ body.color-validator-body .main-content {
     transform: none;
     box-shadow: none;
 }
+/* ======================================================= */
+/* === MEJORA PARA EL SCROLL DE OPCIONES DEL CHATBOT === */
+/* ======================================================= */
+
+/*
+ * 1. Definimos una altura máxima para el contenedor de opciones.
+ * Puedes ajustar el valor de '200px' si quieres que el área
+ * sea más alta o más baja.
+ */
+#chat-options {
+    max-height: 200px;
+    
+    /*
+     * 2. Esta es la propiedad mágica. Le dice al navegador que
+     * muestre una barra de desplazamiento vertical ('y')
+     * automáticamente solo si el contenido se desborda.
+     */
+    overflow-y: auto;
+
+    /*
+     * 3. (Opcional) Un pequeño espacio a la derecha para que el
+     * texto de los botones no quede pegado a la barra de
+     * desplazamiento.
+     */
+    padding-right: 10px;
+}
