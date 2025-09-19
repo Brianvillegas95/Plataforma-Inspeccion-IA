@@ -1,3 +1,5 @@
+// Archivo: chatbot.js
+
 document.addEventListener('DOMContentLoaded', () => {
     const chatBubble = document.getElementById('chat-bubble');
     const chatContainer = document.getElementById('chat-container');
@@ -35,6 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
         getNextDialogue(option.nextId);
     }
 
+    // --- NUEVA FUNCIÓN AUXILIAR ---
+    function isVideoUrl(url) {
+        // Una forma sencilla de detectar si es un video de Google Drive para embeber.
+        return url.includes('/preview');
+    }
+
     function showDialogue(dialogue) {
         optionsContainer.innerHTML = ''; 
 
@@ -48,11 +56,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const messageElement = document.createElement('div');
         messageElement.classList.add('bot-message');
 
-        if (dialogue.title && dialogue.content) {
-            messageElement.innerHTML = `<strong>${dialogue.title}</strong><br>${dialogue.content}`;
-        } else {
-            messageElement.textContent = dialogue.message;
+        // --- LÓGICA MODIFICADA PARA MOSTRAR MULTIMEDIA ---
+        let contentHTML = '';
+
+        if (dialogue.title) {
+            contentHTML += `<strong>${dialogue.title}</strong><br>`;
         }
+        if (dialogue.content) {
+            contentHTML += dialogue.content;
+        }
+
+        // Si hay una URL de multimedia, creamos el elemento correspondiente.
+        if (dialogue.mediaUrl) {
+            if (isVideoUrl(dialogue.mediaUrl)) {
+                // Es un video, creamos un iframe.
+                contentHTML += `
+                    <div class="media-container video-container">
+                        <iframe src="${dialogue.mediaUrl}" frameborder="0" allowfullscreen></iframe>
+                    </div>
+                `;
+            } else {
+                // Es una imagen.
+                contentHTML += `
+                    <div class="media-container">
+                        <img src="${dialogue.mediaUrl}" alt="Contenido visual del chatbot" class="chat-media">
+                    </div>
+                `;
+            }
+        }
+        
+        messageElement.innerHTML = contentHTML;
+
+        if (!dialogue.title && !dialogue.content && !dialogue.mediaUrl) {
+             messageElement.textContent = dialogue.message;
+        }
+        // --- FIN DE LA LÓGICA MODIFICADA ---
         
         messagesContainer.appendChild(messageElement);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
