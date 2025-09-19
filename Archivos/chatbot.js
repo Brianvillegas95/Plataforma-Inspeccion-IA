@@ -24,6 +24,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LÓGICA PARA LA CONVERSACIÓN DEL CHAT ---
     let isChatInitiated = false;
 
+    // *** NUEVA FUNCIÓN *** para manejar la selección del usuario
+    // Esta función crea el mensaje del usuario y deshabilita los botones.
+    function handleOptionClick(option) {
+        // 1. Crear y mostrar el mensaje del usuario
+        const userMessageElement = document.createElement('div');
+        userMessageElement.classList.add('user-message'); // Clase para darle estilo
+        userMessageElement.textContent = option.text;
+        messagesContainer.appendChild(userMessageElement);
+
+        // 2. Deshabilitar todos los botones de la selección actual
+        const currentButtons = optionsContainer.querySelectorAll('.option-button');
+        currentButtons.forEach(button => {
+            button.disabled = true;
+        });
+
+        // 3. Desplazar la vista al último mensaje
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // 4. Llamar a la función para obtener la siguiente respuesta del bot
+        getNextDialogue(option.nextId);
+    }
+
     // Función para mostrar un nuevo paso de la conversación
     function showDialogue(dialogue) {
         optionsContainer.innerHTML = ''; // Limpia opciones anteriores
@@ -44,7 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const button = document.createElement('button');
                     button.classList.add('option-button');
                     button.textContent = option.text;
-                    button.onclick = () => getNextDialogue(option.nextId);
+                    // *** MODIFICADO ***: Ahora el clic llama a nuestra nueva función
+                    button.onclick = () => handleOptionClick(option); 
                     optionsContainer.appendChild(button);
                 }
             });
@@ -82,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicia el chat solo la primera vez que se abre la ventana
     chatBubble.addEventListener('click', () => {
         if (!isChatInitiated && chatContainer.classList.contains('open')) {
-            getNextDialogue(0); // Carga el primer mensaje (ID 1)
+            getNextDialogue(0); // Carga el primer mensaje (ID 0 o 1, según tu config)
             isChatInitiated = true; // Marca como iniciado para no volver a cargarlo
         }
     });
