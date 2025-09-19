@@ -38,13 +38,15 @@ exports.handler = async function(event) {
     const infoFinal = informacion.find(item => item.id_categoria === currentId);
 
     if (infoFinal) {
-      // Si encontramos información, la enviamos de forma estructurada con título y contenido.
+      // Si encontramos información, la enviamos de forma estructurada.
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: infoFinal.titulo,
           content: infoFinal.contenido,
+          // ¡Añadimos la media_url aquí!
+          mediaUrl: infoFinal.media_url || null, 
           options: [{ text: 'Volver al inicio', nextId: '0' }]
         })
       };
