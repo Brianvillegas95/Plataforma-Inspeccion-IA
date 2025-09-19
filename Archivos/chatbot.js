@@ -1,18 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- ELEMENTOS DEL DOM PARA EL WIDGET ---
     const chatBubble = document.getElementById('chat-bubble');
     const chatContainer = document.getElementById('chat-container');
     const closeChat = document.getElementById('close-chat');
     const messagesContainer = document.getElementById('chat-messages');
     const optionsContainer = document.getElementById('chat-options');
 
-    // Verifica que todos los elementos existan antes de continuar
     if (!chatBubble || !chatContainer || !closeChat || !messagesContainer || !optionsContainer) {
         console.error("No se encontraron los elementos necesarios para el chatbot. Revisa el HTML.");
         return;
     }
     
-    // --- LÓGICA PARA ABRIR Y CERRAR EL CHAT ---
     chatBubble.addEventListener('click', () => {
         chatContainer.classList.toggle('open');
     });
@@ -21,99 +18,70 @@ document.addEventListener('DOMContentLoaded', () => {
         chatContainer.classList.remove('open');
     });
 
-    // --- LÓGICA PARA LA CONVERSACIÓN DEL CHAT ---
     let isChatInitiated = false;
 
-    // *** NUEVA FUNCIÓN *** para manejar la selección del usuario
-    // Esta función crea el mensaje del usuario y deshabilita los botones.
     function handleOptionClick(option) {
-        // 1. Crear y mostrar el mensaje del usuario
         const userMessageElement = document.createElement('div');
-        userMessageElement.classList.add('user-message'); // Clase para darle estilo
+        userMessageElement.classList.add('user-message');
         userMessageElement.textContent = option.text;
         messagesContainer.appendChild(userMessageElement);
 
-        // 2. Deshabilitar todos los botones de la selección actual
         const currentButtons = optionsContainer.querySelectorAll('.option-button');
         currentButtons.forEach(button => {
             button.disabled = true;
         });
 
-        // 3. Desplazar la vista al último mensaje
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-        // 4. Llamar a la función para obtener la siguiente respuesta del bot
         getNextDialogue(option.nextId);
     }
 
-// --- FUNCIÓN MODIFICADA Y ACTUALIZADA ---
-// Función para mostrar un nuevo paso de la conversación
-function showDialogue(dialogue) {
-    // Limpiamos las opciones anteriores
-    optionsContainer.innerHTML = ''; 
+    function showDialogue(dialogue) {
+        optionsContainer.innerHTML = ''; 
 
-    // Lógica para el scroll condicional que ya teníamos
-    const scrollThreshold = 4;
-    if (dialogue.options && dialogue.options.length > scrollThreshold) {
-        optionsContainer.classList.add('scrollable-options');
-    } else {
-        optionsContainer.classList.remove('scrollable-options');
+        const scrollThreshold = 4;
+        if (dialogue.options && dialogue.options.length > scrollThreshold) {
+            optionsContainer.classList.add('scrollable-options');
+        } else {
+            optionsContainer.classList.remove('scrollable-options');
+        }
+        
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('bot-message');
+
+        if (dialogue.title && dialogue.content) {
+            messageElement.innerHTML = `<strong>${dialogue.title}</strong><br>${dialogue.content}`;
+        } else {
+            messageElement.textContent = dialogue.message;
+        }
+        
+        messagesContainer.appendChild(messageElement);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        if (dialogue.options && dialogue.options.length > 0) {
+            dialogue.options.forEach(option => {
+                if (option.text && option.nextId) {
+                    const button = document.createElement('button');
+                    button.classList.add('option-button');
+                    button.textContent = option.text;
+                    button.onclick = () => handleOptionClick(option); 
+                    optionsContainer.appendChild(button);
+                }
+            });
+        }
     }
-    
-    // Crea el div para el mensaje del bot
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('bot-message');
 
-    // --- INICIO DE LA NUEVA MODIFICACIÓN ---
-    // Verificamos si el diálogo contiene un 'title' y 'content' separados.
-    if (dialogue.title && dialogue.content) {
-        // Si es así, es un mensaje final y lo formateamos con HTML.
-        // Usamos <strong> para las negritas y <br> para el salto de línea.
-        messageElement.innerHTML = `<strong>${dialogue.title}</strong><br>${dialogue.content}`;
-    } else {
-        // Si no, es un mensaje normal (una pregunta), y lo mostramos como texto plano.
-        messageElement.textContent = dialogue.message;
-    }
-    // --- FIN DE LA NUEVA MODIFICACIÓN ---
-    
-    messagesContainer.appendChild(messageElement);
-    
-    // Desplaza la vista al último mensaje
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-    // Crea y muestra los nuevos botones de opción, si existen
-    if (dialogue.options && dialogue.options.length > 0) {
-        dialogue.options.forEach(option => {
-            if (option.text && option.nextId) { 
-                const button = document.createElement('button');
-                button.classList.add('option-button');
-                button.textContent = option.text;
-                button.onclick = () => handleOptionClick(option); 
-                optionsContainer.appendChild(button);
-            }
-        });
-    }
-}
-
-
-    // Función para llamar a nuestro "robot" (la Netlify Function)
     async function getNextDialogue(id) {
         optionsContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Cargando...</p>';
         try {
-            // La URL de nuestra función en Netlify. '/.netlify/functions/' es la ruta estándar.
             const response = await fetch(`/.netlify/functions/consulta_chatbot?id=${id}`);
-            if (!response.ok) {
-                throw new Error('La respuesta del servidor no fue exitosa.');
-            }
-
+            if (!response.ok) throw new Error('La respuesta del servidor no fue exitosa.');
+            
             const data = await response.json();
-
-            if (data && data.message) {
+            if (data) {
                 showDialogue(data);
             } else {
                 throw new Error('Los datos recibidos no tienen el formato esperado.');
             }
-
         } catch (error) {
             console.error("Hubo un error al obtener el diálogo:", error);
             const errorElement = document.createElement('div');
@@ -124,11 +92,10 @@ function showDialogue(dialogue) {
         }
     }
 
-    // Inicia el chat solo la primera vez que se abre la ventana
     chatBubble.addEventListener('click', () => {
         if (!isChatInitiated && chatContainer.classList.contains('open')) {
-            getNextDialogue(0); // Carga el primer mensaje (ID 0 o 1, según tu config)
-            isChatInitiated = true; // Marca como iniciado para no volver a cargarlo
+            getNextDialogue('0'); 
+            isChatInitiated = true;
         }
     });
 });
