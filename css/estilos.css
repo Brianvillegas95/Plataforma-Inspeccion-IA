@@ -1166,3 +1166,31 @@ body.color-validator-body .main-content {
     justify-content: center;
     flex-shrink: 0;
 }
+/* --- ESTILOS ADICIONALES PARA VISTA DE CONVERSACIÓN --- */
+
+#chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.user-message {
+    background-color: var(--azor-blue); /* Usa el color principal de tu marca */
+    color: white;
+    padding: 10px 15px;
+    border-radius: 15px;
+    margin-bottom: 10px;
+    max-width: 80%;
+    align-self: flex-end; /* ¡Clave para alinear a la derecha! */
+    text-align: right;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+/* Estilo para los botones ya usados */
+.option-button:disabled {
+    background-color: #a9a9a9;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
