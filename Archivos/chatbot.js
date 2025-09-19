@@ -46,9 +46,26 @@ document.addEventListener('DOMContentLoaded', () => {
         getNextDialogue(option.nextId);
     }
 
+    // --- FUNCIÓN MODIFICADA Y ACTUALIZADA ---
     // Función para mostrar un nuevo paso de la conversación
     function showDialogue(dialogue) {
-        optionsContainer.innerHTML = ''; // Limpia opciones anteriores
+        // Limpiamos las opciones anteriores
+        optionsContainer.innerHTML = ''; 
+
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Definimos un umbral: si hay más de 7 opciones, activamos el scroll.
+        const scrollThreshold = 7;
+
+        // Verificamos si la cantidad de opciones supera nuestro umbral.
+        if (dialogue.options && dialogue.options.length > scrollThreshold) {
+            // Si hay muchas opciones, AÑADIMOS la clase para activar el scroll.
+            optionsContainer.classList.add('scrollable-options');
+        } else {
+            // Si hay pocas opciones, NOS ASEGURAMOS de que la clase NO esté.
+            // Esto es importante para cuando pasas de una lista larga a una corta.
+            optionsContainer.classList.remove('scrollable-options');
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
         
         // Crea y muestra el nuevo mensaje del bot
         const messageElement = document.createElement('div');
@@ -66,13 +83,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const button = document.createElement('button');
                     button.classList.add('option-button');
                     button.textContent = option.text;
-                    // *** MODIFICADO ***: Ahora el clic llama a nuestra nueva función
                     button.onclick = () => handleOptionClick(option); 
                     optionsContainer.appendChild(button);
                 }
             });
         }
     }
+
 
     // Función para llamar a nuestro "robot" (la Netlify Function)
     async function getNextDialogue(id) {
