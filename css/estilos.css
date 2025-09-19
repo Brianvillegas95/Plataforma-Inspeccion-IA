@@ -1203,8 +1203,10 @@ body.color-validator-body .main-content {
  * Puedes ajustar el valor de '200px' si quieres que el área
  * sea más alta o más baja.
  */
-#chat-options {
+#chat-options.scrollable-options {
     max-height: 200px;
+    overflow-y: auto;
+    padding-right: 10px;
     
     /*
      * 2. Esta es la propiedad mágica. Le dice al navegador que
