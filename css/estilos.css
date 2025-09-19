@@ -1222,3 +1222,55 @@ body.color-validator-body .main-content {
      */
     padding-right: 10px;
 }
+/* ... (todos tus estilos existentes) ... */
+
+/* ========================================================= */
+/* === ESTILOS ADICIONALES PARA MULTIMEDIA EN EL CHATBOT === */
+/* ========================================================= */
+
+/* Contenedor general para imágenes y videos */
+.media-container {
+    margin-top: 10px;
+    border-radius: 10px;
+    overflow: hidden;
+    max-width: 100%;
+}
+
+/* Estilos específicos para la imagen */
+.chat-media {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px; /* Bordes redondeados para la imagen */
+}
+
+/* Contenedor de video para mantener la proporción (aspect-ratio) */
+.video-container {
+    position: relative;
+    padding-bottom: 56.25%; /* Proporción 16:9 */
+    height: 0;
+    overflow: hidden;
+}
+
+.video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+/* Asegurarse de que el mensaje del bot tenga el ancho correcto */
+.bot-message {
+    background-color: #e9ecef;
+    color: var(--text-primary);
+    padding: 10px 15px;
+    border-radius: 15px;
+    margin-bottom: 10px;
+    max-width: 85%;
+    align-self: flex-start;
+    line-height: 1.5;
+    font-size: 0.95rem;
+    word-wrap: break-word; /* Para que el texto largo no se desborde */
+}
