@@ -46,17 +46,17 @@ exports.handler = async function(event) {
     const infoFinal = informacion.find(item => item.id_categoria === currentId);
 
     if (infoFinal) {
-      // Si encontramos información, esta es una "hoja" del árbol. La conversación termina aquí.
-      const finalMessage = `${infoFinal.titulo}\n\n${infoFinal.contenido}`;
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: finalMessage,
-          options: [{ text: 'Volver al inicio', nextId: '0' }] // Opción para reiniciar
-        })
-      };
-    }
+  // Si encontramos información, la enviamos de forma estructurada con título y contenido.
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: infoFinal.titulo,    // Enviamos el título
+      content: infoFinal.contenido, // Enviamos el contenido
+      options: [{ text: 'Volver al inicio', nextId: '0' }] // Opción para reiniciar
+    })
+  };
+}
 
     // 2. SI NO HAY INFO, BUSCAMOS SUBCATEGORÍAS
     // Buscamos la pregunta de la categoría actual
