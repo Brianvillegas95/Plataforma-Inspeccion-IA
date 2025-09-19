@@ -190,6 +190,22 @@
             &copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados. Impulsado por IA.
         </footer>
     </div>
+
+    <div id="chatbot-widget">
+        <div id="chat-bubble">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="30px" height="30px"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+        </div>
+        <div id="chat-container">
+            <div id="chat-header">
+                <p>Asistente Virtual</p>
+                <span id="close-chat">×</span>
+            </div>
+            <div id="chat-messages">
+                </div>
+            <div id="chat-options">
+                </div>
+        </div>
+    </div>
     <script>
         // Script para el año en el footer
         document.getElementById('currentYear').textContent = new Date().getFullYear();
@@ -411,8 +427,8 @@
             });
         }
     </script>
+    
+    <script src="Archivos/chatbot.js"></script>
 
-    <script src="https://cdn.botpress.cloud/webchat/v3.2/inject.js" defer></script>
-    <script src="https://files.bpcontent.cloud/2025/08/28/13/20250828131155-520KPGP5.js" defer></script>
 </body>
 </html>
