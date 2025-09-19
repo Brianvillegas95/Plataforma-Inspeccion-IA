@@ -1,12 +1,10 @@
-// Archivo: netlify/functions/chatbot.js
+// Archivo: netlify/functions/chatbot.js (versión con googleapis)
 
-const { GoogleSpreadsheet } = require('google-spreadsheet');
+const { google } = require('googleapis');
 
-// Estas son las credenciales que ya tienes configuradas en Netlify
 const { GOOGLE_SHEET_ID_CHATBOT, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY } = process.env;
 
 exports.handler = async function(event) {
-  // Obtiene el ID que el frontend le envió (ej. ?id=1)
   const { id } = event.queryStringParameters;
 
   if (!id) {
@@ -14,45 +12,57 @@ exports.handler = async function(event) {
   }
 
   try {
-    // Inicializa la conexión con la hoja de cálculo
-    const doc = new GoogleSpreadsheet(GOOGLE_SHEET_ID_CHATBOT);
-    await doc.useServiceAccountAuth({
-      client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    // Configura la autenticación
+    const auth = new google.auth.JWT(
+      GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      null,
+      GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      ['https://www.googleapis.com/auth/spreadsheets.readonly']
+    );
+
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Obtiene todas las filas de la hoja (asumiendo que se llama 'Hoja 1')
+    const responseData = await sheets.spreadsheets.values.get({
+      spreadsheetId: GOOGLE_SHEET_ID_CHATBOT,
+      range: 'Hoja 1', 
     });
 
-    // Carga la información del documento
-    await doc.loadInfo();
-    const sheet = doc.sheetsByTitle['Hoja 1']; // O el nombre exacto de tu hoja
-    const rows = await sheet.getRows();
+    const rows = responseData.data.values;
+    if (!rows || rows.length === 0) {
+      return { statusCode: 404, body: JSON.stringify({ error: 'La hoja está vacía.' }) };
+    }
 
-    // Busca la fila que corresponde al ID solicitado
-    const dialogueRow = rows.find(row => row.ID === id);
+    const headers = rows[0]; // La primera fila son los encabezados
+    const idColIndex = headers.indexOf('ID');
 
-    if (!dialogueRow) {
+    // Busca la fila que coincide con el ID
+    const dialogueRowData = rows.find(row => row[idColIndex] === id);
+
+    if (!dialogueRowData) {
       return { statusCode: 404, body: JSON.stringify({ error: `No se encontró el ID ${id}` }) };
     }
 
-    // Construye el objeto de respuesta en el formato que el frontend espera
+    // Convierte la fila (array) en un objeto usando los encabezados
+    const dialogueRow = headers.reduce((obj, header, index) => {
+        obj[header] = dialogueRowData[index];
+        return obj;
+    }, {});
+
     const response = {
       message: dialogueRow['Texto del Mensaje'],
       options: []
     };
 
-    // Revisa dinámicamente si hay opciones (hasta 6) y las añade
     for (let i = 1; i <= 6; i++) {
       const optionText = dialogueRow[`Opcion${i}_Texto`];
       const optionNextId = dialogueRow[`Opcion${i}_SiguienteID`];
-      
+
       if (optionText && optionNextId) {
-        response.options.push({
-          text: optionText,
-          nextId: optionNextId
-        });
+        response.options.push({ text: optionText, nextId: optionNextId });
       }
     }
-    
-    // Devuelve los datos al frontend
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -61,9 +71,6 @@ exports.handler = async function(event) {
 
   } catch (error) {
     console.error('Error al conectar con Google Sheets:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Error interno del servidor al procesar la solicitud.' })
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: 'Error interno del servidor.' }) };
   }
 };
