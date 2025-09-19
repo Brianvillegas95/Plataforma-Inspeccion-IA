@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showDialogue(dialogue) {
         optionsContainer.innerHTML = ''; 
 
-        const scrollThreshold = 4;
+        const scrollThreshold = 7;
         if (dialogue.options && dialogue.options.length > scrollThreshold) {
             optionsContainer.classList.add('scrollable-options');
         } else {
