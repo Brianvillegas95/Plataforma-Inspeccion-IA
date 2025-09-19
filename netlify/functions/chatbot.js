@@ -1,76 +1,88 @@
-// Archivo: netlify/functions/chatbot.js (versión con googleapis)
+// Archivo: netlify/functions/chatbot.js (versión para dos hojas)
 
 const { google } = require('googleapis');
 
 const { GOOGLE_SHEET_ID_CHATBOT, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY } = process.env;
 
-exports.handler = async function(event) {
-  const { id } = event.queryStringParameters;
+// --- Helper para convertir arrays de Google Sheets en objetos legibles ---
+function sheetsArrayToObject(rows) {
+  if (!rows || rows.length === 0) return [];
+  const headers = rows[0];
+  return rows.slice(1).map(row => {
+    const rowObject = {};
+    headers.forEach((header, index) => {
+      rowObject[header] = row[index];
+    });
+    return rowObject;
+  });
+}
 
-  if (!id) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Falta el parámetro ID' }) };
-  }
+exports.handler = async function(event) {
+  // El ID de la categoría que el usuario seleccionó. 
+  // Usamos '0' como el ID especial para el nivel más alto (categorías sin padre).
+  const currentId = event.queryStringParameters.id || '0';
 
   try {
-    // Configura la autenticación
     const auth = new google.auth.JWT(
-      GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      null,
+      GOOGLE_SERVICE_ACCOUNT_EMAIL, null,
       GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
       ['https://www.googleapis.com/auth/spreadsheets.readonly']
     );
-
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // Obtiene todas las filas de la hoja (asumiendo que se llama 'Hoja 1')
-    const responseData = await sheets.spreadsheets.values.get({
+    // Leemos AMBAS hojas en una sola llamada a la API para ser más eficientes
+    const responseData = await sheets.spreadsheets.values.batchGet({
       spreadsheetId: GOOGLE_SHEET_ID_CHATBOT,
-      range: 'Hoja 1', 
+      ranges: ['Categorias', 'Informacion'],
     });
 
-    const rows = responseData.data.values;
-    if (!rows || rows.length === 0) {
-      return { statusCode: 404, body: JSON.stringify({ error: 'La hoja está vacía.' }) };
+    const [categoriasRows, informacionRows] = responseData.data.valueRanges;
+
+    // Convertimos los datos crudos en objetos más fáciles de usar
+    const categorias = sheetsArrayToObject(categoriasRows.values);
+    const informacion = sheetsArrayToObject(informacionRows.values);
+
+    // 1. PRIMERO, BUSCAMOS SI HAY INFORMACIÓN FINAL PARA ESTE ID
+    const infoFinal = informacion.find(item => item.id_categoria === currentId);
+
+    if (infoFinal) {
+      // Si encontramos información, esta es una "hoja" del árbol. La conversación termina aquí.
+      const finalMessage = `${infoFinal.titulo}\n\n${infoFinal.contenido}`;
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: finalMessage,
+          options: [{ text: 'Volver al inicio', nextId: '0' }] // Opción para reiniciar
+        })
+      };
     }
 
-    const headers = rows[0]; // La primera fila son los encabezados
-    const idColIndex = headers.indexOf('ID');
+    // 2. SI NO HAY INFO, BUSCAMOS SUBCATEGORÍAS
+    // Buscamos la pregunta de la categoría actual
+    const categoriaActual = categorias.find(cat => cat.id_categoria === currentId)
+    const pregunta = categoriaActual ? categoriaActual.pregunta : 'Selecciona una de las siguientes opciones:';
 
-    // Busca la fila que coincide con el ID
-    const dialogueRowData = rows.find(row => row[idColIndex] === id);
+    // Buscamos todas las categorías hijas de la actual
+    const subCategorias = categorias.filter(cat => {
+        // El id_padre '0' o vacío significa que es una categoría principal
+        return (currentId === '0') ? !cat.id_padre || cat.id_padre === '0' : cat.id_padre === currentId;
+    });
 
-    if (!dialogueRowData) {
-      return { statusCode: 404, body: JSON.stringify({ error: `No se encontró el ID ${id}` }) };
-    }
-
-    // Convierte la fila (array) en un objeto usando los encabezados
-    const dialogueRow = headers.reduce((obj, header, index) => {
-        obj[header] = dialogueRowData[index];
-        return obj;
-    }, {});
-
-    const response = {
-      message: dialogueRow['Texto del Mensaje'],
-      options: []
-    };
-
-    for (let i = 1; i <= 6; i++) {
-      const optionText = dialogueRow[`Opcion${i}_Texto`];
-      const optionNextId = dialogueRow[`Opcion${i}_SiguienteID`];
-
-      if (optionText && optionNextId) {
-        response.options.push({ text: optionText, nextId: optionNextId });
-      }
-    }
+    // Formateamos las subcategorías como opciones para el chatbot
+    const options = subCategorias.map(subCat => ({
+      text: subCat.nombre,
+      nextId: subCat.id_categoria
+    }));
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(response)
+      body: JSON.stringify({ message: pregunta, options: options })
     };
 
   } catch (error) {
-    console.error('Error al conectar con Google Sheets:', error);
+    console.error('Error:', error);
     return { statusCode: 500, body: JSON.stringify({ error: 'Error interno del servidor.' }) };
   }
 };
