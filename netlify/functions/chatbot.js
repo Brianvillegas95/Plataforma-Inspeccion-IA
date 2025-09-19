@@ -1,45 +1,88 @@
-// Archivo: netlify/functions/chatbot.js (versión con fuzzy search)
+// Archivo: netlify/functions/chatbot.js (versión para dos hojas)
 
 const { google } = require('googleapis');
-const Fuse = require('fuse.js'); // Importamos la librería de búsqueda
 
-// ... (El resto de tus variables de entorno)
 const { GOOGLE_SHEET_ID_CHATBOT, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY } = process.env;
 
-function sheetsArrayToObject(rows) { /* ... (esta función se mantiene igual que antes) ... */ }
+// --- Helper para convertir arrays de Google Sheets en objetos legibles ---
+function sheetsArrayToObject(rows) {
+  if (!rows || rows.length === 0) return [];
+  const headers = rows[0];
+  return rows.slice(1).map(row => {
+    const rowObject = {};
+    headers.forEach((header, index) => {
+      rowObject[header] = row[index];
+    });
+    return rowObject;
+  });
+}
 
 exports.handler = async function(event) {
-    const { id, query } = event.queryStringParameters;
-    const currentId = id || '0';
-    
-    // ... (la autenticación con googleapis se mantiene igual que antes) ...
+  // El ID de la categoría que el usuario seleccionó. 
+  // Usamos '0' como el ID especial para el nivel más alto (categorías sin padre).
+  const currentId = event.queryStringParameters.id || '0';
 
-    // --- LÓGICA PRINCIPAL ---
-    try {
-        // ... (el código para leer las dos hojas se mantiene igual) ...
+  try {
+    const auth = new google.auth.JWT(
+      GOOGLE_SERVICE_ACCOUNT_EMAIL, null,
+      GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      ['https://www.googleapis.com/auth/spreadsheets.readonly']
+    );
+    const sheets = google.sheets({ version: 'v4', auth });
 
-        // SI LLEGA UNA BÚSQUEDA DE TEXTO (query)
-        if (query) {
-            const subCategorias = categorias.filter(cat => (currentId === '0') ? !cat.id_padre : cat.id_padre === currentId);
-            
-            // Usamos Fuse.js para la búsqueda difusa
-            const fuse = new Fuse(subCategorias, { keys: ['nombre'], threshold: 0.4 });
-            const results = fuse.search(query);
+    // Leemos AMBAS hojas en una sola llamada a la API para ser más eficientes
+    const responseData = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: GOOGLE_SHEET_ID_CHATBOT,
+      ranges: ['Categorias', 'Informacion'],
+    });
 
-            if (results.length > 0) {
-                // Si encontramos una coincidencia, simulamos el clic
-                const bestMatch = results[0].item;
-                // Devolvemos el ID de la mejor coincidencia para que el frontend siga el flujo
-                return { statusCode: 200, body: JSON.stringify({ followUpId: bestMatch.id_categoria }) };
-            } else {
-                // Si no hay coincidencias, avisamos al usuario
-                return { statusCode: 200, body: JSON.stringify({ message: `No encontré resultados para "${query}". Por favor, intenta con otra palabra o usa los botones.`, options: [] }) };
-            }
-        }
-        
-        // El resto de la lógica (para clics en botones) se mantiene igual
-        // 1. BUSCAR INFORMACIÓN FINAL
-        // 2. BUSCAR SUBCATEGORÍAS
-        // ...
-    } catch (error) { /* ... (el manejo de errores se mantiene igual) ... */ }
+    const [categoriasRows, informacionRows] = responseData.data.valueRanges;
+
+    // Convertimos los datos crudos en objetos más fáciles de usar
+    const categorias = sheetsArrayToObject(categoriasRows.values);
+    const informacion = sheetsArrayToObject(informacionRows.values);
+
+    // 1. PRIMERO, BUSCAMOS SI HAY INFORMACIÓN FINAL PARA ESTE ID
+    const infoFinal = informacion.find(item => item.id_categoria === currentId);
+
+    if (infoFinal) {
+      // Si encontramos información, esta es una "hoja" del árbol. La conversación termina aquí.
+      const finalMessage = `${infoFinal.titulo}\n\n${infoFinal.contenido}`;
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: finalMessage,
+          options: [{ text: 'Volver al inicio', nextId: '0' }] // Opción para reiniciar
+        })
+      };
+    }
+
+    // 2. SI NO HAY INFO, BUSCAMOS SUBCATEGORÍAS
+    // Buscamos la pregunta de la categoría actual
+    const categoriaActual = categorias.find(cat => cat.id_categoria === currentId)
+    const pregunta = categoriaActual ? categoriaActual.pregunta : 'Selecciona una de las siguientes opciones:';
+
+    // Buscamos todas las categorías hijas de la actual
+    const subCategorias = categorias.filter(cat => {
+        // El id_padre '0' o vacío significa que es una categoría principal
+        return (currentId === '0') ? !cat.id_padre || cat.id_padre === '0' : cat.id_padre === currentId;
+    });
+
+    // Formateamos las subcategorías como opciones para el chatbot
+    const options = subCategorias.map(subCat => ({
+      text: subCat.nombre,
+      nextId: subCat.id_categoria
+    }));
+
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: pregunta, options: options })
+    };
+
+  } catch (error) {
+    console.error('Error:', error);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Error interno del servidor.' }) };
+  }
 };
