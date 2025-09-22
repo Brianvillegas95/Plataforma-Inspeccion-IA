@@ -191,9 +191,9 @@
         </footer>
     </div>
 
-    <div id="chatbot-widget">
+    <div id="chatbot-widget" style="right: 80px; bottom: 30px;">
         <div id="chat-bubble" style="background: transparent; box-shadow: none;">
-            <img src="imagenes/Chat.png" alt="Abrir Chat" style="width: 90px; height: 90px;">
+            <img src="imagenes/Chat.png" alt="Abrir Chat" style="width: 110px; height: 110px;">
         </div>
         <div id="chat-container">
             <div id="chat-header">
@@ -253,7 +253,7 @@
                             initialWelcomeTyped = true;
                             setTimeout(() => {
                                 if (currentAuditorMessage === mensajesAuditor.bienvenida) { 
-                                   setAuditorSpeech(mensajesAuditor.guia); 
+                                   setAuditorSpeech(mensajeria.guia); 
                                 }
                             }, 4000); 
                         }
