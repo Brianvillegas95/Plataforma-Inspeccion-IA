@@ -9,6 +9,8 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
     <style>
         /* --- ESTILOS GENERALES (Existentes y Mejorados) --- */
@@ -203,7 +205,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIGURACIÓN INICIAL Y SELECTORES DEL DOM ---
     document.getElementById('currentYear').textContent = new Date().getFullYear();
-    Chart.register(ChartDataLabels);
+    // Registrar ChartDataLabels y el nuevo plugin de Zoom
+    Chart.register(ChartDataLabels, window.ChartZoom);
 
     const netlifyFunctionUrl = '/.netlify/functions/leer-sheet-ajustesinv';
     const tablaBody = document.getElementById('ajustes-table-body');
@@ -227,6 +230,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const number = parseFloat(cleanedString);
         return isNaN(number) ? 0 : number;
     };
+    
+    // Función para formatear números grandes a 'k' (miles) o 'M' (millones)
+    const formatNumber = (num) => {
+        if (Math.abs(num) > 999999) {
+            return Math.sign(num) * ((Math.abs(num) / 1000000).toFixed(1)) + 'M';
+        }
+        if (Math.abs(num) > 999) {
+            return Math.sign(num) * ((Math.abs(num) / 1000).toFixed(1)) + 'k';
+        }
+        return Math.sign(num) * Math.abs(num);
+    };
+
 
     // --- FUNCIONES DE ACTUALIZACIÓN DEL DASHBOARD ---
 
@@ -290,18 +305,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const grandTotal = sortedItems.reduce((sum, d) => sum + d.value, 0);
         let cumulative = 0;
-        const cumulativePercentage = sortedItems.map(d => {
+        
+        const chartData = sortedItems.map(d => {
             cumulative += d.value;
-            return grandTotal > 0 ? (cumulative / grandTotal) * 100 : 0;
+            const percentageOfTotal = grandTotal > 0 ? (d.value / grandTotal) * 100 : 0;
+            const cumulativePercentage = grandTotal > 0 ? (cumulative / grandTotal) * 100 : 0;
+            return {
+                ...d,
+                percentageOfTotal,
+                cumulativePercentage
+            };
         });
 
-        const labels = sortedItems.map(d => d.item);
-        const barData = sortedItems.map(d => d.value);
+        ajustesChart.data.labels = chartData.map(d => d.item);
+        ajustesChart.data.datasets[0].data = chartData.map(d => d.value);
+        ajustesChart.data.datasets[1].data = chartData.map(d => d.cumulativePercentage);
+        
+        // Pasamos los datos completos al tooltip para usarlo en los callbacks
+        ajustesChart.options.plugins.tooltip.callbacks.label = function(context) {
+            const dataPoint = chartData[context.dataIndex];
+            if (context.dataset.yAxisID === 'y') {
+                 const value = context.parsed.y.toLocaleString('es-MX');
+                 const percentage = dataPoint.percentageOfTotal.toFixed(2);
+                 return `Valor: ${value} (${percentage}% del total)`;
+            }
+            return null; // Oculta el tooltip para la línea de acumulado
+        };
+         ajustesChart.options.plugins.tooltip.callbacks.afterLabel = function(context) {
+             const dataPoint = chartData[context.dataIndex];
+             return `% Acumulado: ${dataPoint.cumulativePercentage.toFixed(2)}%`;
+         };
 
-        ajustesChart.data.labels = labels;
-        ajustesChart.data.datasets[0].data = barData;
-        ajustesChart.data.datasets[1].data = cumulativePercentage;
-        ajustesChart.update();
+
+        ajustesChart.update('none'); // 'none' para evitar animaciones que interfieran con el zoom
     }
 
     function updateDashboard() {
@@ -330,6 +366,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function initializeChart() {
         const ctx = document.getElementById('ajustes-chart').getContext('2d');
+        
+        // MEJORA VISUAL: Creación de un gradiente para las barras
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(0, 86, 179, 0.8)');
+        gradient.addColorStop(1, 'rgba(0, 123, 255, 0.5)');
+
         ajustesChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -338,17 +380,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                         label: 'Valor',
                         data: [],
-                        backgroundColor: 'rgba(0, 86, 179, 0.7)',
+                        backgroundColor: gradient, // Usamos el gradiente
+                        borderColor: 'rgba(0, 86, 179, 1)',
+                        borderWidth: 1,
                         yAxisID: 'y',
+                        // MEJORA VISUAL: Efecto al pasar el cursor
+                        hoverBackgroundColor: 'rgba(0, 86, 179, 1)',
                     },
                     {
                         label: '% Acumulado',
                         data: [],
                         type: 'line',
-                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderColor: '#ff9f40',
                         backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        borderWidth: 3,
+                        pointRadius: 0, // Ocultamos los puntos para una línea más limpia
+                        pointHoverRadius: 5,
                         fill: false,
-                        tension: 0.1,
+                        tension: 0.4, // Línea más suave
                         yAxisID: 'y1',
                     }
                 ]
@@ -356,13 +405,25 @@ document.addEventListener('DOMContentLoaded', () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: { // Mejora la interacción para el tooltip
+                    mode: 'index',
+                    intersect: false,
+                },
                 scales: {
-                    x: { grid: { display: false } },
+                    x: { 
+                        grid: { display: false },
+                        ticks: {
+                            maxRotation: 90,
+                            minRotation: 70,
+                            font: { size: 10 }
+                        }
+                    },
                     y: {
                         type: 'linear',
                         position: 'left',
                         beginAtZero: true,
-                        title: { display: true, text: 'Valor de la Métrica' }
+                        title: { display: true, text: 'Valor de la Métrica', font: { size: 14, weight: 'bold' } },
+                        grid: { color: '#eef2f7' }
                     },
                     y1: {
                         type: 'linear',
@@ -370,14 +431,61 @@ document.addEventListener('DOMContentLoaded', () => {
                         min: 0,
                         max: 100,
                         grid: { drawOnChartArea: false },
-                        title: { display: true, text: 'Porcentaje Acumulado (%)' },
+                        title: { display: true, text: 'Porcentaje Acumulado (%)', font: { size: 14, weight: 'bold' } },
                         ticks: { callback: (value) => value + '%' }
                     }
                 },
                 plugins: {
                     legend: { position: 'top' },
-                    tooltip: { mode: 'index', intersect: false },
-                    datalabels: { display: false }
+                    // MEJORA FUNCIONAL: Configuración del plugin de zoom
+                    zoom: {
+                        pan: {
+                            enabled: true, // Permite mover el gráfico de izquierda a derecha
+                            mode: 'x', // Solo en el eje X
+                        },
+                        zoom: {
+                            wheel: {
+                                enabled: true, // Permite hacer zoom con la rueda del ratón
+                            },
+                            pinch: {
+                                enabled: true // Permite hacer zoom con gestos en táctil
+                            },
+                            mode: 'x', // El zoom solo afecta al eje X
+                        }
+                    },
+                    // MEJORA VISUAL: Configuración de tooltips avanzados
+                    tooltip: {
+                        backgroundColor: '#212529',
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        padding: 12,
+                        cornerRadius: 8,
+                        boxPadding: 4,
+                        callbacks: {
+                           // Las funciones de callback se definen dinámicamente en updateParetoChart
+                           // para tener acceso a los datos calculados (como el %).
+                        }
+                    },
+                    // MEJORA VISUAL: Configuración de etiquetas de datos inteligentes
+                    datalabels: {
+                        display: (context) => {
+                            // Mostrar solo si el valor es mayor al 2% del valor máximo
+                            const maxValue = Math.max(...context.chart.data.datasets[0].data);
+                            return context.dataset.data[context.dataIndex] > maxValue * 0.02;
+                        },
+                        formatter: (value) => formatNumber(value), // Usamos el formateador a 'k' o 'M'
+                        color: 'white',
+                        anchor: 'end',
+                        align: 'end',
+                        offset: -4,
+                        font: {
+                            weight: 'bold',
+                            size: 10,
+                        },
+                        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                        borderRadius: 4,
+                        padding: 4,
+                    }
                 }
             }
         });
@@ -456,6 +564,10 @@ document.addEventListener('DOMContentLoaded', () => {
         filterItem.value = '';
         document.querySelectorAll('.filter-btn.active').forEach(btn => btn.classList.remove('active'));
         document.getElementById('metric-neto').checked = true;
+        // IMPORTANTE: Resetea el zoom del gráfico al limpiar filtros
+        if (ajustesChart) {
+            ajustesChart.resetZoom();
+        }
         updateDashboard();
     });
 });
