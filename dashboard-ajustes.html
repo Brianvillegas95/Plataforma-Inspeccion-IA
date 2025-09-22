@@ -91,6 +91,23 @@
         .results-table tbody tr:nth-child(even) { background-color: #f9fafc; }
         .results-table tbody tr:hover { background-color: #e9ecef; }
         .status-message { text-align: center; font-size: 1.2em; color: #6c757d; padding: 40px; }
+
+        /* NUEVO: Estilos para encabezados de tabla ordenables */
+        .results-table th.sortable {
+            cursor: pointer;
+            position: relative;
+            padding-right: 30px; /* Espacio para la flecha */
+        }
+        .results-table th.sortable:hover {
+            background-color: #e9ecef;
+        }
+        .sort-indicator {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0.5;
+        }
     </style>
 </head>
 <body class="inspector-body">
@@ -177,14 +194,14 @@
                     <table class="results-table">
                         <thead>
                             <tr>
-                                <th>Item</th>
-                                <th>Mes</th>
-                                <th>Año</th>
-                                <th>Área</th>
-                                <th>UOM</th>
-                                <th>Ajuste Negativo</th>
-                                <th>Ajuste Positivo</th>
-                                <th>Consumo</th>
+                                <th class="sortable" data-column="item">Item <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-column="mes">Mes <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-column="ano">Año <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-column="area">Área <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-column="uom">UOM <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-column="ajusteNeg">Ajuste Negativo <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-column="ajustePos">Ajuste Positivo <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-column="consumo">Consumo <span class="sort-indicator"></span></th>
                             </tr>
                         </thead>
                         <tbody id="ajustes-table-body">
@@ -215,39 +232,60 @@ document.addEventListener('DOMContentLoaded', () => {
     const monthFilterContainer = document.getElementById('month-filter-container');
     const resetBtn = document.getElementById('reset-filter-btn');
     const paretoMetricRadios = document.querySelectorAll('input[name="pareto-metric"]');
+    const tableHeaders = document.querySelectorAll('.results-table th.sortable');
 
     // --- VARIABLES GLOBALES Y CONSTANTES ---
     let fullData = [];
+    let filteredData = []; // Guardará los datos filtrados para re-ordenarlos
     let ajustesChart;
-    // ELIMINADO: La variable de estado isTop10Active ya no es necesaria
     const COL = { ITEM: 0, MES: 1, ANO: 2, UOM: 3, AREA: 4, AJUSTE_NEG: 5, AJUSTE_POS: 6, CONSUMO: 7 };
-
-    // --- FUNCIONES AUXILIARES ---
-    const parseValue = (value) => {
-        if (value === null || value === undefined || value === '') return 0;
-        const cleanedString = String(value).replace(/,/g, '').replace(/%/g, '');
-        const number = parseFloat(cleanedString);
-        return isNaN(number) ? 0 : number;
-    };
     
-    const formatNumber = (num) => {
-        if (Math.abs(num) > 999999) {
-            return Math.sign(num) * ((Math.abs(num) / 1000000).toFixed(1)) + 'M';
-        }
-        if (Math.abs(num) > 999) {
-            return Math.sign(num) * ((Math.abs(num) / 1000).toFixed(1)) + 'k';
-        }
-        return Math.sign(num) * Math.abs(num);
-    };
+    // NUEVO: Variables para el estado del ordenamiento de la tabla
+    let sortColumn = null;
+    let sortDirection = 'asc';
+    const monthOrder = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+
+    // --- FUNCIONES DE ORDENAMIENTO ---
+    function sortData() {
+        if (!sortColumn) return;
+
+        filteredData.sort((a, b) => {
+            const valA = a[sortColumn];
+            const valB = b[sortColumn];
+            let comparison = 0;
+
+            if (sortColumn === 'mes') {
+                comparison = monthOrder.indexOf(valA.toLowerCase()) - monthOrder.indexOf(valB.toLowerCase());
+            } else if (typeof valA === 'number' && typeof valB === 'number') {
+                comparison = valA - valB;
+            } else {
+                comparison = String(valA).toLowerCase().localeCompare(String(valB).toLowerCase());
+            }
+
+            return sortDirection === 'asc' ? comparison : -comparison;
+        });
+    }
+
+    function updateSortIndicators() {
+        tableHeaders.forEach(header => {
+            const indicator = header.querySelector('.sort-indicator');
+            if (header.dataset.column === sortColumn) {
+                indicator.textContent = sortDirection === 'asc' ? ' ↑' : ' ↓';
+            } else {
+                indicator.textContent = '';
+            }
+        });
+    }
+
 
     // --- FUNCIONES DE ACTUALIZACIÓN DEL DASHBOARD ---
-
     function updateKPIs(data) {
+        // ... (sin cambios)
         const totalPositivo = data.reduce((sum, row) => sum + row.ajustePos, 0);
         const totalNegativo = data.reduce((sum, row) => sum + row.ajusteNeg, 0);
         const totalConsumo = data.reduce((sum, row) => sum + row.consumo, 0);
         const totalNeto = totalPositivo + totalNegativo;
-
         document.getElementById('kpi-positivo').textContent = totalPositivo.toLocaleString('es-MX', { maximumFractionDigits: 2 });
         document.getElementById('kpi-negativo').textContent = totalNegativo.toLocaleString('es-MX', { maximumFractionDigits: 2 });
         document.getElementById('kpi-consumo').textContent = totalConsumo.toLocaleString('es-MX', { maximumFractionDigits: 2 });
@@ -255,6 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateTable(data) {
+        // Modificado para recibir los datos a renderizar
         tablaBody.innerHTML = '';
         if (data.length === 0) {
             tablaBody.innerHTML = `<tr><td colspan="8" class="status-message">No se encontraron datos con los filtros aplicados.</td></tr>`;
@@ -279,46 +318,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateParetoChart(data) {
+        // ... (sin cambios)
         if (!ajustesChart) return;
-        
         const selectedMetric = document.querySelector('input[name="pareto-metric"]:checked').value;
-
         const itemTotals = data.reduce((acc, row) => {
             let value = 0;
             switch (selectedMetric) {
-                case 'neto':     value = Math.abs(row.ajustePos + row.ajusteNeg); break;
+                case 'neto': value = Math.abs(row.ajustePos + row.ajusteNeg); break;
                 case 'positivo': value = row.ajustePos; break;
                 case 'negativo': value = Math.abs(row.ajusteNeg); break;
-                case 'consumo':  value = row.consumo; break;
+                case 'consumo': value = row.consumo; break;
             }
             acc[row.item] = (acc[row.item] || 0) + value;
             return acc;
         }, {});
-
-        const sortedItems = Object.entries(itemTotals)
-            .map(([item, value]) => ({ item, value }))
-            .filter(d => d.value > 0)
-            .sort((a, b) => b.value - a.value);
-
-        // ELIMINADO: La lógica del Top 10 se ha quitado, se usan todos los sortedItems
+        const sortedItems = Object.entries(itemTotals).map(([item, value]) => ({ item, value })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
         const grandTotal = sortedItems.reduce((sum, d) => sum + d.value, 0);
         let cumulative = 0;
-        
         const chartData = sortedItems.map(d => {
             cumulative += d.value;
             const percentageOfTotal = grandTotal > 0 ? (d.value / grandTotal) * 100 : 0;
             const cumulativePercentage = grandTotal > 0 ? (cumulative / grandTotal) * 100 : 0;
-            return {
-                ...d,
-                percentageOfTotal,
-                cumulativePercentage
-            };
+            return { ...d, percentageOfTotal, cumulativePercentage };
         });
-
         ajustesChart.data.labels = chartData.map(d => d.item);
         ajustesChart.data.datasets[0].data = chartData.map(d => d.value);
         ajustesChart.data.datasets[1].data = chartData.map(d => d.cumulativePercentage);
-        
         ajustesChart.options.plugins.tooltip.callbacks.label = function(context) {
             const dataPoint = chartData[context.dataIndex];
             if (context.dataset.yAxisID === 'y') {
@@ -332,7 +357,6 @@ document.addEventListener('DOMContentLoaded', () => {
              const dataPoint = chartData[context.dataIndex];
              return `% Acumulado: ${dataPoint.cumulativePercentage.toFixed(2)}%`;
          };
-
         ajustesChart.update('none');
     }
 
@@ -344,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeMonthButtons = document.querySelectorAll('.filter-btn.active');
         const selectedMonths = Array.from(activeMonthButtons).map(btn => btn.dataset.month);
 
-        let filteredData = fullData.filter(row => {
+        filteredData = fullData.filter(row => { // Actualiza la variable global
             const areaMatch = !area || row.area === area;
             const uomMatch = !uom || row.uom === uom;
             const anoMatch = !ano || row.ano === ano;
@@ -353,18 +377,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return areaMatch && uomMatch && anoMatch && itemMatch && monthMatch;
         });
 
+        sortData(); // Ordena los datos filtrados
         updateKPIs(filteredData);
-        updateTable(filteredData);
-        updateParetoChart(filteredData);
+        updateTable(filteredData); // Actualiza la tabla con los datos ordenados
+        updateParetoChart(filteredData); // El Pareto se basa en datos filtrados (sin ordenar por tabla)
     }
 
     function initializeChart() {
+        // ... (sin cambios)
         const ctx = document.getElementById('ajustes-chart').getContext('2d');
-        
         const gradient = ctx.createLinearGradient(0, 0, 0, 400);
         gradient.addColorStop(0, 'rgba(0, 86, 179, 0.8)');
         gradient.addColorStop(1, 'rgba(0, 123, 255, 0.5)');
-
         ajustesChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -392,21 +416,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         fill: false,
                         tension: 0.4,
                         yAxisID: 'y1',
-                        // MEJORA 2: Se muestran las etiquetas en la línea de Pareto
                         datalabels: {
-                            display: (context) => {
-                                // Muestra etiquetas solo para los primeros 20 puntos para no saturar
-                                return context.dataIndex < 20;
-                            },
-                            formatter: (value) => `${value.toFixed(2)}%`, // Formato a 2 decimales
-                            color: '#5a5a5a', // Color sutil
+                            display: (context) => context.dataIndex < 20,
+                            formatter: (value) => `${value.toFixed(2)}%`,
+                            color: '#5a5a5a',
                             backgroundColor: 'rgba(255, 255, 255, 0.7)',
                             borderRadius: 4,
                             padding: 3,
-                            font: {
-                                size: 9, // Tamaño pequeño
-                                weight: 'bold'
-                            },
+                            font: { size: 9, weight: 'bold' },
                             align: 'start',
                             anchor: 'start',
                             offset: 5
@@ -415,75 +432,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 ]
             },
             options: {
-                // MEJORA ADICIONAL: Cambiar el cursor a puntero al pasar sobre las barras
                 onHover: (event, chartElement) => {
                     const canvas = event.native.target;
                     canvas.style.cursor = chartElement[0] ? 'pointer' : 'default';
                 },
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
+                interaction: { mode: 'index', intersect: false },
                 scales: {
-                    x: { 
-                        grid: { display: false },
-                        ticks: {
-                            maxRotation: 90,
-                            minRotation: 70,
-                            font: { size: 10 }
-                        }
-                    },
-                    y: {
-                        type: 'linear',
-                        position: 'left',
-                        beginAtZero: true,
-                        title: { display: true, text: 'Valor de la Métrica', font: { size: 14, weight: 'bold' } },
-                        grid: { color: '#eef2f7' }
-                    },
-                    y1: {
-                        type: 'linear',
-                        position: 'right',
-                        min: 0,
-                        max: 100,
-                        grid: { drawOnChartArea: false },
-                        title: { display: true, text: 'Porcentaje Acumulado (%)', font: { size: 14, weight: 'bold' } },
-                        ticks: { callback: (value) => value + '%' }
-                    }
+                    x: { grid: { display: false }, ticks: { maxRotation: 90, minRotation: 70, font: { size: 10 }}},
+                    y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Valor de la Métrica', font: { size: 14, weight: 'bold' }}, grid: { color: '#eef2f7' }},
+                    y1: { type: 'linear', position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, title: { display: true, text: 'Porcentaje Acumulado (%)', font: { size: 14, weight: 'bold' }}, ticks: { callback: (value) => value + '%' }}
                 },
                 plugins: {
                     legend: { position: 'top' },
                     zoom: {
-                        pan: {
-                            enabled: true,
-                            mode: 'x',
-                        },
-                        zoom: {
-                            drag: {
-                                enabled: true
-                            },
-                            pinch: {
-                                enabled: true
-                            },
-                            mode: 'x',
-                            wheel: {
-                                enabled: true,
-                                speed: 0.5, 
-                            },
-                        }
+                        pan: { enabled: true, mode: 'x' },
+                        zoom: { drag: { enabled: true }, pinch: { enabled: true }, mode: 'x', wheel: { enabled: true, speed: 0.5 }}
                     },
-                    tooltip: {
-                        backgroundColor: '#212529',
-                        titleFont: { size: 14, weight: 'bold' },
-                        bodyFont: { size: 12 },
-                        padding: 12,
-                        cornerRadius: 8,
-                        boxPadding: 4,
-                        callbacks: {
-                           // Callbacks definidos dinámicamente
-                        }
-                    },
+                    tooltip: { backgroundColor: '#212529', titleFont: { size: 14, weight: 'bold' }, bodyFont: { size: 12 }, padding: 12, cornerRadius: 8, boxPadding: 4, callbacks: {} },
                     datalabels: {
                         display: (context) => {
                             const maxValue = Math.max(...context.chart.data.datasets[0].data);
@@ -494,13 +461,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         anchor: 'end',
                         align: 'end',
                         offset: -4,
-                        font: {
-                            weight: 'bold',
-                            size: 10,
-                        },
+                        font: { weight: 'bold', size: 10 },
                         backgroundColor: 'rgba(0, 0, 0, 0.6)',
                         borderRadius: 4,
-                        padding: 4,
+                        padding: 4
                     }
                 }
             }
@@ -508,36 +472,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function populateFilters(data) {
+        // ... (sin cambios)
         const areas = [...new Set(data.map(row => row.area))].sort();
         const uoms = [...new Set(data.map(row => row.uom))].sort();
         const anos = [...new Set(data.map(row => row.ano))].sort();
         const mesesUnicos = [...new Set(data.map(row => row.mes))];
-        
         const monthOrder = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
         mesesUnicos.sort((a, b) => monthOrder.indexOf(a.toLowerCase()) - monthOrder.indexOf(b.toLowerCase()));
-
         areas.forEach(area => filterArea.innerHTML += `<option value="${area}">${area}</option>`);
         uoms.forEach(uom => filterUom.innerHTML += `<option value="${uom}">${uom}</option>`);
         anos.forEach(ano => filterAno.innerHTML += `<option value="${ano}">${ano}</option>`);
-        
         monthFilterContainer.innerHTML = '';
-        mesesUnicos.forEach(mes => {
-            monthFilterContainer.innerHTML += `<button class="filter-btn" data-month="${mes}">${mes}</button>`;
-        });
+        mesesUnicos.forEach(mes => { monthFilterContainer.innerHTML += `<button class="filter-btn" data-month="${mes}">${mes}</button>`; });
     }
 
     // --- EJECUCIÓN PRINCIPAL ---
-
     initializeChart();
 
     fetch(netlifyFunctionUrl)
         .then(response => response.json())
         .then(rawData => {
-            if (!rawData || rawData.length === 0) {
-                tablaBody.innerHTML = '<tr><td colspan="8" class="status-message">No se encontraron datos en la fuente.</td></tr>';
-                return;
-            }
-
+            if (!rawData || rawData.length === 0) { /* ... */ return; }
             fullData = rawData.map(row => ({
                 item: row[COL.ITEM] || 'N/A',
                 mes: row[COL.MES] || 'N/A',
@@ -548,7 +503,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 ajustePos: parseValue(row[COL.AJUSTE_POS]),
                 consumo: parseValue(row[COL.CONSUMO])
             }));
-
             populateFilters(fullData);
             updateDashboard();
         })
@@ -577,10 +531,30 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.filter-btn.active').forEach(btn => btn.classList.remove('active'));
         document.getElementById('metric-neto').checked = true;
         
+        // Resetea el ordenamiento
+        sortColumn = null;
+        updateSortIndicators();
+        
         if (ajustesChart) {
             ajustesChart.resetZoom();
         }
         updateDashboard();
+    });
+
+    // NUEVO: Event listener para los encabezados de la tabla
+    tableHeaders.forEach(header => {
+        header.addEventListener('click', () => {
+            const column = header.dataset.column;
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'asc';
+            }
+            updateSortIndicators();
+            sortData();
+            updateTable(filteredData); // Solo re-renderiza la tabla con los nuevos datos ordenados
+        });
     });
 });
 </script>
