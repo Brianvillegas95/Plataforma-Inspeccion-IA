@@ -9,7 +9,6 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
     <style>
@@ -205,7 +204,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIGURACIÓN INICIAL Y SELECTORES DEL DOM ---
     document.getElementById('currentYear').textContent = new Date().getFullYear();
-    // Registrar ChartDataLabels y el nuevo plugin de Zoom
     Chart.register(ChartDataLabels, window.ChartZoom);
 
     const netlifyFunctionUrl = '/.netlify/functions/leer-sheet-ajustesinv';
@@ -231,7 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return isNaN(number) ? 0 : number;
     };
     
-    // Función para formatear números grandes a 'k' (miles) o 'M' (millones)
     const formatNumber = (num) => {
         if (Math.abs(num) > 999999) {
             return Math.sign(num) * ((Math.abs(num) / 1000000).toFixed(1)) + 'M';
@@ -242,7 +239,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.sign(num) * Math.abs(num);
     };
 
-
     // --- FUNCIONES DE ACTUALIZACIÓN DEL DASHBOARD ---
 
     function updateKPIs(data) {
@@ -251,10 +247,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalConsumo = data.reduce((sum, row) => sum + row.consumo, 0);
         const totalNeto = totalPositivo + totalNegativo;
 
-        document.getElementById('kpi-positivo').textContent = totalPositivo.toLocaleString('es-MX');
-        document.getElementById('kpi-negativo').textContent = totalNegativo.toLocaleString('es-MX');
-        document.getElementById('kpi-consumo').textContent = totalConsumo.toLocaleString('es-MX');
-        document.getElementById('kpi-neto').textContent = totalNeto.toLocaleString('es-MX');
+        document.getElementById('kpi-positivo').textContent = totalPositivo.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+        document.getElementById('kpi-negativo').textContent = totalNegativo.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+        document.getElementById('kpi-consumo').textContent = totalConsumo.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+        document.getElementById('kpi-neto').textContent = totalNeto.toLocaleString('es-MX', { maximumFractionDigits: 2 });
     }
 
     function updateTable(data) {
@@ -272,9 +268,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${row.ano}</td>
                 <td>${row.area}</td>
                 <td>${row.uom}</td>
-                <td>${row.ajusteNeg.toLocaleString('es-MX')}</td>
-                <td>${row.ajustePos.toLocaleString('es-MX')}</td>
-                <td>${row.consumo.toLocaleString('es-MX')}</td>
+                <td>${row.ajusteNeg.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</td>
+                <td>${row.ajustePos.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</td>
+                <td>${row.consumo.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</td>
             `;
             fragment.appendChild(tr);
         });
@@ -321,15 +317,15 @@ document.addEventListener('DOMContentLoaded', () => {
         ajustesChart.data.datasets[0].data = chartData.map(d => d.value);
         ajustesChart.data.datasets[1].data = chartData.map(d => d.cumulativePercentage);
         
-        // Pasamos los datos completos al tooltip para usarlo en los callbacks
+        // MEJORA 2: Se aplica el formato de 2 decimales a los tooltips
         ajustesChart.options.plugins.tooltip.callbacks.label = function(context) {
             const dataPoint = chartData[context.dataIndex];
             if (context.dataset.yAxisID === 'y') {
-                 const value = context.parsed.y.toLocaleString('es-MX');
+                 const value = context.parsed.y.toLocaleString('es-MX', { maximumFractionDigits: 2 });
                  const percentage = dataPoint.percentageOfTotal.toFixed(2);
                  return `Valor: ${value} (${percentage}% del total)`;
             }
-            return null; // Oculta el tooltip para la línea de acumulado
+            return null;
         };
          ajustesChart.options.plugins.tooltip.callbacks.afterLabel = function(context) {
              const dataPoint = chartData[context.dataIndex];
@@ -337,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
          };
 
 
-        ajustesChart.update('none'); // 'none' para evitar animaciones que interfieran con el zoom
+        ajustesChart.update('none');
     }
 
     function updateDashboard() {
@@ -362,12 +358,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateParetoChart(filteredData);
     }
 
-    // --- FUNCIONES DE INICIALIZACIÓN ---
-
     function initializeChart() {
         const ctx = document.getElementById('ajustes-chart').getContext('2d');
         
-        // MEJORA VISUAL: Creación de un gradiente para las barras
         const gradient = ctx.createLinearGradient(0, 0, 0, 400);
         gradient.addColorStop(0, 'rgba(0, 86, 179, 0.8)');
         gradient.addColorStop(1, 'rgba(0, 123, 255, 0.5)');
@@ -380,11 +373,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                         label: 'Valor',
                         data: [],
-                        backgroundColor: gradient, // Usamos el gradiente
+                        backgroundColor: gradient,
                         borderColor: 'rgba(0, 86, 179, 1)',
                         borderWidth: 1,
                         yAxisID: 'y',
-                        // MEJORA VISUAL: Efecto al pasar el cursor
                         hoverBackgroundColor: 'rgba(0, 86, 179, 1)',
                     },
                     {
@@ -394,10 +386,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         borderColor: '#ff9f40',
                         backgroundColor: 'rgba(255, 159, 64, 0.2)',
                         borderWidth: 3,
-                        pointRadius: 0, // Ocultamos los puntos para una línea más limpia
+                        pointRadius: 0,
                         pointHoverRadius: 5,
                         fill: false,
-                        tension: 0.4, // Línea más suave
+                        tension: 0.4,
                         yAxisID: 'y1',
                     }
                 ]
@@ -405,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: { // Mejora la interacción para el tooltip
+                interaction: {
                     mode: 'index',
                     intersect: false,
                 },
@@ -428,6 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     y1: {
                         type: 'linear',
                         position: 'right',
+                        // MEJORA 4: Esto asegura que el eje SIEMPRE vaya de 0 a 100
                         min: 0,
                         max: 100,
                         grid: { drawOnChartArea: false },
@@ -437,23 +430,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 plugins: {
                     legend: { position: 'top' },
-                    // MEJORA FUNCIONAL: Configuración del plugin de zoom
                     zoom: {
                         pan: {
-                            enabled: true, // Permite mover el gráfico de izquierda a derecha
-                            mode: 'x', // Solo en el eje X
+                            enabled: true,
+                            mode: 'x',
                         },
                         zoom: {
-                            wheel: {
-                                enabled: true, // Permite hacer zoom con la rueda del ratón
-                            },
                             pinch: {
-                                enabled: true // Permite hacer zoom con gestos en táctil
+                                enabled: true
                             },
-                            mode: 'x', // El zoom solo afecta al eje X
+                            mode: 'x',
+                            wheel: {
+                                enabled: true,
+                                // MEJORA 3: Se reduce la sensibilidad del zoom (valor entre 0 y 1)
+                                speed: 0.5, 
+                            },
                         }
                     },
-                    // MEJORA VISUAL: Configuración de tooltips avanzados
                     tooltip: {
                         backgroundColor: '#212529',
                         titleFont: { size: 14, weight: 'bold' },
@@ -462,19 +455,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         cornerRadius: 8,
                         boxPadding: 4,
                         callbacks: {
-                           // Las funciones de callback se definen dinámicamente en updateParetoChart
-                           // para tener acceso a los datos calculados (como el %).
+                           // Callbacks definidos dinámicamente
                         }
                     },
-                    // MEJORA VISUAL: Configuración de etiquetas de datos inteligentes
                     datalabels: {
                         display: (context) => {
-                            // Mostrar solo si el valor es mayor al 2% del valor máximo
                             const maxValue = Math.max(...context.chart.data.datasets[0].data);
                             return context.dataset.data[context.dataIndex] > maxValue * 0.02;
                         },
-                        formatter: (value) => formatNumber(value), // Usamos el formateador a 'k' o 'M'
-                        color: 'white',
+                        formatter: (value) => formatNumber(value),
+                        // MEJORA 1: Mejor contraste y visibilidad para las etiquetas
+                        color: '#ffffff', // Texto blanco
                         anchor: 'end',
                         align: 'end',
                         offset: -4,
@@ -482,7 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             weight: 'bold',
                             size: 10,
                         },
-                        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                        backgroundColor: 'rgba(0, 0, 0, 0.6)', // Fondo más oscuro
                         borderRadius: 4,
                         padding: 4,
                     }
