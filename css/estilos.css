@@ -1274,3 +1274,61 @@ body.color-validator-body .main-content {
     font-size: 0.95rem;
     word-wrap: break-word; /* Para que el texto largo no se desborde */
 }
+/* ========================================================= */
+/* === ESTILOS PARA LIGHTBOX (IMAGEN PANTALLA COMPLETA) === */
+/* ========================================================= */
+
+/* El contenedor del lightbox (overlay oscuro) */
+.lightbox {
+    /* Oculto por defecto */
+    display: none; 
+    position: fixed; /* Se queda fijo en la pantalla */
+    z-index: 1000; /* Se asegura de estar por encima de todo */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Permite scroll si la imagen es muy grande */
+    background-color: rgba(0, 0, 0, 0.9); /* Fondo negro semitransparente */
+    
+    /* Usamos Flexbox para centrar la imagen perfectamente */
+    justify-content: center;
+    align-items: center;
+}
+
+/* La imagen dentro del lightbox */
+.lightbox-content {
+    margin: auto;
+    display: block;
+    max-width: 85%;
+    max-height: 85vh; /* Ocupa como máximo el 85% de la altura de la pantalla */
+}
+
+/* Botón para cerrar el lightbox */
+.lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    transition: 0.3s;
+    cursor: pointer;
+}
+
+.lightbox-close:hover,
+.lightbox-close:focus {
+    color: #bbb;
+    text-decoration: none;
+}
+
+/* Animación de zoom al abrir */
+.lightbox-content {  
+    animation-name: zoom;
+    animation-duration: 0.4s;
+}
+
+@keyframes zoom {
+    from {transform: scale(0)} 
+    to {transform: scale(1)}
+}
