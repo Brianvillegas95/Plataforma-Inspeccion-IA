@@ -7,18 +7,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const messagesContainer = document.getElementById('chat-messages');
     const optionsContainer = document.getElementById('chat-options');
 
-    if (!chatBubble || !chatContainer || !closeChat || !messagesContainer || !optionsContainer) {
-        console.error("No se encontraron los elementos necesarios para el chatbot. Revisa el HTML.");
+    // --- NUEVO: Elementos para el Lightbox (imagen en pantalla completa) ---
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxClose = document.querySelector('.lightbox-close');
+
+    if (!chatBubble || !chatContainer || !closeChat || !messagesContainer || !optionsContainer || !lightbox || !lightboxImg || !lightboxClose) {
+        console.error("No se encontraron los elementos necesarios para el chatbot o el lightbox. Revisa el HTML.");
         return;
     }
-    
+
     chatBubble.addEventListener('click', () => {
         chatContainer.classList.toggle('open');
+        // --- MODIFICACIÓN 3: Lógica del mensaje de bienvenida ---
+        if (!isChatInitiated && chatContainer.classList.contains('open')) {
+            // Mostramos el mensaje de bienvenida inmediatamente
+            const welcomeMessage = "¡Hola! Soy Quali, tu asistente de calidad. Puedo ayudarte a resolver las dudas más frecuentes. Para empezar, selecciona el área que deseas consultar.";
+            showBotMessage(welcomeMessage);
+            // Cargamos las opciones iniciales
+            getNextDialogue('0');
+            isChatInitiated = true;
+        }
     });
 
     closeChat.addEventListener('click', () => {
         chatContainer.classList.remove('open');
     });
+    
+    // --- NUEVO: Cerrar lightbox al hacer clic en el botón de cerrar ---
+    lightboxClose.addEventListener('click', () => {
+        lightbox.style.display = 'none';
+    });
+    
+    // --- NUEVO: Cerrar lightbox al hacer clic fuera de la imagen ---
+    lightbox.addEventListener('click', (e) => {
+        if (e.target === lightbox) {
+            lightbox.style.display = 'none';
+        }
+    });
+
 
     let isChatInitiated = false;
 
@@ -37,71 +64,60 @@ document.addEventListener('DOMContentLoaded', () => {
         getNextDialogue(option.nextId);
     }
 
-    // --- NUEVA FUNCIÓN AUXILIAR ---
-    function isVideoUrl(url) {
-        // Una forma sencilla de detectar si es un video de Google Drive para embeber.
-        return url.includes('/preview');
+    // --- NUEVO: Función reutilizable para mostrar mensajes del bot ---
+    function showBotMessage(text, mediaUrl = null) {
+        const botMessageElement = document.createElement('div');
+        botMessageElement.classList.add('bot-message');
+
+        // --- MODIFICACIÓN 1: Reemplazar '//' por saltos de línea ---
+        // Usamos innerHTML para que el navegador interprete <br>
+        const formattedText = text.replace(/\/\//g, '<br><br>');
+        botMessageElement.innerHTML = formattedText;
+
+        messagesContainer.appendChild(botMessageElement);
+        
+        // --- MODIFICACIÓN 2: Lógica para mostrar y ampliar la imagen ---
+        if (mediaUrl) {
+            const mediaElement = document.createElement('img');
+            mediaElement.src = mediaUrl;
+            mediaElement.classList.add('chat-media');
+            mediaElement.style.cursor = 'pointer'; // Cambia el cursor para indicar que es clickable
+            
+            // Evento para abrir el lightbox
+            mediaElement.onclick = () => {
+                lightboxImg.src = mediaUrl; // Carga la imagen en el lightbox
+                lightbox.style.display = 'flex'; // Muestra el lightbox
+            };
+            
+            botMessageElement.appendChild(mediaElement);
+        }
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    function showDialogue(dialogue) {
-        optionsContainer.innerHTML = ''; 
-
-        const scrollThreshold = 7;
-        if (dialogue.options && dialogue.options.length > scrollThreshold) {
-            optionsContainer.classList.add('scrollable-options');
-        } else {
-            optionsContainer.classList.remove('scrollable-options');
+    function showDialogue(data) {
+        optionsContainer.innerHTML = ''; // Limpiar opciones anteriores
+        
+        // El título y el contenido se muestran en el mismo mensaje del bot
+        let messageText = '';
+        if (data.title) {
+            messageText += `<b>${data.title}</b><br>`;
+        }
+        if (data.content) {
+            messageText += data.content;
         }
         
-        const messageElement = document.createElement('div');
-        messageElement.classList.add('bot-message');
-
-        // --- LÓGICA MODIFICADA PARA MOSTRAR MULTIMEDIA ---
-        let contentHTML = '';
-
-        if (dialogue.title) {
-            contentHTML += `<strong>${dialogue.title}</strong><br>`;
-        }
-        if (dialogue.content) {
-            contentHTML += dialogue.content;
+        if(messageText){
+            showBotMessage(messageText, data.mediaUrl);
         }
 
-        // Si hay una URL de multimedia, creamos el elemento correspondiente.
-        if (dialogue.mediaUrl) {
-            if (isVideoUrl(dialogue.mediaUrl)) {
-                // Es un video, creamos un iframe.
-                contentHTML += `
-                    <div class="media-container video-container">
-                        <iframe src="${dialogue.mediaUrl}" frameborder="0" allowfullscreen></iframe>
-                    </div>
-                `;
-            } else {
-                // Es una imagen.
-                contentHTML += `
-                    <div class="media-container">
-                        <img src="${dialogue.mediaUrl}" alt="Contenido visual del chatbot" class="chat-media">
-                    </div>
-                `;
-            }
-        }
-        
-        messageElement.innerHTML = contentHTML;
-
-        if (!dialogue.title && !dialogue.content && !dialogue.mediaUrl) {
-             messageElement.textContent = dialogue.message;
-        }
-        // --- FIN DE LA LÓGICA MODIFICADA ---
-        
-        messagesContainer.appendChild(messageElement);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-        if (dialogue.options && dialogue.options.length > 0) {
-            dialogue.options.forEach(option => {
+        if (data.options && data.options.length > 0) {
+            data.options.forEach(option => {
                 if (option.text && option.nextId) {
                     const button = document.createElement('button');
                     button.classList.add('option-button');
                     button.textContent = option.text;
-                    button.onclick = () => handleOptionClick(option); 
+                    button.onclick = () => handleOptionClick(option);
                     optionsContainer.appendChild(button);
                 }
             });
@@ -113,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`/.netlify/functions/consulta_chatbot?id=${id}`);
             if (!response.ok) throw new Error('La respuesta del servidor no fue exitosa.');
-            
+
             const data = await response.json();
             if (data) {
                 showDialogue(data);
@@ -122,18 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Hubo un error al obtener el diálogo:", error);
-            const errorElement = document.createElement('div');
-            errorElement.classList.add('bot-message');
-            errorElement.textContent = 'Lo siento, algo salió mal al intentar conectar. Por favor, inténtalo más tarde.';
-            messagesContainer.appendChild(errorElement);
+            showBotMessage('Lo siento, algo salió mal al intentar conectar. Por favor, inténtalo más tarde.');
             optionsContainer.innerHTML = '';
         }
     }
-
-    chatBubble.addEventListener('click', () => {
-        if (!isChatInitiated && chatContainer.classList.contains('open')) {
-            getNextDialogue('0'); 
-            isChatInitiated = true;
-        }
-    });
+    
+    // Se elimina la lógica de inicio de chat de aquí porque se movió al primer 'click' del 'chatBubble'
 });
