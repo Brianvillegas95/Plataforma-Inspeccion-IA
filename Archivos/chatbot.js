@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión con corrección de scroll automático)
+// Archivo: chatbot.js (Versión con scroll al inicio del último mensaje)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM ---
@@ -43,17 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- FUNCIÓN PARA FORZAR EL SCROLL HACIA ABAJO ---
-    // Creamos una función específica para esto para no repetir código.
-    function scrollToBottom() {
-        // --- CORRECCIÓN DE SCROLL ---
-        // Se añade un pequeño retardo (50 milisegundos) para dar tiempo al navegador
-        // a renderizar el nuevo mensaje antes de calcular la altura para el scroll.
-        setTimeout(() => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }, 50);
-    }
-
     // --- MANEJO DE LA INTERACCIÓN DEL USUARIO ---
     function handleOptionClick(option) {
         const userMessageElement = document.createElement('div');
@@ -65,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.disabled = true;
         });
 
-        scrollToBottom(); // Usamos la nueva función de scroll
+        // Ya no es necesario un scroll aquí, porque la respuesta del bot lo controlará.
         getNextDialogue(option.nextId);
     }
 
@@ -92,7 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         messagesContainer.appendChild(botMessageElement);
-        scrollToBottom(); // Usamos la nueva función de scroll aquí también
+        
+        // --- CORRECCIÓN DE SCROLL: Scroll al inicio del elemento ---
+        // Usamos .scrollIntoView() para que el inicio del nuevo mensaje
+        // quede alineado con el inicio de la parte visible del chat.
+        setTimeout(() => {
+            botMessageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100); // Un pequeño retardo para asegurar que el elemento se ha renderizado.
     }
 
     // --- FUNCIÓN PARA PROCESAR Y MOSTRAR DIÁLOGOS ---
@@ -125,8 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     optionsContainer.appendChild(button);
                 }
             });
-            // Hacemos un último scroll por si los botones nuevos ocupan espacio
-            scrollToBottom();
         }
     }
 
