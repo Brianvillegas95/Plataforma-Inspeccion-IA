@@ -148,6 +148,7 @@
                         <input type="text" id="filter-item" placeholder="Ej: 114.0000">
                     </div>
                     <div id="month-filter-container"></div>
+                    <button id="top-10-btn" class="filter-btn">Ver Top 10</button>
                     <button id="reset-filter-btn" class="btn-reset">Limpiar Filtros</button>
                 </div>
             </section>
@@ -201,7 +202,8 @@
     </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+    // El código JavaScript completo y actualizado va aquí, tal como se proporcionó arriba.
+    document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIGURACIÓN INICIAL Y SELECTORES DEL DOM ---
     document.getElementById('currentYear').textContent = new Date().getFullYear();
     Chart.register(ChartDataLabels, window.ChartZoom);
@@ -215,10 +217,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const monthFilterContainer = document.getElementById('month-filter-container');
     const resetBtn = document.getElementById('reset-filter-btn');
     const paretoMetricRadios = document.querySelectorAll('input[name="pareto-metric"]');
+    
+    // NUEVO: Referencia al botón Top 10
+    const top10Btn = document.getElementById('top-10-btn');
 
     // --- VARIABLES GLOBALES Y CONSTANTES ---
     let fullData = [];
     let ajustesChart;
+    let isTop10Active = false; // NUEVO: Estado para el filtro Top 10
     const COL = { ITEM: 0, MES: 1, ANO: 2, UOM: 3, AREA: 4, AJUSTE_NEG: 5, AJUSTE_POS: 6, CONSUMO: 7 };
 
     // --- FUNCIONES AUXILIARES ---
@@ -299,10 +305,17 @@ document.addEventListener('DOMContentLoaded', () => {
             .filter(d => d.value > 0)
             .sort((a, b) => b.value - a.value);
 
+        // LÓGICA MEJORADA PARA TOP 10
+        // 1. Calculamos el total general A PARTIR DE TODOS los datos filtrados (antes de cortar a Top 10)
         const grandTotal = sortedItems.reduce((sum, d) => sum + d.value, 0);
+        
+        // 2. Determinamos qué items mostrar: todos o solo el Top 10
+        const itemsForChart = isTop10Active ? sortedItems.slice(0, 10) : sortedItems;
+
         let cumulative = 0;
         
-        const chartData = sortedItems.map(d => {
+        // 3. Mapeamos los datos para el gráfico, usando siempre el "grandTotal" para un porcentaje real
+        const chartData = itemsForChart.map(d => {
             cumulative += d.value;
             const percentageOfTotal = grandTotal > 0 ? (d.value / grandTotal) * 100 : 0;
             const cumulativePercentage = grandTotal > 0 ? (cumulative / grandTotal) * 100 : 0;
@@ -317,7 +330,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ajustesChart.data.datasets[0].data = chartData.map(d => d.value);
         ajustesChart.data.datasets[1].data = chartData.map(d => d.cumulativePercentage);
         
-        // MEJORA 2: Se aplica el formato de 2 decimales a los tooltips
         ajustesChart.options.plugins.tooltip.callbacks.label = function(context) {
             const dataPoint = chartData[context.dataIndex];
             if (context.dataset.yAxisID === 'y') {
@@ -391,6 +403,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         fill: false,
                         tension: 0.4,
                         yAxisID: 'y1',
+                        // MEJORA 1: Ocultamos las etiquetas con decimales de la línea naranja
+                        datalabels: {
+                            display: false
+                        }
                     }
                 ]
             },
@@ -420,7 +436,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     y1: {
                         type: 'linear',
                         position: 'right',
-                        // MEJORA 4: Esto asegura que el eje SIEMPRE vaya de 0 a 100
                         min: 0,
                         max: 100,
                         grid: { drawOnChartArea: false },
@@ -436,13 +451,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             mode: 'x',
                         },
                         zoom: {
+                            // MEJORA 2: Se habilita el zoom por arrastre para mayor precisión
+                            drag: {
+                                enabled: true
+                            },
                             pinch: {
                                 enabled: true
                             },
                             mode: 'x',
                             wheel: {
                                 enabled: true,
-                                // MEJORA 3: Se reduce la sensibilidad del zoom (valor entre 0 y 1)
                                 speed: 0.5, 
                             },
                         }
@@ -464,8 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             return context.dataset.data[context.dataIndex] > maxValue * 0.02;
                         },
                         formatter: (value) => formatNumber(value),
-                        // MEJORA 1: Mejor contraste y visibilidad para las etiquetas
-                        color: '#ffffff', // Texto blanco
+                        color: '#ffffff',
                         anchor: 'end',
                         align: 'end',
                         offset: -4,
@@ -473,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             weight: 'bold',
                             size: 10,
                         },
-                        backgroundColor: 'rgba(0, 0, 0, 0.6)', // Fondo más oscuro
+                        backgroundColor: 'rgba(0, 0, 0, 0.6)',
                         borderRadius: 4,
                         padding: 4,
                     }
@@ -483,6 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function populateFilters(data) {
+        // ... (esta función no cambia)
         const areas = [...new Set(data.map(row => row.area))].sort();
         const uoms = [...new Set(data.map(row => row.uom))].sort();
         const anos = [...new Set(data.map(row => row.ano))].sort();
@@ -506,11 +524,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeChart();
 
     fetch(netlifyFunctionUrl)
-        .then(response => {
-            if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
-            return response.json();
-        })
+        .then(response => response.json())
         .then(rawData => {
+            // ... (esta parte no cambia)
             if (!rawData || rawData.length === 0) {
                 tablaBody.innerHTML = '<tr><td colspan="8" class="status-message">No se encontraron datos en la fuente.</td></tr>';
                 return;
@@ -529,7 +545,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             populateFilters(fullData);
             updateDashboard();
-
         })
         .catch(error => {
             console.error('Error al obtener los datos:', error);
@@ -548,6 +563,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // NUEVO: Event listener para el botón Top 10
+    top10Btn.addEventListener('click', () => {
+        isTop10Active = !isTop10Active; // Invierte el estado
+        top10Btn.classList.toggle('active'); // Estilo visual
+        ajustesChart.resetZoom(); // Resetea el zoom para ver bien el Top 10
+        updateDashboard();
+    });
+
     resetBtn.addEventListener('click', () => {
         filterArea.value = '';
         filterUom.value = '';
@@ -555,7 +578,11 @@ document.addEventListener('DOMContentLoaded', () => {
         filterItem.value = '';
         document.querySelectorAll('.filter-btn.active').forEach(btn => btn.classList.remove('active'));
         document.getElementById('metric-neto').checked = true;
-        // IMPORTANTE: Resetea el zoom del gráfico al limpiar filtros
+        
+        // Resetea el estado del Top 10 también
+        isTop10Active = false;
+        top10Btn.classList.remove('active');
+
         if (ajustesChart) {
             ajustesChart.resetZoom();
         }
