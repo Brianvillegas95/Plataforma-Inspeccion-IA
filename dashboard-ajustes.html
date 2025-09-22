@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
     <style>
-        /* --- ESTILOS GENERALES (Existentes y Mejorados) --- */
+        /* --- ESTILOS GENERALES --- */
         body.inspector-body { background-color: #f4f7fa; }
         .main-content { padding: 20px; }
         .dashboard-panel {
@@ -30,7 +30,7 @@
         }
         .panel-title .fas { margin-right: 12px; color: #0056b3; }
         
-        /* --- Estilos para KPIs (Sin cambios) --- */
+        /* --- Estilos para KPIs --- */
         .kpi-container {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 20px; margin-bottom: 25px;
@@ -44,7 +44,7 @@
         .kpi-card.negativo .kpi-value { color: #dc3545; }
         .kpi-card.positivo .kpi-value { color: #28a745; }
 
-        /* --- Estilos para Filtros (Actualizados) --- */
+        /* --- Estilos para Filtros --- */
         .filter-controls { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
         .filter-group { display: flex; flex-direction: column; }
         .filter-group label { font-size: 0.8em; margin-bottom: 5px; color: #495057; font-weight: 600; }
@@ -65,7 +65,7 @@
             color: white; border: none; border-radius: 20px; cursor: pointer; margin-left: auto;
         }
 
-        /* --- NUEVO: Estilos para control de métrica del Pareto --- */
+        /* --- Estilos para control de métrica del Pareto --- */
         .metric-selector {
             margin-bottom: 25px; padding: 15px;
             background-color: #f8f9fa; border-radius: 8px;
@@ -82,7 +82,7 @@
             background-color: #0056b3; color: white; box-shadow: 0 4px 10px rgba(0, 86, 179, 0.3);
         }
         
-        /* --- Estilos de Gráfico y Tabla (Sin cambios mayores) --- */
+        /* --- Estilos de Gráfico y Tabla --- */
         #chart-container { position: relative; height: 500px; width: 100%; }
         .table-wrapper { max-height: 600px; overflow-y: auto; }
         .results-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.95em; }
@@ -148,7 +148,6 @@
                         <input type="text" id="filter-item" placeholder="Ej: 114.0000">
                     </div>
                     <div id="month-filter-container"></div>
-                    <button id="top-10-btn" class="filter-btn">Ver Top 10</button>
                     <button id="reset-filter-btn" class="btn-reset">Limpiar Filtros</button>
                 </div>
             </section>
@@ -202,8 +201,7 @@
     </div>
 
 <script>
-    // El código JavaScript completo y actualizado va aquí, tal como se proporcionó arriba.
-    document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIGURACIÓN INICIAL Y SELECTORES DEL DOM ---
     document.getElementById('currentYear').textContent = new Date().getFullYear();
     Chart.register(ChartDataLabels, window.ChartZoom);
@@ -217,14 +215,11 @@
     const monthFilterContainer = document.getElementById('month-filter-container');
     const resetBtn = document.getElementById('reset-filter-btn');
     const paretoMetricRadios = document.querySelectorAll('input[name="pareto-metric"]');
-    
-    // NUEVO: Referencia al botón Top 10
-    const top10Btn = document.getElementById('top-10-btn');
 
     // --- VARIABLES GLOBALES Y CONSTANTES ---
     let fullData = [];
     let ajustesChart;
-    let isTop10Active = false; // NUEVO: Estado para el filtro Top 10
+    // ELIMINADO: La variable de estado isTop10Active ya no es necesaria
     const COL = { ITEM: 0, MES: 1, ANO: 2, UOM: 3, AREA: 4, AJUSTE_NEG: 5, AJUSTE_POS: 6, CONSUMO: 7 };
 
     // --- FUNCIONES AUXILIARES ---
@@ -305,17 +300,11 @@
             .filter(d => d.value > 0)
             .sort((a, b) => b.value - a.value);
 
-        // LÓGICA MEJORADA PARA TOP 10
-        // 1. Calculamos el total general A PARTIR DE TODOS los datos filtrados (antes de cortar a Top 10)
+        // ELIMINADO: La lógica del Top 10 se ha quitado, se usan todos los sortedItems
         const grandTotal = sortedItems.reduce((sum, d) => sum + d.value, 0);
-        
-        // 2. Determinamos qué items mostrar: todos o solo el Top 10
-        const itemsForChart = isTop10Active ? sortedItems.slice(0, 10) : sortedItems;
-
         let cumulative = 0;
         
-        // 3. Mapeamos los datos para el gráfico, usando siempre el "grandTotal" para un porcentaje real
-        const chartData = itemsForChart.map(d => {
+        const chartData = sortedItems.map(d => {
             cumulative += d.value;
             const percentageOfTotal = grandTotal > 0 ? (d.value / grandTotal) * 100 : 0;
             const cumulativePercentage = grandTotal > 0 ? (cumulative / grandTotal) * 100 : 0;
@@ -343,7 +332,6 @@
              const dataPoint = chartData[context.dataIndex];
              return `% Acumulado: ${dataPoint.cumulativePercentage.toFixed(2)}%`;
          };
-
 
         ajustesChart.update('none');
     }
@@ -398,19 +386,40 @@
                         borderColor: '#ff9f40',
                         backgroundColor: 'rgba(255, 159, 64, 0.2)',
                         borderWidth: 3,
-                        pointRadius: 0,
+                        pointRadius: 2,
+                        pointBackgroundColor: '#ff9f40',
                         pointHoverRadius: 5,
                         fill: false,
                         tension: 0.4,
                         yAxisID: 'y1',
-                        // MEJORA 1: Ocultamos las etiquetas con decimales de la línea naranja
+                        // MEJORA 2: Se muestran las etiquetas en la línea de Pareto
                         datalabels: {
-                            display: false
+                            display: (context) => {
+                                // Muestra etiquetas solo para los primeros 20 puntos para no saturar
+                                return context.dataIndex < 20;
+                            },
+                            formatter: (value) => `${value.toFixed(2)}%`, // Formato a 2 decimales
+                            color: '#5a5a5a', // Color sutil
+                            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                            borderRadius: 4,
+                            padding: 3,
+                            font: {
+                                size: 9, // Tamaño pequeño
+                                weight: 'bold'
+                            },
+                            align: 'start',
+                            anchor: 'start',
+                            offset: 5
                         }
                     }
                 ]
             },
             options: {
+                // MEJORA ADICIONAL: Cambiar el cursor a puntero al pasar sobre las barras
+                onHover: (event, chartElement) => {
+                    const canvas = event.native.target;
+                    canvas.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: {
@@ -451,7 +460,6 @@
                             mode: 'x',
                         },
                         zoom: {
-                            // MEJORA 2: Se habilita el zoom por arrastre para mayor precisión
                             drag: {
                                 enabled: true
                             },
@@ -500,7 +508,6 @@
     }
 
     function populateFilters(data) {
-        // ... (esta función no cambia)
         const areas = [...new Set(data.map(row => row.area))].sort();
         const uoms = [...new Set(data.map(row => row.uom))].sort();
         const anos = [...new Set(data.map(row => row.ano))].sort();
@@ -526,7 +533,6 @@
     fetch(netlifyFunctionUrl)
         .then(response => response.json())
         .then(rawData => {
-            // ... (esta parte no cambia)
             if (!rawData || rawData.length === 0) {
                 tablaBody.innerHTML = '<tr><td colspan="8" class="status-message">No se encontraron datos en la fuente.</td></tr>';
                 return;
@@ -563,14 +569,6 @@
         }
     });
 
-    // NUEVO: Event listener para el botón Top 10
-    top10Btn.addEventListener('click', () => {
-        isTop10Active = !isTop10Active; // Invierte el estado
-        top10Btn.classList.toggle('active'); // Estilo visual
-        ajustesChart.resetZoom(); // Resetea el zoom para ver bien el Top 10
-        updateDashboard();
-    });
-
     resetBtn.addEventListener('click', () => {
         filterArea.value = '';
         filterUom.value = '';
@@ -579,10 +577,6 @@
         document.querySelectorAll('.filter-btn.active').forEach(btn => btn.classList.remove('active'));
         document.getElementById('metric-neto').checked = true;
         
-        // Resetea el estado del Top 10 también
-        isTop10Active = false;
-        top10Btn.classList.remove('active');
-
         if (ajustesChart) {
             ajustesChart.resetZoom();
         }
