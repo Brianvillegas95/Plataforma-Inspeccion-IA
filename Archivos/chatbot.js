@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión corregida y con todas las mejoras)
+// Archivo: chatbot.js (Versión con corrección de scroll automático)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM ---
@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const lightboxImg = document.getElementById('lightbox-img');
     const lightboxClose = document.querySelector('.lightbox-close');
 
-    // Verificación de que todos los elementos existan
     if (!chatBubble || !chatContainer || !closeChat || !messagesContainer || !optionsContainer || !lightbox || !lightboxImg || !lightboxClose) {
         console.error("No se encontraron los elementos necesarios para el chatbot o el lightbox. Revisa el HTML.");
         return;
@@ -24,11 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- ABRIR Y CERRAR EL CHAT ---
     chatBubble.addEventListener('click', () => {
         chatContainer.classList.toggle('open');
-        // --- MEJORA: Lógica del mensaje de bienvenida ---
         if (!isChatInitiated && chatContainer.classList.contains('open')) {
             const welcomeMessage = "¡Hola! Soy Quali, tu asistente de calidad. Puedo ayudarte a resolver las dudas más frecuentes. Para empezar, selecciona el área que deseas consultar.";
-            showBotMessage(welcomeMessage); // Muestra el mensaje de bienvenida
-            getNextDialogue('0'); // Carga las opciones iniciales
+            showBotMessage(welcomeMessage);
+            getNextDialogue('0');
             isChatInitiated = true;
         }
     });
@@ -45,42 +43,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- FUNCIÓN PARA FORZAR EL SCROLL HACIA ABAJO ---
+    // Creamos una función específica para esto para no repetir código.
+    function scrollToBottom() {
+        // --- CORRECCIÓN DE SCROLL ---
+        // Se añade un pequeño retardo (50 milisegundos) para dar tiempo al navegador
+        // a renderizar el nuevo mensaje antes de calcular la altura para el scroll.
+        setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, 50);
+    }
+
     // --- MANEJO DE LA INTERACCIÓN DEL USUARIO ---
     function handleOptionClick(option) {
-        // Muestra la opción seleccionada por el usuario en el chat
         const userMessageElement = document.createElement('div');
         userMessageElement.classList.add('user-message');
         userMessageElement.textContent = option.text;
         messagesContainer.appendChild(userMessageElement);
 
-        // Deshabilita los botones para evitar clics múltiples
         optionsContainer.querySelectorAll('.option-button').forEach(button => {
             button.disabled = true;
         });
 
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        scrollToBottom(); // Usamos la nueva función de scroll
         getNextDialogue(option.nextId);
     }
 
     // --- FUNCIÓN CENTRAL PARA MOSTRAR MENSAJES DEL BOT ---
-    // Esta función ahora crea todos los mensajes del bot, ya sean preguntas o respuestas.
     function showBotMessage(text, mediaUrl = null) {
         const botMessageElement = document.createElement('div');
         botMessageElement.classList.add('bot-message');
 
-        // --- MEJORA: Reemplazar '//' por saltos de línea ---
-        // Usamos innerHTML para que el navegador interprete la etiqueta <br>
         const formattedText = text.replace(/\/\//g, '<br><br>');
         botMessageElement.innerHTML = formattedText;
 
-        // --- MEJORA: Lógica para mostrar y ampliar la imagen ---
         if (mediaUrl) {
             const mediaElement = document.createElement('img');
             mediaElement.src = mediaUrl;
             mediaElement.classList.add('chat-media');
             mediaElement.style.cursor = 'pointer';
             
-            // Evento para abrir el lightbox al hacer clic en la imagen
             mediaElement.onclick = () => {
                 lightboxImg.src = mediaUrl;
                 lightbox.style.display = 'flex';
@@ -90,20 +92,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         messagesContainer.appendChild(botMessageElement);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        scrollToBottom(); // Usamos la nueva función de scroll aquí también
     }
 
     // --- FUNCIÓN PARA PROCESAR Y MOSTRAR DIÁLOGOS ---
     function showDialogue(data) {
-        optionsContainer.innerHTML = ''; // Limpiar opciones anteriores
+        optionsContainer.innerHTML = '';
 
-        // --- CORRECCIÓN CLAVE: Mostrar el mensaje de la pregunta ---
-        // Si la respuesta del backend contiene 'message', es una pregunta. La mostramos.
         if (data.message) {
             showBotMessage(data.message);
         }
 
-        // Si la respuesta contiene 'title' o 'content', es información. La mostramos.
         let infoText = '';
         if (data.title) {
             infoText += `<strong>${data.title}</strong><br>`;
@@ -113,11 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (infoText) {
-            // Pasamos también la URL de la imagen si existe
             showBotMessage(infoText, data.mediaUrl || null);
         }
 
-        // Finalmente, creamos los botones de opciones
         if (data.options && data.options.length > 0) {
             data.options.forEach(option => {
                 if (option.text && option.nextId) {
@@ -128,6 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     optionsContainer.appendChild(button);
                 }
             });
+            // Hacemos un último scroll por si los botones nuevos ocupan espacio
+            scrollToBottom();
         }
     }
 
