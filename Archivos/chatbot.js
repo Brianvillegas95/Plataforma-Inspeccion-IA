@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión con scroll al inicio del último mensaje)
+// Archivo: chatbot.js (Versión con scroll al inicio del último mensaje y soporte para PDF/Video/Imagen)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM ---
@@ -54,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
             button.disabled = true;
         });
 
-        // Ya no es necesario un scroll aquí, porque la respuesta del bot lo controlará.
         getNextDialogue(option.nextId);
     }
 
@@ -67,24 +66,49 @@ document.addEventListener('DOMContentLoaded', () => {
         botMessageElement.innerHTML = formattedText;
 
         if (mediaUrl) {
-            const mediaElement = document.createElement('img');
-            mediaElement.src = mediaUrl;
-            mediaElement.classList.add('chat-media');
-            mediaElement.style.cursor = 'pointer';
-            
-            mediaElement.onclick = () => {
-                lightboxImg.src = mediaUrl;
-                lightbox.style.display = 'flex';
-            };
+            let mediaElement;
+            const mediaUrlLower = mediaUrl.toLowerCase();
+
+            // 1. Verificamos si la URL es un PDF
+            if (mediaUrlLower.endsWith('.pdf')) {
+                mediaElement = document.createElement('a');
+                mediaElement.href = mediaUrl;
+                mediaElement.target = '_blank'; // Abre el PDF en una nueva pestaña
+                mediaElement.rel = 'noopener noreferrer'; // Medida de seguridad
+                mediaElement.textContent = '📄 Ver Documento (PDF)';
+                // Se recomienda añadir una clase para darle estilo con CSS
+                mediaElement.classList.add('chat-media-link');
+
+            // 2. Verificamos si es un video
+            } else if (mediaUrlLower.endsWith('.mp4')) {
+                mediaElement = document.createElement('video');
+                mediaElement.src = mediaUrl;
+                mediaElement.controls = true;
+                mediaElement.muted = true;
+                mediaElement.autoplay = true;
+                mediaElement.playsInline = true;
+                mediaElement.style.width = '100%';
+                mediaElement.style.borderRadius = '10px';
+                mediaElement.style.marginTop = '10px';
+
+            // 3. Si no es PDF ni video, asumimos que es una imagen
+            } else {
+                mediaElement = document.createElement('img');
+                mediaElement.src = mediaUrl;
+                mediaElement.classList.add('chat-media');
+                mediaElement.style.cursor = 'pointer';
+                
+                mediaElement.onclick = () => {
+                    lightboxImg.src = mediaUrl;
+                    lightbox.style.display = 'flex';
+                };
+            }
             
             botMessageElement.appendChild(mediaElement);
         }
 
         messagesContainer.appendChild(botMessageElement);
         
-        // --- CORRECCIÓN DE SCROLL: Scroll al inicio del elemento ---
-        // Usamos .scrollIntoView() para que el inicio del nuevo mensaje
-        // quede alineado con el inicio de la parte visible del chat.
         setTimeout(() => {
             botMessageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 100); // Un pequeño retardo para asegurar que el elemento se ha renderizado.
