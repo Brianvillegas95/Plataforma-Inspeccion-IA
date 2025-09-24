@@ -1332,3 +1332,21 @@ body.color-validator-body .main-content {
     from {transform: scale(0)} 
     to {transform: scale(1)}
 }
+/* Archivo: css/estilos.css */
+
+.chat-media-link {
+    display: inline-block;
+    padding: 10px 15px;
+    margin-top: 10px;
+    background-color: #007bff; /* Color azul primario */
+    color: #ffffff;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    text-align: center;
+    transition: background-color 0.3s ease;
+}
+
+.chat-media-link:hover {
+    background-color: #0056b3; /* Un azul más oscuro al pasar el mouse */
+}
