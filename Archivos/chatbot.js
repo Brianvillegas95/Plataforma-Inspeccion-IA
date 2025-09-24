@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión con scroll al inicio del último mensaje y soporte para PDF/Video/Imagen)
+// Archivo: chatbot.js (Versión con botón "Atrás" e historial de navegación)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM ---
@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let isChatInitiated = false;
+    // NUEVO: Pila para guardar el historial de navegación del usuario.
+    let historyStack = [];
 
     // --- ABRIR Y CERRAR EL CHAT ---
     chatBubble.addEventListener('click', () => {
@@ -26,6 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isChatInitiated && chatContainer.classList.contains('open')) {
             const welcomeMessage = "¡Hola! Soy Quali, tu asistente de calidad. Puedo ayudarte a resolver las dudas más frecuentes. Para empezar, selecciona el área que deseas consultar.";
             showBotMessage(welcomeMessage);
+            // MODIFICADO: Reiniciamos el historial al iniciar una nueva conversación.
+            historyStack = ['0'];
             getNextDialogue('0');
             isChatInitiated = true;
         }
@@ -54,11 +58,31 @@ document.addEventListener('DOMContentLoaded', () => {
             button.disabled = true;
         });
 
+        // MODIFICADO: Actualizamos el historial antes de navegar.
+        if (option.nextId === '0') {
+            // Si la opción es "Volver al inicio", reiniciamos el historial.
+            historyStack = ['0'];
+        } else {
+            // Si es cualquier otra opción, la añadimos al historial.
+            historyStack.push(option.nextId);
+        }
+
         getNextDialogue(option.nextId);
+    }
+
+    // NUEVO: Función para manejar la lógica de retroceso.
+    function goBack() {
+        if (historyStack.length > 1) {
+            historyStack.pop(); // Quitamos el paso actual del historial.
+            const previousId = historyStack[historyStack.length - 1]; // Obtenemos el ID anterior.
+            // Llamamos a getNextDialogue directamente para no modificar el historial de nuevo.
+            getNextDialogue(previousId);
+        }
     }
 
     // --- FUNCIÓN CENTRAL PARA MOSTRAR MENSAJES DEL BOT ---
     function showBotMessage(text, mediaUrl = null) {
+        // (Esta función permanece sin cambios, es la de la respuesta anterior)
         const botMessageElement = document.createElement('div');
         botMessageElement.classList.add('bot-message');
 
@@ -69,17 +93,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let mediaElement;
             const mediaUrlLower = mediaUrl.toLowerCase();
 
-            // 1. Verificamos si la URL es un PDF
             if (mediaUrlLower.endsWith('.pdf')) {
                 mediaElement = document.createElement('a');
                 mediaElement.href = mediaUrl;
-                mediaElement.target = '_blank'; // Abre el PDF en una nueva pestaña
-                mediaElement.rel = 'noopener noreferrer'; // Medida de seguridad
+                mediaElement.target = '_blank';
+                mediaElement.rel = 'noopener noreferrer';
                 mediaElement.textContent = '📄 Ver Documento (PDF)';
-                // Se recomienda añadir una clase para darle estilo con CSS
                 mediaElement.classList.add('chat-media-link');
-
-            // 2. Verificamos si es un video
             } else if (mediaUrlLower.endsWith('.mp4')) {
                 mediaElement = document.createElement('video');
                 mediaElement.src = mediaUrl;
@@ -90,28 +110,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 mediaElement.style.width = '100%';
                 mediaElement.style.borderRadius = '10px';
                 mediaElement.style.marginTop = '10px';
-
-            // 3. Si no es PDF ni video, asumimos que es una imagen
             } else {
                 mediaElement = document.createElement('img');
                 mediaElement.src = mediaUrl;
                 mediaElement.classList.add('chat-media');
                 mediaElement.style.cursor = 'pointer';
-                
                 mediaElement.onclick = () => {
                     lightboxImg.src = mediaUrl;
                     lightbox.style.display = 'flex';
                 };
             }
-            
             botMessageElement.appendChild(mediaElement);
         }
-
         messagesContainer.appendChild(botMessageElement);
-        
         setTimeout(() => {
             botMessageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100); // Un pequeño retardo para asegurar que el elemento se ha renderizado.
+        }, 100);
     }
 
     // --- FUNCIÓN PARA PROCESAR Y MOSTRAR DIÁLOGOS ---
@@ -144,6 +158,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     optionsContainer.appendChild(button);
                 }
             });
+        }
+
+        // MODIFICADO: Añadimos el botón "Atrás" si no estamos en el primer paso.
+        if (historyStack.length > 1) {
+            const backButton = document.createElement('button');
+            backButton.classList.add('option-button', 'back-button'); // Clase extra para estilo opcional
+            backButton.textContent = '↩️ Atrás';
+            backButton.onclick = goBack;
+            // Lo añadimos al final de las opciones
+            optionsContainer.appendChild(backButton);
         }
     }
 
