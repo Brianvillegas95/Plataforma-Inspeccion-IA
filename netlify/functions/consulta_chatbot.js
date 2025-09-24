@@ -53,7 +53,7 @@ exports.handler = async function(event) {
     }
 
     const categoriaActual = categorias.find(cat => cat.id_categoria === currentId);
-    const pregunta = categoriaActual ? categoriaActual.pregunta : 'Selecciona una de las siguientes opciones:';
+    const pregunta = categoriaActual ? categoriaActual.pregunta : '';
 
     const subCategorias = categorias.filter(cat => {
         return (currentId === '0') ? !cat.id_padre || cat.id_padre === '0' : cat.id_padre === currentId;
