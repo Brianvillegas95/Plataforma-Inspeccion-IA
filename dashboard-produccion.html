@@ -29,7 +29,7 @@
 <body>
     <div class="app-container">
         <header class="app-header">
-             <div class="logo-container">
+            <div class="logo-container">
                 <img src="img/logo.png" alt="Logo de la Empresa" class="logo">
                 <h1>Auditor de Calidad<span class="ia-badge">IA</span></h1>
             </div>
@@ -73,11 +73,10 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- RUTA A LA FUNCIÓN DE NETLIFY ---
-        // Esta es la URL "mágica" que Netlify crea para tu función.
+    
+        // Esta es la ruta "mágica" para llamar a tu robot en Netlify.
         const API_ENDPOINT = '/.netlify/functions/getProdData';
 
-        // --- ELEMENTOS DEL DOM ---
         const jobsGrid = document.getElementById('jobs-grid');
         const loadingIndicator = document.getElementById('loading-indicator');
         const filterDepartment = document.getElementById('filter-department');
@@ -87,9 +86,6 @@
 
         let allJobsData = [];
 
-        /**
-         * Llama a la función de Netlify para obtener los datos ya procesados.
-         */
         async function fetchData() {
             try {
                 const response = await fetch(API_ENDPOINT);
@@ -98,10 +94,8 @@
                     throw new Error(errorInfo.details || 'La respuesta del robot no fue exitosa.');
                 }
                 
-                // Los datos ya vienen en formato JSON, listos para usar.
                 const data = await response.json();
 
-                // Convertimos las fechas de texto a objetos Date
                 allJobsData = data.map(job => ({
                     ...job,
                     startDate: new Date(job.startDate)
@@ -121,10 +115,6 @@
             loadingIndicator.style.color = 'var(--danger-color)';
         }
         
-        // El resto de las funciones (populateFilters, updateDashboard, renderKPIs, renderJobs)
-        // se mantienen casi idénticas, ya que ahora trabajan con los datos limpios que
-        // entrega la función de Netlify.
-
         function populateFilters(data) {
             const departments = [...new Set(data.map(item => item.department))].sort();
             filterDepartment.innerHTML = '<option value="">Todos los Departamentos</option>';
@@ -173,18 +163,8 @@
                 card.className = 'job-card';
                 const startDate = job.startDate.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
                 card.innerHTML = `
-                    <div class="card-header">
-                        <div class="job-info"><h4>Job: <span>${job.job}</span></h4><p>${job.assembly}</p></div>
-                        <img src="${getResourceImage(job)}" alt="${job.resourceDescription}" class="resource-img" title="${job.resourceDescription}">
-                    </div>
-                    <div class="card-body">
-                        <div class="info-grid">
-                            <div class="info-item"><span class="label">Recurso</span><span class="value">${job.resource}</span></div>
-                            <div class="info-item"><span class="label">Departamento</span><span class="value">${job.department}</span></div>
-                            <div class="info-item"><span class="label">Piezas Requeridas</span><span class="value">${job.requiredQty.toLocaleString('es-MX')}</span></div>
-                            <div class="info-item"><span class="label">Piezas Pendientes</span><span class="value">${job.openQty.toLocaleString('es-MX')}</span></div>
-                        </div>
-                    </div>
+                    <div class="card-header"><div class="job-info"><h4>Job: <span>${job.job}</span></h4><p>${job.assembly}</p></div><img src="${getResourceImage(job)}" alt="${job.resourceDescription}" class="resource-img" title="${job.resourceDescription}"></div>
+                    <div class="card-body"><div class="info-grid"><div class="info-item"><span class="label">Recurso</span><span class="value">${job.resource}</span></div><div class="info-item"><span class="label">Departamento</span><span class="value">${job.department}</span></div><div class="info-item"><span class="label">Piezas Requeridas</span><span class="value">${job.requiredQty.toLocaleString('es-MX')}</span></div><div class="info-item"><span class="label">Piezas Pendientes</span><span class="value">${job.openQty.toLocaleString('es-MX')}</span></div></div></div>
                     <div class="card-footer"><span><i class="fa-solid fa-calendar-check"></i> Inicia: ${startDate}</span></div>`;
                 jobsGrid.appendChild(card);
             });
