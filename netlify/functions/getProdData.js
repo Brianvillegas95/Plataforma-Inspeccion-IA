@@ -1,8 +1,5 @@
 // Archivo: netlify/functions/getProdData.js
 
-// Lee la variable de entorno que creaste en Netlify.
-const GOOGLE_SHEET_URL = process.env.PRODUCTION_ORDERS_ID;
-
 // Función interna para procesar los datos del CSV.
 const parseAndProcessData = (csvText) => {
     const rows = csvText.split(/\r?\n/).slice(1);
@@ -13,7 +10,6 @@ const parseAndProcessData = (csvText) => {
         const resource = columns[0].trim();
         const status = columns[21].trim();
 
-        // Filtra operadores y órdenes que no están liberadas.
         if (resource.startsWith('O') || status !== 'Released') {
             return null;
         }
@@ -29,20 +25,34 @@ const parseAndProcessData = (csvText) => {
             status,
             resourceDescription: columns[23].trim()
         };
-    }).filter(Boolean); // Limpia filas nulas.
+    }).filter(Boolean);
 };
 
 // El handler principal que Netlify ejecuta.
 exports.handler = async (event, context) => {
-    // Esta técnica de importación dinámica resuelve la incompatibilidad
-    // con la versión 3 de 'node-fetch' sin tocar package.json.
+    // Importamos 'node-fetch' de forma dinámica.
     const fetch = (await import('node-fetch')).default;
 
-    try {
-        if (!GOOGLE_SHEET_URL) {
-            throw new Error("La variable de entorno PRODUCTION_ORDERS_ID no está configurada.");
-        }
+    // ==================================================================
+    // === ESTE ES EL CAMBIO MÁS IMPORTANTE ===
+    
+    // 1. Leemos solo el ID de la variable de entorno.
+    const SHEET_ID = process.env.PRODUCTION_ORDERS_ID;
 
+    // 2. Si no hay ID, lanzamos un error claro.
+    if (!SHEET_ID) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'El ID de la hoja de cálculo no está configurado en la variable PRODUCTION_ORDERS_ID.' })
+        };
+    }
+
+    // 3. Armamos la URL completa, igual que en tu otro dashboard.
+    const GOOGLE_SHEET_URL = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pub?output=csv`;
+    
+    // ==================================================================
+
+    try {
         const response = await fetch(GOOGLE_SHEET_URL);
         if (!response.ok) {
             throw new Error(`Error al contactar Google Sheets: ${response.status}`);
@@ -61,7 +71,7 @@ exports.handler = async (event, context) => {
         console.error("Error en la función de Netlify:", error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Hubo un fallo en el robot.', details: error.message })
+            body: JSON.stringify({ error: 'Hubo un fallo en el robot al procesar los datos.', details: error.message })
         };
     }
 };
