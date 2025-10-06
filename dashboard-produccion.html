@@ -73,17 +73,16 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-    
-        // Esta es la ruta "mágica" para llamar a tu robot en Netlify.
+        // La ruta para llamar a tu robot de producción.
         const API_ENDPOINT = '/.netlify/functions/getProdData';
 
+        // El resto del código se encarga de mostrar los datos en pantalla.
         const jobsGrid = document.getElementById('jobs-grid');
         const loadingIndicator = document.getElementById('loading-indicator');
         const filterDepartment = document.getElementById('filter-department');
         const filterResource = document.getElementById('filter-resource');
         const resetFiltersBtn = document.getElementById('reset-filters-btn');
         const kpiContainer = document.getElementById('kpi-container');
-
         let allJobsData = [];
 
         async function fetchData() {
@@ -93,17 +92,10 @@
                     const errorInfo = await response.json();
                     throw new Error(errorInfo.details || 'La respuesta del robot no fue exitosa.');
                 }
-                
                 const data = await response.json();
-
-                allJobsData = data.map(job => ({
-                    ...job,
-                    startDate: new Date(job.startDate)
-                }));
-
+                allJobsData = data.map(job => ({ ...job, startDate: new Date(job.startDate) }));
                 populateFilters(allJobsData);
                 updateDashboard();
-
             } catch (error) {
                 console.error('Error al obtener los datos desde la función:', error);
                 showError(`Error al comunicarse con el robot: ${error.message}`);
@@ -114,80 +106,45 @@
             loadingIndicator.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
             loadingIndicator.style.color = 'var(--danger-color)';
         }
-        
         function populateFilters(data) {
             const departments = [...new Set(data.map(item => item.department))].sort();
             filterDepartment.innerHTML = '<option value="">Todos los Departamentos</option>';
-            departments.forEach(dept => {
-                if (dept) {
-                    const option = document.createElement('option');
-                    option.value = dept;
-                    option.textContent = dept;
-                    filterDepartment.appendChild(option);
-                }
-            });
+            departments.forEach(dept => { if (dept) { const option = document.createElement('option'); option.value = dept; option.textContent = dept; filterDepartment.appendChild(option); } });
         }
-
         function updateDashboard() {
             const deptFilter = filterDepartment.value;
             const resourceFilter = filterResource.value.toLowerCase();
-            const filteredData = allJobsData.filter(job => 
-                (!deptFilter || job.department === deptFilter) &&
-                (!resourceFilter || job.resource.toLowerCase().includes(resourceFilter))
-            );
+            const filteredData = allJobsData.filter(job => (!deptFilter || job.department === deptFilter) && (!resourceFilter || job.resource.toLowerCase().includes(resourceFilter)));
             renderKPIs(filteredData);
             renderJobs(filteredData);
         }
-
         function renderKPIs(data) {
             const totalOrders = data.length;
             const totalPieces = data.reduce((sum, job) => sum + job.requiredQty, 0);
             const activeResources = new Set(data.map(job => job.resource)).size;
-            kpiContainer.innerHTML = `
-                <div class="kpi-card"><h3><i class="fa-solid fa-file-invoice"></i> Órdenes Totales</h3><p>${totalOrders.toLocaleString('es-MX')}</p></div>
-                <div class="kpi-card"><h3><i class="fa-solid fa-shapes"></i> Piezas a Producir</h3><p>${Math.round(totalPieces).toLocaleString('es-MX')}</p></div>
-                <div class="kpi-card"><h3><i class="fa-solid fa-microchip"></i> Recursos Activos</h3><p>${activeResources.toLocaleString('es-MX')}</p></div>
-            `;
+            kpiContainer.innerHTML = `<div class="kpi-card"><h3><i class="fa-solid fa-file-invoice"></i> Órdenes Totales</h3><p>${totalOrders.toLocaleString('es-MX')}</p></div><div class="kpi-card"><h3><i class="fa-solid fa-shapes"></i> Piezas a Producir</h3><p>${Math.round(totalPieces).toLocaleString('es-MX')}</p></div><div class="kpi-card"><h3><i class="fa-solid fa-microchip"></i> Recursos Activos</h3><p>${activeResources.toLocaleString('es-MX')}</p></div>`;
         }
-
         function renderJobs(data) {
             jobsGrid.innerHTML = '';
-            if (data.length === 0) {
-                loadingIndicator.style.display = 'block';
-                loadingIndicator.textContent = 'No se encontraron órdenes con los filtros seleccionados.';
-                return;
-            }
+            if (data.length === 0) { loadingIndicator.style.display = 'block'; loadingIndicator.textContent = 'No se encontraron órdenes con los filtros seleccionados.'; return; }
             loadingIndicator.style.display = 'none';
             data.forEach(job => {
                 const card = document.createElement('div');
                 card.className = 'job-card';
                 const startDate = job.startDate.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
-                card.innerHTML = `
-                    <div class="card-header"><div class="job-info"><h4>Job: <span>${job.job}</span></h4><p>${job.assembly}</p></div><img src="${getResourceImage(job)}" alt="${job.resourceDescription}" class="resource-img" title="${job.resourceDescription}"></div>
-                    <div class="card-body"><div class="info-grid"><div class="info-item"><span class="label">Recurso</span><span class="value">${job.resource}</span></div><div class="info-item"><span class="label">Departamento</span><span class="value">${job.department}</span></div><div class="info-item"><span class="label">Piezas Requeridas</span><span class="value">${job.requiredQty.toLocaleString('es-MX')}</span></div><div class="info-item"><span class="label">Piezas Pendientes</span><span class="value">${job.openQty.toLocaleString('es-MX')}</span></div></div></div>
-                    <div class="card-footer"><span><i class="fa-solid fa-calendar-check"></i> Inicia: ${startDate}</span></div>`;
+                card.innerHTML = `<div class="card-header"><div class="job-info"><h4>Job: <span>${job.job}</span></h4><p>${job.assembly}</p></div><img src="${getResourceImage(job)}" alt="${job.resourceDescription}" class="resource-img" title="${job.resourceDescription}"></div><div class="card-body"><div class="info-grid"><div class="info-item"><span class="label">Recurso</span><span class="value">${job.resource}</span></div><div class="info-item"><span class="label">Departamento</span><span class="value">${job.department}</span></div><div class="info-item"><span class="label">Piezas Requeridas</span><span class="value">${job.requiredQty.toLocaleString('es-MX')}</span></div><div class="info-item"><span class="label">Piezas Pendientes</span><span class="value">${job.openQty.toLocaleString('es-MX')}</span></div></div></div><div class="card-footer"><span><i class="fa-solid fa-calendar-check"></i> Inicia: ${startDate}</span></div>`;
                 jobsGrid.appendChild(card);
             });
         }
-
         function getResourceImage(job) {
             const resource = job.resource.toUpperCase();
             const department = job.department.toUpperCase();
-            if (department === 'MOLDE') {
-                if (resource.startsWith('I')) return 'img/inyectora.jpg';
-                if (resource.startsWith('MM')) return 'img/molde.jpg';
-            }
+            if (department === 'MOLDE') { if (resource.startsWith('I')) return 'img/inyectora.jpg'; if (resource.startsWith('MM')) return 'img/molde.jpg'; }
             return 'img/default.jpg';
         }
-
         filterDepartment.addEventListener('change', updateDashboard);
         filterResource.addEventListener('input', updateDashboard);
-        resetFiltersBtn.addEventListener('click', () => {
-            filterDepartment.value = '';
-            filterResource.value = '';
-            updateDashboard();
-        });
-
+        resetFiltersBtn.addEventListener('click', () => { filterDepartment.value = ''; filterResource.value = ''; updateDashboard(); });
         fetchData();
     });
     </script>
