@@ -7,8 +7,13 @@ exports.handler = async (event) => {
     
     const rango = 'Hoja 1!A:X';
 
-    // ... Autenticación (sin cambios)
-    const credentials = { /* ... */ };
+    // === CORRECCIÓN CLAVE AQUÍ ===
+    // Restauramos las credenciales para que se lean desde las variables de Netlify.
+    const credentials = {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    };
+    
     const auth = new google.auth.GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'] });
     const sheets = google.sheets({ version: 'v4', auth });
     
@@ -17,11 +22,9 @@ exports.handler = async (event) => {
 
     if (!rows || rows.length <= 1) return { statusCode: 200, body: JSON.stringify([]) };
 
-    // **LÓGICA SIMPLIFICADA: Un objeto por cada recurso activo**
     const resources = rows.slice(1)
-      .filter(row => row[0] && !row[0].toUpperCase().startsWith('O')) // Filtrar operadores
+      .filter(row => row[0] && !row[0].toUpperCase().startsWith('O'))
       .map(row => {
-        // Leemos los valores base en horas
         let requiredHours = parseFloat(row[9]) || 0;
         let openHours = parseFloat(row[11]) || 0;
         const basis = row[5] || '';
@@ -30,17 +33,14 @@ exports.handler = async (event) => {
         let finalRequired = requiredHours;
         let finalOpen = openHours;
 
-        // Conversión a piezas si es necesario
         if (basis.toLowerCase() === 'item' && usageRate > 0) {
           finalRequired = requiredHours / usageRate;
           finalOpen = openHours / usageRate;
         }
         
-        // Cálculo de progreso para este recurso específico
         const progress = finalRequired > 0 ? (1 - (finalOpen / finalRequired)) * 100 : 0;
         const appliedQty = finalRequired - finalOpen;
 
-        // Devolvemos un objeto por cada recurso con toda la info del job
         return {
           resourceName: row[0],
           department: row[3],
@@ -58,11 +58,12 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(resources), // Devolvemos la lista plana de recursos
+      body: JSON.stringify(resources),
     };
 
   } catch (error) {
-    console.error('Error al leer la hoja de Google:', error);
+    // Este log te ayudará a ver errores detallados en la consola de Netlify en el futuro.
+    console.error('Error detallado en la función Netlify:', error);
     return { statusCode: 500, body: JSON.stringify({ details: 'Error interno del servidor.' }) };
   }
 };
