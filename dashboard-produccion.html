@@ -3,192 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor de Producción en Planta</title>
+    <title>Centro de Mando de Producción</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .main-content { background-color: #f4f7f9; }
-        .department-section { margin-bottom: 30px; }
-        .department-header {
-            font-size: 1.5em; font-weight: 700; color: var(--text-primary);
-            padding-bottom: 10px; border-bottom: 3px solid var(--azor-blue);
-            margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+        :root {
+            --font-family: 'Poppins', sans-serif;
+            --color-running: #28a745; --bg-running: #e9f6ec;
+            --color-idle: #ffc107;    --bg-idle: #fff8e5;
+            --color-down: #dc3545;     --bg-down: #fceaea;
+            --color-neutral: #6c757d; --bg-neutral: #f8f9fa;
         }
+        body { font-family: var(--font-family); }
+        .main-content { background-color: #f8f9fa; }
+
+        /* Estilos de la Cuadrícula de Recursos */
         .resource-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
             gap: 20px;
         }
         .resource-card {
-            background-color: var(--surface-bg); border-radius: var(--border-radius);
-            box-shadow: var(--shadow-sm); border-top: 4px solid var(--status-inprogress);
-            display: flex; flex-direction: column; transition: all 0.2s ease-in-out;
+            background-color: var(--surface-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            border-left: 5px solid var(--color-neutral);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        .resource-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); }
-        .resource-card.delayed { border-top-color: var(--status-delayed); }
-        .resource-card.completed { border-top-color: var(--status-ontrack); }
+        .resource-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); cursor: pointer; }
 
-        .card-main-content { display: flex; align-items: center; padding: 15px; gap: 15px; }
-        .progress-chart-container { position: relative; width: 100px; height: 100px; }
-        .progress-chart-container .progress-value {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 1.4em; font-weight: 700; color: var(--text-primary);
-        }
-        .card-info { flex-grow: 1; }
-        .card-info h4 { margin: 0; font-size: 1.2em; font-weight: 600; }
-        .card-info .assembly-name { font-size: 0.9em; color: var(--text-secondary); margin-top: 2px; }
-        .card-info .resource-name { font-size: 1em; font-weight: 500; color: var(--azor-blue); margin-top: 8px; }
+        /* Estados de la Tarjeta */
+        .resource-card[data-status="Running"] { border-left-color: var(--color-running); }
+        .resource-card[data-status="Idle"] { border-left-color: var(--color-idle); }
+        .resource-card[data-status="Down"] { border-left-color: var(--color-down); }
 
-        .card-footer-stats {
-            display: grid; grid-template-columns: 1fr 1fr;
-            padding: 10px 15px; background-color: #f8f9fa; border-top: 1px solid var(--border-color);
+        .card-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .card-header h3 { margin: 0; font-size: 1.2em; font-weight: 600; color: var(--text-primary); }
+        .status-tag {
+            padding: 4px 10px; border-radius: 12px; font-size: 0.8em;
+            font-weight: 600; display: flex; align-items: center; gap: 6px;
         }
-        .stat { font-size: 0.9em; }
-        .stat .label { color: var(--text-secondary); }
-        .stat .value { font-weight: 600; color: var(--text-primary); }
+        .status-tag.running { color: var(--color-running); background-color: var(--bg-running); }
+        .status-tag.idle { color: var(--color-idle); background-color: var(--bg-idle); }
+        .status-tag.down { color: var(--color-down); background-color: var(--bg-down); }
+        
+        .card-body { padding: 0 15px 15px 15px; flex-grow: 1; }
+        .job-info h4 { margin: 0; font-size: 1.1em; }
+        .job-info p { margin: 2px 0 10px 0; font-size: 0.9em; color: var(--text-secondary); }
 
-        .linked-resource {
-            background-color: #e9ecef; margin: 0 15px 15px 15px;
-            padding: 10px; border-radius: var(--border-radius-sm); display: flex;
-            align-items: center; gap: 10px; border-left: 3px solid #6c757d;
-        }
-        .linked-resource .icon { font-size: 1.2em; color: #6c757d; }
-        .linked-resource .text { font-weight: 500; }
+        .progress-section { margin-bottom: 15px; }
+        .progress-bar-bg { width: 100%; background-color: #e9ecef; border-radius: 6px; height: 12px; }
+        .progress-bar-fg { height: 100%; background-color: var(--color-running); border-radius: 6px; }
+        
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em; }
+        .metric .label { color: var(--text-secondary); }
+        .metric .value { font-weight: 600; font-size: 1.1em; }
+
+        .card-footer { padding: 12px 15px; background-color: #f8f9fa; border-top: 1px solid var(--border-color); }
+        .timeline .label { font-size: 0.8em; color: var(--text-secondary); }
+        .timeline-bar-bg { width: 100%; height: 6px; background-color: #dee2e6; border-radius: 3px; margin-top: 4px; }
+        
     </style>
 </head>
 <body>
     <div class="app-container">
         <header class="app-header">
             </header>
-
         <main class="main-content">
             <section class="tool-section">
                 <div class="section-header">
-                    <span class="feature-icon"><i class="fa-solid fa-camera"></i></span>
-                    <h2>Fotografía de la Planta</h2>
-                    <p>Visualización en tiempo real del estado de los recursos de producción.</p>
+                    <span class="feature-icon"><i class="fa-solid fa-server"></i></span>
+                    <h2>Centro de Mando de Producción</h2>
+                    <p>Estado en tiempo real de los recursos en el piso de producción.</p>
                 </div>
-                
-                <div class="panel-card" style="margin-bottom: 20px;">
-                    </div>
 
-                <div id="dashboard-container">
-                    <p id="loading-indicator"><i class="fas fa-spinner fa-spin"></i> Obteniendo la fotografía de la planta...</p>
+                <div class="panel-card">
+                    <h3 class="panel-title-sub"><i class="fas fa-filter"></i> Controles de Visualización</h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+                        <div class="form-group"><label for="filter-department">Departamento:</label><select id="filter-department"><option value="">Todos</option></select></div>
+                        <div class="form-group"><label for="filter-status">Estado del Recurso:</label>
+                            <select id="filter-status">
+                                <option value="">Todos</option>
+                                <option value="Running">Trabajando</option>
+                                <option value="Idle">Inactivo</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label for="search-resource">Buscar Recurso o Job:</label><input type="text" id="search-resource" placeholder="Escribe para buscar..."></div>
+                    </div>
+                </div>
+
+                <div id="resource-grid" class="resource-grid" style="margin-top:20px;">
+                     <p id="loading-indicator"><i class="fas fa-spinner fa-spin"></i> Cargando estado de la planta...</p>
                 </div>
             </section>
         </main>
     </div>
 
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const API_ENDPOINT = '/.netlify/functions/leer-prod-data';
-        const dashboardContainer = document.getElementById('dashboard-container');
-        const loadingIndicator = document.getElementById('loading-indicator');
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const API_ENDPOINT = '/.netlify/functions/leer-prod-data';
+    let allJobsData = [];
 
-        // Función para crear el gráfico de dona
-        function createProgressChart(canvasId, progress) {
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            const data = {
-                datasets: [{
-                    data: [progress, 100 - progress],
-                    backgroundColor: [ progress > 99 ? '#28a745' : '#007bff', '#e9ecef'],
-                    borderColor: 'rgba(0,0,0,0)',
-                    borderRadius: 5,
-                    cutout: '75%'
-                }]
-            };
-            new Chart(ctx, { type: 'doughnut', data: data, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } } } });
+    // Elementos del DOM
+    const resourceGrid = document.getElementById('resource-grid');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const filterDepartment = document.getElementById('filter-department');
+    const filterStatus = document.getElementById('filter-status');
+    const searchResource = document.getElementById('search-resource');
+
+    async function fetchData() {
+        try {
+            const response = await fetch(API_ENDPOINT);
+            if (!response.ok) throw new Error((await response.json()).details || 'Error del robot.');
+            
+            allJobsData = (await response.json()).map(job => ({
+                ...job,
+                startDate: job.startDate ? new Date(job.startDate) : null,
+                completionDate: job.completionDate ? new Date(job.completionDate) : null,
+            }));
+            
+            populateFilters(allJobsData);
+            updateDashboard();
+        } catch (error) {
+            loadingIndicator.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${error.message}`;
+        }
+    }
+
+    function populateFilters(data) {
+        const departments = [...new Set(data.map(item => item.department))].sort();
+        filterDepartment.innerHTML = '<option value="">Todos</option>';
+        departments.forEach(dept => {
+            if (dept) filterDepartment.add(new Option(dept, dept));
+        });
+    }
+
+    function updateDashboard() {
+        const deptFilter = filterDepartment.value;
+        const statusFilter = filterStatus.value;
+        const searchFilter = searchResource.value.toLowerCase();
+
+        // 1. Desglosar: Un objeto por cada recurso, no por cada job
+        let resources = [];
+        allJobsData.forEach(job => {
+            job.resources.forEach(res => {
+                resources.push({ ...res, ...job, resourceName: res.name, resourceDescription: res.description });
+            });
+        });
+
+        // 2. Filtrar
+        const filteredResources = resources.filter(res => {
+            // Asignar un estado (lógica de ejemplo)
+            const status = res.job ? 'Running' : 'Idle';
+            
+            const deptMatch = !deptFilter || res.department === deptFilter;
+            const statusMatch = !statusFilter || status === statusFilter;
+            const searchMatch = !searchFilter || res.resourceName.toLowerCase().includes(searchFilter) || res.job.toLowerCase().includes(searchFilter);
+            
+            return deptMatch && statusMatch && searchMatch;
+        });
+
+        // 3. Ordenar
+        filteredResources.sort((a, b) => (a.startDate || 0) - (b.startDate || 0));
+
+        renderGrid(filteredResources);
+    }
+
+    function renderGrid(resources) {
+        resourceGrid.innerHTML = '';
+        if (resources.length === 0) {
+            resourceGrid.innerHTML = '<p>No se encontraron recursos con los filtros seleccionados.</p>';
+            return;
         }
 
-        async function fetchData() {
-            try {
-                const response = await fetch(API_ENDPOINT);
-                if (!response.ok) throw new Error((await response.json()).details || 'La respuesta del robot no fue exitosa.');
-                const jobs = await response.json();
-                renderDashboard(jobs);
-            } catch (error) {
-                loadingIndicator.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${error.message}`;
-            }
-        }
+        resources.forEach(res => {
+            const card = document.createElement('div');
+            card.className = 'resource-card';
+            
+            const status = res.job ? 'Running' : 'Idle'; // Lógica de estado simplificada
+            const statusText = status === 'Running' ? 'Trabajando' : 'Inactivo';
+            card.setAttribute('data-status', status);
 
-        function renderDashboard(jobs) {
-            loadingIndicator.style.display = 'none';
-            dashboardContainer.innerHTML = '';
+            const progress = parseFloat(res.progress);
 
-            // 1. Agrupar jobs por departamento
-            const jobsByDept = jobs.reduce((acc, job) => {
-                const dept = job.department || 'Sin Departamento';
-                if (!acc[dept]) acc[dept] = [];
-                acc[dept].push(job);
-                return acc;
-            }, {});
-
-            // 2. Renderizar cada sección de departamento
-            for (const department in jobsByDept) {
-                const deptSection = document.createElement('section');
-                deptSection.className = 'department-section';
-                deptSection.innerHTML = `<h2 class="department-header"><i class="fa-solid fa-industry"></i> ${department}</h2>`;
-                
-                const grid = document.createElement('div');
-                grid.className = 'resource-grid';
-
-                jobsByDept[department].forEach(job => {
-                    const card = document.createElement('div');
-                    const progress = parseFloat(job.progress);
-                    
-                    let cardStatusClass = '';
-                    if (job.isDelayed) cardStatusClass = 'delayed';
-                    else if (progress >= 100) cardStatusClass = 'completed';
-
-                    card.className = `resource-card ${cardStatusClass}`;
-                    const canvasId = `chart-${job.job}`;
-                    
-                    // Lógica para identificar máquina y molde
-                    const mainResource = job.resources.find(r => !r.name.startsWith('MM') && !r.name.startsWith('MEB'));
-                    const linkedResource = job.resources.find(r => r.name.startsWith('MM') || r.name.startsWith('MEB'));
-
-                    card.innerHTML = `
-                        <div class="card-main-content">
-                            <div class="progress-chart-container">
-                                <canvas id="${canvasId}"></canvas>
-                                <div class="progress-value">${progress.toFixed(0)}%</div>
-                            </div>
-                            <div class="card-info">
-                                <h4>Job: ${job.job}</h4>
-                                <p class="assembly-name">${job.assembly}</p>
-                                <p class="resource-name">${mainResource ? mainResource.name : 'N/A'}</p>
-                            </div>
+            card.innerHTML = `
+                <div class="card-header">
+                    <h3>${res.resourceName}</h3>
+                    <div class="status-tag ${status.toLowerCase()}">
+                        <i class="fa-solid fa-circle"></i>
+                        <span>${statusText}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="job-info">
+                        <h4>Job: ${res.job || 'N/A'}</h4>
+                        <p>${res.assembly || 'Sin orden asignada'}</p>
+                    </div>
+                    <div class="progress-section">
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fg" style="width: ${progress}%;"></div>
                         </div>
-                        
-                        ${linkedResource ? `
-                        <div class="linked-resource">
-                            <span class="icon"><i class="fa-solid fa-puzzle-piece"></i></span>
-                            <span class="text">${linkedResource.name}: ${linkedResource.description || ''}</span>
-                        </div>` : ''}
-
-                        <div class="card-footer-stats">
-                            <div class="stat">
-                                <div class="label">Fabricadas / Requeridas</div>
-                                <div class="value">${Math.round(job.appliedQty).toLocaleString('es-MX')} / ${Math.round(job.requiredQty).toLocaleString('es-MX')}</div>
-                            </div>
-                            <div class="stat">
-                                <div class="label">Fecha Fin Programada</div>
-                                <div class="value">${job.completionDate ? new Date(job.completionDate).toLocaleDateString('es-MX') : 'N/A'}</div>
-                            </div>
+                    </div>
+                    <div class="metrics-grid">
+                        <div class="metric">
+                            <div class="label">Fabricadas / Req.</div>
+                            <div class="value">${Math.round(res.appliedQty).toLocaleString('es-MX')} / ${Math.round(res.requiredQty).toLocaleString('es-MX')}</div>
                         </div>
-                    `;
-                    grid.appendChild(card);
-                    // Retrasamos la creación del gráfico un instante para asegurar que el canvas esté en el DOM
-                    setTimeout(() => createProgressChart(canvasId, progress), 0);
-                });
-                deptSection.appendChild(grid);
-                dashboardContainer.appendChild(deptSection);
-            }
-        }
-        
-        fetchData();
-    });
-    </script>
+                        <div class="metric">
+                            <div class="label">Pendientes</div>
+                            <div class="value">${Math.round(res.openQty).toLocaleString('es-MX')}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="timeline">
+                        <div class="label">Inicio: ${res.startDate ? res.startDate.toLocaleDateString('es-MX') : 'N/A'} | Fin Prog: ${res.completionDate ? res.completionDate.toLocaleDateString('es-MX') : 'N/A'}</div>
+                        <div class="timeline-bar-bg"></div>
+                    </div>
+                </div>
+            `;
+            resourceGrid.appendChild(card);
+        });
+    }
+    
+    // Event Listeners
+    filterDepartment.addEventListener('change', updateDashboard);
+    filterStatus.addEventListener('change', updateDashboard);
+    searchResource.addEventListener('input', updateDashboard);
+
+    fetchData();
+});
+</script>
 </body>
 </html>
