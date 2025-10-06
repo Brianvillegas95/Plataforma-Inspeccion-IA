@@ -18,9 +18,13 @@
         .job-info h4 { margin: 0; font-size: 1.1em; color: var(--azor-blue); }
         .job-info h4 span { font-weight: 500; color: var(--text-primary); }
         .job-info p { margin: 5px 0 0; font-size: 0.9em; color: var(--text-secondary); }
-        .resource-img { width: 50px; height: 50px; object-fit: cover; border-radius: var(--border-radius); }
         .card-body { padding: 15px; flex-grow: 1; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .resource-list { list-style: none; padding: 0; margin: 0; }
+        .resource-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .resource-item:last-child { border-bottom: none; }
+        .resource-item .name { font-weight: 500; }
+        .resource-item .qty { font-size: 0.9em; color: var(--text-secondary); }
+        .info-item { margin-top: 15px; }
         .info-item .label { font-size: 0.8em; color: var(--text-secondary); margin-bottom: 2px; text-transform: uppercase; }
         .info-item .value { font-weight: 500; font-size: 1.05em; }
         .card-footer { padding: 10px 15px; border-top: 1px solid var(--border-color); font-size: 0.85em; color: var(--text-secondary); background-color: #f8f9fa; }
@@ -73,10 +77,8 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // La ruta para llamar a tu robot de producción.
         const API_ENDPOINT = '/.netlify/functions/leer-prod-data';
-
-        // El resto del código se encarga de mostrar los datos en pantalla.
+        
         const jobsGrid = document.getElementById('jobs-grid');
         const loadingIndicator = document.getElementById('loading-indicator');
         const filterDepartment = document.getElementById('filter-department');
@@ -93,7 +95,7 @@
                     throw new Error(errorInfo.details || 'La respuesta del robot no fue exitosa.');
                 }
                 const data = await response.json();
-                allJobsData = data.map(job => ({ ...job, startDate: new Date(job.startDate) }));
+                allJobsData = data.map(job => ({ ...job, startDate: job.startDate ? new Date(job.startDate) : null }));
                 populateFilters(allJobsData);
                 updateDashboard();
             } catch (error) {
@@ -114,37 +116,84 @@
         function updateDashboard() {
             const deptFilter = filterDepartment.value;
             const resourceFilter = filterResource.value.toLowerCase();
-            const filteredData = allJobsData.filter(job => (!deptFilter || job.department === deptFilter) && (!resourceFilter || job.resource.toLowerCase().includes(resourceFilter)));
+
+            const filteredData = allJobsData.filter(job => 
+                (!deptFilter || job.department === deptFilter) && 
+                (!resourceFilter || job.resources.some(r => r.name.toLowerCase().includes(resourceFilter)))
+            );
             renderKPIs(filteredData);
             renderJobs(filteredData);
         }
         function renderKPIs(data) {
             const totalOrders = data.length;
             const totalPieces = data.reduce((sum, job) => sum + job.requiredQty, 0);
-            const activeResources = new Set(data.map(job => job.resource)).size;
-            kpiContainer.innerHTML = `<div class="kpi-card"><h3><i class="fa-solid fa-file-invoice"></i> Órdenes Totales</h3><p>${totalOrders.toLocaleString('es-MX')}</p></div><div class="kpi-card"><h3><i class="fa-solid fa-shapes"></i> Piezas a Producir</h3><p>${Math.round(totalPieces).toLocaleString('es-MX')}</p></div><div class="kpi-card"><h3><i class="fa-solid fa-microchip"></i> Recursos Activos</h3><p>${activeResources.toLocaleString('es-MX')}</p></div>`;
+            const activeResources = data.reduce((sum, job) => sum + job.resources.length, 0);
+
+            kpiContainer.innerHTML = `
+                <div class="kpi-card"><h3><i class="fa-solid fa-file-invoice"></i> Órdenes Totales</h3><p>${totalOrders.toLocaleString('es-MX')}</p></div>
+                <div class="kpi-card"><h3><i class="fa-solid fa-shapes"></i> Piezas a Producir</h3><p>${Math.round(totalPieces).toLocaleString('es-MX')}</p></div>
+                <div class="kpi-card"><h3><i class="fa-solid fa-microchip"></i> Recursos Activos</h3><p>${activeResources.toLocaleString('es-MX')}</p></div>
+            `;
         }
         function renderJobs(data) {
             jobsGrid.innerHTML = '';
-            if (data.length === 0) { loadingIndicator.style.display = 'block'; loadingIndicator.textContent = 'No se encontraron órdenes con los filtros seleccionados.'; return; }
-            loadingIndicator.style.display = 'none';
+            if (data.length === 0) { 
+                jobsGrid.innerHTML = '<p>No se encontraron órdenes con los filtros seleccionados.</p>'; 
+                return; 
+            }
+            
             data.forEach(job => {
                 const card = document.createElement('div');
                 card.className = 'job-card';
-                const startDate = job.startDate.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
-                card.innerHTML = `<div class="card-header"><div class="job-info"><h4>Job: <span>${job.job}</span></h4><p>${job.assembly}</p></div><img src="${getResourceImage(job)}" alt="${job.resourceDescription}" class="resource-img" title="${job.resourceDescription}"></div><div class="card-body"><div class="info-grid"><div class="info-item"><span class="label">Recurso</span><span class="value">${job.resource}</span></div><div class="info-item"><span class="label">Departamento</span><span class="value">${job.department}</span></div><div class="info-item"><span class="label">Piezas Requeridas</span><span class="value">${job.requiredQty.toLocaleString('es-MX')}</span></div><div class="info-item"><span class="label">Piezas Pendientes</span><span class="value">${job.openQty.toLocaleString('es-MX')}</span></div></div></div><div class="card-footer"><span><i class="fa-solid fa-calendar-check"></i> Inicia: ${startDate}</span></div>`;
+                
+                let startDate = "Fecha no disponible";
+                if (job.startDate && !isNaN(job.startDate.getTime())) {
+                   startDate = job.startDate.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+                } else {
+                   startDate = "Fecha inválida";
+                }
+
+                let resourcesHtml = '<ul class="resource-list">';
+                job.resources.forEach(res => {
+                    resourcesHtml += `
+                        <li class="resource-item">
+                            <span class="name">${res.name}</span>
+                            <span class="qty">Pendiente: ${res.openQty.toLocaleString('es-MX')}</span>
+                        </li>
+                    `;
+                });
+                resourcesHtml += '</ul>';
+
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="job-info">
+                            <h4>Job: <span>${job.job}</span></h4>
+                            <p>${job.assembly}</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        ${resourcesHtml}
+                        <div class="info-item">
+                            <span class="label">Piezas Requeridas (Job)</span>
+                            <span class="value">${job.requiredQty.toLocaleString('es-MX')}</span>
+                        </div>
+                         <div class="info-item">
+                            <span class="label">Departamento</span>
+                            <span class="value">${job.department}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <span><i class="fa-solid fa-calendar-check"></i> Inicia: ${startDate}</span>
+                    </div>
+                `;
                 jobsGrid.appendChild(card);
             });
         }
-        function getResourceImage(job) {
-            const resource = job.resource.toUpperCase();
-            const department = job.department.toUpperCase();
-            if (department === 'MOLDE') { if (resource.startsWith('I')) return 'img/inyectora.jpg'; if (resource.startsWith('MM')) return 'img/molde.jpg'; }
-            return 'img/default.jpg';
-        }
+
         filterDepartment.addEventListener('change', updateDashboard);
         filterResource.addEventListener('input', updateDashboard);
         resetFiltersBtn.addEventListener('click', () => { filterDepartment.value = ''; filterResource.value = ''; updateDashboard(); });
+        
         fetchData();
     });
     </script>
