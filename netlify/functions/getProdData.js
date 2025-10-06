@@ -1,56 +1,68 @@
 // Archivo: netlify/functions/getProdData.js
 
-// Usamos la misma sintaxis que tus otros archivos.
-const parseAndProcessData = (csvText) => {
-    const rows = csvText.split(/\r?\n/).slice(1);
-    return rows.map(row => {
-        const columns = row.split(',');
-        if (columns.length < 23) return null;
+const cheerio = require('cheerio'); // La nueva herramienta para leer HTML
 
-        const resource = columns[0].trim();
-        const status = columns[21].trim();
-
-        if (resource.startsWith('O') || status !== 'Released') {
-            return null;
-        }
-
-        return {
-            resource,
-            department: columns[3].trim(),
-            requiredQty: parseFloat(columns[8]) || 0,
-            openQty: parseFloat(columns[10]) || 0,
-            startDate: new Date(columns[13]).toISOString(),
-            job: columns[18].trim(),
-            assembly: columns[20].trim(),
-            status,
-            resourceDescription: columns[23].trim()
-        };
-    }).filter(Boolean);
-};
-
-// CAMBIO CLAVE: Usamos 'exports.handler', que es la sintaxis correcta para tu sistema.
+// El handler principal que Netlify ejecuta.
 exports.handler = async (event, context) => {
-    // Para usar la librería moderna 'node-fetch' v3, la importamos de forma dinámica aquí.
+    // Importamos 'node-fetch' de forma dinámica para máxima compatibilidad.
     const fetch = (await import('node-fetch')).default;
     
-    // Leemos el ID desde la variable de entorno.
     const SHEET_ID = process.env.PRODUCTION_ORDERS_ID;
 
-    // Construimos la URL completa.
-    const GOOGLE_SHEET_URL = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pub?output=csv`;
+    // Si no hay ID, lanzamos un error claro.
+    if (!SHEET_ID) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'El ID de la hoja de cálculo no está configurado en la variable PRODUCTION_ORDERS_ID.' })
+        };
+    }
+
+    // CAMBIO IMPORTANTE: La URL ahora apunta a la versión HTML de la hoja.
+    const GOOGLE_SHEET_URL = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pubhtml`;
 
     try {
-        if (!SHEET_ID) {
-            throw new Error("El ID de la hoja de cálculo no está configurado en la variable PRODUCTION_ORDERS_ID.");
-        }
-
         const response = await fetch(GOOGLE_SHEET_URL);
         if (!response.ok) {
             throw new Error(`Error al contactar Google Sheets: ${response.status}`);
         }
 
-        const csvText = await response.text();
-        const processedData = parseAndProcessData(csvText);
+        const htmlText = await response.text();
+        const $ = cheerio.load(htmlText); // Cargamos el HTML en nuestra nueva herramienta.
+
+        const processedData = [];
+        // Buscamos todas las filas <tr> dentro del cuerpo <tbody> de la tabla.
+        $('tbody tr').each((index, element) => {
+            // Saltamos la primera fila si es parte del encabezado congelado
+            if (index === 0) return;
+
+            // Extraemos el texto de cada celda <td> en un array.
+            const cells = $(element).find('td').map((i, cell) => $(cell).text()).get();
+
+            // Si la fila no tiene suficientes columnas, la ignoramos.
+            if (cells.length < 22) return;
+            
+            // Mapeamos los datos por la posición de su columna.
+            const resource = cells[0];
+            const status = cells[21];
+
+            // Aplicamos las mismas reglas de filtrado de antes.
+            if (!resource || resource.startsWith('O') || status !== 'Released') {
+                return;
+            }
+
+            // Construimos el objeto con los datos extraídos.
+            processedData.push({
+                resource,
+                department: cells[3],
+                requiredQty: parseFloat(cells[8]) || 0,
+                openQty: parseFloat(cells[10]) || 0,
+                startDate: new Date(cells[13]).toISOString(),
+                job: cells[18],
+                assembly: cells[20],
+                status,
+                resourceDescription: cells[23] || ''
+            });
+        });
 
         return {
             statusCode: 200,
