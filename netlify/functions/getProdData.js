@@ -1,12 +1,10 @@
 // Archivo: netlify/functions/getProdData.js
 
-// Usamos 'node-fetch' para poder hacer peticiones desde la función.
-// Debes instalarlo ejecutando: npm install node-fetch
 const fetch = require('node-fetch');
 
 // --- CONFIGURACIÓN ---
-// ¡IMPORTANTE! Pega aquí el enlace .csv de tu hoja de cálculo de producción.
-const GOOGLE_SHEET_URL = 'URL_DE_TU_CSV_DE_PRODUCCION_AQUI';
+// Ahora lee la variable de entorno con el nombre que tú definiste en Netlify.
+const GOOGLE_SHEET_URL = process.env.PRODUCTION_ORDERS_ID;
 
 /**
  * Parsea el texto CSV y lo convierte en un array de objetos con la lógica de negocio.
@@ -21,8 +19,6 @@ const parseAndProcessData = (csvText) => {
         const status = columns[21].trim();
 
         // REGLAS DE FILTRADO DEL LADO DEL SERVIDOR:
-        // 1. Omitir recursos que empiezan con 'O'.
-        // 2. Mostrar solo órdenes con estado "Released".
         if (resource.startsWith('O') || status !== 'Released') {
             return null;
         }
@@ -32,14 +28,13 @@ const parseAndProcessData = (csvText) => {
             department: columns[3].trim(),
             requiredQty: parseFloat(columns[8]) || 0,
             openQty: parseFloat(columns[10]) || 0,
-            // Enviamos la fecha como texto ISO para asegurar consistencia
             startDate: new Date(columns[13]).toISOString(), 
             job: columns[18].trim(),
             assembly: columns[20].trim(),
             status: status,
             resourceDescription: columns[23].trim()
         };
-    }).filter(Boolean); // Elimina los elementos nulos
+    }).filter(Boolean);
 };
 
 /**
@@ -47,8 +42,8 @@ const parseAndProcessData = (csvText) => {
  */
 exports.handler = async (event, context) => {
     try {
-        if (!GOOGLE_SHEET_URL || GOOGLE_SHEET_URL === 'URL_DE_TU_CSV_DE_PRODUCCION_AQUI') {
-            throw new Error("La URL de Google Sheets no está configurada en la función de Netlify.");
+        if (!GOOGLE_SHEET_URL) {
+            throw new Error("La variable de entorno PRODUCTION_ORDERS_ID no está configurada o no es accesible.");
         }
 
         const response = await fetch(GOOGLE_SHEET_URL);
@@ -63,7 +58,7 @@ exports.handler = async (event, context) => {
             statusCode: 200,
             headers: {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*' // Permite el acceso desde cualquier origen
+                'Access-Control-Allow-Origin': '*'
             },
             body: JSON.stringify(processedData)
         };
