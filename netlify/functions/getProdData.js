@@ -1,63 +1,43 @@
 // Archivo: netlify/functions/getProdData.js
 
-const { google } = require('googleapis');
-const { JWT } = require('google-auth-library');
+// Netlify ya incluye 'node-fetch', por eso no necesitas instalarlo.
+const fetch = require('node-fetch');
 
-// Función para autenticarse con la API de Google Sheets
-const authenticate = () => {
-    const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    // Reemplazamos los caracteres de escape '\\n' por saltos de línea reales '\n'
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
-
-    if (!clientEmail || !privateKey) {
-        throw new Error("Las credenciales de Google (CLIENT_EMAIL o PRIVATE_KEY) no están configuradas.");
-    }
-
-    const auth = new JWT({
-        email: clientEmail,
-        key: privateKey,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
-
-    return auth;
-};
-
-// El handler principal que Netlify ejecuta.
+// El handler que Netlify ejecuta.
 exports.handler = async (event, context) => {
+    
+    // 1. Leemos el ID de la hoja desde las variables de Netlify.
+    const SHEET_ID = process.env.PRODUCTION_ORDERS_ID;
+    
+    // 2. Definimos el nombre de la pestaña dentro de tu hoja.
+    //    Basado en el nombre de tu archivo original, probablemente sea este.
+    //    ¡Si tu pestaña se llama diferente, ajústalo aquí!
+    const SHEET_NAME = 'fnd_gfm_3335507';
+
+    // 3. Construimos la URL de descarga directa de CSV.
+    const GOOGLE_SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
+
     try {
-        const spreadsheetId = process.env.PRODUCTION_SHEET_ID;
-        // Asumimos que los datos están en una hoja llamada 'fnd_gfm_3335507' y cubren las columnas A hasta X.
-        // ¡Ajusta este rango si tu hoja tiene otro nombre o más columnas!
-        const range = 'fnd_gfm_3335507!A:X';
-
-        if (!spreadsheetId) {
-            throw new Error("El ID de la hoja de cálculo (PRODUCTION_SHEET_ID) no está configurado.");
+        if (!SHEET_ID) {
+            throw new Error("El ID de la hoja (PRODUCTION_ORDERS_ID) no está configurado.");
         }
 
-        const auth = authenticate();
-        const sheets = google.sheets({ version: 'v4', auth });
-
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId,
-            range,
-        });
-
-        const rows = response.data.values;
-        if (!rows || rows.length === 0) {
-            return {
-                statusCode: 200,
-                body: JSON.stringify([])
-            };
+        const response = await fetch(GOOGLE_SHEET_URL);
+        if (!response.ok) {
+            throw new Error(`Error al descargar el CSV de Google: ${response.status}. Asegúrate que la hoja sea accesible para 'Cualquier persona con el enlace'.`);
         }
+
+        const csvText = await response.text();
         
-        // El resto del código procesa los datos, igual que antes.
-        // Omitimos la primera fila que es el encabezado.
-        const header = rows[0];
-        const dataRows = rows.slice(1);
+        // El resto del código procesa el texto CSV.
+        const rows = csvText.replace(/"/g, '').split('\n').slice(1);
+        const processedData = rows.map(row => {
+            const columns = row.split(',');
 
-        const processedData = dataRows.map(row => {
-            const resource = row[0];
-            const status = row[21];
+            if (columns.length < 22) return null;
+
+            const resource = columns[0];
+            const status = columns[21];
 
             if (!resource || resource.startsWith('O') || status !== 'Released') {
                 return null;
@@ -65,28 +45,28 @@ exports.handler = async (event, context) => {
 
             return {
                 resource,
-                department: row[3],
-                requiredQty: parseFloat(row[8]) || 0,
-                openQty: parseFloat(row[10]) || 0,
-                startDate: new Date(row[13]).toISOString(),
-                job: row[18],
-                assembly: row[20],
+                department: columns[3],
+                requiredQty: parseFloat(columns[8]) || 0,
+                openQty: parseFloat(columns[10]) || 0,
+                startDate: new Date(columns[13]).toISOString(),
+                job: columns[18],
+                assembly: columns[20],
                 status,
-                resourceDescription: row[23] || ''
+                resourceDescription: columns[23] || ''
             };
-        }).filter(Boolean); // Limpia filas nulas
+        }).filter(Boolean);
 
         return {
             statusCode: 200,
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(processedData)
         };
 
     } catch (error) {
-        console.error("Error en la función de Netlify:", error);
+        console.error("Error en la función:", error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Hubo un fallo en el robot al autenticarse o leer la hoja.', details: error.message })
+            body: JSON.stringify({ error: 'Hubo un fallo en el robot.', details: error.message })
         };
     }
 };
