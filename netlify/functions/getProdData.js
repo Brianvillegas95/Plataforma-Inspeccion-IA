@@ -1,68 +1,80 @@
 // Archivo: netlify/functions/getProdData.js
 
-const cheerio = require('cheerio'); // La nueva herramienta para leer HTML
+const { google } = require('googleapis');
+const { JWT } = require('google-auth-library');
+
+// Función para autenticarse con la API de Google Sheets
+const authenticate = () => {
+    const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+    // Reemplazamos los caracteres de escape '\\n' por saltos de línea reales '\n'
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+
+    if (!clientEmail || !privateKey) {
+        throw new Error("Las credenciales de Google (CLIENT_EMAIL o PRIVATE_KEY) no están configuradas.");
+    }
+
+    const auth = new JWT({
+        email: clientEmail,
+        key: privateKey,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
+
+    return auth;
+};
 
 // El handler principal que Netlify ejecuta.
 exports.handler = async (event, context) => {
-    // Importamos 'node-fetch' de forma dinámica para máxima compatibilidad.
-    const fetch = (await import('node-fetch')).default;
-    
-    const SHEET_ID = process.env.PRODUCTION_ORDERS_ID;
-
-    // Si no hay ID, lanzamos un error claro.
-    if (!SHEET_ID) {
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'El ID de la hoja de cálculo no está configurado en la variable PRODUCTION_ORDERS_ID.' })
-        };
-    }
-
-    // CAMBIO IMPORTANTE: La URL ahora apunta a la versión HTML de la hoja.
-    const GOOGLE_SHEET_URL = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pubhtml`;
-
     try {
-        const response = await fetch(GOOGLE_SHEET_URL);
-        if (!response.ok) {
-            throw new Error(`Error al contactar Google Sheets: ${response.status}`);
+        const spreadsheetId = process.env.PRODUCTION_SHEET_ID;
+        // Asumimos que los datos están en una hoja llamada 'fnd_gfm_3335507' y cubren las columnas A hasta X.
+        // ¡Ajusta este rango si tu hoja tiene otro nombre o más columnas!
+        const range = 'fnd_gfm_3335507!A:X';
+
+        if (!spreadsheetId) {
+            throw new Error("El ID de la hoja de cálculo (PRODUCTION_SHEET_ID) no está configurado.");
         }
 
-        const htmlText = await response.text();
-        const $ = cheerio.load(htmlText); // Cargamos el HTML en nuestra nueva herramienta.
+        const auth = authenticate();
+        const sheets = google.sheets({ version: 'v4', auth });
 
-        const processedData = [];
-        // Buscamos todas las filas <tr> dentro del cuerpo <tbody> de la tabla.
-        $('tbody tr').each((index, element) => {
-            // Saltamos la primera fila si es parte del encabezado congelado
-            if (index === 0) return;
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range,
+        });
 
-            // Extraemos el texto de cada celda <td> en un array.
-            const cells = $(element).find('td').map((i, cell) => $(cell).text()).get();
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            return {
+                statusCode: 200,
+                body: JSON.stringify([])
+            };
+        }
+        
+        // El resto del código procesa los datos, igual que antes.
+        // Omitimos la primera fila que es el encabezado.
+        const header = rows[0];
+        const dataRows = rows.slice(1);
 
-            // Si la fila no tiene suficientes columnas, la ignoramos.
-            if (cells.length < 22) return;
-            
-            // Mapeamos los datos por la posición de su columna.
-            const resource = cells[0];
-            const status = cells[21];
+        const processedData = dataRows.map(row => {
+            const resource = row[0];
+            const status = row[21];
 
-            // Aplicamos las mismas reglas de filtrado de antes.
             if (!resource || resource.startsWith('O') || status !== 'Released') {
-                return;
+                return null;
             }
 
-            // Construimos el objeto con los datos extraídos.
-            processedData.push({
+            return {
                 resource,
-                department: cells[3],
-                requiredQty: parseFloat(cells[8]) || 0,
-                openQty: parseFloat(cells[10]) || 0,
-                startDate: new Date(cells[13]).toISOString(),
-                job: cells[18],
-                assembly: cells[20],
+                department: row[3],
+                requiredQty: parseFloat(row[8]) || 0,
+                openQty: parseFloat(row[10]) || 0,
+                startDate: new Date(row[13]).toISOString(),
+                job: row[18],
+                assembly: row[20],
                 status,
-                resourceDescription: cells[23] || ''
-            });
-        });
+                resourceDescription: row[23] || ''
+            };
+        }).filter(Boolean); // Limpia filas nulas
 
         return {
             statusCode: 200,
@@ -74,7 +86,7 @@ exports.handler = async (event, context) => {
         console.error("Error en la función de Netlify:", error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Hubo un fallo en el robot al procesar los datos.', details: error.message })
+            body: JSON.stringify({ error: 'Hubo un fallo en el robot al autenticarse o leer la hoja.', details: error.message })
         };
     }
 };
