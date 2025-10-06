@@ -3,6 +3,7 @@
 // Lee la variable de entorno que creaste en Netlify.
 const GOOGLE_SHEET_URL = process.env.PRODUCTION_ORDERS_ID;
 
+// Función interna para procesar los datos del CSV.
 const parseAndProcessData = (csvText) => {
     const rows = csvText.split(/\r?\n/).slice(1);
     return rows.map(row => {
@@ -12,6 +13,7 @@ const parseAndProcessData = (csvText) => {
         const resource = columns[0].trim();
         const status = columns[21].trim();
 
+        // Filtra operadores y órdenes que no están liberadas.
         if (resource.startsWith('O') || status !== 'Released') {
             return null;
         }
@@ -27,11 +29,13 @@ const parseAndProcessData = (csvText) => {
             status,
             resourceDescription: columns[23].trim()
         };
-    }).filter(Boolean);
+    }).filter(Boolean); // Limpia filas nulas.
 };
 
+// El handler principal que Netlify ejecuta.
 exports.handler = async (event, context) => {
-    // Importamos 'node-fetch' de forma dinámica para máxima compatibilidad.
+    // Esta técnica de importación dinámica resuelve la incompatibilidad
+    // con la versión 3 de 'node-fetch' sin tocar package.json.
     const fetch = (await import('node-fetch')).default;
 
     try {
@@ -57,7 +61,7 @@ exports.handler = async (event, context) => {
         console.error("Error en la función de Netlify:", error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'No se pudieron obtener los datos de producción.', details: error.message })
+            body: JSON.stringify({ error: 'Hubo un fallo en el robot.', details: error.message })
         };
     }
 };
