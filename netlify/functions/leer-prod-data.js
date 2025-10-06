@@ -26,32 +26,34 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: JSON.stringify([]) };
     }
 
-    // === MAPEANDO Y CONVIRTIENDO CADA FILA ===
     const allResources = rows.slice(1)
-      .filter(row => row[0] && !row[0].toUpperCase().startsWith('O')) // Filtrar operadores
+      .filter(row => row[0] && !row[0].toUpperCase().startsWith('O'))
       .map(row => {
-        // Leemos los valores de las columnas
-        let required = parseFloat(row[9]) || 0;
-        let applied = parseFloat(row[10]) || 0;
-        let open = parseFloat(row[11]) || 0;
+        // Leemos los valores base en horas
+        let requiredHours = parseFloat(row[9]) || 0;
+        let appliedHours = parseFloat(row[10]) || 0;
+        let openHours = parseFloat(row[11]) || 0;
         const basis = row[5] || '';
         const usageRate = parseFloat(row[6]) || 0;
 
-        // **NUEVA LÓGICA DE CONVERSIÓN**
-        // Si Basis es 'Item' y tenemos un Usage Rate válido, convertimos de horas a piezas.
+        let finalRequired = requiredHours;
+        let finalApplied = appliedHours;
+        let finalOpen = openHours;
+
+        // **CÁLCULO 1: CONVERSIÓN A PIEZAS**
+        // Si Basis es 'Item', aplicamos la conversión.
         if (basis.toLowerCase() === 'item' && usageRate > 0) {
-          required = required / usageRate;
-          applied = applied / usageRate;
-          open = open / usageRate;
+          finalRequired = requiredHours / usageRate; // Piezas totales a fabricar
+          finalApplied = appliedHours / usageRate;   // Piezas fabricadas
+          finalOpen = openHours / usageRate;     // Piezas pendientes por fabricar
         }
 
-        // Devolvemos el objeto con los valores ya en piezas
         return {
           resource: row[0],
           department: row[3],
-          requiredQty: required,
-          appliedQty: applied,
-          openQty: open,
+          requiredQty: finalRequired,
+          appliedQty: finalApplied,
+          openQty: finalOpen,
           startDate: row[14],
           completionDate: row[15],
           job: row[18],
@@ -61,16 +63,17 @@ exports.handler = async (event) => {
         };
       });
 
-    // === AGRUPANDO POR ORDEN DE TRABAJO (JOB) ===
     const groupedJobs = allResources.reduce((acc, resource) => {
       const jobKey = resource.job;
       if (!jobKey) return acc;
 
       if (!acc[jobKey]) {
-        // Tomamos los datos de la primera operación que encontramos para el Job
+        // Tomamos los datos ya convertidos a piezas
         const required = resource.requiredQty;
-        const applied = resource.appliedQty;
-        const progress = required > 0 ? (applied / required) * 100 : 0;
+        const open = resource.openQty;
+        
+        // **CÁLCULO 2: NUEVA FÓRMULA DE PROGRESO**
+        const progress = required > 0 ? (1 - (open / required)) * 100 : 0;
         
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -83,7 +86,8 @@ exports.handler = async (event) => {
           department: resource.department,
           status: resource.status,
           requiredQty: required,
-          appliedQty: applied,
+          appliedQty: resource.appliedQty,
+          openQty: open, // Agregamos openQty para consistencia
           startDate: resource.startDate,
           completionDate: resource.completionDate,
           progress: progress.toFixed(1),
@@ -92,15 +96,10 @@ exports.handler = async (event) => {
         };
       }
       
-      // Siempre agregamos el recurso a la lista del job
       acc[jobKey].resources.push({
         name: resource.resource,
         description: resource.resourceDescription
       });
-
-      // **POSIBLE MEJORA A FUTURO**: Si quisiéramos sumar las piezas aplicadas de todas
-      // las operaciones, lo haríamos aquí. Por ahora, usamos los datos de la primera.
-      // Ejemplo: acc[jobKey].appliedQty += resource.appliedQty;
       
       return acc;
     }, {});
