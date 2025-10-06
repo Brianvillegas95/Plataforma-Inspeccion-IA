@@ -1,6 +1,6 @@
 // Archivo: netlify/functions/getProdData.js
-// NO se usa 'require' ni 'import' al principio del archivo.
 
+// Lee la variable de entorno que creaste en Netlify.
 const GOOGLE_SHEET_URL = process.env.PRODUCTION_ORDERS_ID;
 
 const parseAndProcessData = (csvText) => {
@@ -17,35 +17,31 @@ const parseAndProcessData = (csvText) => {
         }
 
         return {
-            resource: resource,
+            resource,
             department: columns[3].trim(),
             requiredQty: parseFloat(columns[8]) || 0,
             openQty: parseFloat(columns[10]) || 0,
             startDate: new Date(columns[13]).toISOString(),
             job: columns[18].trim(),
             assembly: columns[20].trim(),
-            status: status,
+            status,
             resourceDescription: columns[23].trim()
         };
     }).filter(Boolean);
 };
 
 exports.handler = async (event, context) => {
-    // ==================================================================
-    // === ESTE ES EL AJUSTE PRINCIPAL ===
-    // Hacemos la importación de 'node-fetch' de forma dinámica aquí adentro.
-    // Esto resuelve la incompatibilidad sin tocar package.json.
+    // Importamos 'node-fetch' de forma dinámica para máxima compatibilidad.
     const fetch = (await import('node-fetch')).default;
-    // ==================================================================
 
     try {
         if (!GOOGLE_SHEET_URL) {
-            throw new Error("La variable de entorno PRODUCTION_ORDERS_ID no está configurada o no es accesible.");
+            throw new Error("La variable de entorno PRODUCTION_ORDERS_ID no está configurada.");
         }
 
         const response = await fetch(GOOGLE_SHEET_URL);
         if (!response.ok) {
-            throw new Error(`Error al contactar Google Sheets. Estado: ${response.status}`);
+            throw new Error(`Error al contactar Google Sheets: ${response.status}`);
         }
 
         const csvText = await response.text();
@@ -53,10 +49,7 @@ exports.handler = async (event, context) => {
 
         return {
             statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             body: JSON.stringify(processedData)
         };
 
