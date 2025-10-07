@@ -1382,3 +1382,40 @@ body.color-validator-body .main-content {
     border-radius: 10px;
     border: 2px solid var(--light-bg);
 }
+/* ======================================================= */
+/* === ESTANDARIZACIÓN DE SCROLLBARS DEL CHATBOT === */
+/* ======================================================= */
+
+/* 1. Estilos base para AMBOS scrollbars (mensajes y opciones) */
+#chat-messages::-webkit-scrollbar,
+#chat-options::-webkit-scrollbar {
+    width: 8px;
+}
+
+#chat-messages::-webkit-scrollbar-track,
+#chat-options::-webkit-scrollbar-track {
+    background: var(--light-bg); /* Fondo del riel */
+}
+
+#chat-messages::-webkit-scrollbar-thumb,
+#chat-options::-webkit-scrollbar-thumb {
+    background-color: #909090; /* Color de la barra (un gris neutro) */
+    border-radius: 10px;
+    border: 2px solid var(--light-bg); /* Borde del color del fondo */
+}
+
+#chat-messages::-webkit-scrollbar-thumb:hover,
+#chat-options::-webkit-scrollbar-thumb:hover {
+    background-color: #5a5a5a; /* Color más oscuro al pasar el mouse */
+}
+
+
+/* 2. Ajuste para que el scroll de opciones aparezca con más de 7 botones */
+#chat-options {
+    /* Cada botón ocupa aprox. 49px. 49px * 7 = 343px.
+       Le damos un poco más de margen. */
+    max-height: 350px;
+    overflow-y: auto; /* Muestra el scroll solo si el contenido excede max-height */
+    scrollbar-width: thin;
+    scrollbar-color: #909090 var(--light-bg);
+}
