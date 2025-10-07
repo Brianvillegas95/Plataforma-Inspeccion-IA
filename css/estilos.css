@@ -1350,3 +1350,35 @@ body.color-validator-body .main-content {
 .chat-media-link:hover {
     background-color: #0056b3; /* Un azul más oscuro al pasar el mouse */
 }
+/* ======================================================= */
+/* === AJUSTE PARA SCROLL EN OPCIONES DEL CHATBOT === */
+/* ======================================================= */
+
+#chat-options {
+    /* Define una altura máxima para el área de botones.
+       Puedes ajustar este valor si lo necesitas. */
+    max-height: 220px;
+
+    /* Muestra la barra de scroll vertical SÓLO si es necesario. */
+    overflow-y: auto;
+
+    /* (Opcional) Mejora la apariencia de la barra de scroll en Chrome/Safari */
+    scrollbar-width: thin;
+    scrollbar-color: #4F4F4F var(--light-bg);
+}
+
+/* Estilos adicionales para la barra de scroll en navegadores WebKit */
+#chat-options::-webkit-scrollbar {
+    width: 8px;
+}
+
+#chat-options::-webkit-scrollbar-track {
+    background: var(--light-bg);
+    border-radius: 10px;
+}
+
+#chat-options::-webkit-scrollbar-thumb {
+    background-color: #4F4F4F;
+    border-radius: 10px;
+    border: 2px solid var(--light-bg);
+}
