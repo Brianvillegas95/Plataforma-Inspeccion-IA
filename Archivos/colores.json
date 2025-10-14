@@ -90,6 +90,7 @@
     "3142": { "nombre": "114.3142 AMARILLO PASTEL (SAN)", "hex": "#D3B46E", "lab": { "L": 74.6, "a": 2.1, "b": 39.7 } },
     "3143": { "nombre": "114.3143 CAFE PASTEL ", "hex": "#8D7261", "lab": { "L": 50.2, "a": 8, "b": 13.4 } },
     "3144": { "nombre": "114.3144 VERDE PASTEL (SAN)", "hex": "#AAC0B3", "lab": { "L": 75.8, "a": -10, "b": 4 } },
-    "3146": { "nombre": "114.3146 COBRIZO", "hex": "#9B5036", "lab": { "L": 42.7, "a": 28.9, "b": 29.2 } }
+    "3146": { "nombre": "114.3146 COBRIZO", "hex": "#9B5036", "lab": { "L": 42.7, "a": 28.9, "b": 29.2 } },
     "3147": { "nombre": "Cojin para sellos No. 2", "hex": "#0056B5", "lab": { "L": 39.7, "a": 8.3, "b": -49.1 } }
 }
+
