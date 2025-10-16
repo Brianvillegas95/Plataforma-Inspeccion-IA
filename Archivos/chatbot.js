@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión con cierre automático y enlaces interactivos)
+// Archivo: chatbot.js (Versión final con reapertura de chat)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM ---
@@ -38,12 +38,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- LÓGICA DEL LIGHTBOX (IMAGEN GRANDE) ---
-    lightboxClose.addEventListener('click', () => lightbox.style.display = 'none');
+    // ▼▼▼ BLOQUE MODIFICADO PARA REABRIR EL CHAT ▼▼▼
+    lightboxClose.addEventListener('click', () => {
+        lightbox.style.display = 'none';
+        chatContainer.classList.add('open'); // Vuelve a abrir el chat
+    });
     lightbox.addEventListener('click', (e) => {
         if (e.target === lightbox) {
             lightbox.style.display = 'none';
+            chatContainer.classList.add('open'); // Vuelve a abrir el chat
         }
     });
+    // ▲▲▲ FIN DEL BLOQUE MODIFICADO ▲▲▲
 
     // --- MANEJO DE LA INTERACCIÓN DEL USUARIO ---
     function handleOptionClick(option) {
@@ -79,10 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const botMessageElement = document.createElement('div');
         botMessageElement.classList.add('bot-message');
 
-        // 1. Reemplaza los saltos de línea personalizados (ignorando URLs)
         let formattedText = text.replace(/(?<!http:|https:)\/\//g, '<br><br>');
         
-        // 2. ▼▼▼ NUEVO: Convierte las URLs de texto en hipervínculos interactivos ▼▼▼
         const urlRegex = /(https?:\/\/[^\s]+)/g;
         formattedText = formattedText.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
 
@@ -117,7 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 mediaElement.onclick = () => {
                     lightboxImg.src = mediaUrl;
                     lightbox.style.display = 'flex';
-                    // ▼▼▼ NUEVO: Cierra el chatbot al abrir la imagen ▼▼▼
                     chatContainer.classList.remove('open');
                 };
             }
