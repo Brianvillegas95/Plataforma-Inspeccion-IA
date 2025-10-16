@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión con botón "Atrás" e historial de navegación)
+// Archivo: chatbot.js (Versión con corrección de URL y botón "Atrás")
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM ---
@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let isChatInitiated = false;
-    // NUEVO: Pila para guardar el historial de navegación del usuario.
     let historyStack = [];
 
     // --- ABRIR Y CERRAR EL CHAT ---
@@ -28,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isChatInitiated && chatContainer.classList.contains('open')) {
             const welcomeMessage = "¡Hola! Soy Quali, tu asistente de calidad. Puedo ayudarte a resolver las dudas más frecuentes. Para empezar, selecciona el área que deseas consultar.";
             showBotMessage(welcomeMessage);
-            // MODIFICADO: Reiniciamos el historial al iniciar una nueva conversación.
             historyStack = ['0'];
             getNextDialogue('0');
             isChatInitiated = true;
@@ -58,35 +56,32 @@ document.addEventListener('DOMContentLoaded', () => {
             button.disabled = true;
         });
 
-        // MODIFICADO: Actualizamos el historial antes de navegar.
         if (option.nextId === '0') {
-            // Si la opción es "Volver al inicio", reiniciamos el historial.
             historyStack = ['0'];
         } else {
-            // Si es cualquier otra opción, la añadimos al historial.
             historyStack.push(option.nextId);
         }
 
         getNextDialogue(option.nextId);
     }
 
-    // NUEVO: Función para manejar la lógica de retroceso.
+    // --- FUNCIÓN PARA MANEJAR LA LÓGICA DE RETROCESO ---
     function goBack() {
         if (historyStack.length > 1) {
-            historyStack.pop(); // Quitamos el paso actual del historial.
-            const previousId = historyStack[historyStack.length - 1]; // Obtenemos el ID anterior.
-            // Llamamos a getNextDialogue directamente para no modificar el historial de nuevo.
+            historyStack.pop();
+            const previousId = historyStack[historyStack.length - 1];
             getNextDialogue(previousId);
         }
     }
 
     // --- FUNCIÓN CENTRAL PARA MOSTRAR MENSAJES DEL BOT ---
     function showBotMessage(text, mediaUrl = null) {
-        // (Esta función permanece sin cambios, es la de la respuesta anterior)
         const botMessageElement = document.createElement('div');
         botMessageElement.classList.add('bot-message');
 
-        const formattedText = text.replace(/\/\//g, '<br><br>');
+        // ▼▼▼ LÍNEA MODIFICADA PARA NO ROMPER LAS URLS ▼▼▼
+        const formattedText = text.replace(/(?<!http:|https:)\/\//g, '<br><br>');
+        
         botMessageElement.innerHTML = formattedText;
 
         if (mediaUrl) {
@@ -160,13 +155,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // MODIFICADO: Añadimos el botón "Atrás" si no estamos en el primer paso.
         if (historyStack.length > 1) {
             const backButton = document.createElement('button');
-            backButton.classList.add('option-button', 'back-button'); // Clase extra para estilo opcional
+            backButton.classList.add('option-button', 'back-button');
             backButton.textContent = '↩️ Atrás';
             backButton.onclick = goBack;
-            // Lo añadimos al final de las opciones
             optionsContainer.appendChild(backButton);
         }
     }
