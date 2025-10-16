@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión con corrección de URL y botón "Atrás")
+// Archivo: chatbot.js (Versión con cierre automático y enlaces interactivos)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM ---
@@ -79,9 +79,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const botMessageElement = document.createElement('div');
         botMessageElement.classList.add('bot-message');
 
-        // ▼▼▼ LÍNEA MODIFICADA PARA NO ROMPER LAS URLS ▼▼▼
-        const formattedText = text.replace(/(?<!http:|https:)\/\//g, '<br><br>');
+        // 1. Reemplaza los saltos de línea personalizados (ignorando URLs)
+        let formattedText = text.replace(/(?<!http:|https:)\/\//g, '<br><br>');
         
+        // 2. ▼▼▼ NUEVO: Convierte las URLs de texto en hipervínculos interactivos ▼▼▼
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        formattedText = formattedText.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
         botMessageElement.innerHTML = formattedText;
 
         if (mediaUrl) {
@@ -113,6 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 mediaElement.onclick = () => {
                     lightboxImg.src = mediaUrl;
                     lightbox.style.display = 'flex';
+                    // ▼▼▼ NUEVO: Cierra el chatbot al abrir la imagen ▼▼▼
+                    chatContainer.classList.remove('open');
                 };
             }
             botMessageElement.appendChild(mediaElement);
