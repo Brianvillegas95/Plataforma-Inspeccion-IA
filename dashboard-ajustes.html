@@ -186,10 +186,11 @@
                                 <th>Ajuste Negativo</th>
                                 <th>Ajuste Positivo</th>
                                 <th>Consumo</th>
+                                <th>% de Ajuste</th> 
                             </tr>
                         </thead>
                         <tbody id="ajustes-table-body">
-                            <tr><td colspan="9" class="status-message"><i class="fas fa-spinner fa-spin"></i> Cargando datos...</td></tr>
+                            <tr><td colspan="10" class="status-message"><i class="fas fa-spinner fa-spin"></i> Cargando datos...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -221,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let fullData = [];
     let ajustesChart;
     
-    // --- CAMBIO: Se actualiza el mapeo de columnas según el nuevo esquema ---
     const COL = { 
         ITEM: 0, 
         DESCRIPCION: 1, 
@@ -258,7 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalPositivo = data.reduce((sum, row) => sum + row.ajustePos, 0);
         const totalNegativo = data.reduce((sum, row) => sum + row.ajusteNeg, 0);
         const totalConsumo = data.reduce((sum, row) => sum + row.consumo, 0);
-        // El neto sigue siendo la suma de positivos y negativos (ej. 100 + (-50) = 50)
         const totalNeto = totalPositivo + totalNegativo;
 
         document.getElementById('kpi-positivo').textContent = totalPositivo.toLocaleString('es-MX', { maximumFractionDigits: 2 });
@@ -270,14 +269,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateTable(data) {
         tablaBody.innerHTML = '';
         if (data.length === 0) {
-            // --- CAMBIO: Se actualiza colspan a 9 ---
-            tablaBody.innerHTML = `<tr><td colspan="9" class="status-message">No se encontraron datos con los filtros aplicados.</td></tr>`;
+            // --- CAMBIO 3a: Se actualiza colspan a 10 ---
+            tablaBody.innerHTML = `<tr><td colspan="10" class="status-message">No se encontraron datos con los filtros aplicados.</td></tr>`;
             return;
         }
         const fragment = document.createDocumentFragment();
         data.forEach(row => {
             const tr = document.createElement('tr');
-            // --- CAMBIO: Se añade 'row.descripcion' y se ajusta el orden ---
+            
+            // --- CAMBIO 3b: Se calcula el nuevo porcentaje ---
+            const ajusteNeto = row.ajustePos + row.ajusteNeg;
+            const ajusteAbsoluto = Math.abs(ajusteNeto);
+            const consumoAbsoluto = Math.abs(row.consumo); // Usamos absoluto del consumo para el ratio
+            
+            let porcentajeAjusteStr = '0.00%'; // Valor por defecto
+            
+            // Evitar división por cero
+            if (consumoAbsoluto !== 0) {
+                const porcentajeNum = (ajusteAbsoluto / consumoAbsoluto) * 100;
+                porcentajeAjusteStr = porcentajeNum.toFixed(2) + '%';
+            }
+            // --- Fin del cálculo ---
+
+            // --- CAMBIO 3c: Se añade la nueva celda <td> con el porcentaje ---
             tr.innerHTML = `
                 <td>${row.item}</td>
                 <td>${row.descripcion}</td>
@@ -288,6 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${row.ajusteNeg.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</td>
                 <td>${row.ajustePos.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</td>
                 <td>${row.consumo.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</td>
+                <td>${porcentajeAjusteStr}</td>
             `;
             fragment.appendChild(tr);
         });
@@ -299,8 +314,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const selectedMetric = document.querySelector('input[name="pareto-metric"]:checked').value;
 
-        // Esta lógica de agregación sigue funcionando gracias a que
-        // pre-procesamos 'ajustePos' y 'ajusteNeg' en el 'fullData.map'
         const itemTotals = data.reduce((acc, row) => {
             let value = 0;
             switch (selectedMetric) {
@@ -365,7 +378,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const areaMatch = !area || row.area === area;
             const uomMatch = !uom || row.uom === uom;
             const anoMatch = !ano || row.ano === ano;
-            // Permitimos buscar por item o descripción
             const itemMatch = !itemTerm || row.item.toLowerCase().includes(itemTerm) || row.descripcion.toLowerCase().includes(itemTerm);
             const monthMatch = selectedMonths.length === 0 || selectedMonths.includes(row.mes);
             return areaMatch && uomMatch && anoMatch && itemMatch && monthMatch;
@@ -523,8 +535,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function populateFilters(data) {
-        // Esta función no necesita cambios, ya que lee los
-        // datos procesados de 'fullData' (row.area, row.uom, etc.)
         const areas = [...new Set(data.map(row => row.area))].sort();
         const uoms = [...new Set(data.map(row => row.uom))].sort();
         const anos = [...new Set(data.map(row => row.ano))].sort();
@@ -551,12 +561,11 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(response => response.json())
         .then(rawData => {
             if (!rawData || rawData.length === 0) {
-                // --- CAMBIO: Se actualiza colspan a 9 ---
-                tablaBody.innerHTML = '<tr><td colspan="9" class="status-message">No se encontraron datos en la fuente.</td></tr>';
+                // Se actualiza colspan a 10
+                tablaBody.innerHTML = '<tr><td colspan="10" class="status-message">No se encontraron datos en la fuente.</td></tr>';
                 return;
             }
 
-            // --- CAMBIO: Lógica principal de transformación de datos ---
             fullData = rawData.map(row => {
                 const ajusteVal = parseValue(row[COL.AJUSTE]);
                 const consumoIssue = parseValue(row[COL.CONSUMO_ISSUE]);
@@ -569,27 +578,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     mes: row[COL.MES] || 'N/A',
                     ano: row[COL.ANO] || 'N/A',
                     area: row[COL.AREA] || 'N/A',
-                    
-                    // Se divide el ajuste único en dos campos para mantener la lógica existente
-                    ajustePos: Math.max(0, ajusteVal), // Solo valores positivos
-                    ajusteNeg: Math.min(0, ajusteVal), // Solo valores negativos
-                    
-                    // Se calcula el consumo real según la fórmula E + F
+                    ajustePos: Math.max(0, ajusteVal),
+                    ajusteNeg: Math.min(0, ajusteVal),
                     consumo: consumoIssue + consumoReturn
                 };
             });
-            // --- Fin del cambio ---
 
             populateFilters(fullData);
             updateDashboard();
         })
         .catch(error => {
             console.error('Error al obtener los datos:', error);
-            // --- CAMBIO: Se actualiza colspan a 9 ---
-            tablaBody.innerHTML = `<tr><td colspan="9" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos.</td></tr>`;
+            // Se actualiza colspan a 10
+            tablaBody.innerHTML = `<tr><td colspan="10" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos.</td></tr>`;
         });
     
-    // --- EVENT LISTENERS (Sin cambios) ---
+    // --- EVENT LISTENERS ---
     [filterArea, filterUom, filterAno].forEach(el => el.addEventListener('change', updateDashboard));
     filterItem.addEventListener('input', updateDashboard);
     paretoMetricRadios.forEach(radio => radio.addEventListener('change', updateDashboard));
