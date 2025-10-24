@@ -3,12 +3,14 @@ const { google } = require('googleapis');
 exports.handler = async (event) => {
   try {
     const hojaId = process.env.PRODUCT_AJUSTESINVENTARIO_SHEET_ID;
-    if (!hoId) {
+    
+    // --- CORRECCIÓN ---
+    // Se cambió 'hoId' por 'hojaId' para que coincida con la variable
+    if (!hojaId) {
       throw new Error('El ID de la hoja de cálculo no está configurado en Netlify.');
     }
 
-    // --- AJUSTE ---
-    // Se ajusta el rango para leer de la A a la I, según la nueva estructura
+    // Se ajusta el rango para leer de la A a la I
     const rango = 'Hoja 1!A:I'; 
 
     const credentials = {
@@ -41,7 +43,8 @@ exports.handler = async (event) => {
     console.error('Error al leer la hoja de Google:', error);
     return {
       statusCode: 500,
-      body: 'Error interno del servidor al leer la hoja de cálculo.',
+      // Este es el error que tu navegador intentaba leer como JSON
+      body: 'Error interno del servidor al leer la hoja de cálculo.', 
     };
   }
 };
