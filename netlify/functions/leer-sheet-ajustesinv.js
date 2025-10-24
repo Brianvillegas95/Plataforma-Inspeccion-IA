@@ -3,13 +3,13 @@ const { google } = require('googleapis');
 exports.handler = async (event) => {
   try {
     const hojaId = process.env.PRODUCT_AJUSTESINVENTARIO_SHEET_ID;
-    if (!hojaId) {
+    if (!hoId) {
       throw new Error('El ID de la hoja de cálculo no está configurado en Netlify.');
     }
 
-    // --- VERIFICA ESTA LÍNEA ---
-    // Asegúrate de que el rango incluya todas las columnas que necesitas, en este caso hasta la J.
-    const rango = 'Hoja 1!A:J'; 
+    // --- AJUSTE ---
+    // Se ajusta el rango para leer de la A a la I, según la nueva estructura
+    const rango = 'Hoja 1!A:I'; 
 
     const credentials = {
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
