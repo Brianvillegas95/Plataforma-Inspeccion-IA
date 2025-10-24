@@ -178,6 +178,7 @@
                         <thead>
                             <tr>
                                 <th>Item</th>
+                                <th>Descripción</th>
                                 <th>Mes</th>
                                 <th>Año</th>
                                 <th>Área</th>
@@ -188,7 +189,7 @@
                             </tr>
                         </thead>
                         <tbody id="ajustes-table-body">
-                            <tr><td colspan="8" class="status-message"><i class="fas fa-spinner fa-spin"></i> Cargando datos...</td></tr>
+                            <tr><td colspan="9" class="status-message"><i class="fas fa-spinner fa-spin"></i> Cargando datos...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -219,8 +220,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- VARIABLES GLOBALES Y CONSTANTES ---
     let fullData = [];
     let ajustesChart;
-    // ELIMINADO: La variable de estado isTop10Active ya no es necesaria
-    const COL = { ITEM: 0, MES: 1, ANO: 2, UOM: 3, AREA: 4, AJUSTE_NEG: 5, AJUSTE_POS: 6, CONSUMO: 7 };
+    
+    // --- CAMBIO: Se actualiza el mapeo de columnas según el nuevo esquema ---
+    const COL = { 
+        ITEM: 0, 
+        DESCRIPCION: 1, 
+        UOM: 2, 
+        AJUSTE: 3, 
+        CONSUMO_ISSUE: 4, 
+        CONSUMO_RETURN: 5, 
+        MES: 6, 
+        ANO: 7, 
+        AREA: 8 
+    };
 
     // --- FUNCIONES AUXILIARES ---
     const parseValue = (value) => {
@@ -246,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalPositivo = data.reduce((sum, row) => sum + row.ajustePos, 0);
         const totalNegativo = data.reduce((sum, row) => sum + row.ajusteNeg, 0);
         const totalConsumo = data.reduce((sum, row) => sum + row.consumo, 0);
+        // El neto sigue siendo la suma de positivos y negativos (ej. 100 + (-50) = 50)
         const totalNeto = totalPositivo + totalNegativo;
 
         document.getElementById('kpi-positivo').textContent = totalPositivo.toLocaleString('es-MX', { maximumFractionDigits: 2 });
@@ -257,14 +270,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateTable(data) {
         tablaBody.innerHTML = '';
         if (data.length === 0) {
-            tablaBody.innerHTML = `<tr><td colspan="8" class="status-message">No se encontraron datos con los filtros aplicados.</td></tr>`;
+            // --- CAMBIO: Se actualiza colspan a 9 ---
+            tablaBody.innerHTML = `<tr><td colspan="9" class="status-message">No se encontraron datos con los filtros aplicados.</td></tr>`;
             return;
         }
         const fragment = document.createDocumentFragment();
         data.forEach(row => {
             const tr = document.createElement('tr');
+            // --- CAMBIO: Se añade 'row.descripcion' y se ajusta el orden ---
             tr.innerHTML = `
                 <td>${row.item}</td>
+                <td>${row.descripcion}</td>
                 <td>${row.mes}</td>
                 <td>${row.ano}</td>
                 <td>${row.area}</td>
@@ -283,6 +299,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const selectedMetric = document.querySelector('input[name="pareto-metric"]:checked').value;
 
+        // Esta lógica de agregación sigue funcionando gracias a que
+        // pre-procesamos 'ajustePos' y 'ajusteNeg' en el 'fullData.map'
         const itemTotals = data.reduce((acc, row) => {
             let value = 0;
             switch (selectedMetric) {
@@ -300,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .filter(d => d.value > 0)
             .sort((a, b) => b.value - a.value);
 
-        // ELIMINADO: La lógica del Top 10 se ha quitado, se usan todos los sortedItems
         const grandTotal = sortedItems.reduce((sum, d) => sum + d.value, 0);
         let cumulative = 0;
         
@@ -348,7 +365,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const areaMatch = !area || row.area === area;
             const uomMatch = !uom || row.uom === uom;
             const anoMatch = !ano || row.ano === ano;
-            const itemMatch = !itemTerm || row.item.toLowerCase().includes(itemTerm);
+            // Permitimos buscar por item o descripción
+            const itemMatch = !itemTerm || row.item.toLowerCase().includes(itemTerm) || row.descripcion.toLowerCase().includes(itemTerm);
             const monthMatch = selectedMonths.length === 0 || selectedMonths.includes(row.mes);
             return areaMatch && uomMatch && anoMatch && itemMatch && monthMatch;
         });
@@ -392,19 +410,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         fill: false,
                         tension: 0.4,
                         yAxisID: 'y1',
-                        // MEJORA 2: Se muestran las etiquetas en la línea de Pareto
                         datalabels: {
                             display: (context) => {
-                                // Muestra etiquetas solo para los primeros 20 puntos para no saturar
                                 return context.dataIndex < 20;
                             },
-                            formatter: (value) => `${value.toFixed(2)}%`, // Formato a 2 decimales
-                            color: '#5a5a5a', // Color sutil
+                            formatter: (value) => `${value.toFixed(2)}%`,
+                            color: '#5a5a5a',
                             backgroundColor: 'rgba(255, 255, 255, 0.7)',
                             borderRadius: 4,
                             padding: 3,
                             font: {
-                                size: 9, // Tamaño pequeño
+                                size: 9,
                                 weight: 'bold'
                             },
                             align: 'start',
@@ -415,7 +431,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 ]
             },
             options: {
-                // MEJORA ADICIONAL: Cambiar el cursor a puntero al pasar sobre las barras
                 onHover: (event, chartElement) => {
                     const canvas = event.native.target;
                     canvas.style.cursor = chartElement[0] ? 'pointer' : 'default';
@@ -508,6 +523,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function populateFilters(data) {
+        // Esta función no necesita cambios, ya que lee los
+        // datos procesados de 'fullData' (row.area, row.uom, etc.)
         const areas = [...new Set(data.map(row => row.area))].sort();
         const uoms = [...new Set(data.map(row => row.uom))].sort();
         const anos = [...new Set(data.map(row => row.ano))].sort();
@@ -534,30 +551,45 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(response => response.json())
         .then(rawData => {
             if (!rawData || rawData.length === 0) {
-                tablaBody.innerHTML = '<tr><td colspan="8" class="status-message">No se encontraron datos en la fuente.</td></tr>';
+                // --- CAMBIO: Se actualiza colspan a 9 ---
+                tablaBody.innerHTML = '<tr><td colspan="9" class="status-message">No se encontraron datos en la fuente.</td></tr>';
                 return;
             }
 
-            fullData = rawData.map(row => ({
-                item: row[COL.ITEM] || 'N/A',
-                mes: row[COL.MES] || 'N/A',
-                ano: row[COL.ANO] || 'N/A',
-                uom: row[COL.UOM] || 'N/A',
-                area: row[COL.AREA] || 'N/A',
-                ajusteNeg: parseValue(row[COL.AJUSTE_NEG]),
-                ajustePos: parseValue(row[COL.AJUSTE_POS]),
-                consumo: parseValue(row[COL.CONSUMO])
-            }));
+            // --- CAMBIO: Lógica principal de transformación de datos ---
+            fullData = rawData.map(row => {
+                const ajusteVal = parseValue(row[COL.AJUSTE]);
+                const consumoIssue = parseValue(row[COL.CONSUMO_ISSUE]);
+                const consumoReturn = parseValue(row[COL.CONSUMO_RETURN]);
+                
+                return {
+                    item: row[COL.ITEM] || 'N/A',
+                    descripcion: row[COL.DESCRIPCION] || 'N/A',
+                    uom: row[COL.UOM] || 'N/A',
+                    mes: row[COL.MES] || 'N/A',
+                    ano: row[COL.ANO] || 'N/A',
+                    area: row[COL.AREA] || 'N/A',
+                    
+                    // Se divide el ajuste único en dos campos para mantener la lógica existente
+                    ajustePos: Math.max(0, ajusteVal), // Solo valores positivos
+                    ajusteNeg: Math.min(0, ajusteVal), // Solo valores negativos
+                    
+                    // Se calcula el consumo real según la fórmula E + F
+                    consumo: consumoIssue + consumoReturn
+                };
+            });
+            // --- Fin del cambio ---
 
             populateFilters(fullData);
             updateDashboard();
         })
         .catch(error => {
             console.error('Error al obtener los datos:', error);
-            tablaBody.innerHTML = `<tr><td colspan="8" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos.</td></tr>`;
+            // --- CAMBIO: Se actualiza colspan a 9 ---
+            tablaBody.innerHTML = `<tr><td colspan="9" class="status-message"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los datos.</td></tr>`;
         });
     
-    // --- EVENT LISTENERS ---
+    // --- EVENT LISTENERS (Sin cambios) ---
     [filterArea, filterUom, filterAno].forEach(el => el.addEventListener('change', updateDashboard));
     filterItem.addEventListener('input', updateDashboard);
     paretoMetricRadios.forEach(radio => radio.addEventListener('change', updateDashboard));
