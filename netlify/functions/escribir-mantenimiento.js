@@ -1,6 +1,6 @@
 const { google } = require('googleapis');
 
-// Función de autenticación (igual que en tu otro archivo)
+// --- Configuración de Autenticación ---
 function getAuth() {
   return new google.auth.GoogleAuth({
     credentials: {
@@ -11,13 +11,11 @@ function getAuth() {
   });
 }
 
-// Función para obtener la API de Google Sheets
 function getSheetsAPI(auth) {
   return google.sheets({ version: 'v4', auth });
 }
 
-// Extraer el número de fila de la respuesta de 'append'
-// La respuesta es algo como "'Hoja 1'!A10:F10" (ahora F por el nuevo campo)
+// --- Función para extraer la fila ---
 function getRowFromRange(range) {
   // Busca el patrón !A<numero>:
   const match = range.match(/!A(\d+):/);
@@ -32,7 +30,7 @@ function getRowFromRange(range) {
   throw new Error('No se pudo extraer el número de fila del rango: ' + range);
 }
 
-
+// --- Handler Principal de Netlify ---
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -40,25 +38,22 @@ exports.handler = async function (event) {
 
   try {
     const { action, data, row } = JSON.parse(event.body);
-
-    // Validamos que tengamos el ID de la hoja de Mantenimiento
     const spreadsheetId = process.env.MANTENIMIENTO_SHEET_ID;
+
     if (!spreadsheetId) {
-      throw new Error('El ID de la hoja de Mantenimiento no está configurado en Netlify.');
+      throw new Error('El ID de la hoja de Mantenimiento no está configurado.');
     }
 
     const auth = getAuth();
     const sheets = getSheetsAPI(auth);
 
-    // --- LÓGICA DE DOS ACCIONES ---
-
+    // --- ACCIÓN 1: ABRIR REPORTE ---
     if (action === 'abrir') {
-      // Acción 1: Generar Paro (APPEND)
-      // 'data' ahora debe ser [fechaApertura, maquina, estacion, operador, area, workOrder]
-      
+      // data = [fecha, maquina, estacion, area, operador, status, workOrder]
+      // Escribe en A:G
       const response = await sheets.spreadsheets.values.append({
         spreadsheetId: spreadsheetId,
-        range: 'Hoja 1!A1', // Apunta a la 'Hoja 1'
+        range: 'Hoja 1!A1',
         valueInputOption: 'USER_ENTERED',
         insertDataOption: 'INSERT_ROWS',
         resource: {
@@ -66,7 +61,6 @@ exports.handler = async function (event) {
         },
       });
 
-      // Devolvemos el número de fila que se acaba de crear
       const updatedRange = response.data.updates.updatedRange;
       const newRow = getRowFromRange(updatedRange);
 
@@ -74,44 +68,69 @@ exports.handler = async function (event) {
         statusCode: 200,
         body: JSON.stringify({ message: 'Paro registrado.', row: newRow }),
       };
+    }
+    
+    // --- ACCIÓN 2: REGISTRAR LLEGADA DE MECÁNICO ---
+    else if (action === 'llegada') {
+      // data = [fechaLlegada]
+      // Escribe en J
+      if (!row) throw new Error("Se requiere 'row' para la acción 'llegada'.");
 
-    } else if (action === 'cerrar') {
-      // Acción 2: Finalizar Paro (UPDATE)
-      // 'data' debe ser [solucion, mecanico, fechaCierre]
-      // 'row' debe ser el número de fila a actualizar
-      
-      if (!row) {
-        throw new Error("Se requiere un 'row' (número de fila) para la acción 'cerrar'.");
-      }
-
-      // ===== CAMBIO IMPORTANTE =====
-      // Las columnas ahora son:
-      // G: Solucion
-      // H: Mecanico
-      // I: Fecha y hora de cierre
-      // El rango de actualización se mueve de 'F:H' a 'G:I'
-      const updateRange = `Hoja 1!G${row}:I${row}`;
-
+      const updateRange = `Hoja 1!J${row}`; // Columna J
       await sheets.spreadsheets.values.update({
         spreadsheetId: spreadsheetId,
         range: updateRange,
         valueInputOption: 'USER_ENTERED',
         resource: {
-          values: [data],
+          values: [data], // data es [fechaLlegada]
         },
+      });
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: 'Llegada registrada.' }),
+      };
+    }
+
+    // --- ACCIÓN 3: CERRAR REPORTE (SOLUCIÓN) ---
+    else if (action === 'cerrar') {
+      // data = [solucion, mecanico, fechaCierre]
+      // Escribe en H, I, y K
+      if (!row) throw new Error("Se requiere 'row' para la acción 'cerrar'.");
+
+      // Usamos batchUpdate para escribir en rangos no contiguos
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: spreadsheetId,
+        resource: {
+          valueInputOption: 'USER_ENTERED',
+          data: [
+            {
+              // Rango 1: Solucion y Mecanico (Columnas H e I)
+              range: `Hoja 1!H${row}:I${row}`,
+              values: [[ data[0], data[1] ]] // [solucion, mecanico]
+            },
+            {
+              // Rango 2: Fecha de cierre (Columna K)
+              range: `Hoja 1!K${row}`,
+              values: [[ data[2] ]] // [fechaCierre]
+            }
+          ]
+        }
       });
 
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'Paro finalizado y actualizado.' }),
       };
-
-    } else {
-      throw new Error('Acción no válida. Debe ser "abrir" o "cerrar".');
+    } 
+    
+    // --- Error si la acción no es válida ---
+    else {
+      throw new Error('Acción no válida. Debe ser "abrir", "llegada" o "cerrar".');
     }
 
   } catch (error) {
-    console.error('Error al escribir en la hoja de Mantenimiento:', error);
+    console.error('Error en la función de Mantenimiento:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Error al procesar la solicitud: ' + error.message }),
