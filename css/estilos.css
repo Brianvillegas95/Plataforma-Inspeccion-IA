@@ -1374,3 +1374,43 @@ body.color-validator-body .main-content {
     scrollbar-width: thin;
     scrollbar-color: #909090 var(--light-bg);
 }
+/* ========================================================= */
+/* === ESTILOS PARA EL BOTÓN "REPORTAR PARO" (INDEX) === */
+/* ========================================================= */
+
+.report-paro-btn-simple {
+    display: flex;
+    flex-direction: column; /* Apila el ícono y el texto verticalmente */
+    align-items: center;
+    justify-content: center;
+    
+    background-color: var(--warning-color); /* Color amarillo de advertencia */
+    color: var(--text-primary); /* Texto oscuro */
+    
+    width: 100px;  /* Ancho fijo del botón */
+    height: 70px; /* Altura fija del botón */
+    padding: 8px;
+    margin-right: 15px; /* Espacio para separarlo del logo */
+    
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 0.8em; /* Texto pequeño */
+    text-align: center;
+    line-height: 1.3;
+    
+    border-radius: var(--border-radius); /* Bordes redondeados */
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease-in-out;
+}
+
+/* Estilo del ícono dentro del botón */
+.report-paro-btn-simple i {
+    font-size: 1.8em;     /* Ícono grande */
+    margin-bottom: 5px; /* Espacio entre ícono y texto */
+}
+
+.report-paro-btn-simple:hover {
+    background-color: #ffca2c; /* Un amarillo más claro al pasar el mouse */
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
