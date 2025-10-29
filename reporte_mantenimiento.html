@@ -246,9 +246,9 @@
                 const statusMaquina = document.getElementById('status-maquina-select').value;
                 const workOrder = document.getElementById('workorder-input').value || 'N/A';
                 
-                // ===== CAMBIO IMPORTANTE: USAR new Date() =====
-                const fechaApertura = new Date();
-                // ==============================================
+                // ===== CAMBIO: VOLVEMOS AL FORMATO DE HORA LOCAL (toLocaleString) =====
+                const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                // =====================================================================
 
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -256,7 +256,6 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'abrir',
-                            // Array de datos coincide con columnas A-G
                             data: [fechaApertura, maquina, estacion, area, operador, statusMaquina, workOrder]
                         }),
                     });
@@ -265,28 +264,24 @@
                     const result = await response.json();
                     if (!result.row) throw new Error('No se recibió el número de fila del servidor.');
 
-                    // Guardar fila para acciones futuras
                     sessionStorage.setItem('paroRow', result.row);
                     
-                    // Configurar y mostrar Andon
                     if (statusMaquina === 'detenida') {
                         andonScreen.classList.add('andon-red');
                         andonScreen.classList.remove('andon-yellow');
                         andonIcon.className = 'fas fa-exclamation-triangle';
                         andonTitle.textContent = 'MÁQUINA DETENIDA';
-                    } else { // 'trabajando'
+                    } else {
                         andonScreen.classList.add('andon-yellow');
                         andonScreen.classList.remove('andon-red');
                         andonIcon.className = 'fas fa-tools';
                         andonTitle.textContent = 'REPORTE DE MANTENIMIENTO';
                     }
                     
-                    // Resetear botones de Andon
                     llegadaMecanicoBtn.style.display = 'block';
                     llegadaMecanicoBtn.disabled = false;
                     fallaAtendidaBtn.style.display = 'none';
                     solucionForm.style.display = 'none';
-
                     andonScreen.style.display = 'flex';
 
                 } catch (error) {
@@ -306,9 +301,9 @@
 
                 const rowToUpdate = sessionStorage.getItem('paroRow');
                 
-                // ===== CAMBIO IMPORTANTE: USAR new Date() =====
-                const fechaLlegada = new Date();
-                // ==============================================
+                // ===== CAMBIO: VOLVEMOS AL FORMATO DE HORA LOCAL (toLocaleString) =====
+                const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                // =====================================================================
 
                 if (!rowToUpdate) {
                     mostrarError('Error crítico: Se perdió la referencia del reporte.');
@@ -329,7 +324,6 @@
 
                     if (!response.ok) throw new Error('Error del servidor al registrar la llegada.');
 
-                    // Éxito: Ocultar botón de llegada y mostrar el de solución
                     llegadaMecanicoBtn.style.display = 'none';
                     fallaAtendidaBtn.style.display = 'block';
 
@@ -345,7 +339,7 @@
             // --- 3. LÓGICA PARA MOSTRAR FORMULARIO DE SOLUCIÓN ---
             fallaAtendidaBtn.addEventListener('click', () => {
                 solucionForm.style.display = 'block';
-                fallaAtendidaBtn.style.display = 'none'; // Ocultamos el botón "Registrar Solución"
+                fallaAtendidaBtn.style.display = 'none';
             });
 
             // --- 4. LÓGICA PARA FINALIZAR PARO (ENVIAR SOLUCIÓN) ---
@@ -355,13 +349,12 @@
                 finalizarParoBtn.disabled = true;
                 loadingSolucion.style.display = 'block';
 
-                // Recolectar datos
                 const solucion = document.getElementById('solucion-input').value;
                 const mecanico = document.getElementById('mecanico-input').value;
                 
-                // ===== CAMBIO IMPORTANTE: USAR new Date() =====
-                const fechaCierre = new Date();
-                // ==============================================
+                // ===== CAMBIO: VOLVEMOS AL FORMATO DE HORA LOCAL (toLocaleString) =====
+                const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                // =====================================================================
                 
                 const rowToUpdate = sessionStorage.getItem('paroRow');
 
@@ -384,7 +377,6 @@
 
                     if (!response.ok) throw new Error('Error del servidor al cerrar el reporte.');
 
-                    // ¡Éxito! Reseteamos todo y volvemos al inicio
                     andonScreen.style.display = 'none';
                     paroForm.reset();
                     solucionForm.reset();
@@ -402,7 +394,6 @@
             });
 
             function mostrarError(mensaje) {
-                // Muestra errores en el formulario principal o en la pantalla de Andon
                 const errorEl = solucionForm.style.display === 'block' ? solucionForm.querySelector('.error-message') : errorMessage;
                 if (errorEl) {
                      errorEl.textContent = mensaje;
