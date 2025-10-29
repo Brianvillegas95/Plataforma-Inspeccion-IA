@@ -141,6 +141,7 @@
                 <div class="maintenance-tool">
                     <form id="paro-form">
                         <h3 class="panel-title-sub"><i class="fas fa-user-clock"></i> 1. Datos del Paro</h3>
+                        
                         <div class="form-group">
                             <label for="maquina-input">Máquina:</label>
                             <input type="text" id="maquina-input" class="form-control" required placeholder="Ej: Inyectora 14">
@@ -150,19 +151,22 @@
                             <label for="estacion-input">Estación:</label>
                             <input type="text" id="estacion-input" class="form-control" required placeholder="Ej: EP02">
                         </div>
-                        <div class="form-group">
-                            <label for="operador-input">Nombre del Operador:</label>
-                            <input type="text" id="operador-input" class="form-control" required placeholder="Ej: Juan Pérez">
-                        </div>
+                        
                         <div class="form-group">
                             <label for="area-input">Área:</label>
                             <input type="text" id="area-input" class="form-control" required placeholder="Ej: Moldeo">
                         </div>
+                        
+                        <div class="form-group">
+                            <label for="operador-input">Nombre del Operador:</label>
+                            <input type="text" id="operador-input" class="form-control" required placeholder="Ej: Juan Pérez">
+                        </div>
+
                         <div class="form-group">
                             <label for="workorder-input">Work Order (Opcional):</label>
                             <input type="text" id="workorder-input" class="form-control" placeholder="Ej: 1234567">
                         </div>
-                        
+
                         <div id="loading-spinner-paro"></div>
                         
                         <button type="submit" id="generar-paro-btn" class="button primary-action" style="background-color: var(--danger-color); border-color: var(--danger-color); margin-top: 20px; padding: 12px; font-size: 1.1em;">
@@ -205,17 +209,15 @@
                 generarParoBtn.disabled = true;
                 loadingParo.style.display = 'block';
 
-                // Recolectar datos del formulario
+                // ===== INICIO DE LA REORDENACIÓN DEL SCRIPT =====
+                // Recolectar datos del formulario en el NUEVO orden
                 const maquina = document.getElementById('maquina-input').value;
-                
-                // ===== CAMBIO EN SCRIPT: OBTENER NUEVO CAMPO =====
                 const estacion = document.getElementById('estacion-input').value;
-                // ===== FIN DEL CAMBIO =====
-
-                const operador = document.getElementById('operador-input').value;
                 const area = document.getElementById('area-input').value;
+                const operador = document.getElementById('operador-input').value;
                 const workOrder = document.getElementById('workorder-input').value || 'N/A'; // Opcional
                 const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                // ===== FIN DE LA REORDENACIÓN DEL SCRIPT =====
 
                 try {
                     // Llamada a la Función Netlify (Acción 'abrir')
@@ -224,8 +226,9 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'abrir',
-                            // ===== CAMBIO EN SCRIPT: AÑADIR DATO AL ENVÍO =====
-                            data: [fechaApertura, maquina, estacion, operador, area, workOrder]
+                            // El array ahora coincide con el orden de las columnas de Google Sheet
+                            // A: fecha, B: maquina, C: estacion, D: area, E: operador, F: workOrder
+                            data: [fechaApertura, maquina, estacion, area, operador, workOrder]
                         }),
                     });
 
@@ -286,7 +289,8 @@
 
                 try {
                     // Llamada a la Función Netlify (Acción 'cerrar')
-                    // El array de datos aquí no cambia, solo las columnas que actualiza el backend
+                    // El backend (escribir-mantenimiento.js) ya está configurado
+                    // para escribir en G, H, I.
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
