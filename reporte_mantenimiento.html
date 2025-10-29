@@ -238,7 +238,6 @@
                 generarParoBtn.disabled = true;
                 loadingParo.style.display = 'block';
 
-                // Recolectar datos del formulario
                 const maquina = document.getElementById('maquina-input').value;
                 const estacion = document.getElementById('estacion-input').value;
                 const area = document.getElementById('area-input').value;
@@ -246,9 +245,9 @@
                 const statusMaquina = document.getElementById('status-maquina-select').value;
                 const workOrder = document.getElementById('workorder-input').value || 'N/A';
                 
-                // ===== CAMBIO: VOLVEMOS AL FORMATO DE HORA LOCAL (toLocaleString) =====
-                const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
-                // =====================================================================
+                // ===== CAMBIO IMPORTANTE: Usar 24-horas (hour12: false) =====
+                const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
+                // ============================================================
 
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -301,9 +300,9 @@
 
                 const rowToUpdate = sessionStorage.getItem('paroRow');
                 
-                // ===== CAMBIO: VOLVEMOS AL FORMATO DE HORA LOCAL (toLocaleString) =====
-                const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
-                // =====================================================================
+                // ===== CAMBIO IMPORTANTE: Usar 24-horas (hour12: false) =====
+                const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
+                // ============================================================
 
                 if (!rowToUpdate) {
                     mostrarError('Error crítico: Se perdió la referencia del reporte.');
@@ -352,9 +351,9 @@
                 const solucion = document.getElementById('solucion-input').value;
                 const mecanico = document.getElementById('mecanico-input').value;
                 
-                // ===== CAMBIO: VOLVEMOS AL FORMATO DE HORA LOCAL (toLocaleString) =====
-                const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
-                // =====================================================================
+                // ===== CAMBIO IMPORTANTE: Usar 24-horas (hour12: false) =====
+                const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
+                // ============================================================
                 
                 const rowToUpdate = sessionStorage.getItem('paroRow');
 
