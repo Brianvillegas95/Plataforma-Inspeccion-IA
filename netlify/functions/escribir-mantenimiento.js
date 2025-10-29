@@ -17,13 +17,14 @@ function getSheetsAPI(auth) {
 }
 
 // Extraer el número de fila de la respuesta de 'append'
-// La respuesta es algo como "'Hoja 1'!A10:E10"
+// La respuesta es algo como "'Hoja 1'!A10:F10" (ahora F por el nuevo campo)
 function getRowFromRange(range) {
+  // Busca el patrón !A<numero>:
   const match = range.match(/!A(\d+):/);
   if (match && match[1]) {
     return parseInt(match[1], 10);
   }
-  // Fallback por si el rango es diferente
+  // Fallback por si el rango es simple como !A<numero>
   const simpleMatch = range.match(/!A(\d+)/);
    if (simpleMatch && simpleMatch[1]) {
     return parseInt(simpleMatch[1], 10);
@@ -53,7 +54,7 @@ exports.handler = async function (event) {
 
     if (action === 'abrir') {
       // Acción 1: Generar Paro (APPEND)
-      // 'data' debe ser [fechaApertura, maquina, operador, area, workOrder]
+      // 'data' ahora debe ser [fechaApertura, maquina, estacion, operador, area, workOrder]
       
       const response = await sheets.spreadsheets.values.append({
         spreadsheetId: spreadsheetId,
@@ -83,8 +84,13 @@ exports.handler = async function (event) {
         throw new Error("Se requiere un 'row' (número de fila) para la acción 'cerrar'.");
       }
 
-      // El rango será F, G, H de la fila especificada
-      const updateRange = `Hoja 1!F${row}:H${row}`;
+      // ===== CAMBIO IMPORTANTE =====
+      // Las columnas ahora son:
+      // G: Solucion
+      // H: Mecanico
+      // I: Fecha y hora de cierre
+      // El rango de actualización se mueve de 'F:H' a 'G:I'
+      const updateRange = `Hoja 1!G${row}:I${row}`;
 
       await sheets.spreadsheets.values.update({
         spreadsheetId: spreadsheetId,
