@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Mantenimiento - Grupo Azor</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        /* Estilo para el contenedor del formulario principal */
+        .maintenance-tool {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 25px;
+            background-color: var(--surface-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Estilo para la pantalla ANDON (paro de máquina) */
+        #andon-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 193, 7, 0.9); /* Amarillo (warning-color) con transparencia */
+            z-index: 2000;
+            display: none; /* Oculto por defecto */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        #andon-screen h2 {
+            font-size: 3.5em;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+            animation: pulse-text 1.5s infinite;
+        }
+        
+        #andon-screen p {
+            font-size: 1.5em;
+            color: var(--text-secondary);
+        }
+
+        #solucion-form {
+            display: none; /* Oculto hasta que se presiona "Falla Atendida" */
+            margin-top: 30px;
+            background: var(--surface-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        /* Animación para el texto del Andon */
+        @keyframes pulse-text {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Estilo para el spinner de carga */
+        #loading-spinner {
+            display: none;
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--light-bg);
+            border-top: 5px solid var(--azor-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="color-validator-body"> <div id="andon-screen">
+        <i class="fas fa-exclamation-triangle" style="font-size: 6em; color: var(--text-primary); margin-bottom: 20px;"></i>
+        <h2>MÁQUINA DETENIDA</h2>
+        <p>El reporte de mantenimiento ha sido generado.</p>
+        <p>Esperando al equipo de mantenimiento.</p>
+
+        <button id="falla-atendida-btn" class="button primary-action" style="margin-top: 40px; padding: 15px 30px; font-size: 1.2em;">
+            <i class="fas fa-user-cog"></i> Falla Atendida
+        </button>
+
+        <form id="solucion-form">
+            <h3 class="panel-title-sub"><i class="fas fa-wrench"></i> Registrar Solución</h3>
+            <div class="form-group">
+                <label for="solucion-input">Solución Aplicada:</label>
+                <input type="text" id="solucion-input" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="mecanico-input">Nombre del Mecánico:</label>
+                <input type="text" id="mecanico-input" class="form-control" required>
+            </div>
+            <button type="submit" id="finalizar-paro-btn" class="button primary-action" style="background-color: var(--success-color); border-color: var(--success-color);">
+                <i class="fas fa-check-circle"></i> Finalizar Paro
+            </button>
+        </form>
+        <div id="loading-spinner-solucion" class="loading-spinner" style="display: none;"></div>
+    </div>
+
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li>
+                        <a href="reporte_mantenimiento.html" 
+                           class="dropdown-toggle active" 
+                           style="background-color: var(--warning-color); color: var(--text-primary); font-weight: bold;">
+                           <i class="fas fa-tools"></i> REPORTE MANTENIMIENTO
+                        </a>
+                    </li>
+                    <li><a href="index.html" class="dropdown-toggle">Inicio</a></li>
+                    </ul>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <section class="color-validator-tool">
+                <div class="section-header">
+                    <span class="feature-icon"><i class="fas fa-tools"></i></span>
+                    <h2>Reporte de Paro de Mantenimiento</h2>
+                    <p>Llene este formulario para registrar un paro de máquina y notificar a mantenimiento.</p>
+                </div>
+
+                <div class="maintenance-tool">
+                    <form id="paro-form">
+                        <h3 class="panel-title-sub"><i class="fas fa-user-clock"></i> 1. Datos del Paro</h3>
+                        <div class="form-group">
+                            <label for="maquina-input">Máquina:</label>
+                            <input type="text" id="maquina-input" class="form-control" required placeholder="Ej: Inyectora 14">
+                        </div>
+                        <div class="form-group">
+                            <label for="operador-input">Nombre del Operador:</label>
+                            <input type="text" id="operador-input" class="form-control" required placeholder="Ej: Juan Pérez">
+                        </div>
+                        <div class="form-group">
+                            <label for="area-input">Área:</label>
+                            <input type="text" id="area-input" class="form-control" required placeholder="Ej: Moldeo">
+                        </div>
+                        <div class="form-group">
+                            <label for="workorder-input">Work Order (Opcional):</label>
+                            <input type="text" id="workorder-input" class="form-control" placeholder="Ej: 1234567">
+                        </div>
+                        
+                        <div id="loading-spinner-paro" style="display: none;"></div>
+                        
+                        <button type="submit" id="generar-paro-btn" class="button primary-action" style="background-color: var(--danger-color); border-color: var(--danger-color); margin-top: 20px; padding: 12px; font-size: 1.1em;">
+                            <i class="fas fa-play-circle"></i> Generar Paro
+                        </button>
+                    </form>
+                    
+                    <div id="error-message" style="color: var(--danger-color); margin-top: 15px; text-align: center; display: none;"></div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            &copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados.
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Año en el footer
+            document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+            // Elementos del DOM
+            const paroForm = document.getElementById('paro-form');
+            const solucionForm = document.getElementById('solucion-form');
+            const andonScreen = document.getElementById('andon-screen');
+            const fallaAtendidaBtn = document.getElementById('falla-atendida-btn');
+            const generarParoBtn = document.getElementById('generar-paro-btn');
+            const finalizarParoBtn = document.getElementById('finalizar-paro-btn');
+            const loadingParo = document.getElementById('loading-spinner-paro');
+            const loadingSolucion = document.getElementById('loading-spinner-solucion');
+            const errorMessage = document.getElementById('error-message');
+
+            // --- 1. Lógica para el Operador (Generar Paro) ---
+            paroForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                mostrarError(''); // Limpiar errores previos
+                
+                // Deshabilitar botón y mostrar spinner
+                generarParoBtn.disabled = true;
+                loadingParo.style.display = 'block';
+
+                // Recolectar datos del formulario
+                const maquina = document.getElementById('maquina-input').value;
+                const operador = document.getElementById('operador-input').value;
+                const area = document.getElementById('area-input').value;
+                const workOrder = document.getElementById('workorder-input').value || 'N/A'; // Opcional
+                const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+
+                try {
+                    // Llamada a la Función Netlify (Acción 'abrir')
+                    const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'abrir',
+                            data: [fechaApertura, maquina, operador, area, workOrder]
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Error del servidor al crear el reporte.');
+                    }
+
+                    const result = await response.json();
+
+                    if (result.row) {
+                        // Guardamos el número de fila para la actualización posterior
+                        sessionStorage.setItem('paroRow', result.row);
+                        
+                        // Activamos la pantalla Andon
+                        andonScreen.style.display = 'flex';
+                    } else {
+                        throw new Error('No se recibió el número de fila del servidor.');
+                    }
+
+                } catch (error) {
+                    console.error('Error al generar paro:', error);
+                    mostrarError('No se pudo generar el reporte. Verifique su conexión e intente de nuevo.');
+                    generarParoBtn.disabled = false;
+                } finally {
+                    loadingParo.style.display = 'none';
+                }
+            });
+
+            // --- 2. Lógica para el Mecánico (Mostrar formulario de solución) ---
+            fallaAtendidaBtn.addEventListener('click', () => {
+                solucionForm.style.display = 'block';
+                fallaAtendidaBtn.style.display = 'none'; // Ocultamos el botón "Falla Atendida"
+            });
+
+
+            // --- 3. Lógica para el Mecánico (Finalizar Paro) ---
+            solucionForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                mostrarError('');
+                
+                // Deshabilitar botón y mostrar spinner
+                finalizarParoBtn.disabled = true;
+                loadingSolucion.style.display = 'block';
+
+                // Recolectar datos del formulario de solución
+                const solucion = document.getElementById('solucion-input').value;
+                const mecanico = document.getElementById('mecanico-input').value;
+                const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                
+                // Recuperamos el número de fila
+                const rowToUpdate = sessionStorage.getItem('paroRow');
+
+                if (!rowToUpdate) {
+                    mostrarError('Error crítico: Se perdió la referencia del reporte. Recargue la página.');
+                    loadingSolucion.style.display = 'none';
+                    return;
+                }
+
+                try {
+                    // Llamada a la Función Netlify (Acción 'cerrar')
+                    const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'cerrar',
+                            row: rowToUpdate,
+                            data: [solucion, mecanico, fechaCierre] // Columnas F, G, H
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Error del servidor al cerrar el reporte.');
+                    }
+
+                    // ¡Éxito! Reseteamos todo
+                    andonScreen.style.display = 'none';
+                    paroForm.reset();
+                    solucionForm.reset();
+                    solucionForm.style.display = 'none';
+                    fallaAtendidaBtn.style.display = 'block'; // Mostramos el botón de nuevo
+                    generarParoBtn.disabled = false;
+                    finalizarParoBtn.disabled = false;
+                    sessionStorage.removeItem('paroRow');
+
+
+                } catch (error) {
+                    console.error('Error al finalizar paro:', error);
+                    mostrarError('No se pudo finalizar el reporte. Verifique su conexión e intente de nuevo.');
+                    finalizarParoBtn.disabled = false;
+                } finally {
+                    loadingSolucion.style.display = 'none';
+                }
+            });
+
+            function mostrarError(mensaje) {
+                errorMessage.textContent = mensaje;
+                errorMessage.style.display = mensaje ? 'block' : 'none';
+            }
+        });
+    </script>
+</body>
+</html>
