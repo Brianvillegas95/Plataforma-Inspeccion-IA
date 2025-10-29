@@ -1375,42 +1375,46 @@ body.color-validator-body .main-content {
     scrollbar-color: #909090 var(--light-bg);
 }
 /* ========================================================= */
-/* === ESTILOS PARA EL BOTÓN "REPORTAR PARO" (INDEX) === */
+/* === ESTILOS PARA EL BOTÓN "REPORTAR PARO" (FLOTANTE) === */
 /* ========================================================= */
 
-.report-paro-btn-simple {
+/* Usamos la clase que definimos en el HTML */
+.report-paro-btn-floating {
+    position: absolute; /* Flota sobre la sección */
+    top: 25px;          /* Espacio desde arriba de la zona blanca */
+    left: 25px;         /* Espacio desde la izquierda */
+    z-index: 10;        /* Se asegura que esté por encima */
+
     display: flex;
-    flex-direction: column; /* Apila el ícono y el texto verticalmente */
+    flex-direction: column; /* Apila el ícono y el texto */
     align-items: center;
     justify-content: center;
     
-    background-color: var(--warning-color); /* Color amarillo de advertencia */
-    color: var(--text-primary); /* Texto oscuro */
+    background-color: var(--warning-color);
+    color: var(--text-primary);
     
-    width: 100px;  /* Ancho fijo del botón */
-    height: 70px; /* Altura fija del botón */
+    width: 100px;  
+    height: 70px; 
     padding: 8px;
-    margin-right: 15px; /* Espacio para separarlo del logo */
     
     text-decoration: none;
     font-weight: bold;
-    font-size: 0.8em; /* Texto pequeño */
+    font-size: 0.8em; 
     text-align: center;
     line-height: 1.3;
     
-    border-radius: var(--border-radius); /* Bordes redondeados */
-    box-shadow: var(--shadow-sm);
+    border-radius: var(--border-radius); 
+    box-shadow: var(--shadow-md); /* Sombra más notoria */
     transition: all 0.2s ease-in-out;
 }
 
-/* Estilo del ícono dentro del botón */
-.report-paro-btn-simple i {
-    font-size: 1.8em;     /* Ícono grande */
-    margin-bottom: 5px; /* Espacio entre ícono y texto */
+.report-paro-btn-floating i {
+    font-size: 1.8em;     
+    margin-bottom: 5px; 
 }
 
-.report-paro-btn-simple:hover {
-    background-color: #ffca2c; /* Un amarillo más claro al pasar el mouse */
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+.report-paro-btn-floating:hover {
+    background-color: #ffca2c; /* Amarillo más claro */
+    transform: scale(1.05); /* Efecto de zoom */
+    box-shadow: var(--shadow-lg);
 }
