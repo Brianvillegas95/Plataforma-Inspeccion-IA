@@ -245,7 +245,10 @@
                 const operador = document.getElementById('operador-input').value;
                 const statusMaquina = document.getElementById('status-maquina-select').value;
                 const workOrder = document.getElementById('workorder-input').value || 'N/A';
-                const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                
+                // ===== CAMBIO IMPORTANTE: USAR new Date() =====
+                const fechaApertura = new Date();
+                // ==============================================
 
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -302,7 +305,10 @@
                 loadingLlegada.style.display = 'block';
 
                 const rowToUpdate = sessionStorage.getItem('paroRow');
-                const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                
+                // ===== CAMBIO IMPORTANTE: USAR new Date() =====
+                const fechaLlegada = new Date();
+                // ==============================================
 
                 if (!rowToUpdate) {
                     mostrarError('Error crítico: Se perdió la referencia del reporte.');
@@ -352,7 +358,11 @@
                 // Recolectar datos
                 const solucion = document.getElementById('solucion-input').value;
                 const mecanico = document.getElementById('mecanico-input').value;
-                const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                
+                // ===== CAMBIO IMPORTANTE: USAR new Date() =====
+                const fechaCierre = new Date();
+                // ==============================================
+                
                 const rowToUpdate = sessionStorage.getItem('paroRow');
 
                 if (!rowToUpdate) {
