@@ -24,7 +24,7 @@ exports.handler = async function (event) {
 
   try {
     // Usamos una variable nueva para el ID de la hoja de Configuración
-    const spreadsheetId = process.env.CONFIGURACION_SHEET_ID;
+    const spreadsheetId = process.env.CONFIGURACIONMAN_SHEET_ID;
     
     if (!spreadsheetId) {
       // Mensaje de error actualizado
