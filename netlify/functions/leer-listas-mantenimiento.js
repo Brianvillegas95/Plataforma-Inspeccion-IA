@@ -1,13 +1,13 @@
 const { google } = require('googleapis');
 
-// --- Configuración de Autenticación (Reutilizada) ---
+// --- Configuración de Autenticación ---
 function getAuth() {
   return new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     },
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'], // .readonly es más seguro
+    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
   });
 }
 
@@ -18,13 +18,12 @@ function getSheetsAPI(auth) {
 // --- Handler Principal ---
 exports.handler = async function (event) {
   
-  // Solo permitimos peticiones GET
   if (event.httpMethod !== 'GET') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
-    const spreadsheetId = process.env.MANTENIMIENTO_SHEET_ID; // Usamos la misma variable de entorno
+    const spreadsheetId = process.env.MANTENIMIENTO_SHEET_ID;
     if (!spreadsheetId) {
       throw new Error('El ID de la hoja de Mantenimiento no está configurado.');
     }
@@ -32,14 +31,12 @@ exports.handler = async function (event) {
     const auth = getAuth();
     const sheets = getSheetsAPI(auth);
 
-    // 1. Definimos los rangos que queremos leer de la pestaña "Configuracion"
+    // 1. Definimos los rangos que queremos leer
     const ranges = [
-      'Configuracion!A2:A', // Areas
-      'Configuracion!B2:B', // Soluciones
-      'Configuracion!C2:D'  // Maquinas y Estaciones
+      'Configuracion!A2:C', // Relaciones Area -> Maquina -> Estacion
+      'Configuracion!D2:D'  // Soluciones
     ];
 
-    // 2. Hacemos una llamada "batch" para traer todo de un solo golpe
     const response = await sheets.spreadsheets.values.batchGet({
       spreadsheetId: spreadsheetId,
       ranges: ranges,
@@ -47,34 +44,37 @@ exports.handler = async function (event) {
 
     const valueRanges = response.data.valueRanges || [];
 
-    // 3. Procesamos los datos recibidos
+    // 2. Procesar Relaciones (A, B, C)
+    const dataRelaciones = valueRanges[0]?.values || [];
+    const structuredData = {};
 
-    // Procesar Areas (columna A)
-    const areas = valueRanges[0]?.values?.flat().filter(Boolean) || []; // .flat() y .filter(Boolean) limpian la lista
-
-    // Procesar Soluciones (columna B)
-    const soluciones = valueRanges[1]?.values?.flat().filter(Boolean) || [];
-
-    // Procesar Maquinas y Estaciones (columnas C y D)
-    const maquinaData = valueRanges[2]?.values || [];
-    const maquinas = {};
-
-    for (const [maquina, estacion] of maquinaData) {
-      if (!maquina || !estacion) continue; // Saltar filas vacías
+    for (const [area, maquina, estacion] of dataRelaciones) {
+      // Asegurarse de que las tres celdas tengan datos
+      if (!area || !maquina || !estacion) continue; 
       
-      if (!maquinas[maquina]) {
-        maquinas[maquina] = []; // Si es la primera vez que vemos la máquina, creamos su array
+      // Crear el objeto de Area si no existe
+      if (!structuredData[area]) {
+        structuredData[area] = {};
       }
-      maquinas[maquina].push(estacion); // Agregamos la estación a la máquina
+      // Crear el objeto de Maquina (dentro de Area) si no existe
+      if (!structuredData[area][maquina]) {
+        structuredData[area][maquina] = [];
+      }
+      // Añadir la estacion a la maquina (evitando duplicados si los hay)
+      if (!structuredData[area][maquina].includes(estacion)) {
+        structuredData[area][maquina].push(estacion);
+      }
     }
+
+    // 3. Procesar Soluciones (Columna D)
+    const soluciones = valueRanges[1]?.values?.flat().filter(Boolean) || [];
 
     // 4. Devolvemos todo como un solo objeto JSON
     return {
       statusCode: 200,
       body: JSON.stringify({
-        areas: areas,
+        data: structuredData,
         soluciones: soluciones,
-        maquinas: maquinas, // Esto se verá como: {"EP02": ["Barril", "Punta", ...], ...}
       }),
     };
 
