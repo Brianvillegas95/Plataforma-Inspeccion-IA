@@ -15,12 +15,14 @@ function getSheetsAPI(auth) {
   return google.sheets({ version: 'v4', auth });
 }
 
-// --- Función para extraer la fila (LA DEJAMOS AUNQUE NO SE USE EN 'abrir') ---
+// --- Función para extraer la fila ---
 function getRowFromRange(range) {
+  // Busca el patrón !A<numero>:
   const match = range.match(/!A(\d+):/);
   if (match && match[1]) {
     return parseInt(match[1], 10);
   }
+  // Fallback por si el rango es simple como !A<numero>
   const simpleMatch = range.match(/!A(\d+)/);
    if (simpleMatch && simpleMatch[1]) {
     return parseInt(simpleMatch[1], 10);
@@ -45,13 +47,11 @@ exports.handler = async function (event) {
     const auth = getAuth();
     const sheets = getSheetsAPI(auth);
 
-    // --- ACCIÓN 1: ABRIR REPORTE (MODIFICADA PARA LA PRUEBA) ---
+    // --- ACCIÓN 1: ABRIR REPORTE ---
     if (action === 'abrir') {
-      
-      // ****** INICIO DE LA MODIFICACIÓN ******
-      // Simplemente escribimos, igual que en escribir-barras.js
-      // No intentamos leer la respuesta ni devolver la fila.
-      await sheets.spreadsheets.values.append({
+      // data = [fecha, maquina, estacion, area, operador, status, workOrder]
+      // Escribe en A:G
+      const response = await sheets.spreadsheets.values.append({
         spreadsheetId: spreadsheetId,
         range: 'Hoja 1!A1',
         valueInputOption: 'USER_ENTERED',
@@ -61,27 +61,31 @@ exports.handler = async function (event) {
         },
       });
 
-      // Devolvemos un 'row' falso (ej: 99) para que el frontend
-      // piense que funcionó y muestre la pantalla de Andon.
+      const updatedRange = response.data.updates.updatedRange;
+      const newRow = getRowFromRange(updatedRange);
+
       return {
         statusCode: 200,
-        body: JSON.stringify({ message: 'Prueba de paro registrada.', row: 99 }),
+        body: JSON.stringify({ message: 'Paro registrado.', row: newRow }),
       };
-      // ****** FIN DE LA MODIFICACIÓN ******
     }
     
     // --- ACCIÓN 2: REGISTRAR LLEGADA DE MECÁNICO ---
     else if (action === 'llegada') {
+      // data = [fechaLlegada]
+      // Escribe en J
       if (!row) throw new Error("Se requiere 'row' para la acción 'llegada'.");
+
       const updateRange = `Hoja 1!J${row}`; // Columna J
       await sheets.spreadsheets.values.update({
         spreadsheetId: spreadsheetId,
         range: updateRange,
         valueInputOption: 'USER_ENTERED',
         resource: {
-          values: [data],
+          values: [data], // data es [fechaLlegada]
         },
       });
+
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'Llegada registrada.' }),
@@ -90,23 +94,30 @@ exports.handler = async function (event) {
 
     // --- ACCIÓN 3: CERRAR REPORTE (SOLUCIÓN) ---
     else if (action === 'cerrar') {
+      // data = [solucion, mecanico, fechaCierre]
+      // Escribe en H, I, y K
       if (!row) throw new Error("Se requiere 'row' para la acción 'cerrar'.");
+
+      // Usamos batchUpdate para escribir en rangos no contiguos
       await sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: spreadsheetId,
         resource: {
           valueInputOption: 'USER_ENTERED',
           data: [
             {
+              // Rango 1: Solucion y Mecanico (Columnas H e I)
               range: `Hoja 1!H${row}:I${row}`,
-              values: [[ data[0], data[1] ]]
+              values: [[ data[0], data[1] ]] // [solucion, mecanico]
             },
             {
+              // Rango 2: Fecha de cierre (Columna K)
               range: `Hoja 1!K${row}`,
-              values: [[ data[2] ]]
+              values: [[ data[2] ]] // [fechaCierre]
             }
           ]
         }
       });
+
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'Paro finalizado y actualizado.' }),
