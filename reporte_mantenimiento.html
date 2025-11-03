@@ -8,92 +8,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        .maintenance-tool {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 25px;
-            background-color: var(--surface-bg);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-md);
-        }
-
-        /* --- ESTILOS ANDON --- */
-        #andon-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2000;
-            display: none; /* Oculto por defecto */
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            text-align: center;
-            transition: background-color 0.3s ease;
-        }
+        /* ... (Todos tus estilos de .maintenance-tool, #andon-screen, etc. van aquí) ... */
+        .maintenance-tool { max-width: 600px; margin: 0 auto; padding: 25px; background-color: var(--surface-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-md); }
+        #andon-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; display: none; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; transition: background-color 0.3s ease; }
+        #andon-screen.andon-red { background-color: rgba(220, 53, 69, 0.9); }
+        #andon-screen.andon-yellow { background-color: rgba(255, 193, 7, 0.9); }
+        #andon-screen #andon-icon { font-size: 6em; color: var(--text-primary); margin-bottom: 20px; }
+        #andon-screen h2 { font-size: 3.5em; color: var(--text-primary); margin-bottom: 20px; animation: pulse-text 1.5s infinite; }
+        #andon-screen p { font-size: 1.5em; color: var(--text-secondary); }
+        #solucion-form { display: none; margin-top: 30px; background: var(--surface-bg); padding: 20px; border-radius: var(--border-radius); box-shadow: var(--shadow-lg); width: 100%; max-width: 500px; }
+        @keyframes pulse-text { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .loading-spinner { display: none; width: 50px; height: 50px; border: 5px solid var(--light-bg); border-top: 5px solid var(--azor-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* Color ROJO para Máquina Detenida */
-        #andon-screen.andon-red {
-            background-color: rgba(220, 53, 69, 0.9); /* var(--danger-color) */
-        }
-        
-        /* Color AMARILLO para Máquina Trabajando */
-        #andon-screen.andon-yellow {
-            background-color: rgba(255, 193, 7, 0.9); /* var(--warning-color) */
-        }
-
-        #andon-screen #andon-icon {
-            font-size: 6em;
-            color: var(--text-primary);
-            margin-bottom: 20px;
-        }
-
-        #andon-screen h2 {
-            font-size: 3.5em;
-            color: var(--text-primary);
-            margin-bottom: 20px;
-            animation: pulse-text 1.5s infinite;
-        }
-        
-        #andon-screen p {
-            font-size: 1.5em;
-            color: var(--text-secondary);
-        }
-
-        #solucion-form {
-            display: none; /* Oculto por defecto */
-            margin-top: 30px;
-            background: var(--surface-bg);
-            padding: 20px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-lg);
-            width: 100%;
-            max-width: 500px;
-        }
-
-        @keyframes pulse-text {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        /* --- ESTILOS SPINNERS --- */
-        .loading-spinner {
-            display: none;
-            width: 50px;
-            height: 50px;
-            border: 5px solid var(--light-bg);
-            border-top: 5px solid var(--azor-blue);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        /* Estilo para los <select> deshabilitados */
+        select:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -106,7 +37,6 @@
         <p>Esperando al equipo de mantenimiento.</p>
 
         <div id="mecanico-actions" style="margin-top: 40px; display: flex; flex-direction: column; gap: 15px; align-items: center;">
-            
             <button id="llegada-mecanico-btn" class="button primary-action" style="padding: 15px 30px; font-size: 1.2em;">
                 <i class="fas fa-running"></i> Registrar Llegada de Mecánico
             </button>
@@ -116,12 +46,14 @@
                 <i class="fas fa-user-cog"></i> Registrar Solución
             </button>
         </div>
-
+        
         <form id="solucion-form">
             <h3 class="panel-title-sub"><i class="fas fa-wrench"></i> Registrar Solución</h3>
             <div class="form-group">
                 <label for="solucion-input">Solución Aplicada:</label>
-                <input type="text" id="solucion-input" class="form-control" required>
+                <select id="solucion-input" class="form-control" required>
+                    <option value="" disabled selected>-- Cargando soluciones... --</option>
+                </select>
             </div>
             <div class="form-group">
                 <label for="mecanico-input">Nombre del Mecánico:</label>
@@ -136,16 +68,7 @@
 
     <div class="app-container">
         <header class="app-header">
-            <div class="logo-container">
-                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
-                <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
-            </div>
-            <nav class="main-nav">
-                <ul>
-                    <li><a href="index.html" class="dropdown-toggle">Inicio</a></li>
-                    </ul>
-            </nav>
-        </header>
+            </header>
 
         <main class="main-content">
             <section class="color-validator-tool">
@@ -161,17 +84,23 @@
                         
                         <div class="form-group">
                             <label for="maquina-input">Máquina:</label>
-                            <input type="text" id="maquina-input" class="form-control" required placeholder="Ej: Inyectora 14">
+                            <select id="maquina-input" class="form-control" required disabled>
+                                <option value="" disabled selected>-- Cargando máquinas... --</option>
+                            </select>
                         </div>
                         
                         <div class="form-group">
                             <label for="estacion-input">Estación:</label>
-                            <input type="text" id="estacion-input" class="form-control" required placeholder="Ej: EP02">
+                            <select id="estacion-input" class="form-control" required disabled>
+                                <option value="" disabled selected>-- Primero seleccione una máquina --</option>
+                            </select>
                         </div>
                         
                         <div class="form-group">
                             <label for="area-input">Área:</label>
-                            <input type="text" id="area-input" class="form-control" required placeholder="Ej: Moldeo">
+                            <select id="area-input" class="form-control" required disabled>
+                                 <option value="" disabled selected>-- Cargando áreas... --</option>
+                            </select>
                         </div>
                         
                         <div class="form-group">
@@ -187,6 +116,7 @@
                                 <option value="trabajando">Maquina trabajando</option>
                             </select>
                         </div>
+
                         <div class="form-group">
                             <label for="workorder-input">Work Order (Opcional):</label>
                             <input type="text" id="workorder-input" class="form-control" placeholder="Ej: 1234567">
@@ -211,6 +141,102 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            
+            // ===== INICIO DE LA LÓGICA DE MENÚS DESPLEGABLES =====
+
+            // 1. OBTENER REFERENCIAS A LOS <SELECT>
+            const maquinaSelect = document.getElementById('maquina-input');
+            const estacionSelect = document.getElementById('estacion-input');
+            const areaSelect = document.getElementById('area-input');
+            const solucionSelect = document.getElementById('solucion-input');
+
+            // Guardaremos los datos de la máquina aquí
+            let maquinasData = {};
+
+            // 2. FUNCIÓN PRINCIPAL PARA CARGAR DATOS
+            async function cargarDatosDeConfiguracion() {
+                try {
+                    const response = await fetch('/.netlify/functions/leer-listas-mantenimiento');
+                    if (!response.ok) {
+                        throw new Error('Error de red al cargar la configuración.');
+                    }
+                    const data = await response.json();
+
+                    // Guardamos los datos de máquinas para usarlos en el evento 'change'
+                    maquinasData = data.maquinas || {};
+
+                    // Cargar los menús con los datos recibidos
+                    cargarMaquinas(Object.keys(maquinasData));
+                    cargarAreas(data.areas || []);
+                    cargarSoluciones(data.soluciones || []);
+
+                } catch (error) {
+                    console.error("Error al cargar datos:", error);
+                    // Mostrar error en los menús
+                    maquinaSelect.innerHTML = '<option value="">Error al cargar</option>';
+                    areaSelect.innerHTML = '<option value="">Error al cargar</option>';
+                    solucionSelect.innerHTML = '<option value="">Error al cargar</option>';
+                }
+            }
+
+            // 3. FUNCIONES PARA POBLAR LOS <SELECT>
+            
+            function cargarMaquinas(maquinas) {
+                maquinaSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una máquina --</option>';
+                maquinas.forEach(maquina => {
+                    const option = new Option(maquina, maquina);
+                    maquinaSelect.add(option);
+                });
+                maquinaSelect.disabled = false; // Habilitar el menú
+            }
+
+            function cargarAreas(areas) {
+                areaSelect.innerHTML = '<option value="" disabled selected>-- Seleccione un área --</option>';
+                areas.forEach(area => {
+                    const option = new Option(area, area);
+                    areaSelect.add(option);
+                });
+                areaSelect.disabled = false; // Habilitar el menú
+            }
+
+            function cargarSoluciones(soluciones) {
+                solucionSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una solución --</option>';
+                soluciones.forEach(solucion => {
+                    const option = new Option(solucion, solucion);
+                    solucionSelect.add(option);
+                });
+                // No lo habilitamos, ya que está en el formulario oculto
+            }
+
+            function cargarEstaciones(maquinaSeleccionada) {
+                estacionSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una estación --</option>';
+                const estaciones = maquinasData[maquinaSeleccionada]; // Usamos los datos guardados
+                
+                if (estaciones && estaciones.length > 0) {
+                    estaciones.forEach(estacion => {
+                        const option = new Option(estacion, estacion);
+                        estacionSelect.add(option);
+                    });
+                    estacionSelect.disabled = false;
+                } else {
+                    estacionSelect.disabled = true;
+                }
+            }
+
+            // 4. ASIGNAR EVENTOS Y CARGAR DATOS INICIALES
+            maquinaSelect.addEventListener('change', () => {
+                const maquina = maquinaSelect.value;
+                cargarEstaciones(maquina);
+            });
+
+            // Cargar todo al iniciar la página
+            cargarDatosDeConfiguracion();
+            
+            // ===== FIN DE LA LÓGICA DE MENÚS DESPLEGABLES =====
+
+
+            // ... (Aquí va todo tu código JS existente para los formularios y el Andon) ...
+            
             document.getElementById('currentYear').textContent = new Date().getFullYear();
 
             // Elementos del DOM
@@ -244,10 +270,7 @@
                 const operador = document.getElementById('operador-input').value;
                 const statusMaquina = document.getElementById('status-maquina-select').value;
                 const workOrder = document.getElementById('workorder-input').value || 'N/A';
-                
-                // ===== CAMBIO IMPORTANTE: Usar 24-horas (hour12: false) =====
                 const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
-                // ============================================================
 
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -297,19 +320,13 @@
                 mostrarError('');
                 llegadaMecanicoBtn.disabled = true;
                 loadingLlegada.style.display = 'block';
-
                 const rowToUpdate = sessionStorage.getItem('paroRow');
-                
-                // ===== CAMBIO IMPORTANTE: Usar 24-horas (hour12: false) =====
                 const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
-                // ============================================================
-
                 if (!rowToUpdate) {
                     mostrarError('Error crítico: Se perdió la referencia del reporte.');
                     loadingLlegada.style.display = 'none';
                     return;
                 }
-
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
                         method: 'POST',
@@ -317,15 +334,12 @@
                         body: JSON.stringify({
                             action: 'llegada',
                             row: rowToUpdate,
-                            data: [fechaLlegada] // Dato para columna J
+                            data: [fechaLlegada]
                         }),
                     });
-
                     if (!response.ok) throw new Error('Error del servidor al registrar la llegada.');
-
                     llegadaMecanicoBtn.style.display = 'none';
                     fallaAtendidaBtn.style.display = 'block';
-
                 } catch (error) {
                     console.error('Error al registrar llegada:', error);
                     mostrarError('No se pudo registrar la llegada. Intente de nuevo.');
@@ -341,7 +355,7 @@
                 fallaAtendidaBtn.style.display = 'none';
             });
 
-            // --- 4. LÓGICA PARA FINALIZAR PARO (ENVIAR SOLUCIÓN) ---
+            // --- 4. LÓGICA PARA FINALIZAR PARO ---
             solucionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 mostrarError('');
@@ -350,11 +364,7 @@
 
                 const solucion = document.getElementById('solucion-input').value;
                 const mecanico = document.getElementById('mecanico-input').value;
-                
-                // ===== CAMBIO IMPORTANTE: Usar 24-horas (hour12: false) =====
                 const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
-                // ============================================================
-                
                 const rowToUpdate = sessionStorage.getItem('paroRow');
 
                 if (!rowToUpdate) {
@@ -362,7 +372,6 @@
                     loadingSolucion.style.display = 'none';
                     return;
                 }
-
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
                         method: 'POST',
@@ -370,19 +379,23 @@
                         body: JSON.stringify({
                             action: 'cerrar',
                             row: rowToUpdate,
-                            data: [solucion, mecanico, fechaCierre] // Datos para H, I, K
+                            data: [solucion, mecanico, fechaCierre]
                         }),
                     });
-
                     if (!response.ok) throw new Error('Error del servidor al cerrar el reporte.');
-
                     andonScreen.style.display = 'none';
                     paroForm.reset();
                     solucionForm.reset();
+                    
+                    // Resetear menús
+                    maquinaSelect.disabled = false;
+                    areaSelect.disabled = false;
+                    estacionSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione una máquina --</option>';
+                    estacionSelect.disabled = true;
+                    
                     generarParoBtn.disabled = false;
                     finalizarParoBtn.disabled = false;
                     sessionStorage.removeItem('paroRow');
-
                 } catch (error) {
                     console.error('Error al finalizar paro:', error);
                     mostrarError('No se pudo finalizar el reporte. Intente de nuevo.');
