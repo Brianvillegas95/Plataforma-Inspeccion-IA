@@ -23,7 +23,6 @@ exports.handler = async function (event) {
   }
 
   try {
-    // ===== ¡CAMBIO IMPORTANTE AQUÍ! =====
     // Usamos una variable nueva para el ID de la hoja de Configuración
     const spreadsheetId = process.env.CONFIGURACION_SHEET_ID;
     
@@ -31,7 +30,6 @@ exports.handler = async function (event) {
       // Mensaje de error actualizado
       throw new Error('El ID de la hoja de Configuración no está configurado.');
     }
-    // =====================================
 
     const auth = getAuth();
     const sheets = getSheetsAPI(auth);
@@ -91,3 +89,4 @@ exports.handler = async function (event) {
     };
   }
 };
+// LA LLAVE EXTRA HA SIDO ELIMINADA DE AQUÍ
