@@ -15,17 +15,16 @@ function getSheetsAPI(auth) {
   return google.sheets({ version: 'v4', auth });
 }
 
-// --- Función para extraer la fila ---
+// --- Función para extraer la fila (CORREGIDA) ---
 function getRowFromRange(range) {
-  // Busca el patrón !A<numero>:
-  const match = range.match(/!A(\d+):/);
+  // La expresión regular ahora busca:
+  // '!' -> El inicio del rango de celda
+  // [A-Z]+ -> Una o más letras (para 'A' o 'AA', etc.)
+  // (\d+) -> El número de fila (esto es lo que capturamos)
+  // :? -> Un dos puntos opcional (para rangos A6 o A6:G6)
+  const match = range.match(/![A-Z]+(\d+):?/);
   if (match && match[1]) {
     return parseInt(match[1], 10);
-  }
-  // Fallback por si el rango es simple como !A<numero>
-  const simpleMatch = range.match(/!A(\d+)/);
-   if (simpleMatch && simpleMatch[1]) {
-    return parseInt(simpleMatch[1], 10);
   }
   throw new Error('No se pudo extraer el número de fila del rango: ' + range);
 }
@@ -49,11 +48,11 @@ exports.handler = async function (event) {
 
     // --- ACCIÓN 1: ABRIR REPORTE ---
     if (action === 'abrir') {
-      // data = [fecha, maquina, estacion, area, operador, status, workOrder]
+      // data = [fecha, area, maquina, estacion, operador, status, workOrder]
       // Escribe en A:G
       const response = await sheets.spreadsheets.values.append({
         spreadsheetId: spreadsheetId,
-        range: 'Hoja 1!A1',
+        range: 'Hoja 1!A1:G1', // Especificar el rango completo es más robusto
         valueInputOption: 'USER_ENTERED',
         insertDataOption: 'INSERT_ROWS',
         resource: {
@@ -62,6 +61,7 @@ exports.handler = async function (event) {
       });
 
       const updatedRange = response.data.updates.updatedRange;
+      // La función getRowFromRange AHORA SÍ FUNCIONARÁ
       const newRow = getRowFromRange(updatedRange);
 
       return {
