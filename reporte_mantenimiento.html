@@ -76,8 +76,7 @@
             <nav class="main-nav">
                  <ul>
                     <li><a href="index.html">Inicio</a></li>
-                    
-                    </ul>
+                </ul>
             </nav>
         </header>
         <main class="main-content">
@@ -240,9 +239,6 @@
             cargarDatosDeConfiguracion();
             
             // ===== FIN DE LA LÓGICA DE MENÚS DESPLEGABLES (v2) =====
-
-
-            // ... (Resto del script sin cambios) ...
             
             document.getElementById('currentYear').textContent = new Date().getFullYear();
 
@@ -271,14 +267,16 @@
                 loadingParo.style.display = 'block';
 
                 // ===== INICIO DE REORDENACIÓN DE DATOS (JS) =====
-                // Este es el orden de tus columnas en Hoja 1
                 const area = document.getElementById('area-input').value;
                 const maquina = document.getElementById('maquina-input').value;
                 const estacion = document.getElementById('estacion-input').value;
                 const operador = document.getElementById('operador-input').value;
                 const statusMaquina = document.getElementById('status-maquina-select').value;
                 const workOrder = document.getElementById('workorder-input').value || 'N/A';
-                const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
+                
+                // === CAMBIO DE FECHA A ISOSTRING ===
+                const fechaApertura = new Date().toISOString();
+                
                 // ===== FIN DE REORDENACIÓN DE DATOS (JS) =====
 
                 try {
@@ -287,7 +285,6 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'abrir',
-                            // Enviamos los datos en el nuevo orden para Hoja 1
                             // A: fecha, B: Area, C: Maquina, D: Estacion, E: Operador, F: Status, G: WO
                             data: [fechaApertura, area, maquina, estacion, operador, statusMaquina, workOrder]
                         }),
@@ -327,13 +324,15 @@
             });
 
             // --- 2. LÓGICA PARA LLEGADA DE MECÁNICO ---
-            // (Esta función no necesita cambios, 'escribir-mantenimiento.js' sabe dónde va la columna J)
             llegadaMecanicoBtn.addEventListener('click', async () => {
                 mostrarError('');
                 llegadaMecanicoBtn.disabled = true;
                 loadingLlegada.style.display = 'block';
                 const rowToUpdate = sessionStorage.getItem('paroRow');
-                const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
+                
+                // === CAMBIO DE FECHA A ISOSTRING ===
+                const fechaLlegada = new Date().toISOString();
+                
                 if (!rowToUpdate) {
                     mostrarError('Error crítico: Se perdió la referencia del reporte.');
                     loadingLlegada.style.display = 'none';
@@ -368,7 +367,6 @@
             });
 
             // --- 4. LÓGICA PARA FINALIZAR PARO ---
-             // (Esta función tampoco necesita cambios, 'escribir-mantenimiento.js' sabe dónde van H, I y K)
             solucionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 mostrarError('');
@@ -377,7 +375,10 @@
 
                 const solucion = document.getElementById('solucion-input').value;
                 const mecanico = document.getElementById('mecanico-input').value;
-                const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
+
+                // === CAMBIO DE FECHA A ISOSTRING ===
+                const fechaCierre = new Date().toISOString();
+                
                 const rowToUpdate = sessionStorage.getItem('paroRow');
 
                 if (!rowToUpdate) {
