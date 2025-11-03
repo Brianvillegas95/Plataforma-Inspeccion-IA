@@ -20,12 +20,7 @@
         @keyframes pulse-text { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         .loading-spinner { display: none; width: 50px; height: 50px; border: 5px solid var(--light-bg); border-top: 5px solid var(--azor-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* Estilo para los <select> deshabilitados */
-        select:disabled {
-            background-color: #e9ecef;
-            cursor: not-allowed;
-        }
+        select:disabled { background-color: #e9ecef; cursor: not-allowed; }
     </style>
 </head>
 <body class="color-validator-body">
@@ -35,18 +30,15 @@
         <h2 id="andon-title">MÁQUINA DETENIDA</h2>
         <p>El reporte de mantenimiento ha sido generado.</p>
         <p>Esperando al equipo de mantenimiento.</p>
-
         <div id="mecanico-actions" style="margin-top: 40px; display: flex; flex-direction: column; gap: 15px; align-items: center;">
             <button id="llegada-mecanico-btn" class="button primary-action" style="padding: 15px 30px; font-size: 1.2em;">
                 <i class="fas fa-running"></i> Registrar Llegada de Mecánico
             </button>
             <div id="loading-spinner-llegada" class="loading-spinner"></div>
-            
             <button id="falla-atendida-btn" class="button primary-action" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: var(--success-color); border-color: var(--success-color);">
                 <i class="fas fa-user-cog"></i> Registrar Solución
             </button>
         </div>
-        
         <form id="solucion-form">
             <h3 class="panel-title-sub"><i class="fas fa-wrench"></i> Registrar Solución</h3>
             <div class="form-group">
@@ -66,6 +58,7 @@
         </form>
     </div>
 
+
     <div class="app-container">
         
         <header class="app-header">
@@ -79,6 +72,7 @@
                 </ul>
             </nav>
         </header>
+
         <main class="main-content">
             <section class="color-validator-tool">
                 <div class="section-header">
@@ -150,95 +144,53 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
-            // ===== INICIO DE LA LÓGICA DE MENÚS DESPLEGABLES (v2) =====
-
+            // ===== LÓGICA DE MENÚS DESPLEGABLES (SIN CAMBIOS) =====
             const areaSelect = document.getElementById('area-input');
             const maquinaSelect = document.getElementById('maquina-input');
             const estacionSelect = document.getElementById('estacion-input');
             const solucionSelect = document.getElementById('solucion-input');
-
-            // Guardaremos la estructura de datos completa aquí
             let configData = {};
-
-            // 1. FUNCIÓN PRINCIPAL PARA CARGAR DATOS
             async function cargarDatosDeConfiguracion() {
                 try {
                     const response = await fetch('/.netlify/functions/leer-listas-mantenimiento');
-                    if (!response.ok) {
-                        throw new Error('Error de red al cargar la configuración.');
-                    }
-                    const data = await response.json(); // data = { data: {...}, soluciones: [...] }
-
-                    configData = data.data || {}; // Guardamos la estructura anidada
-
+                    if (!response.ok) throw new Error('Error de red al cargar la configuración.');
+                    const data = await response.json();
+                    configData = data.data || {};
                     cargarAreas(Object.keys(configData));
                     cargarSoluciones(data.soluciones || []);
-
                 } catch (error) {
                     console.error("Error al cargar datos:", error);
                     areaSelect.innerHTML = '<option value="">Error al cargar</option>';
                     solucionSelect.innerHTML = '<option value="">Error al cargar</option>';
                 }
             }
-
-            // 2. FUNCIONES PARA POBLAR LOS <SELECT>
-            
             function cargarAreas(areas) {
                 areaSelect.innerHTML = '<option value="" disabled selected>-- Seleccione un área --</option>';
-                areas.sort().forEach(area => { // .sort() para ordenar alfabéticamente
-                    const option = new Option(area, area);
-                    areaSelect.add(option);
-                });
-                areaSelect.disabled = false; // Habilitar el primer menú
+                areas.sort().forEach(area => { areaSelect.add(new Option(area, area)); });
+                areaSelect.disabled = false;
             }
-
             function cargarMaquinas(areaSeleccionada) {
                 const maquinas = Object.keys(configData[areaSeleccionada] || {});
-                
                 maquinaSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una máquina --</option>';
                 estacionSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione una máquina --</option>';
                 estacionSelect.disabled = true;
-
-                maquinas.sort().forEach(maquina => {
-                    const option = new Option(maquina, maquina);
-                    maquinaSelect.add(option);
-                });
+                maquinas.sort().forEach(maquina => { maquinaSelect.add(new Option(maquina, maquina)); });
                 maquinaSelect.disabled = false;
             }
-
             function cargarEstaciones(areaSeleccionada, maquinaSeleccionada) {
                 const estaciones = configData[areaSeleccionada]?.[maquinaSeleccionada] || [];
-                
                 estacionSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una estación --</option>';
-                
-                estaciones.sort().forEach(estacion => {
-                    const option = new Option(estacion, estacion);
-                    estacionSelect.add(option);
-                });
+                estaciones.sort().forEach(estacion => { estacionSelect.add(new Option(estacion, estacion)); });
                 estacionSelect.disabled = false;
             }
-
             function cargarSoluciones(soluciones) {
                 solucionSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una solución --</option>';
-                soluciones.sort().forEach(solucion => {
-                    const option = new Option(solucion, solucion);
-                    solucionSelect.add(option);
-                });
+                soluciones.sort().forEach(solucion => { solucionSelect.add(new Option(solucion, solucion)); });
             }
-
-            // 3. ASIGNAR EVENTOS Y CARGAR DATOS INICIALES
-            areaSelect.addEventListener('change', () => {
-                cargarMaquinas(areaSelect.value);
-            });
-            
-            maquinaSelect.addEventListener('change', () => {
-                cargarEstaciones(areaSelect.value, maquinaSelect.value);
-            });
-
-            // Cargar todo al iniciar la página
+            areaSelect.addEventListener('change', () => { cargarMaquinas(areaSelect.value); });
+            maquinaSelect.addEventListener('change', () => { cargarEstaciones(areaSelect.value, maquinaSelect.value); });
             cargarDatosDeConfiguracion();
-            
-            // ===== FIN DE LA LÓGICA DE MENÚS DESPLEGABLES (v2) =====
+            // ===== FIN LÓGICA DE MENÚS DESPLEGABLES =====
             
             document.getElementById('currentYear').textContent = new Date().getFullYear();
 
@@ -247,37 +199,40 @@
             const andonScreen = document.getElementById('andon-screen');
             const andonIcon = document.getElementById('andon-icon');
             const andonTitle = document.getElementById('andon-title');
-            
             const generarParoBtn = document.getElementById('generar-paro-btn');
             const llegadaMecanicoBtn = document.getElementById('llegada-mecanico-btn');
             const fallaAtendidaBtn = document.getElementById('falla-atendida-btn');
             const finalizarParoBtn = document.getElementById('finalizar-paro-btn');
-            
             const loadingParo = document.getElementById('loading-spinner-paro');
             const loadingLlegada = document.getElementById('loading-spinner-llegada');
             const loadingSolucion = document.getElementById('loading-spinner-solucion');
-            
             const errorMessage = document.getElementById('error-message');
 
-            // --- 1. LÓGICA PARA GENERAR PARO ---
+            
+            // --- 1. LÓGICA PARA GENERAR PARO (MODIFICADA PARA LA PRUEBA) ---
             paroForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 mostrarError('');
                 generarParoBtn.disabled = true;
                 loadingParo.style.display = 'block';
 
-                // ===== INICIO DE REORDENACIÓN DE DATOS (JS) =====
-                const area = document.getElementById('area-input').value;
-                const maquina = document.getElementById('maquina-input').value;
-                const estacion = document.getElementById('estacion-input').value;
-                const operador = document.getElementById('operador-input').value;
-                const statusMaquina = document.getElementById('status-maquina-select').value;
-                const workOrder = document.getElementById('workorder-input').value || 'N/A';
+                // ============ INICIO DE LA PRUEBA ============
+                // Vamos a ignorar todos los campos del formulario.
+                // Enviaremos un arreglo de strings simple.
                 
-                // === CAMBIO DE FECHA A ISOSTRING ===
-                const fechaApertura = new Date().toISOString();
+                const datosDePrueba = [
+                    "PRUEBA DE ESCRITURA", // A: Fecha
+                    "AREA DE PRUEBA",       // B: Area
+                    "MAQUINA DE PRUEBA",    // C: Maquina
+                    "ESTACION DE PRUEBA",   // D: Estacion
+                    "OPERADOR DE PRUEBA",   // E: Operador
+                    "detenida",             // F: Status
+                    "WO-PRUEBA"             // G: Work Order
+                ];
                 
-                // ===== FIN DE REORDENACIÓN DE DATOS (JS) =====
+                // Usamos "detenida" para simular el status
+                const statusMaquina = "detenida"; 
+                // ============ FIN DE LA PRUEBA ============
 
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -285,8 +240,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'abrir',
-                            // A: fecha, B: Area, C: Maquina, D: Estacion, E: Operador, F: Status, G: WO
-                            data: [fechaApertura, area, maquina, estacion, operador, statusMaquina, workOrder]
+                            data: datosDePrueba // Enviamos los datos de prueba
                         }),
                     });
 
@@ -296,6 +250,7 @@
 
                     sessionStorage.setItem('paroRow', result.row);
                     
+                    // Lógica de Andon (sin cambios)
                     if (statusMaquina === 'detenida') {
                         andonScreen.classList.add('andon-red');
                         andonScreen.classList.remove('andon-yellow');
@@ -323,16 +278,17 @@
                 }
             });
 
-            // --- 2. LÓGICA PARA LLEGADA DE MECÁNICO ---
+            
+            // --- 2. LÓGICA LLEGADA (SIN CAMBIOS, PERO FALLARÁ) ---
+            // NOTA: Esta parte fallará porque 'row' será 99 (o lo que sea)
+            // pero la fila 99 no tendrá los datos de prueba.
+            // Ignoraremos esto por ahora, solo nos importa el paso 1.
             llegadaMecanicoBtn.addEventListener('click', async () => {
                 mostrarError('');
                 llegadaMecanicoBtn.disabled = true;
                 loadingLlegada.style.display = 'block';
                 const rowToUpdate = sessionStorage.getItem('paroRow');
-                
-                // === CAMBIO DE FECHA A ISOSTRING ===
-                const fechaLlegada = new Date().toISOString();
-                
+                const fechaLlegada = new Date().toISOString(); // Usamos ISO por si acaso
                 if (!rowToUpdate) {
                     mostrarError('Error crítico: Se perdió la referencia del reporte.');
                     loadingLlegada.style.display = 'none';
@@ -360,27 +316,22 @@
                 }
             });
 
-            // --- 3. LÓGICA PARA MOSTRAR FORMULARIO DE SOLUCIÓN ---
+            // --- 3. LÓGICA MOSTRAR SOLUCIÓN (SIN CAMBIOS) ---
             fallaAtendidaBtn.addEventListener('click', () => {
                 solucionForm.style.display = 'block';
                 fallaAtendidaBtn.style.display = 'none';
             });
 
-            // --- 4. LÓGICA PARA FINALIZAR PARO ---
+            // --- 4. LÓGICA FINALIZAR PARO (SIN CAMBIOS, PERO FALLARÁ) ---
             solucionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 mostrarError('');
                 finalizarParoBtn.disabled = true;
                 loadingSolucion.style.display = 'block';
-
                 const solucion = document.getElementById('solucion-input').value;
                 const mecanico = document.getElementById('mecanico-input').value;
-
-                // === CAMBIO DE FECHA A ISOSTRING ===
-                const fechaCierre = new Date().toISOString();
-                
+                const fechaCierre = new Date().toISOString(); // Usamos ISO por si acaso
                 const rowToUpdate = sessionStorage.getItem('paroRow');
-
                 if (!rowToUpdate) {
                     mostrarError('Error crítico: Se perdió la referencia del reporte.');
                     loadingSolucion.style.display = 'none';
@@ -400,18 +351,16 @@
                     andonScreen.style.display = 'none';
                     paroForm.reset();
                     solucionForm.reset();
-                    
-                    // Resetear menús
                     areaSelect.disabled = false;
                     maquinaSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione un área --</option>';
                     maquinaSelect.disabled = true;
                     estacionSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione una máquina --</option>';
                     estacionSelect.disabled = true;
-                    
                     generarParoBtn.disabled = false;
                     finalizarParoBtn.disabled = false;
                     sessionStorage.removeItem('paroRow');
-                } catch (error) {
+                } catch (error)
+                 {
                     console.error('Error al finalizar paro:', error);
                     mostrarError('No se pudo finalizar el reporte. Intente de nuevo.');
                     finalizarParoBtn.disabled = false;
