@@ -15,12 +15,15 @@ function getSheetsAPI(auth) {
   return google.sheets({ version: 'v4', auth });
 }
 
-// --- Función para extraer la fila (CORREGIDA) ---
+// --- Función para extraer la fila (LA DEJAMOS AUNQUE NO SE USE EN 'abrir') ---
 function getRowFromRange(range) {
-  // Busca el número de fila (ej. A6:G6 -> 6)
-  const match = range.match(/![A-Z]+(\d+):?/);
+  const match = range.match(/!A(\d+):/);
   if (match && match[1]) {
     return parseInt(match[1], 10);
+  }
+  const simpleMatch = range.match(/!A(\d+)/);
+   if (simpleMatch && simpleMatch[1]) {
+    return parseInt(simpleMatch[1], 10);
   }
   throw new Error('No se pudo extraer el número de fila del rango: ' + range);
 }
@@ -42,19 +45,15 @@ exports.handler = async function (event) {
     const auth = getAuth();
     const sheets = getSheetsAPI(auth);
 
-    // --- ACCIÓN 1: ABRIR REPORTE ---
+    // --- ACCIÓN 1: ABRIR REPORTE (MODIFICADA PARA LA PRUEBA) ---
     if (action === 'abrir') {
-      // data = [fecha, area, maquina, estacion, operador, status, workOrder]
-      // Escribe en A:G
-      const response = await sheets.spreadsheets.values.append({
+      
+      // ****** INICIO DE LA MODIFICACIÓN ******
+      // Simplemente escribimos, igual que en escribir-barras.js
+      // No intentamos leer la respuesta ni devolver la fila.
+      await sheets.spreadsheets.values.append({
         spreadsheetId: spreadsheetId,
-        
-        // ====================== ¡ESTA ES LA LÍNEA CORREGIDA! ======================
-        // Le decimos a Google que busque la primera fila vacía
-        // en el rango de columnas A-G de la pestaña "Hoja 1".
-        range: 'Hoja 1!A:G', 
-        // =========================================================================
-
+        range: 'Hoja 1!A1',
         valueInputOption: 'USER_ENTERED',
         insertDataOption: 'INSERT_ROWS',
         resource: {
@@ -62,31 +61,27 @@ exports.handler = async function (event) {
         },
       });
 
-      const updatedRange = response.data.updates.updatedRange;
-      const newRow = getRowFromRange(updatedRange);
-
+      // Devolvemos un 'row' falso (ej: 99) para que el frontend
+      // piense que funcionó y muestre la pantalla de Andon.
       return {
         statusCode: 200,
-        body: JSON.stringify({ message: 'Paro registrado.', row: newRow }),
+        body: JSON.stringify({ message: 'Prueba de paro registrada.', row: 99 }),
       };
+      // ****** FIN DE LA MODIFICACIÓN ******
     }
     
     // --- ACCIÓN 2: REGISTRAR LLEGADA DE MECÁNICO ---
     else if (action === 'llegada') {
-      // data = [fechaLlegada]
-      // Escribe en J
       if (!row) throw new Error("Se requiere 'row' para la acción 'llegada'.");
-
       const updateRange = `Hoja 1!J${row}`; // Columna J
       await sheets.spreadsheets.values.update({
         spreadsheetId: spreadsheetId,
         range: updateRange,
         valueInputOption: 'USER_ENTERED',
         resource: {
-          values: [data], // data es [fechaLlegada]
+          values: [data],
         },
       });
-
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'Llegada registrada.' }),
@@ -95,30 +90,23 @@ exports.handler = async function (event) {
 
     // --- ACCIÓN 3: CERRAR REPORTE (SOLUCIÓN) ---
     else if (action === 'cerrar') {
-      // data = [solucion, mecanico, fechaCierre]
-      // Escribe en H, I, y K
       if (!row) throw new Error("Se requiere 'row' para la acción 'cerrar'.");
-
-      // Usamos batchUpdate para escribir en rangos no contiguos
       await sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: spreadsheetId,
         resource: {
           valueInputOption: 'USER_ENTERED',
           data: [
             {
-              // Rango 1: Solucion y Mecanico (Columnas H e I)
               range: `Hoja 1!H${row}:I${row}`,
-              values: [[ data[0], data[1] ]] // [solucion, mecanico]
+              values: [[ data[0], data[1] ]]
             },
             {
-              // Rango 2: Fecha de cierre (Columna K)
               range: `Hoja 1!K${row}`,
-              values: [[ data[2] ]] // [fechaCierre]
+              values: [[ data[2] ]]
             }
           ]
         }
       });
-
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'Paro finalizado y actualizado.' }),
