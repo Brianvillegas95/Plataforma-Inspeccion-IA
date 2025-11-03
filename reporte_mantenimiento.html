@@ -145,7 +145,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
-            // ===== LÓGICA DE MENÚS DESPLEGABLES =====
+            // ===== LÓGICA DE MENÚS DESPLEGABLES (SIN CAMBIOS) =====
             const areaSelect = document.getElementById('area-input');
             const maquinaSelect = document.getElementById('maquina-input');
             const estacionSelect = document.getElementById('estacion-input');
@@ -216,7 +216,6 @@
                 generarParoBtn.disabled = true;
                 loadingParo.style.display = 'block';
 
-                // Recolectamos los datos en el orden correcto
                 const area = document.getElementById('area-input').value;
                 const maquina = document.getElementById('maquina-input').value;
                 const estacion = document.getElementById('estacion-input').value;
@@ -224,8 +223,9 @@
                 const statusMaquina = document.getElementById('status-maquina-select').value;
                 const workOrder = document.getElementById('workorder-input').value || 'N/A';
                 
-                // Usamos el formato de fecha universal
-                const fechaApertura = new Date().toISOString();
+                // === CAMBIO DE FECHA ===
+                // Usamos el formato de tu archivo de referencia
+                const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
 
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -233,7 +233,6 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'abrir',
-                            // Enviamos los datos en el orden de la Hoja 1
                             data: [fechaApertura, area, maquina, estacion, operador, statusMaquina, workOrder]
                         }),
                     });
@@ -281,8 +280,8 @@
                 loadingLlegada.style.display = 'block';
                 const rowToUpdate = sessionStorage.getItem('paroRow');
                 
-                // Usamos el formato de fecha universal
-                const fechaLlegada = new Date().toISOString();
+                // === CAMBIO DE FECHA ===
+                const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
                 
                 if (!rowToUpdate) {
                     mostrarError('Error crítico: Se perdió la referencia del reporte.');
@@ -326,9 +325,9 @@
 
                 const solucion = document.getElementById('solucion-input').value;
                 const mecanico = document.getElementById('mecanico-input').value;
-
-                // Usamos el formato de fecha universal
-                const fechaCierre = new Date().toISOString();
+                
+                // === CAMBIO DE FECHA ===
+                const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
                 
                 const rowToUpdate = sessionStorage.getItem('paroRow');
 
