@@ -49,7 +49,7 @@ exports.handler = async function (event) {
 
     // --- ACCIÓN 1: ABRIR REPORTE ---
     if (action === 'abrir') {
-      // data = [fecha, maquina, estacion, area, operador, status, workOrder]
+      // data = [fecha, area, maquina, estacion, operador, status, workOrder]
       // Escribe en A:G
       const response = await sheets.spreadsheets.values.append({
         spreadsheetId: spreadsheetId,
