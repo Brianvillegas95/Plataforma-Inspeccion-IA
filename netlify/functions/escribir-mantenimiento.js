@@ -15,17 +15,12 @@ function getSheetsAPI(auth) {
   return google.sheets({ version: 'v4', auth });
 }
 
-// --- Función para extraer la fila ---
+// --- Función para extraer la fila (CORREGIDA) ---
 function getRowFromRange(range) {
-  // Busca el patrón !A<numero>:
-  const match = range.match(/!A(\d+):/);
+  // Busca el número de fila (ej. A6:G6 -> 6)
+  const match = range.match(/![A-Z]+(\d+):?/);
   if (match && match[1]) {
     return parseInt(match[1], 10);
-  }
-  // Fallback por si el rango es simple como !A<numero>
-  const simpleMatch = range.match(/!A(\d+)/);
-   if (simpleMatch && simpleMatch[1]) {
-    return parseInt(simpleMatch[1], 10);
   }
   throw new Error('No se pudo extraer el número de fila del rango: ' + range);
 }
@@ -49,11 +44,17 @@ exports.handler = async function (event) {
 
     // --- ACCIÓN 1: ABRIR REPORTE ---
     if (action === 'abrir') {
-      // data = [fecha, maquina, estacion, area, operador, status, workOrder]
+      // data = [fecha, area, maquina, estacion, operador, status, workOrder]
       // Escribe en A:G
       const response = await sheets.spreadsheets.values.append({
         spreadsheetId: spreadsheetId,
-        range: 'Hoja 1!A1',
+        
+        // ===== ESTA ES LA LÍNEA CORREGIDA =====
+        // Le decimos a Google que simplemente agregue los datos al final
+        // de la pestaña "Hoja 1", comenzando en la columna A.
+        range: 'Hoja 1!A1', 
+        // ======================================
+
         valueInputOption: 'USER_ENTERED',
         insertDataOption: 'INSERT_ROWS',
         resource: {
