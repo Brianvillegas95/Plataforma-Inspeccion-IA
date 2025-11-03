@@ -49,11 +49,11 @@ exports.handler = async function (event) {
       const response = await sheets.spreadsheets.values.append({
         spreadsheetId: spreadsheetId,
         
-        // ===== ESTA ES LA LÍNEA CORREGIDA =====
-        // Le decimos a Google que simplemente agregue los datos al final
-        // de la pestaña "Hoja 1", comenzando en la columna A.
-        range: 'Hoja 1!A1', 
-        // ======================================
+        // ====================== ¡ESTA ES LA LÍNEA CORREGIDA! ======================
+        // Le decimos a Google que busque la primera fila vacía
+        // en el rango de columnas A-G de la pestaña "Hoja 1".
+        range: 'Hoja 1!A:G', 
+        // =========================================================================
 
         valueInputOption: 'USER_ENTERED',
         insertDataOption: 'INSERT_ROWS',
