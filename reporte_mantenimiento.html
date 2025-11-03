@@ -83,9 +83,16 @@
                         <h3 class="panel-title-sub"><i class="fas fa-user-clock"></i> 1. Datos del Paro</h3>
                         
                         <div class="form-group">
+                            <label for="area-input">Área:</label>
+                            <select id="area-input" class="form-control" required disabled>
+                                 <option value="" disabled selected>-- Cargando áreas... --</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
                             <label for="maquina-input">Máquina:</label>
                             <select id="maquina-input" class="form-control" required disabled>
-                                <option value="" disabled selected>-- Cargando máquinas... --</option>
+                                <option value="" disabled selected>-- Primero seleccione un área --</option>
                             </select>
                         </div>
                         
@@ -95,14 +102,6 @@
                                 <option value="" disabled selected>-- Primero seleccione una máquina --</option>
                             </select>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="area-input">Área:</label>
-                            <select id="area-input" class="form-control" required disabled>
-                                 <option value="" disabled selected>-- Cargando áreas... --</option>
-                            </select>
-                        </div>
-                        
                         <div class="form-group">
                             <label for="operador-input">Nombre del Operador:</label>
                             <input type="text" id="operador-input" class="form-control" required placeholder="Ej: Juan Pérez">
@@ -142,104 +141,101 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
-            // ===== INICIO DE LA LÓGICA DE MENÚS DESPLEGABLES =====
+            // ===== INICIO DE LA LÓGICA DE MENÚS DESPLEGABLES (v2) =====
 
-            // 1. OBTENER REFERENCIAS A LOS <SELECT>
+            const areaSelect = document.getElementById('area-input');
             const maquinaSelect = document.getElementById('maquina-input');
             const estacionSelect = document.getElementById('estacion-input');
-            const areaSelect = document.getElementById('area-input');
             const solucionSelect = document.getElementById('solucion-input');
 
-            // Guardaremos los datos de la máquina aquí
-            let maquinasData = {};
+            // Guardaremos la estructura de datos completa aquí
+            let configData = {};
 
-            // 2. FUNCIÓN PRINCIPAL PARA CARGAR DATOS
+            // 1. FUNCIÓN PRINCIPAL PARA CARGAR DATOS
             async function cargarDatosDeConfiguracion() {
                 try {
                     const response = await fetch('/.netlify/functions/leer-listas-mantenimiento');
                     if (!response.ok) {
                         throw new Error('Error de red al cargar la configuración.');
                     }
-                    const data = await response.json();
+                    const data = await response.json(); // data = { data: {...}, soluciones: [...] }
 
-                    // Guardamos los datos de máquinas para usarlos en el evento 'change'
-                    maquinasData = data.maquinas || {};
+                    configData = data.data || {}; // Guardamos la estructura anidada
 
-                    // Cargar los menús con los datos recibidos
-                    cargarMaquinas(Object.keys(maquinasData));
-                    cargarAreas(data.areas || []);
+                    cargarAreas(Object.keys(configData));
                     cargarSoluciones(data.soluciones || []);
 
                 } catch (error) {
                     console.error("Error al cargar datos:", error);
-                    // Mostrar error en los menús
-                    maquinaSelect.innerHTML = '<option value="">Error al cargar</option>';
                     areaSelect.innerHTML = '<option value="">Error al cargar</option>';
                     solucionSelect.innerHTML = '<option value="">Error al cargar</option>';
                 }
             }
 
-            // 3. FUNCIONES PARA POBLAR LOS <SELECT>
+            // 2. FUNCIONES PARA POBLAR LOS <SELECT>
             
-            function cargarMaquinas(maquinas) {
-                maquinaSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una máquina --</option>';
-                maquinas.forEach(maquina => {
-                    const option = new Option(maquina, maquina);
-                    maquinaSelect.add(option);
-                });
-                maquinaSelect.disabled = false; // Habilitar el menú
-            }
-
             function cargarAreas(areas) {
                 areaSelect.innerHTML = '<option value="" disabled selected>-- Seleccione un área --</option>';
-                areas.forEach(area => {
+                areas.sort().forEach(area => { // .sort() para ordenar alfabéticamente
                     const option = new Option(area, area);
                     areaSelect.add(option);
                 });
-                areaSelect.disabled = false; // Habilitar el menú
+                areaSelect.disabled = false; // Habilitar el primer menú
+            }
+
+            function cargarMaquinas(areaSeleccionada) {
+                const maquinas = Object.keys(configData[areaSeleccionada] || {});
+                
+                maquinaSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una máquina --</option>';
+                estacionSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione una máquina --</option>';
+                estacionSelect.disabled = true;
+
+                maquinas.sort().forEach(maquina => {
+                    const option = new Option(maquina, maquina);
+                    maquinaSelect.add(option);
+                });
+                maquinaSelect.disabled = false;
+            }
+
+            function cargarEstaciones(areaSeleccionada, maquinaSeleccionada) {
+                const estaciones = configData[areaSeleccionada]?.[maquinaSeleccionada] || [];
+                
+                estacionSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una estación --</option>';
+                
+                estaciones.sort().forEach(estacion => {
+                    const option = new Option(estacion, estacion);
+                    estacionSelect.add(option);
+                });
+                estacionSelect.disabled = false;
             }
 
             function cargarSoluciones(soluciones) {
                 solucionSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una solución --</option>';
-                soluciones.forEach(solucion => {
+                soluciones.sort().forEach(solucion => {
                     const option = new Option(solucion, solucion);
                     solucionSelect.add(option);
                 });
-                // No lo habilitamos, ya que está en el formulario oculto
             }
 
-            function cargarEstaciones(maquinaSeleccionada) {
-                estacionSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una estación --</option>';
-                const estaciones = maquinasData[maquinaSeleccionada]; // Usamos los datos guardados
-                
-                if (estaciones && estaciones.length > 0) {
-                    estaciones.forEach(estacion => {
-                        const option = new Option(estacion, estacion);
-                        estacionSelect.add(option);
-                    });
-                    estacionSelect.disabled = false;
-                } else {
-                    estacionSelect.disabled = true;
-                }
-            }
-
-            // 4. ASIGNAR EVENTOS Y CARGAR DATOS INICIALES
+            // 3. ASIGNAR EVENTOS Y CARGAR DATOS INICIALES
+            areaSelect.addEventListener('change', () => {
+                cargarMaquinas(areaSelect.value);
+            });
+            
             maquinaSelect.addEventListener('change', () => {
-                const maquina = maquinaSelect.value;
-                cargarEstaciones(maquina);
+                cargarEstaciones(areaSelect.value, maquinaSelect.value);
             });
 
             // Cargar todo al iniciar la página
             cargarDatosDeConfiguracion();
             
-            // ===== FIN DE LA LÓGICA DE MENÚS DESPLEGABLES =====
+            // ===== FIN DE LA LÓGICA DE MENÚS DESPLEGABLES (v2) =====
 
 
-            // ... (Aquí va todo tu código JS existente para los formularios y el Andon) ...
+            // ... (Resto del script sin cambios) ...
             
             document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-            // Elementos del DOM
             const paroForm = document.getElementById('paro-form');
             const solucionForm = document.getElementById('solucion-form');
             const andonScreen = document.getElementById('andon-screen');
@@ -264,13 +260,16 @@
                 generarParoBtn.disabled = true;
                 loadingParo.style.display = 'block';
 
+                // ===== INICIO DE REORDENACIÓN DE DATOS (JS) =====
+                // Este es el orden de tus columnas en Hoja 1
+                const area = document.getElementById('area-input').value;
                 const maquina = document.getElementById('maquina-input').value;
                 const estacion = document.getElementById('estacion-input').value;
-                const area = document.getElementById('area-input').value;
                 const operador = document.getElementById('operador-input').value;
                 const statusMaquina = document.getElementById('status-maquina-select').value;
                 const workOrder = document.getElementById('workorder-input').value || 'N/A';
                 const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
+                // ===== FIN DE REORDENACIÓN DE DATOS (JS) =====
 
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -278,7 +277,9 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'abrir',
-                            data: [fechaApertura, maquina, estacion, area, operador, statusMaquina, workOrder]
+                            // Enviamos los datos en el nuevo orden para Hoja 1
+                            // A: fecha, B: Area, C: Maquina, D: Estacion, E: Operador, F: Status, G: WO
+                            data: [fechaApertura, area, maquina, estacion, operador, statusMaquina, workOrder]
                         }),
                     });
 
@@ -316,6 +317,7 @@
             });
 
             // --- 2. LÓGICA PARA LLEGADA DE MECÁNICO ---
+            // (Esta función no necesita cambios, 'escribir-mantenimiento.js' sabe dónde va la columna J)
             llegadaMecanicoBtn.addEventListener('click', async () => {
                 mostrarError('');
                 llegadaMecanicoBtn.disabled = true;
@@ -356,6 +358,7 @@
             });
 
             // --- 4. LÓGICA PARA FINALIZAR PARO ---
+             // (Esta función tampoco necesita cambios, 'escribir-mantenimiento.js' sabe dónde van H, I y K)
             solucionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 mostrarError('');
@@ -388,8 +391,9 @@
                     solucionForm.reset();
                     
                     // Resetear menús
-                    maquinaSelect.disabled = false;
                     areaSelect.disabled = false;
+                    maquinaSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione un área --</option>';
+                    maquinaSelect.disabled = true;
                     estacionSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione una máquina --</option>';
                     estacionSelect.disabled = true;
                     
