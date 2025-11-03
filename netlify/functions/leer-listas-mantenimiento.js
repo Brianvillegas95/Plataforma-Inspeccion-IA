@@ -23,22 +23,27 @@ exports.handler = async function (event) {
   }
 
   try {
-    const spreadsheetId = process.env.MANTENIMIENTO_SHEET_ID;
+    // ===== ¡CAMBIO IMPORTANTE AQUÍ! =====
+    // Usamos una variable nueva para el ID de la hoja de Configuración
+    const spreadsheetId = process.env.CONFIGURACION_SHEET_ID;
+    
     if (!spreadsheetId) {
-      throw new Error('El ID de la hoja de Mantenimiento no está configurado.');
+      // Mensaje de error actualizado
+      throw new Error('El ID de la hoja de Configuración no está configurado.');
     }
+    // =====================================
 
     const auth = getAuth();
     const sheets = getSheetsAPI(auth);
 
     // 1. Definimos los rangos que queremos leer
     const ranges = [
-      'Configuracion!A2:C', // Relaciones Area -> Maquina -> Estacion
-      'Configuracion!D2:D'  // Soluciones
+      'Hoja 1!A2:C', // Relaciones Area -> Maquina -> Estacion
+      'Hoja 1!D2:D'  // Soluciones
     ];
 
     const response = await sheets.spreadsheets.values.batchGet({
-      spreadsheetId: spreadsheetId,
+      spreadsheetId: spreadsheetId, // Usamos la variable correcta
       ranges: ranges,
     });
 
