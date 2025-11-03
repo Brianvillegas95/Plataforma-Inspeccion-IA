@@ -89,4 +89,3 @@ exports.handler = async function (event) {
     };
   }
 };
-// LA LLAVE EXTRA HA SIDO ELIMINADA DE AQUÍ
