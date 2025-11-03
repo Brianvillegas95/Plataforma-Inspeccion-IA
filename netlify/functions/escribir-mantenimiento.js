@@ -1,139 +1,59 @@
 const { google } = require('googleapis');
 
-// --- Configuración de Autenticación ---
-function getAuth() {
-  return new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    },
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-}
-
-function getSheetsAPI(auth) {
-  return google.sheets({ version: 'v4', auth });
-}
-
-// --- Función para extraer la fila ---
-function getRowFromRange(range) {
-  // Busca el patrón !A<numero>:
-  const match = range.match(/!A(\d+):/);
-  if (match && match[1]) {
-    return parseInt(match[1], 10);
-  }
-  // Fallback por si el rango es simple como !A<numero>
-  const simpleMatch = range.match(/!A(\d+)/);
-   if (simpleMatch && simpleMatch[1]) {
-    return parseInt(simpleMatch[1], 10);
-  }
-  throw new Error('No se pudo extraer el número de fila del rango: ' + range);
-}
-
-// --- Handler Principal de Netlify ---
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
-    const { action, data, row } = JSON.parse(event.body);
+    // Nota: No estamos leyendo 'action', 'row', etc.
+    // Solo estamos recibiendo los datos del formulario.
+    const { data } = JSON.parse(event.body);
+
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      },
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // ==== LA ÚNICA DIFERENCIA CON 'escribir-barras.js' ====
     const spreadsheetId = process.env.MANTENIMIENTO_SHEET_ID;
-
+    // =======================================================
+    
     if (!spreadsheetId) {
-      throw new Error('El ID de la hoja de Mantenimiento no está configurado.');
+        throw new Error('El ID de la hoja de Mantenimiento no está configurado en Netlify.');
     }
 
-    const auth = getAuth();
-    const sheets = getSheetsAPI(auth);
+    // Esta es la llamada "fire-and-forget" que SÍ funciona en tu otro archivo.
+    // No usamos 'insertDataOption'.
+    // No esperamos la respuesta para leer el 'updatedRange'.
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: spreadsheetId,
+      range: 'Hoja 1!A1', 
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        // Usamos los 'datosDePrueba' de tu HTML de la prueba anterior
+        values: [data],
+      },
+    });
 
-    // --- ACCIÓN 1: ABRIR REPORTE ---
-    if (action === 'abrir') {
-      // data = [fecha, area, maquina, estacion, operador, status, workOrder]
-      // Escribe en A:G
-      const response = await sheets.spreadsheets.values.append({
-        spreadsheetId: spreadsheetId,
-        range: 'Hoja 1!A1',
-        valueInputOption: 'USER_ENTERED',
-        insertDataOption: 'INSERT_ROWS',
-        resource: {
-          values: [data],
-        },
-      });
-
-      const updatedRange = response.data.updates.updatedRange;
-      const newRow = getRowFromRange(updatedRange);
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'Paro registrado.', row: newRow }),
-      };
-    }
+    // Devolvemos un 'row' falso (999) para que el HTML piense que funcionó
+    // y te muestre la pantalla de Andon.
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Prueba de escritura simple ejecutada.', row: 999 }),
+    };
     
-    // --- ACCIÓN 2: REGISTRAR LLEGADA DE MECÁNICO ---
-    else if (action === 'llegada') {
-      // data = [fechaLlegada]
-      // Escribe en J
-      if (!row) throw new Error("Se requiere 'row' para la acción 'llegada'.");
-
-      const updateRange = `Hoja 1!J${row}`; // Columna J
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: spreadsheetId,
-        range: updateRange,
-        valueInputOption: 'USER_ENTERED',
-        resource: {
-          values: [data], // data es [fechaLlegada]
-        },
-      });
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'Llegada registrada.' }),
-      };
-    }
-
-    // --- ACCIÓN 3: CERRAR REPORTE (SOLUCIÓN) ---
-    else if (action === 'cerrar') {
-      // data = [solucion, mecanico, fechaCierre]
-      // Escribe en H, I, y K
-      if (!row) throw new Error("Se requiere 'row' para la acción 'cerrar'.");
-
-      // Usamos batchUpdate para escribir en rangos no contiguos
-      await sheets.spreadsheets.values.batchUpdate({
-        spreadsheetId: spreadsheetId,
-        resource: {
-          valueInputOption: 'USER_ENTERED',
-          data: [
-            {
-              // Rango 1: Solucion y Mecanico (Columnas H e I)
-              range: `Hoja 1!H${row}:I${row}`,
-              values: [[ data[0], data[1] ]] // [solucion, mecanico]
-            },
-            {
-              // Rango 2: Fecha de cierre (Columna K)
-              range: `Hoja 1!K${row}`,
-              values: [[ data[2] ]] // [fechaCierre]
-            }
-          ]
-        }
-      });
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'Paro finalizado y actualizado.' }),
-      };
-    } 
-    
-    // --- Error si la acción no es válida ---
-    else {
-      throw new Error('Acción no válida. Debe ser "abrir", "llegada" o "cerrar".');
-    }
-
   } catch (error) {
-    console.error('Error en la función de Mantenimiento:', error);
+    // Si esta prueba falla, ¡EL ERROR DEBE APARECER AQUÍ!
+    console.error('ERROR EN LA PRUEBA DEFINITIVA:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Error al procesar la solicitud: ' + error.message }),
+      body: JSON.stringify({ error: 'Falló la prueba de escritura simple: ' + error.message }),
     };
   }
 };
