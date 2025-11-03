@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* ... (Todos tus estilos de .maintenance-tool, #andon-screen, etc. van aquí) ... */
         .maintenance-tool { max-width: 600px; margin: 0 auto; padding: 25px; background-color: var(--surface-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-md); }
         #andon-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; display: none; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; transition: background-color 0.3s ease; }
         #andon-screen.andon-red { background-color: rgba(220, 53, 69, 0.9); }
@@ -30,15 +29,18 @@
         <h2 id="andon-title">MÁQUINA DETENIDA</h2>
         <p>El reporte de mantenimiento ha sido generado.</p>
         <p>Esperando al equipo de mantenimiento.</p>
+
         <div id="mecanico-actions" style="margin-top: 40px; display: flex; flex-direction: column; gap: 15px; align-items: center;">
             <button id="llegada-mecanico-btn" class="button primary-action" style="padding: 15px 30px; font-size: 1.2em;">
                 <i class="fas fa-running"></i> Registrar Llegada de Mecánico
             </button>
             <div id="loading-spinner-llegada" class="loading-spinner"></div>
+            
             <button id="falla-atendida-btn" class="button primary-action" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: var(--success-color); border-color: var(--success-color);">
                 <i class="fas fa-user-cog"></i> Registrar Solución
             </button>
         </div>
+        
         <form id="solucion-form">
             <h3 class="panel-title-sub"><i class="fas fa-wrench"></i> Registrar Solución</h3>
             <div class="form-group">
@@ -57,7 +59,6 @@
             <div id="loading-spinner-solucion" class="loading-spinner"></div>
         </form>
     </div>
-
 
     <div class="app-container">
         
@@ -144,7 +145,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
-            // ===== LÓGICA DE MENÚS DESPLEGABLES (SIN CAMBIOS) =====
+            // ===== LÓGICA DE MENÚS DESPLEGABLES =====
             const areaSelect = document.getElementById('area-input');
             const maquinaSelect = document.getElementById('maquina-input');
             const estacionSelect = document.getElementById('estacion-input');
@@ -188,7 +189,7 @@
                 soluciones.sort().forEach(solucion => { solucionSelect.add(new Option(solucion, solucion)); });
             }
             areaSelect.addEventListener('change', () => { cargarMaquinas(areaSelect.value); });
-            maquinaSelect.addEventListener('change', () => { cargarEstaciones(areaSelect.value, maquinaSeleccionada); });
+            maquinaSelect.addEventListener('change', () => { cargarEstaciones(areaSelect.value, maquinaSelect.value); });
             cargarDatosDeConfiguracion();
             // ===== FIN LÓGICA DE MENÚS DESPLEGABLES =====
             
@@ -208,50 +209,44 @@
             const loadingSolucion = document.getElementById('loading-spinner-solucion');
             const errorMessage = document.getElementById('error-message');
 
-            
-            // --- 1. LÓGICA PARA GENERAR PARO (MODIFICADA PARA LA PRUEBA) ---
+            // --- 1. LÓGICA PARA GENERAR PARO ---
             paroForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 mostrarError('');
                 generarParoBtn.disabled = true;
                 loadingParo.style.display = 'block';
 
-                // ============ INICIO DE LA PRUEBA ============
-                // ESTOS SON LOS DATOS QUE LA FUNCIÓN SIMPLE VA A RECIBIR
-                const datosDePrueba = [
-                    "ESTA ES LA PRUEBA DEFINITIVA", // A: Fecha
-                    "AREA DE PRUEBA",       // B: Area
-                    "MAQUINA DE PRUEBA",    // C: Maquina
-                    "ESTACION DE PRUEBA",   // D: Estacion
-                    "OPERADOR DE PRUEBA",   // E: Operador
-                    "detenida",             // F: Status
-                    "WO-PRUEBA"             // G: Work Order
-                ];
+                // Recolectamos los datos en el orden correcto
+                const area = document.getElementById('area-input').value;
+                const maquina = document.getElementById('maquina-input').value;
+                const estacion = document.getElementById('estacion-input').value;
+                const operador = document.getElementById('operador-input').value;
+                const statusMaquina = document.getElementById('status-maquina-select').value;
+                const workOrder = document.getElementById('workorder-input').value || 'N/A';
                 
-                const statusMaquina = "detenida"; 
-                // ============ FIN DE LA PRUEBA ============
+                // Usamos el formato de fecha universal
+                const fechaApertura = new Date().toISOString();
 
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            // La función simple solo espera 'data'
-                            data: datosDePrueba 
+                            action: 'abrir',
+                            // Enviamos los datos en el orden de la Hoja 1
+                            data: [fechaApertura, area, maquina, estacion, operador, statusMaquina, workOrder]
                         }),
                     });
 
                     if (!response.ok) {
-                        // ¡Si hay un error, lo mostramos!
-                        const errData = await response.json();
-                        throw new Error(errData.error || 'Error del servidor.');
+                         const errData = await response.json();
+                         throw new Error(errData.error || 'Error del servidor al crear el reporte.');
                     }
                     const result = await response.json();
+                    if (!result.row) throw new Error('No se recibió el número de fila del servidor.');
+
+                    sessionStorage.setItem('paroRow', result.row);
                     
-                    // Guardamos la fila falsa (999) que devuelve la función
-                    sessionStorage.setItem('paroRow', result.row); 
-                    
-                    // Lógica de Andon (sin cambios)
                     if (statusMaquina === 'detenida') {
                         andonScreen.classList.add('andon-red');
                         andonScreen.classList.remove('andon-yellow');
@@ -271,41 +266,113 @@
                     andonScreen.style.display = 'flex';
 
                 } catch (error) {
-                    console.error('Error al generar paro (PRUEBA):', error);
-                    // AHORA SÍ DEBERÍAMOS VER UN ERROR AQUÍ SI ALGO FALLA
-                    mostrarError('ERROR: ' + error.message);
+                    console.error('Error al generar paro:', error);
+                    mostrarError('No se pudo generar el reporte. Verifique su conexión o reporte el error: ' + error.message);
                     generarParoBtn.disabled = false;
                 } finally {
                     loadingParo.style.display = 'none';
                 }
             });
 
-            // --- PASOS 2, 3 Y 4 (SIN CAMBIOS) ---
-            // Los dejamos como estaban. No funcionarán correctamente
-            // porque la fila "999" no existe, pero eso no importa ahora.
-            // --- 2. LÓGICA LLEGADA ---
-            llegadaMecanicoBtn.addEventListener('click', () => {
-                 mostrarError('Esta función está deshabilitada durante la prueba.');
-                 // No hacemos nada para no confundir
+            // --- 2. LÓGICA PARA LLEGADA DE MECÁNICO ---
+            llegadaMecanicoBtn.addEventListener('click', async () => {
+                mostrarError('');
+                llegadaMecanicoBtn.disabled = true;
+                loadingLlegada.style.display = 'block';
+                const rowToUpdate = sessionStorage.getItem('paroRow');
+                
+                // Usamos el formato de fecha universal
+                const fechaLlegada = new Date().toISOString();
+                
+                if (!rowToUpdate) {
+                    mostrarError('Error crítico: Se perdió la referencia del reporte.');
+                    loadingLlegada.style.display = 'none';
+                    return;
+                }
+                try {
+                    const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'llegada',
+                            row: rowToUpdate,
+                            data: [fechaLlegada]
+                        }),
+                    });
+                    if (!response.ok) throw new Error('Error del servidor al registrar la llegada.');
+                    llegadaMecanicoBtn.style.display = 'none';
+                    fallaAtendidaBtn.style.display = 'block';
+                } catch (error) {
+                    console.error('Error al registrar llegada:', error);
+                    mostrarError('No se pudo registrar la llegada. Intente de nuevo.');
+                    llegadaMecanicoBtn.disabled = false;
+                } finally {
+                    loadingLlegada.style.display = 'none';
+                }
             });
-            // --- 3. LÓGICA MOSTRAR SOLUCIÓN ---
+
+            // --- 3. LÓGICA PARA MOSTRAR FORMULARIO DE SOLUCIÓN ---
             fallaAtendidaBtn.addEventListener('click', () => {
                 solucionForm.style.display = 'block';
                 fallaAtendidaBtn.style.display = 'none';
             });
-            // --- 4. LÓGICA FINALIZAR PARO ---
-            solucionForm.addEventListener('submit', (e) => {
+
+            // --- 4. LÓGICA PARA FINALIZAR PARO ---
+            solucionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                mostrarError('Esta función está deshabilitada durante la prueba.');
-                // No hacemos nada
+                mostrarError('');
+                finalizarParoBtn.disabled = true;
+                loadingSolucion.style.display = 'block';
+
+                const solucion = document.getElementById('solucion-input').value;
+                const mecanico = document.getElementById('mecanico-input').value;
+
+                // Usamos el formato de fecha universal
+                const fechaCierre = new Date().toISOString();
+                
+                const rowToUpdate = sessionStorage.getItem('paroRow');
+
+                if (!rowToUpdate) {
+                    mostrarError('Error crítico: Se perdió la referencia del reporte.');
+                    loadingSolucion.style.display = 'none';
+                    return;
+                }
+                try {
+                    const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'cerrar',
+                            row: rowToUpdate,
+                            data: [solucion, mecanico, fechaCierre]
+                        }),
+                    });
+                    if (!response.ok) throw new Error('Error del servidor al cerrar el reporte.');
+                    andonScreen.style.display = 'none';
+                    paroForm.reset();
+                    solucionForm.reset();
+                    
+                    areaSelect.disabled = false;
+                    maquinaSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione un área --</option>';
+                    maquinaSelect.disabled = true;
+                    estacionSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione una máquina --</option>';
+                    estacionSelect.disabled = true;
+                    
+                    generarParoBtn.disabled = false;
+                    finalizarParoBtn.disabled = false;
+                    sessionStorage.removeItem('paroRow');
+                } catch (error) {
+                    console.error('Error al finalizar paro:', error);
+                    mostrarError('No se pudo finalizar el reporte. Intente de nuevo.');
+                    finalizarParoBtn.disabled = false;
+                } finally {
+                    loadingSolucion.style.display = 'none';
+                }
             });
 
             function mostrarError(mensaje) {
                 errorMessage.textContent = mensaje;
                 errorMessage.style.display = mensaje ? 'block' : 'none';
-                
-                // También mostramos en la consola para depuración
-                if (mensaje) console.error("MOSTRAR ERROR:", mensaje);
             }
         });
     </script>
