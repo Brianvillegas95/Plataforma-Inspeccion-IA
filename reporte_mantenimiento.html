@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-g">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reporte de Mantenimiento - Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css">
@@ -14,7 +14,7 @@
         #andon-screen.andon-yellow { background-color: rgba(255, 193, 7, 0.9); }
         #andon-screen #andon-icon { font-size: 6em; color: var(--text-primary); margin-bottom: 20px; }
         #andon-screen h2 { font-size: 3.5em; color: var(--text-primary); margin-bottom: 20px; animation: pulse-text 1.5s infinite; }
-        #andon-screen p { font-size: 1.5em; color: var(--text-secondary); }
+        #andon-screen p { font-size: 1.5em; color: var(--text-secondary); line-height: 1.4; }
         #solucion-form { display: none; margin-top: 30px; background: var(--surface-bg); padding: 20px; border-radius: var(--border-radius); box-shadow: var(--shadow-lg); width: 100%; max-width: 500px; }
         @keyframes pulse-text { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         .loading-spinner { display: none; width: 50px; height: 50px; border: 5px solid var(--light-bg); border-top: 5px solid var(--azor-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
@@ -28,7 +28,8 @@
         <i id="andon-icon" class="fas fa-exclamation-triangle"></i>
         <h2 id="andon-title">MÁQUINA DETENIDA</h2>
         <p>El reporte de mantenimiento ha sido generado.</p>
-        <p>Esperando al equipo de mantenimiento.</p>
+        
+        <p id="andon-status-message">Esperando al equipo de mantenimiento.</p>
 
         <div id="mecanico-actions" style="margin-top: 40px; display: flex; flex-direction: column; gap: 15px; align-items: center;">
             <button id="llegada-mecanico-btn" class="button primary-action" style="padding: 15px 30px; font-size: 1.2em;">
@@ -209,7 +210,7 @@
             const loadingSolucion = document.getElementById('loading-spinner-solucion');
             const errorMessage = document.getElementById('error-message');
 
-            // --- 1. LÓGICA PARA GENERAR PARO ---
+            // --- 1. LÓGICA PARA GENERAR PARO (ACTUALIZADA) ---
             paroForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 mostrarError('');
@@ -223,9 +224,10 @@
                 const statusMaquina = document.getElementById('status-maquina-select').value;
                 const workOrder = document.getElementById('workorder-input').value || 'N/A';
                 
-                // === CAMBIO DE FECHA ===
-                // Usamos el formato de tu archivo de referencia
                 const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
+                
+                // === CAMBIO AQUÍ: Obtenemos el párrafo de status ===
+                const andonStatusMessage = document.getElementById('andon-status-message');
 
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -233,6 +235,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'abrir',
+                            // Enviamos solo las 7 columnas originales
                             data: [fechaApertura, area, maquina, estacion, operador, statusMaquina, workOrder]
                         }),
                     });
@@ -241,11 +244,15 @@
                          const errData = await response.json();
                          throw new Error(errData.error || 'Error del servidor al crear el reporte.');
                     }
+                    
+                    // Leemos la respuesta COMPLETA del backend
                     const result = await response.json();
+                    
                     if (!result.row) throw new Error('No se recibió el número de fila del servidor.');
 
                     sessionStorage.setItem('paroRow', result.row);
                     
+                    // Configurar pantalla de Andon
                     if (statusMaquina === 'detenida') {
                         andonScreen.classList.add('andon-red');
                         andonScreen.classList.remove('andon-yellow');
@@ -258,6 +265,16 @@
                         andonTitle.textContent = 'REPORTE DE MANTENIMIENTO';
                     }
                     
+                    // === CAMBIO AQUÍ: Mostrar mensaje de asignación ===
+                    if (result.status === 'Asignado') {
+                        // El backend encontró un mecánico
+                        andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${result.mecanico}</strong>. <br> En camino.`;
+                    } else { 
+                        // El backend respondió 'Abierto' o 'En Espera'
+                        andonStatusMessage.innerHTML = `<strong>Todos los mecánicos están ocupados.</strong> <br> Su reporte está en espera.`;
+                    }
+                    
+                    // Configurar botones (sin cambios)
                     llegadaMecanicoBtn.style.display = 'block';
                     llegadaMecanicoBtn.disabled = false;
                     fallaAtendidaBtn.style.display = 'none';
@@ -273,14 +290,13 @@
                 }
             });
 
-            // --- 2. LÓGICA PARA LLEGADA DE MECÁNICO ---
+            // --- 2. LÓGICA PARA LLEGADA DE MECÁNICO (SIN CAMBIOS) ---
             llegadaMecanicoBtn.addEventListener('click', async () => {
                 mostrarError('');
                 llegadaMecanicoBtn.disabled = true;
                 loadingLlegada.style.display = 'block';
                 const rowToUpdate = sessionStorage.getItem('paroRow');
                 
-                // === CAMBIO DE FECHA ===
                 const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
                 
                 if (!rowToUpdate) {
@@ -295,7 +311,7 @@
                         body: JSON.stringify({
                             action: 'llegada',
                             row: rowToUpdate,
-                            data: [fechaLlegada]
+                            data: [fechaLlegada] // La función backend sabe qué hacer
                         }),
                     });
                     if (!response.ok) throw new Error('Error del servidor al registrar la llegada.');
@@ -310,13 +326,13 @@
                 }
             });
 
-            // --- 3. LÓGICA PARA MOSTRAR FORMULARIO DE SOLUCIÓN ---
+            // --- 3. LÓGICA PARA MOSTRAR FORMULARIO DE SOLUCIÓN (SIN CAMBIOS) ---
             fallaAtendidaBtn.addEventListener('click', () => {
                 solucionForm.style.display = 'block';
                 fallaAtendidaBtn.style.display = 'none';
             });
 
-            // --- 4. LÓGICA PARA FINALIZAR PARO ---
+            // --- 4. LÓGICA PARA FINALIZAR PARO (SIN CAMBIOS) ---
             solucionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 mostrarError('');
@@ -326,7 +342,6 @@
                 const solucion = document.getElementById('solucion-input').value;
                 const mecanico = document.getElementById('mecanico-input').value;
                 
-                // === CAMBIO DE FECHA ===
                 const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
                 
                 const rowToUpdate = sessionStorage.getItem('paroRow');
@@ -343,7 +358,7 @@
                         body: JSON.stringify({
                             action: 'cerrar',
                             row: rowToUpdate,
-                            data: [solucion, mecanico, fechaCierre]
+                            data: [solucion, mecanico, fechaCierre] // La función backend sabe qué hacer
                         }),
                     });
                     if (!response.ok) throw new Error('Error del servidor al cerrar el reporte.');
