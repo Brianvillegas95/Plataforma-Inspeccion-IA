@@ -48,10 +48,14 @@ async function findFreeMechanic(sheets, area) {
   for (let i = 0; i < mechanics.length; i++) {
     const [name, assignedArea, availability, systemStatus] = mechanics[i];
     
+    // === ¡CAMBIO AQUÍ! ===
+    // Ahora aceptamos 'Libre' O una celda vacía (!systemStatus)
+    const isFree = (!systemStatus || systemStatus === 'Libre');
+
     // El mecánico debe cumplir las 3 condiciones
     if (assignedArea === area && 
         availability === 'Disponible' && 
-        systemStatus === 'Libre') {
+        isFree) {
       
       return {
         row: i + 2, // Fila real en la hoja (A2 es la fila 2)
