@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-g">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reporte de Mantenimiento - Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css">
@@ -201,6 +201,7 @@
             const andonScreen = document.getElementById('andon-screen');
             const andonIcon = document.getElementById('andon-icon');
             const andonTitle = document.getElementById('andon-title');
+            const andonStatusMessage = document.getElementById('andon-status-message');
             const generarParoBtn = document.getElementById('generar-paro-btn');
             const llegadaMecanicoBtn = document.getElementById('llegada-mecanico-btn');
             const fallaAtendidaBtn = document.getElementById('falla-atendida-btn');
@@ -210,7 +211,58 @@
             const loadingSolucion = document.getElementById('loading-spinner-solucion');
             const errorMessage = document.getElementById('error-message');
 
-            // --- 1. LÓGICA PARA GENERAR PARO (ACTUALIZADA) ---
+            // --- ¡NUEVO! Variable para guardar el 'Interval' ---
+            let statusCheckInterval = null;
+
+            // --- ¡NUEVO! Función para detener el sondeo ---
+            function stopStatusCheck() {
+                if (statusCheckInterval) {
+                    clearInterval(statusCheckInterval);
+                    statusCheckInterval = null;
+                    console.log("Sondeo de status detenido.");
+                }
+            }
+            
+            // --- ¡NUEVO! Función que pregunta al servidor por el status ---
+            async function checkParoStatus() {
+                const rowToCheck = sessionStorage.getItem('paroRow');
+                if (!rowToCheck) {
+                    stopStatusCheck();
+                    return;
+                }
+                
+                console.log(`Revisando status de la fila ${rowToCheck}...`);
+
+                try {
+                    const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'check_status',
+                            row: rowToCheck
+                        }),
+                    });
+                    
+                    if (!response.ok) return; // No hacer nada si falla, reintentará
+                    
+                    const result = await response.json();
+
+                    // Si el status cambió a "Asignado"
+                    if (result.status === 'Asignado') {
+                        console.log("¡Asignación detectada!");
+                        andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${result.mecanico}</strong>. <br> En camino.`;
+                        stopStatusCheck(); // ¡Detenemos el sondeo!
+                    }
+                    // Si sigue Abierto, no hace nada, solo espera a la siguiente vuelta
+                    
+                } catch (error) {
+                    console.error("Error al revisar status:", error);
+                    // No detenemos el sondeo, puede ser un error de red temporal
+                }
+            }
+
+
+            // --- 1. LÓGICA PARA GENERAR PARO (Actualizada) ---
             paroForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 mostrarError('');
@@ -223,11 +275,10 @@
                 const operador = document.getElementById('operador-input').value;
                 const statusMaquina = document.getElementById('status-maquina-select').value;
                 const workOrder = document.getElementById('workorder-input').value || 'N/A';
-                
                 const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
-                
-                // === CAMBIO AQUÍ: Obtenemos el párrafo de status ===
-                const andonStatusMessage = document.getElementById('andon-status-message');
+
+                // Detener cualquier sondeo anterior (por si acaso)
+                stopStatusCheck();
 
                 try {
                     const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -235,7 +286,6 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'abrir',
-                            // Enviamos solo las 7 columnas originales
                             data: [fechaApertura, area, maquina, estacion, operador, statusMaquina, workOrder]
                         }),
                     });
@@ -245,36 +295,31 @@
                          throw new Error(errData.error || 'Error del servidor al crear el reporte.');
                     }
                     
-                    // Leemos la respuesta COMPLETA del backend
                     const result = await response.json();
-                    
                     if (!result.row) throw new Error('No se recibió el número de fila del servidor.');
 
                     sessionStorage.setItem('paroRow', result.row);
                     
-                    // Configurar pantalla de Andon
                     if (statusMaquina === 'detenida') {
                         andonScreen.classList.add('andon-red');
-                        andonScreen.classList.remove('andon-yellow');
                         andonIcon.className = 'fas fa-exclamation-triangle';
                         andonTitle.textContent = 'MÁQUINA DETENIDA';
                     } else {
                         andonScreen.classList.add('andon-yellow');
-                        andonScreen.classList.remove('andon-red');
                         andonIcon.className = 'fas fa-tools';
                         andonTitle.textContent = 'REPORTE DE MANTENIMIENTO';
                     }
                     
-                    // === CAMBIO AQUÍ: Mostrar mensaje de asignación ===
                     if (result.status === 'Asignado') {
-                        // El backend encontró un mecánico
                         andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${result.mecanico}</strong>. <br> En camino.`;
                     } else { 
-                        // El backend respondió 'Abierto' o 'En Espera'
                         andonStatusMessage.innerHTML = `<strong>Todos los mecánicos están ocupados.</strong> <br> Su reporte está en espera.`;
+                        
+                        // --- ¡NUEVO! Iniciar el sondeo automático ---
+                        console.log("Iniciando sondeo de status...");
+                        statusCheckInterval = setInterval(checkParoStatus, 15000); // Revisa cada 15 segundos
                     }
                     
-                    // Configurar botones (sin cambios)
                     llegadaMecanicoBtn.style.display = 'block';
                     llegadaMecanicoBtn.disabled = false;
                     fallaAtendidaBtn.style.display = 'none';
@@ -290,13 +335,15 @@
                 }
             });
 
-            // --- 2. LÓGICA PARA LLEGADA DE MECÁNICO (SIN CAMBIOS) ---
+            // --- 2. LÓGICA PARA LLEGADA DE MECÁNICO (Actualizada) ---
             llegadaMecanicoBtn.addEventListener('click', async () => {
+                // --- ¡NUEVO! Detener el sondeo si el mecánico llega ---
+                stopStatusCheck();
+
                 mostrarError('');
                 llegadaMecanicoBtn.disabled = true;
                 loadingLlegada.style.display = 'block';
                 const rowToUpdate = sessionStorage.getItem('paroRow');
-                
                 const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
                 
                 if (!rowToUpdate) {
@@ -311,7 +358,7 @@
                         body: JSON.stringify({
                             action: 'llegada',
                             row: rowToUpdate,
-                            data: [fechaLlegada] // La función backend sabe qué hacer
+                            data: [fechaLlegada]
                         }),
                     });
                     if (!response.ok) throw new Error('Error del servidor al registrar la llegada.');
@@ -326,24 +373,28 @@
                 }
             });
 
-            // --- 3. LÓGICA PARA MOSTRAR FORMULARIO DE SOLUCIÓN (SIN CAMBIOS) ---
+            // --- 3. LÓGICA PARA MOSTRAR FORMULARIO DE SOLUCIÓN (Actualizada) ---
             fallaAtendidaBtn.addEventListener('click', () => {
+                // --- ¡NUEVO! Detener el sondeo (por si acaso) ---
+                stopStatusCheck();
                 solucionForm.style.display = 'block';
                 fallaAtendidaBtn.style.display = 'none';
             });
 
-            // --- 4. LÓGICA PARA FINALIZAR PARO (SIN CAMBIOS) ---
+            // --- 4. LÓGICA PARA FINALIZAR PARO (Actualizada) ---
             solucionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                
+                // --- ¡NUEVO! Detener el sondeo ---
+                stopStatusCheck();
+                
                 mostrarError('');
                 finalizarParoBtn.disabled = true;
                 loadingSolucion.style.display = 'block';
 
                 const solucion = document.getElementById('solucion-input').value;
                 const mecanico = document.getElementById('mecanico-input').value;
-                
                 const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
-                
                 const rowToUpdate = sessionStorage.getItem('paroRow');
 
                 if (!rowToUpdate) {
@@ -358,7 +409,7 @@
                         body: JSON.stringify({
                             action: 'cerrar',
                             row: rowToUpdate,
-                            data: [solucion, mecanico, fechaCierre] // La función backend sabe qué hacer
+                            data: [solucion, mecanico, fechaCierre]
                         }),
                     });
                     if (!response.ok) throw new Error('Error del servidor al cerrar el reporte.');
