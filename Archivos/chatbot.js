@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chatBubble.addEventListener('click', () => {
         chatContainer.classList.toggle('open');
         if (!isChatInitiated && chatContainer.classList.contains('open')) {
-            const welcomeMessage = "¡Hola! Soy Quali, tu asistente de calidad. Puedo ayudarte a resolver las dudas más frecuentes. Para empezar, selecciona el área que deseas consultar.";
+            const welcomeMessage = "¡Hola! Soy Quali, tu asistente virtual. Puedo ayudarte a resolver las dudas más frecuentes. Para empezar, selecciona el área que deseas consultar.";
             showBotMessage(welcomeMessage);
             historyStack = ['0'];
             getNextDialogue('0');
@@ -192,4 +192,5 @@ document.addEventListener('DOMContentLoaded', () => {
             optionsContainer.innerHTML = '';
         }
     }
+
 });
