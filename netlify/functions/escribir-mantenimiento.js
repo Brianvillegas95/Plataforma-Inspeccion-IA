@@ -28,7 +28,7 @@ function getRowFromRange(range) {
   throw new Error(`No se pudo extraer el número de fila del rango: ${range}`);
 }
 
-// --- Funciones de Ayuda para Mecánicos (Sin cambios) ---
+// --- Funciones de Ayuda para Mecánicos (Corregida) ---
 
 async function findMechanicByName(sheets, name) {
   const spreadsheetId = process.env.MECANICOS_SHEET_ID;
@@ -81,31 +81,45 @@ async function updateMechanicStatus(sheets, row, status, reportRowId) {
   });
 }
 
+// === ¡INICIO DE LA CORRECCIÓN DE LÓGICA (Bug 2)! ===
 async function updateMechanicAvailability(sheets, name, availability) {
   const mechanic = await findMechanicByName(sheets, name);
   if (!mechanic) throw new Error(`Mecánico ${name} no encontrado en MECANICOS_DB.`);
   
   const spreadsheetId = process.env.MECANICOS_SHEET_ID;
-  let statusSistema = mechanic.status;
+  let newStatusSistema = mechanic.status;
 
-  if (availability === 'Disponible' && statusSistema !== 'Ocupado') {
-      statusSistema = 'Libre';
-  }
-  if (availability === 'No Disponible') {
-      statusSistema = 'Ocupado'; 
+  if (availability === 'Disponible') {
+      // Al hacer LOGIN:
+      // Si no tiene una tarea activa (RowID está vacío), se pone "Libre".
+      if (!mechanic.TareaActual_RowID) {
+          newStatusSistema = 'Libre';
+      } else {
+      // Si tiene una tarea activa (estaba Ocupado), se queda "Ocupado".
+          newStatusSistema = 'Ocupado';
+      }
+  } else {
+      // Al hacer LOGOUT ('No Disponible'):
+      // Si estaba "Libre", lo ponemos "Ocupado" para que el sistema no lo asigne.
+      if (mechanic.status === 'Libre') {
+          newStatusSistema = 'Ocupado';
+      }
+      // Si ya estaba "Ocupado", se queda "Ocupado".
   }
   
   await sheets.spreadsheets.values.update({
     spreadsheetId: spreadsheetId,
-    range: `Hoja 1!C${mechanic.row}:D${mechanic.row}`,
+    range: `Hoja 1!C${mechanic.row}:D${mechanic.row}`, // Col C (Disponibilidad) y D (StatusSistema)
     valueInputOption: 'USER_ENTERED',
     resource: {
-      values: [[availability, statusSistema]],
+      values: [[availability, newStatusSistema]],
     },
   });
   
+  // Devolvemos el estado ANTES del cambio para la lógica de cola
   return mechanic;
 }
+// === ¡FIN DE LA CORRECCIÓN DE LÓGICA! ===
 
 // --- Funciones de Ayuda para Cola y Prioridad (Sin cambios) ---
 
@@ -307,13 +321,17 @@ exports.handler = async function (event) {
           }),
         };
       }
-      // ... (casos 'mecanico_check_in', 'mecanico_check_out' no cambian)
       case 'mecanico_check_in': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
+        // La función 'updateMechanicAvailability' ahora tiene la lógica correcta
         const mechanic = await updateMechanicAvailability(sheets, name, 'Disponible');
-        const pendingJob = await findOldestPendingJob(sheets, mechanic.area);
-        if (pendingJob) {
-          await assignPendingJob(sheets, mechanic, pendingJob);
+        
+        // Si al hacer login, está "Libre" (por la nueva lógica), buscarle trabajo
+        if (mechanic.status === 'Libre' || !mechanic.TareaActual_RowID) {
+            const pendingJob = await findOldestPendingJob(sheets, mechanic.area);
+            if (pendingJob) {
+              await assignPendingJob(sheets, mechanic, pendingJob);
+            }
         }
         return { statusCode: 200, body: JSON.stringify({ message: `Mecánico ${name} check-in.` }) };
       }
@@ -323,7 +341,7 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: `Mecánico ${name} check-out.` }) };
       }
 
-      // --- ¡INICIO DE LA CORRECCIÓN! ---
+      // ... (caso 'get_mecanico_tareas' no cambia desde la última vez)
       case 'get_mecanico_tareas': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
         const mechanic = await findMechanicByName(sheets, name);
@@ -338,9 +356,7 @@ exports.handler = async function (event) {
         });
         const jobs = response.data.values || [];
         
-        // 1. Encontrar la Tarea "En Proceso" PRIMERO.
         for (let i = 0; i < jobs.length; i++) {
-            // DECONSTRUCCIÓN ACTUALIZADA (Col G = statusMaquina)
             const [folio, , area, maquina, estacion, , statusMaquina, , , , , , mecanicoAsignado, statusParo] = jobs[i];
             
             if (mecanicoAsignado === name && statusParo === 'En Proceso') {
@@ -349,12 +365,10 @@ exports.handler = async function (event) {
             }
         }
 
-        // 2. Si NO hay nada "En Proceso", buscar la tarea "Asignada" (la de TareaActual_RowID)
         if (!tareaActual && mechanic.TareaActual_RowID) {
              for (let i = 0; i < jobs.length; i++) {
                 const row = i + 2;
                 if (String(row) === String(mechanic.TareaActual_RowID)) {
-                    // DECONSTRUCCIÓN ACTUALIZADA
                     const [folio, , area, maquina, estacion, , statusMaquina, , , , , , mecanicoAsignado, statusParo] = jobs[i];
                      if (mecanicoAsignado === name && statusParo === 'Asignado') {
                         tareaActual = { folio, area, maquina, estacion, statusParo, statusMaquina };
@@ -364,9 +378,7 @@ exports.handler = async function (event) {
              }
         }
 
-        // 3. Poner todas las OTRAS tareas "Asignadas" en la cola
         for (let i = 0; i < jobs.length; i++) {
-            // DECONSTRUCCIÓN ACTUALIZADA
             const [folio, , area, maquina, estacion, , statusMaquina, , , , , , mecanicoAsignado, statusParo] = jobs[i];
             
             if (mecanicoAsignado === name && statusParo === 'Asignado') {
@@ -375,7 +387,6 @@ exports.handler = async function (event) {
                 }
             }
         }
-        // --- FIN DE LA CORRECCIÓN ---
 
         return { statusCode: 200, body: JSON.stringify({ tareaActual, tareasEnCola }) };
       }
