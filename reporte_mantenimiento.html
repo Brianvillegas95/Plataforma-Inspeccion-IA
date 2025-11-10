@@ -207,6 +207,8 @@
                 // Si pasa de "En Cola" a "Asignado"
                 if (result.status === 'Asignado') {
                     console.log("¡Asignación detectada!");
+                    // --- ¡CORRECCIÓN AQUÍ! ---
+                    // Usamos el mensaje correcto para "Asignado"
                     andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${result.mecanico}</strong>. <br> En camino.`;
                     stopStatusCheck(); // Deja de preguntar, ya está asignado
                 }
@@ -244,20 +246,26 @@
             
             andonFolio.textContent = `FOLIO: ${folio}`;
             
-            // ¡NUEVA LÓGICA DE MENSAJES!
+            // --- ¡INICIO DE LA CORRECCIÓN DE LÓGICA! ---
+            // Esta es la lógica que arregla tu bug.
             if (status === 'Asignado') {
+                 // Mensaje estándar "En camino"
                  andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${mecanico}</strong>. <br> En camino.`;
             } else if (status === 'En Cola') {
-                 andonStatusMessage.innerHTML = `Se le asignó el trabajo a: <strong>${mecanico}</strong>. <br> <strong>Está ocupado</strong>, en cuanto termine revisará tu máquina.`;
+                 // ¡NUEVO MENSAJE! El que tú pediste.
+                 andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${mecanico}</strong>. <br> Pero está ocupado en otra máquina, te atenderá a la brevedad.`;
+            } else if (status === 'En Proceso') {
+                // Mensaje si se recarga la página y ya está en proceso
+                andonStatusMessage.innerHTML = `<strong>${mecanico}</strong> está trabajando en tu máquina.`;
             }
+            // --- FIN DE LA CORRECCIÓN DE LÓGICA! ---
+            
             
             // Configurar botones
-            // "En Cola" se comporta igual que "Asignado" (esperando llegada)
             if (status === 'En Cola' || status === 'Asignado') {
                 llegadaMecanicoBtn.style.display = 'block';
                 fallaAtendidaBtn.style.display = 'none';
                 
-                // Si está "En Cola", iniciar sondeo
                 if (status === 'En Cola') {
                     const row = localStorage.getItem('paroRow');
                     stopStatusCheck();
@@ -290,7 +298,6 @@
             document.querySelector('.maintenance-tool').appendChild(loadingSpinner);
             
             try {
-                // Preguntar al backend cuál es el estado actual de este paro
                 const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -301,7 +308,6 @@
                 
                 const data = await response.json(); // { mecanico, status }
                 
-                // Autocorrección: Si el paro ya estaba cerrado, limpiar y recargar
                 if (data.status === 'Cerrado') {
                     console.log("El paro guardado ya estaba cerrado. Limpiando...");
                     localStorage.removeItem('paroRow');
@@ -311,10 +317,9 @@
                     return;
                 }
                 
-                // Recuperar los datos guardados
                 const folio = localStorage.getItem('paroFolio');
                 const statusMaquina = localStorage.getItem('paroStatusMaquina');
-                // La función ahora acepta "En Cola"
+                // La función ahora tiene la lógica correcta para "En Cola"
                 buildAndonScreen(data.status, data.mecanico, folio, statusMaquina);
 
             } catch (error) {
@@ -364,13 +369,11 @@
                 const result = await response.json();
                 if (!result.row || !result.folio) throw new Error('No se recibió fila o folio del servidor.');
 
-                // Guardar TODO en localStorage
                 localStorage.setItem('paroRow', result.row);
                 localStorage.setItem('paroFolio', result.folio);
-                localStorage.setItem('paroStatusMaquina', statusMaquina); // Guardar esto es clave
+                localStorage.setItem('paroStatusMaquina', statusMaquina); 
                 
                 paroForm.style.display = 'none';
-                // ¡NUEVO! La función ahora sabe qué hacer con "En Cola"
                 buildAndonScreen(result.status, result.mecanico, result.folio, statusMaquina);
 
             } catch (error) {
@@ -384,7 +387,7 @@
 
         // 2. REGISTRAR LLEGADA (Sin cambios)
         llegadaMecanicoBtn.addEventListener('click', async () => {
-            stopStatusCheck(); // Detener sondeo (si lo había)
+            stopStatusCheck();
             mostrarError('');
             llegadaMecanicoBtn.disabled = true;
             loadingLlegada.style.display = 'block';
@@ -408,6 +411,11 @@
                 if (!response.ok) throw new Error('Error del servidor al registrar la llegada.');
                 llegadaMecanicoBtn.style.display = 'none';
                 fallaAtendidaBtn.style.display = 'block';
+                
+                // Actualizar mensaje por si acaso (aunque el polling ya debería estar detenido)
+                const mecanico = andonStatusMessage.querySelector('strong') ? andonStatusMessage.querySelector('strong').textContent : 'El mecánico';
+                andonStatusMessage.innerHTML = `<strong>${mecanico}</strong> está trabajando en tu máquina.`;
+
             } catch (error) {
                 console.error('Error al registrar llegada:', error);
                 mostrarError('No se pudo registrar la llegada. Intente de nuevo.');
@@ -466,7 +474,6 @@
                 generarParoBtn.disabled = false;
                 finalizarParoBtn.disabled = false;
                 
-                // Limpiar localStorage
                 localStorage.removeItem('paroRow');
                 localStorage.removeItem('paroFolio');
                 localStorage.removeItem('paroStatusMaquina');
@@ -482,7 +489,7 @@
         
         // --- INICIALIZACIÓN ---
         await cargarDatosDeConfiguracion();
-        await checkForActiveParo(); // Revisar si hay un paro activo al cargar
+        await checkForActiveParo();
         
     });
     </script>
