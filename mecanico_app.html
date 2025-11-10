@@ -13,12 +13,11 @@
         body { 
             background-color: var(--light-bg, #f4f7f6);
         }
-        /* Corregimos el header para que use el logo */
         .app-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 20px; /* Ajuste de padding */
+            padding: 10px 20px;
             background-color: var(--dark-bg, #222);
             color: var(--text-primary, #fff);
         }
@@ -28,12 +27,12 @@
             gap: 15px;
         }
         .app-header .logo {
-            height: 40px; /* Tamaño ajustado para app */
+            height: 40px;
             width: auto;
         }
         .app-header h1 { 
             margin: 0; 
-            font-size: 1.25em; /* Ajuste de fuente */
+            font-size: 1.25em;
             color: var(--text-primary, #fff);
         }
         .ia-badge {
@@ -41,27 +40,26 @@
             padding: 2px 6px;
         }
         
-        /* Botón de Logout Manual */
-        #logout-btn {
-            background-color: var(--danger-color, #dc3545);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 0.9em;
-            border: none;
-            cursor: pointer;
+        /* Estilos para el botón de Netlify */
+        .netlify-identity-button {
+            background-color: var(--azor-blue, #005f9e) !important;
+            color: white !important;
+            padding: 8px 12px !important;
+            border-radius: 5px !important;
+            text-decoration: none !important;
+            font-weight: bold !important;
+            font-size: 0.9em !important;
+            border: none !important;
+            cursor: pointer !important;
         }
-        #logout-btn:hover {
-            background-color: #c82333;
+        .netlify-identity-button:hover {
+            background-color: #004a7c !important;
         }
 
         .main-content { 
             padding: 20px; 
         }
         
-        /* Contenedor del Login */
         #login-container { 
             text-align: center; 
             padding: 40px 20px; 
@@ -69,21 +67,6 @@
         #login-container h2 { 
             margin-bottom: 20px; 
         }
-        /* Botón de login (Netlify) */
-        .netlify-identity-button {
-            background-color: var(--azor-blue, #005f9e);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: bold;
-            border: none;
-            cursor: pointer;
-        }
-        .netlify-identity-button:hover {
-            background-color: #004a7c;
-        }
-
 
         #app-wrapper { 
             display: none;
@@ -125,12 +108,12 @@
             font-weight: 600;
         }
         
-        /* Estilos para el nuevo Status Maquina */
         .status-maquina {
             font-weight: bold;
             padding: 3px 8px;
             border-radius: 4px;
             color: white;
+            text-transform: uppercase;
         }
         .status-maquina.detenida {
             background-color: var(--danger-color, #dc3545);
@@ -169,7 +152,7 @@
                 <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
                 <h1>AZOR OPERACIONES <span class="ia-badge">IA</span></h1>
             </div>
-            <button id="logout-btn"><i class="fas fa-sign-out-alt"></i> Salir</button>
+            <div data-netlify-identity-button></div>
         </header>
         <main class="main-content">
             <div id="loading-spinner-app" class="loading-spinner" style="display: block;"></div>
@@ -203,7 +186,6 @@
     document.addEventListener('DOMContentLoaded', () => {
         const loginContainer = document.getElementById('login-container');
         const appWrapper = document.getElementById('app-wrapper');
-        const logoutBtn = document.getElementById('logout-btn');
         const loadingSpinner = document.getElementById('loading-spinner-app');
         const tareaActualSection = document.getElementById('tarea-actual-section');
         const tareaActualContent = document.getElementById('tarea-actual-content');
@@ -239,11 +221,9 @@
             
             loadingSpinner.style.display = 'none';
 
-            // --- INICIO RENDERIZADO CORREGIDO ---
-            // Renderizar Tarea Actual
+            // --- Renderizado (sin cambios desde la última vez) ---
             if (data.tareaActual) {
                 const tarea = data.tareaActual;
-                // Clases de CSS para el status
                 const statusMaquinaClass = tarea.statusMaquina === 'detenida' ? 'status-maquina detenida' : 'status-maquina trabajando';
                 const statusMaquinaTexto = tarea.statusMaquina === 'detenida' ? 'MÁQUINA DETENIDA' : 'MÁQUINA TRABAJANDO';
                 
@@ -261,11 +241,9 @@
                 tareaActualContent.innerHTML = `<p class="no-task">No tienes una tarea activa.</p>`;
             }
 
-            // Renderizar Tarea en Cola
             if (data.tareasEnCola && data.tareasEnCola.length > 0) {
                 let colaHtml = '';
                 data.tareasEnCola.forEach((tarea, index) => {
-                    // Clases de CSS para el status en cola
                     const statusMaquinaClass = tarea.statusMaquina === 'detenida' ? 'status-maquina detenida' : 'status-maquina trabajando';
                     const statusMaquinaTexto = tarea.statusMaquina === 'detenida' ? 'DETENIDA' : 'TRABAJANDO';
 
@@ -286,10 +264,9 @@
                 colaSection.style.display = 'block';
                 colaContent.innerHTML = `<p class="no-task">No hay tareas en cola.</p>`;
             }
-            // --- FIN RENDERIZADO CORREGIDO ---
         }
 
-        // --- Lógica de Autenticación (Corregida) ---
+        // --- Lógica de Autenticación (Sin cambios) ---
 
         function showApp(user) {
             loginContainer.style.display = 'none';
@@ -300,10 +277,11 @@
             
             if (!currentUserName) {
                 alert("Error: No se encontró el nombre completo del usuario. Contacta al administrador.");
-                netlifyIdentity.logout(); // Forzar logout
+                netlifyIdentity.logout();
                 return;
             }
             
+            // Llamar al check-in CON la nueva lógica del backend
             callApi('mecanico_check_in', currentUserName);
             
             loadingSpinner.style.display = 'block';
@@ -333,12 +311,6 @@
             }
         }
         
-        // Listener para el botón de Logout manual
-        logoutBtn.addEventListener('click', () => {
-            console.log("Botón de logout manual presionado.");
-            netlifyIdentity.logout();
-        });
-
         // Eventos de Netlify Identity
         netlifyIdentity.on('login', (user) => {
             console.log('Evento de login detectado.');
@@ -359,7 +331,6 @@
             }
         });
         
-        // Inicializa el widget (para que maneje el login)
         netlifyIdentity.init();
     });
     </script>
