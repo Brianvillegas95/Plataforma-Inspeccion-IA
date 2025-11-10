@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App de Mecánico - Grupo Azor</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+
+    <style>
+        body { background-color: #f4f7f6; }
+        .app-container { max-width: 800px; margin: 0 auto; }
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: var(--dark-bg);
+        }
+        .app-header h1 { color: var(--text-primary); margin: 0; font-size: 1.5em; }
+        .main-content { padding: 20px; }
+        
+        /* Contenedor del Login */
+        #login-container { text-align: center; padding: 40px 20px; }
+        #login-container h2 { margin-bottom: 20px; }
+        #netlify-identity-widget { display: inline-block; }
+
+        /* Contenedor de la App (Oculto) */
+        #app-container { display: none; }
+        
+        .task-section {
+            background-color: var(--surface-bg);
+            border-radius: var(--border-radius);
+            margin-bottom: 25px;
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+        .task-header {
+            background-color: var(--azor-blue);
+            color: var(--text-primary);
+            padding: 15px 20px;
+        }
+        .task-header.secondary { background-color: var(--medium-bg); color: var(--text-main); }
+        .task-header h2 { margin: 0; }
+        
+        .task-content { padding: 20px; }
+        .task-content p { font-size: 1.1em; line-height: 1.6; }
+        .task-content strong { color: var(--text-main); }
+        
+        .no-task {
+            text-align: center;
+            padding: 40px 20px;
+            font-size: 1.2em;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+        .loading-spinner { display: none; width: 40px; height: 40px; border: 4px solid var(--light-bg); border-top: 4px solid var(--azor-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="color-validator-body">
+
+    <div id="app-container">
+        <header class="app-header">
+            <h1>Mis Tareas</h1>
+            <div data-netlify-identity-button></div>
+        </header>
+
+        <main class="main-content">
+            <div id="loading-spinner-app" class="loading-spinner" style="display: block;"></div>
+            
+            <section id="tarea-actual-section" class="task-section" style="display: none;">
+                <div class="task-header">
+                    <h2><i class="fas fa-wrench"></i> Tarea Actual</h2>
+                </div>
+                <div class="task-content" id="tarea-actual-content">
+                    </div>
+            </section>
+            
+            <section id="cola-section" class="task-section" style="display: none;">
+                <div class="task-header secondary">
+                    <h2><i class="fas fa-list-ol"></i> Tareas en Cola</h2>
+                </div>
+                <div class="task-content" id="cola-content">
+                    </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="login-container">
+        <h2>App de Mecánicos</h2>
+        <p>Inicia sesión para ver tus tareas.</p>
+        <div data-netlify-identity-button></div>
+    </div>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const loginContainer = document.getElementById('login-container');
+        const appContainer = document.getElementById('app-container');
+        const loadingSpinner = document.getElementById('loading-spinner-app');
+        const tareaActualSection = document.getElementById('tarea-actual-section');
+        const tareaActualContent = document.getElementById('tarea-actual-content');
+        const colaSection = document.getElementById('cola-section');
+        const colaContent = document.getElementById('cola-content');
+        
+        let taskCheckInterval = null;
+        let currentUserName = null;
+
+        // --- API Calls ---
+        
+        async function callApi(action, name) {
+            try {
+                const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, name })
+                });
+                if (!response.ok) throw new Error(`Error en ${action}`);
+                return await response.json();
+            } catch (error) {
+                console.error(`Error en ${action}:`, error);
+            }
+        }
+        
+        async function getMisTareas() {
+            if (!currentUserName) return;
+            
+            console.log("Revisando tareas...");
+            const data = await callApi('get_mecanico_tareas', currentUserName);
+            
+            if (!data) return; // Error de red, reintentará
+            
+            loadingSpinner.style.display = 'none';
+
+            // Renderizar Tarea Actual
+            if (data.tareaActual) {
+                const tarea = data.tareaActual;
+                tareaActualContent.innerHTML = `
+                    <p><strong>Folio:</strong> ${tarea.folio}</p>
+                    <p><strong>Area:</strong> ${tarea.area}</p>
+                    <p><strong>Máquina:</strong> ${tarea.maquina}</p>
+                    <p><strong>Estación:</strong> ${tarea.estacion}</p>
+                    <p><strong>Estado:</strong> <strong style="color: var(--azor-blue);">${tarea.statusParo}</strong></p>
+                `;
+                tareaActualSection.style.display = 'block';
+            } else {
+                tareaActualSection.style.display = 'block';
+                tareaActualContent.innerHTML = `<p class="no-task">No tienes una tarea activa.</p>`;
+            }
+
+            // Renderizar Tarea en Cola
+            if (data.tareasEnCola && data.tareasEnCola.length > 0) {
+                let colaHtml = '';
+                data.tareasEnCola.forEach((tarea, index) => {
+                    colaHtml += `
+                        <div style="border-bottom: 1px solid var(--light-bg); padding-bottom: 15px; margin-bottom: 15px;">
+                            <p><strong>${index + 1}. Folio:</strong> ${tarea.folio}</p>
+                            <p><strong>Area:</strong> ${tarea.area}</p>
+                            <p><strong>Máquina:</strong> ${tarea.maquina}</p>
+                        </div>
+                    `;
+                });
+                colaContent.innerHTML = colaHtml;
+                colaSection.style.display = 'block';
+            } else {
+                colaSection.style.display = 'block';
+                colaContent.innerHTML = `<p class="no-task">No hay tareas en cola.</p>`;
+            }
+        }
+
+        // --- Lógica de Autenticación ---
+
+        // Función para mostrar la App
+        function showApp(user) {
+            loginContainer.style.display = 'none';
+            appContainer.style.display = 'block';
+            
+            // Usamos el "full_name" que pusiste en la invitación
+            currentUserName = user.user_metadata.full_name;
+            console.log(`Usuario logueado: ${currentUserName}`);
+            
+            if (!currentUserName) {
+                alert("Error: No se encontró el nombre completo del usuario. Contacta al administrador.");
+                return;
+            }
+            
+            // 1. Notificar al backend que el mecánico está "Disponible"
+            callApi('mecanico_check_in', currentUserName);
+            
+            // 2. Cargar tareas inmediatamente
+            loadingSpinner.style.display = 'block';
+            getMisTareas();
+            
+            // 3. Empezar a sondear por nuevas tareas
+            stopTaskCheck(); // Limpiar por si acaso
+            taskCheckInterval = setInterval(getMisTareas, 15000); // Revisa cada 15 segundos
+        }
+
+        // Función para mostrar el Login
+        function showLogin() {
+            appContainer.style.display = 'none';
+            loginContainer.style.display = 'block';
+            
+            // Detener el sondeo
+            stopTaskCheck();
+            
+            // Notificar al backend que el mecánico está "No Disponible"
+            if (currentUserName) {
+                console.log(`Usuario cerrando sesión: ${currentUserName}`);
+                callApi('mecanico_check_out', currentUserName);
+                currentUserName = null;
+            }
+        }
+
+        function stopTaskCheck() {
+            if (taskCheckInterval) {
+                clearInterval(taskCheckInterval);
+                taskCheckInterval = null;
+            }
+        }
+
+        // Eventos de Netlify Identity
+        netlifyIdentity.on('login', (user) => {
+            console.log('Evento de login detectado.');
+            showApp(user);
+        });
+
+        netlifyIdentity.on('logout', () => {
+            console.log('Evento de logout detectado.');
+            showLogin();
+        });
+
+        netlifyIdentity.on('init', (user) => {
+            console.log('Netlify Identity iniciado.');
+            if (user) {
+                // El usuario ya estaba logueado
+                showApp(user);
+            } else {
+                // El usuario no está logueado
+                showLogin();
+            }
+        });
+        
+    });
+    </script>
+</body>
+</html>
