@@ -11,27 +11,52 @@
 
     <style>
         body { 
-            background-color: #f4f7f6; 
-            /* Usar 'var' de tu estilos.css si está definido, si no, un color por defecto */
             background-color: var(--light-bg, #f4f7f6);
         }
-        .app-container { 
-            max-width: 800px; 
-            margin: 0 auto; 
-            min-height: 100vh;
-        }
+        /* Corregimos el header para que use el logo */
         .app-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px 20px;
-            background-color: var(--dark-bg, #222); /* Color de tu header principal */
+            padding: 10px 20px; /* Ajuste de padding */
+            background-color: var(--dark-bg, #222);
+            color: var(--text-primary, #fff);
+        }
+        .app-header .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .app-header .logo {
+            height: 40px; /* Tamaño ajustado para app */
+            width: auto;
         }
         .app-header h1 { 
-            color: var(--text-primary, #fff); 
             margin: 0; 
-            font-size: 1.5em; 
+            font-size: 1.25em; /* Ajuste de fuente */
+            color: var(--text-primary, #fff);
         }
+        .ia-badge {
+            font-size: 0.7em;
+            padding: 2px 6px;
+        }
+        
+        /* Botón de Logout Manual */
+        #logout-btn {
+            background-color: var(--danger-color, #dc3545);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.9em;
+            border: none;
+            cursor: pointer;
+        }
+        #logout-btn:hover {
+            background-color: #c82333;
+        }
+
         .main-content { 
             padding: 20px; 
         }
@@ -44,13 +69,25 @@
         #login-container h2 { 
             margin-bottom: 20px; 
         }
-        #netlify-identity-widget { 
-            display: inline-block; 
+        /* Botón de login (Netlify) */
+        .netlify-identity-button {
+            background-color: var(--azor-blue, #005f9e);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+        }
+        .netlify-identity-button:hover {
+            background-color: #004a7c;
         }
 
-        /* Contenedor de la App (Oculto) */
+
         #app-wrapper { 
-            display: none; /* Se muestra con JS */
+            display: none;
+            min-height: 100vh;
         }
         
         .task-section {
@@ -88,6 +125,21 @@
             font-weight: 600;
         }
         
+        /* Estilos para el nuevo Status Maquina */
+        .status-maquina {
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 4px;
+            color: white;
+        }
+        .status-maquina.detenida {
+            background-color: var(--danger-color, #dc3545);
+        }
+        .status-maquina.trabajando {
+            background-color: var(--warning-color, #ffc107);
+            color: #333;
+        }
+
         .no-task {
             text-align: center;
             padding: 40px 20px;
@@ -107,28 +159,18 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* Botón de Logout (estilos de Netlify) */
-        .netlify-identity-button {
-            background-color: var(--azor-blue, #005f9e);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .netlify-identity-button:hover {
-            background-color: #004a7c;
-        }
     </style>
 </head>
 <body class="color-validator-body">
 
     <div id="app-wrapper">
         <header class="app-header">
-            <h1>Mis Tareas</h1>
-            <div data-netlify-identity-button></div>
+            <div class="logo-container">
+                <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
+                <h1>AZOR OPERACIONES <span class="ia-badge">IA</span></h1>
+            </div>
+            <button id="logout-btn"><i class="fas fa-sign-out-alt"></i> Salir</button>
         </header>
-
         <main class="main-content">
             <div id="loading-spinner-app" class="loading-spinner" style="display: block;"></div>
             
@@ -160,8 +202,8 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const loginContainer = document.getElementById('login-container');
-        // CAMBIO: Apuntar al ID correcto 'app-wrapper'
         const appWrapper = document.getElementById('app-wrapper');
+        const logoutBtn = document.getElementById('logout-btn');
         const loadingSpinner = document.getElementById('loading-spinner-app');
         const tareaActualSection = document.getElementById('tarea-actual-section');
         const tareaActualContent = document.getElementById('tarea-actual-content');
@@ -191,22 +233,27 @@
             if (!currentUserName) return;
             
             console.log("Revisando tareas...");
-            // Usamos la acción corregida
             const data = await callApi('get_mecanico_tareas', currentUserName);
             
             if (!data) return; 
             
             loadingSpinner.style.display = 'none';
 
+            // --- INICIO RENDERIZADO CORREGIDO ---
             // Renderizar Tarea Actual
             if (data.tareaActual) {
                 const tarea = data.tareaActual;
+                // Clases de CSS para el status
+                const statusMaquinaClass = tarea.statusMaquina === 'detenida' ? 'status-maquina detenida' : 'status-maquina trabajando';
+                const statusMaquinaTexto = tarea.statusMaquina === 'detenida' ? 'MÁQUINA DETENIDA' : 'MÁQUINA TRABAJANDO';
+                
                 tareaActualContent.innerHTML = `
+                    <p><strong>Status:</strong> <span class="${statusMaquinaClass}">${statusMaquinaTexto}</span></p>
                     <p><strong>Folio:</strong> ${tarea.folio}</p>
                     <p><strong>Area:</strong> ${tarea.area}</p>
                     <p><strong>Máquina:</strong> ${tarea.maquina}</p>
                     <p><strong>Estación:</strong> ${tarea.estacion}</p>
-                    <p><strong>Estado:</strong> <strong style="color: ${tarea.statusParo === 'En Proceso' ? 'var(--success-color, green)' : 'var(--azor-blue, #005f9e)'};">${tarea.statusParo}</strong></p>
+                    <p><strong>Mi Estado:</strong> <strong style="color: ${tarea.statusParo === 'En Proceso' ? 'var(--success-color, green)' : 'var(--azor-blue, #005f9e)'};">${tarea.statusParo}</strong></p>
                 `;
                 tareaActualSection.style.display = 'block';
             } else {
@@ -218,9 +265,16 @@
             if (data.tareasEnCola && data.tareasEnCola.length > 0) {
                 let colaHtml = '';
                 data.tareasEnCola.forEach((tarea, index) => {
+                    // Clases de CSS para el status en cola
+                    const statusMaquinaClass = tarea.statusMaquina === 'detenida' ? 'status-maquina detenida' : 'status-maquina trabajando';
+                    const statusMaquinaTexto = tarea.statusMaquina === 'detenida' ? 'DETENIDA' : 'TRABAJANDO';
+
                     colaHtml += `
                         <div style="border-bottom: 1px solid var(--light-bg, #eee); padding-bottom: 15px; margin-bottom: 15px;">
-                            <p><strong>${index + 1}. Folio:</strong> ${tarea.folio}</p>
+                            <p style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong>${index + 1}. Folio: ${tarea.folio}</strong>
+                                <span class="${statusMaquinaClass}" style="font-size: 0.9em;">${statusMaquinaTexto}</span>
+                            </p>
                             <p><strong>Area:</strong> ${tarea.area}</p>
                             <p><strong>Máquina:</strong> ${tarea.maquina}</p>
                         </div>
@@ -232,19 +286,21 @@
                 colaSection.style.display = 'block';
                 colaContent.innerHTML = `<p class="no-task">No hay tareas en cola.</p>`;
             }
+            // --- FIN RENDERIZADO CORREGIDO ---
         }
 
         // --- Lógica de Autenticación (Corregida) ---
 
         function showApp(user) {
             loginContainer.style.display = 'none';
-            appWrapper.style.display = 'block'; // Mostrar app
+            appWrapper.style.display = 'block'; 
             
             currentUserName = user.user_metadata.full_name;
             console.log(`Usuario logueado: ${currentUserName}`);
             
             if (!currentUserName) {
                 alert("Error: No se encontró el nombre completo del usuario. Contacta al administrador.");
+                netlifyIdentity.logout(); // Forzar logout
                 return;
             }
             
@@ -258,7 +314,7 @@
         }
 
         function showLogin() {
-            appWrapper.style.display = 'none'; // Ocultar app
+            appWrapper.style.display = 'none';
             loginContainer.style.display = 'block';
             
             stopTaskCheck();
@@ -276,6 +332,12 @@
                 taskCheckInterval = null;
             }
         }
+        
+        // Listener para el botón de Logout manual
+        logoutBtn.addEventListener('click', () => {
+            console.log("Botón de logout manual presionado.");
+            netlifyIdentity.logout();
+        });
 
         // Eventos de Netlify Identity
         netlifyIdentity.on('login', (user) => {
@@ -288,7 +350,6 @@
             showLogin();
         });
 
-        // Inicialización
         netlifyIdentity.on('init', (user) => {
             console.log('Netlify Identity iniciado.');
             if (user) {
@@ -298,7 +359,7 @@
             }
         });
         
-        // Inicializa el widget
+        // Inicializa el widget (para que maneje el login)
         netlifyIdentity.init();
     });
     </script>
