@@ -28,7 +28,7 @@ function getRowFromRange(range) {
   throw new Error(`No se pudo extraer el número de fila del rango: ${range}`);
 }
 
-// --- Funciones de Ayuda para Mecánicos (Corregida) ---
+// --- Funciones de Ayuda para Mecánicos (Sin cambios) ---
 
 async function findMechanicByName(sheets, name) {
   const spreadsheetId = process.env.MECANICOS_SHEET_ID;
@@ -45,7 +45,7 @@ async function findMechanicByName(sheets, name) {
         area: mechanics[i][1],
         availability: mechanics[i][2],
         status: mechanics[i][3],
-        TareaActual_RowID: mechanics[i][4] // Corrección de la última vez
+        TareaActual_RowID: mechanics[i][4]
       };
     }
   }
@@ -334,29 +334,30 @@ exports.handler = async function (event) {
         
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: produccionSheetId,
-          range: 'Hoja 1!A2:N', // Leer todas las columnas
+          range: 'Hoja 1!A2:N', 
         });
         const jobs = response.data.values || [];
         
-        // 1. Encontrar la Tarea "En Proceso" PRIMERO. Esta siempre tiene prioridad.
+        // 1. Encontrar la Tarea "En Proceso" PRIMERO.
         for (let i = 0; i < jobs.length; i++) {
-            const [folio, , area, maquina, estacion, , , , , , , , mecanicoAsignado, statusParo] = jobs[i];
+            // DECONSTRUCCIÓN ACTUALIZADA (Col G = statusMaquina)
+            const [folio, , area, maquina, estacion, , statusMaquina, , , , , , mecanicoAsignado, statusParo] = jobs[i];
             
             if (mecanicoAsignado === name && statusParo === 'En Proceso') {
-                tareaActual = { folio, area, maquina, estacion, statusParo };
-                break; // La encontramos, es la única tarea actual
+                tareaActual = { folio, area, maquina, estacion, statusParo, statusMaquina };
+                break; 
             }
         }
 
-        // 2. Si NO hay nada "En Proceso", buscar la tarea "Asignada" más reciente (la de TareaActual_RowID)
+        // 2. Si NO hay nada "En Proceso", buscar la tarea "Asignada" (la de TareaActual_RowID)
         if (!tareaActual && mechanic.TareaActual_RowID) {
              for (let i = 0; i < jobs.length; i++) {
                 const row = i + 2;
                 if (String(row) === String(mechanic.TareaActual_RowID)) {
-                    const [folio, , area, maquina, estacion, , , , , , , , mecanicoAsignado, statusParo] = jobs[i];
-                    // Asegurarnos que siga asignada a este mecanico y no esté cerrada
+                    // DECONSTRUCCIÓN ACTUALIZADA
+                    const [folio, , area, maquina, estacion, , statusMaquina, , , , , , mecanicoAsignado, statusParo] = jobs[i];
                      if (mecanicoAsignado === name && statusParo === 'Asignado') {
-                        tareaActual = { folio, area, maquina, estacion, statusParo };
+                        tareaActual = { folio, area, maquina, estacion, statusParo, statusMaquina };
                         break;
                      }
                 }
@@ -365,11 +366,12 @@ exports.handler = async function (event) {
 
         // 3. Poner todas las OTRAS tareas "Asignadas" en la cola
         for (let i = 0; i < jobs.length; i++) {
-            const [folio, , area, maquina, estacion, , , , , , , , mecanicoAsignado, statusParo] = jobs[i];
+            // DECONSTRUCCIÓN ACTUALIZADA
+            const [folio, , area, maquina, estacion, , statusMaquina, , , , , , mecanicoAsignado, statusParo] = jobs[i];
+            
             if (mecanicoAsignado === name && statusParo === 'Asignado') {
-                // Si esta tarea NO es la tarea actual, va a la cola
                 if (!tareaActual || tareaActual.folio !== folio) {
-                    tareasEnCola.push({ folio, area, maquina, estacion, statusParo });
+                    tareasEnCola.push({ folio, area, maquina, estacion, statusParo, statusMaquina });
                 }
             }
         }
