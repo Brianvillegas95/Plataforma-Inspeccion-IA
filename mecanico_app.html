@@ -13,12 +13,14 @@
         body { 
             background-color: var(--light-bg, #f4f7f6);
         }
+        /* Corregimos el header para que use el logo y el color azul */
         .app-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 10px 20px;
-            background-color: var(--dark-bg, #222);
+            /* Usamos --azor-blue, si no existe, usa #005f9e */
+            background-color: var(--azor-blue, #005f9e); 
             color: var(--text-primary, #fff);
         }
         .app-header .logo-container {
@@ -40,7 +42,19 @@
             padding: 2px 6px;
         }
         
-        /* Estilos para el botón de Netlify */
+        /* Estilos para el botón de Netlify (para que no haya duplicados) */
+        /* Oculta los botones duplicados en el estado de 'login' */
+        body[data-netlify-identity-status="loggedIn"] #login-container [data-netlify-identity-button] {
+             display: none;
+        }
+         /* Muestra solo el botón de 'logout' en el header cuando está logueado */
+        body[data-netlify-identity-status="loggedIn"] #logout-button-container {
+            display: block;
+        }
+        #logout-button-container {
+            display: none; /* Oculto por defecto */
+        }
+        /* Estilos para el botón de login/logout */
         .netlify-identity-button {
             background-color: var(--azor-blue, #005f9e) !important;
             color: white !important;
@@ -56,20 +70,17 @@
             background-color: #004a7c !important;
         }
 
-        .main-content { 
-            padding: 20px; 
-        }
+
+        .main-content { padding: 20px; }
         
         #login-container { 
             text-align: center; 
             padding: 40px 20px; 
         }
-        #login-container h2 { 
-            margin-bottom: 20px; 
-        }
+        #login-container h2 { margin-bottom: 20px; }
 
         #app-wrapper { 
-            display: none;
+            display: none; /* Se activa por JS */
             min-height: 100vh;
         }
         
@@ -89,14 +100,9 @@
             background-color: var(--medium-bg, #e0e0e0); 
             color: var(--text-main, #333); 
         }
-        .task-header h2 { 
-            margin: 0; 
-            font-size: 1.25em;
-        }
+        .task-header h2 { margin: 0; font-size: 1.25em; }
         
-        .task-content { 
-            padding: 20px; 
-        }
+        .task-content { padding: 20px; }
         .task-content p { 
             font-size: 1.1em; 
             line-height: 1.6; 
@@ -115,13 +121,8 @@
             color: white;
             text-transform: uppercase;
         }
-        .status-maquina.detenida {
-            background-color: var(--danger-color, #dc3545);
-        }
-        .status-maquina.trabajando {
-            background-color: var(--warning-color, #ffc107);
-            color: #333;
-        }
+        .status-maquina.detenida { background-color: var(--danger-color, #dc3545); }
+        .status-maquina.trabajando { background-color: var(--warning-color, #ffc107); color: #333; }
 
         .no-task {
             text-align: center;
@@ -132,8 +133,7 @@
         }
         .loading-spinner { 
             display: none; 
-            width: 40px; 
-            height: 40px; 
+            width: 40px; height: 40px; 
             border: 4px solid var(--light-bg, #f4f7f6); 
             border-top: 4px solid var(--azor-blue, #005f9e); 
             border-radius: 50%; 
@@ -143,7 +143,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
     </style>
-</head>
+    </head>
 <body class="color-validator-body">
 
     <div id="app-wrapper">
@@ -152,7 +152,9 @@
                 <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
                 <h1>AZOR OPERACIONES <span class="ia-badge">IA</span></h1>
             </div>
-            <div data-netlify-identity-button></div>
+            <div id="logout-button-container">
+                <div data-netlify-identity-button></div>
+            </div>
         </header>
         <main class="main-content">
             <div id="loading-spinner-app" class="loading-spinner" style="display: block;"></div>
@@ -221,7 +223,7 @@
             
             loadingSpinner.style.display = 'none';
 
-            // --- Renderizado (sin cambios desde la última vez) ---
+            // --- Renderizado (con 'statusMaquina') ---
             if (data.tareaActual) {
                 const tarea = data.tareaActual;
                 const statusMaquinaClass = tarea.statusMaquina === 'detenida' ? 'status-maquina detenida' : 'status-maquina trabajando';
@@ -266,9 +268,10 @@
             }
         }
 
-        // --- Lógica de Autenticación (Sin cambios) ---
+        // --- Lógica de Autenticación (con 'body' tag) ---
 
         function showApp(user) {
+            document.body.setAttribute('data-netlify-identity-status', 'loggedIn');
             loginContainer.style.display = 'none';
             appWrapper.style.display = 'block'; 
             
@@ -281,7 +284,6 @@
                 return;
             }
             
-            // Llamar al check-in CON la nueva lógica del backend
             callApi('mecanico_check_in', currentUserName);
             
             loadingSpinner.style.display = 'block';
@@ -292,6 +294,7 @@
         }
 
         function showLogin() {
+            document.body.removeAttribute('data-netlify-identity-status');
             appWrapper.style.display = 'none';
             loginContainer.style.display = 'block';
             
