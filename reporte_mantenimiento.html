@@ -172,48 +172,15 @@
         let statusCheckInterval = null;
 
         // --- Lógica de Menús Desplegables ---
-        async function cargarDatosDeConfiguracion() {
-            try {
-                const response = await fetch('/.netlify/functions/leer-listas-mantenimiento');
-                if (!response.ok) throw new Error('Error de red al cargar la configuración.');
-                const data = await response.json();
-                configData = data.data || {};
-                cargarAreas(Object.keys(configData));
-                cargarSoluciones(data.soluciones || []);
-            } catch (error) {
-                console.error("Error al cargar datos:", error);
-                areaSelect.innerHTML = '<option value="">Error al cargar</option>';
-                solucionSelect.innerHTML = '<option value="">Error al cargar</option>';
-            }
-        }
-        function cargarAreas(areas) {
-            areaSelect.innerHTML = '<option value="" disabled selected>-- Seleccione un área --</option>';
-            areas.sort().forEach(area => { areaSelect.add(new Option(area, area)); });
-            areaSelect.disabled = false;
-        }
-        function cargarMaquinas(areaSeleccionada) {
-            const maquinas = Object.keys(configData[areaSeleccionada] || {});
-            maquinaSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una máquina --</option>';
-            estacionSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione una máquina --</option>';
-            estacionSelect.disabled = true;
-            maquinas.sort().forEach(maquina => { maquinaSelect.add(new Option(maquina, maquina)); });
-            maquinaSelect.disabled = false;
-        }
-        function cargarEstaciones(areaSeleccionada, maquinaSeleccionada) {
-            const estaciones = configData[areaSeleccionada]?.[maquinaSeleccionada] || [];
-            estacionSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una estación --</option>';
-            estaciones.sort().forEach(estacion => { estacionSelect.add(new Option(estacion, estacion)); });
-            estacionSelect.disabled = false;
-        }
-        function cargarSoluciones(soluciones) {
-            solucionSelect.innerHTML = '<option value="" disabled selected>-- Seleccione una solución --</option>';
-            soluciones.sort().forEach(solucion => { solucionSelect.add(new Option(solucion, solucion)); });
-        }
-        areaSelect.addEventListener('change', () => { cargarMaquinas(areaSelect.value); });
-        maquinaSelect.addEventListener('change', () => { cargarEstaciones(areaSelect.value, maquinaSelect.value); });
+        async function cargarDatosDeConfiguracion(){try{const response=await fetch('/.netlify/functions/leer-listas-mantenimiento');if(!response.ok)throw new Error('Error de red al cargar la configuración.');const data=await response.json();configData=data.data||{};cargarAreas(Object.keys(configData));cargarSoluciones(data.soluciones||[])}catch(error){console.error("Error al cargar datos:",error);areaSelect.innerHTML='<option value="">Error al cargar</option>';solucionSelect.innerHTML='<option value="">Error al cargar</option>'}}
+        function cargarAreas(areas){areaSelect.innerHTML='<option value="" disabled selected>-- Seleccione un área --</option>';areas.sort().forEach(area=>{areaSelect.add(new Option(area,area))});areaSelect.disabled=false}
+        function cargarMaquinas(areaSeleccionada){const maquinas=Object.keys(configData[areaSeleccionada]||{});maquinaSelect.innerHTML='<option value="" disabled selected>-- Seleccione una máquina --</option>';estacionSelect.innerHTML='<option value="" disabled selected>-- Primero seleccione una máquina --</option>';estacionSelect.disabled=true;maquinas.sort().forEach(maquina=>{maquinaSelect.add(new Option(maquina,maquina))});maquinaSelect.disabled=false}
+        function cargarEstaciones(areaSeleccionada,maquinaSeleccionada){const estaciones=configData[areaSeleccionada]?.[maquinaSeleccionada]||[];estacionSelect.innerHTML='<option value="" disabled selected>-- Seleccione una estación --</option>';estaciones.sort().forEach(estacion=>{estacionSelect.add(new Option(estacion,estacion))});estacionSelect.disabled=false}
+        function cargarSoluciones(soluciones){solucionSelect.innerHTML='<option value="" disabled selected>-- Seleccione una solución --</option>';soluciones.sort().forEach(solucion=>{solucionSelect.add(new Option(solucion,solucion))})}
+        areaSelect.addEventListener('change',()=>{cargarMaquinas(areaSelect.value)});maquinaSelect.addEventListener('change',()=>{cargarEstaciones(areaSelect.value,maquinaSelect.value)});
         // ------------------------------------
 
-        // --- Lógica de Polling ---
+        // --- Lógica de Polling (Sondeo) ---
         function stopStatusCheck() {
             if (statusCheckInterval) {
                 clearInterval(statusCheckInterval);
@@ -232,18 +199,18 @@
                 const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'check_status',
-                        row: rowToCheck
-                    }),
+                    body: JSON.stringify({ action: 'check_status', row: rowToCheck }),
                 });
                 if (!response.ok) return;
                 const result = await response.json();
+                
+                // Si pasa de "En Cola" a "Asignado"
                 if (result.status === 'Asignado') {
                     console.log("¡Asignación detectada!");
                     andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${result.mecanico}</strong>. <br> En camino.`;
-                    stopStatusCheck();
+                    stopStatusCheck(); // Deja de preguntar, ya está asignado
                 }
+                // Si sigue "En Cola", no hace nada, solo espera
             } catch (error) {
                 console.error("Error al revisar status:", error);
             }
@@ -256,7 +223,7 @@
         }
 
         /**
-         * Reconstruye la pantalla de Andon basada en el estado guardado.
+         * Reconstruye la pantalla de Andon (Actualizada)
          */
         function buildAndonScreen(status, mecanico, folio, statusMaquina) {
             paroForm.style.display = 'none';
@@ -275,23 +242,28 @@
                 andonTitle.textContent = 'REPORTE DE MANTENIMIENTO';
             }
             
-            // Configurar folio y mensaje
             andonFolio.textContent = `FOLIO: ${folio}`;
-            if (status === 'Abierto') {
-                andonStatusMessage.innerHTML = `<strong>Todos los mecánicos están ocupados.</strong> <br> Su reporte está en espera.`;
-            } else {
-                andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${mecanico}</strong>. <br> En camino.`;
+            
+            // ¡NUEVA LÓGICA DE MENSAJES!
+            if (status === 'Asignado') {
+                 andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${mecanico}</strong>. <br> En camino.`;
+            } else if (status === 'En Cola') {
+                 andonStatusMessage.innerHTML = `Se le asignó el trabajo a: <strong>${mecanico}</strong>. <br> <strong>Está ocupado</strong>, en cuanto termine revisará tu máquina.`;
             }
             
             // Configurar botones
-            if (status === 'Abierto' || status === 'Asignado') {
+            // "En Cola" se comporta igual que "Asignado" (esperando llegada)
+            if (status === 'En Cola' || status === 'Asignado') {
                 llegadaMecanicoBtn.style.display = 'block';
                 fallaAtendidaBtn.style.display = 'none';
-                if (status === 'Abierto') {
+                
+                // Si está "En Cola", iniciar sondeo
+                if (status === 'En Cola') {
                     const row = localStorage.getItem('paroRow');
                     stopStatusCheck();
-                    statusCheckInterval = setInterval(() => checkParoStatus(row), 15000);
+                    statusCheckInterval = setInterval(() => checkParoStatus(row), 15000); // Revisa cada 15 seg
                 }
+
             } else if (status === 'En Proceso') {
                 llegadaMecanicoBtn.style.display = 'none';
                 fallaAtendidaBtn.style.display = 'block';
@@ -301,7 +273,7 @@
         }
 
         /**
-         * Se ejecuta al cargar la página. Revisa si un paro ya está activo.
+         * Revisa si un paro ya está activo (Actualizado)
          */
         async function checkForActiveParo() {
             const activeRow = localStorage.getItem('paroRow');
@@ -318,19 +290,18 @@
             document.querySelector('.maintenance-tool').appendChild(loadingSpinner);
             
             try {
+                // Preguntar al backend cuál es el estado actual de este paro
                 const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'check_status',
-                        row: activeRow
-                    }),
+                    body: JSON.stringify({ action: 'check_status', row: activeRow }),
                 });
 
                 if (!response.ok) throw new Error('No se pudo recuperar el estado del paro.');
                 
                 const data = await response.json(); // { mecanico, status }
                 
+                // Autocorrección: Si el paro ya estaba cerrado, limpiar y recargar
                 if (data.status === 'Cerrado') {
                     console.log("El paro guardado ya estaba cerrado. Limpiando...");
                     localStorage.removeItem('paroRow');
@@ -343,6 +314,7 @@
                 // Recuperar los datos guardados
                 const folio = localStorage.getItem('paroFolio');
                 const statusMaquina = localStorage.getItem('paroStatusMaquina');
+                // La función ahora acepta "En Cola"
                 buildAndonScreen(data.status, data.mecanico, folio, statusMaquina);
 
             } catch (error) {
@@ -359,13 +331,12 @@
 
         // --- Event Listeners (Formularios) ---
 
-        // 1. GENERAR PARO
+        // 1. GENERAR PARO (Actualizado)
         paroForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             mostrarError('');
             generarParoBtn.disabled = true;
             loadingParo.style.display = 'block';
-
             const area = areaSelect.value;
             const maquina = maquinaSelect.value;
             const estacion = estacionSelect.value;
@@ -373,7 +344,6 @@
             const statusMaquina = document.getElementById('status-maquina-select').value;
             const workOrder = document.getElementById('workorder-input').value || 'N/A';
             const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
-
             stopStatusCheck();
 
             try {
@@ -394,12 +364,13 @@
                 const result = await response.json();
                 if (!result.row || !result.folio) throw new Error('No se recibió fila o folio del servidor.');
 
-                // === ¡CAMBIO CLAVE! Usar localStorage ===
+                // Guardar TODO en localStorage
                 localStorage.setItem('paroRow', result.row);
                 localStorage.setItem('paroFolio', result.folio);
-                localStorage.setItem('paroStatusMaquina', statusMaquina);
+                localStorage.setItem('paroStatusMaquina', statusMaquina); // Guardar esto es clave
                 
                 paroForm.style.display = 'none';
+                // ¡NUEVO! La función ahora sabe qué hacer con "En Cola"
                 buildAndonScreen(result.status, result.mecanico, result.folio, statusMaquina);
 
             } catch (error) {
@@ -411,16 +382,14 @@
             }
         });
 
-        // 2. REGISTRAR LLEGADA
+        // 2. REGISTRAR LLEGADA (Sin cambios)
         llegadaMecanicoBtn.addEventListener('click', async () => {
-            stopStatusCheck();
+            stopStatusCheck(); // Detener sondeo (si lo había)
             mostrarError('');
             llegadaMecanicoBtn.disabled = true;
             loadingLlegada.style.display = 'block';
-            
             const rowToUpdate = localStorage.getItem('paroRow');
             const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
-            
             if (!rowToUpdate) {
                 mostrarError('Error crítico: Se perdió la referencia del reporte.');
                 loadingLlegada.style.display = 'none';
@@ -448,26 +417,24 @@
             }
         });
 
-        // 3. MOSTRAR FORMULARIO DE SOLUCIÓN
+        // 3. MOSTRAR FORMULARIO DE SOLUCIÓN (Sin cambios)
         fallaAtendidaBtn.addEventListener('click', () => {
             stopStatusCheck();
             solucionForm.style.display = 'block';
             fallaAtendidaBtn.style.display = 'none';
         });
 
-        // 4. FINALIZAR PARO
+        // 4. FINALIZAR PARO (Sin cambios)
         solucionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             stopStatusCheck();
             mostrarError('');
             finalizarParoBtn.disabled = true;
             loadingSolucion.style.display = 'block';
-
             const solucion = solucionSelect.value;
             const mecanico = document.getElementById('mecanico-input').value;
             const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
             const rowToUpdate = localStorage.getItem('paroRow');
-
             if (!rowToUpdate) {
                 mostrarError('Error crítico: Se perdió la referencia del reporte.');
                 loadingSolucion.style.display = 'none';
@@ -499,7 +466,7 @@
                 generarParoBtn.disabled = false;
                 finalizarParoBtn.disabled = false;
                 
-                // === ¡CAMBIO CLAVE! Limpiar localStorage ===
+                // Limpiar localStorage
                 localStorage.removeItem('paroRow');
                 localStorage.removeItem('paroFolio');
                 localStorage.removeItem('paroStatusMaquina');
