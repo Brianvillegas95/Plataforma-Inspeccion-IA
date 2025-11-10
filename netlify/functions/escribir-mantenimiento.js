@@ -51,32 +51,34 @@ async function findMechanicByName(sheets, name) {
   }
   if (!mechanic) return null;
 
+  // --- ¡INICIO DE CORRECCIÓN DE BUG (image_854d7b.jpg)! ---
+  // Revisa si el mecánico tiene algún trabajo "En Proceso" o "Asignado"
+  // para sincronizar su estado en caso de que el navegador se haya cerrado.
   const produccionSheetId = process.env.MANTENIMIENTO_SHEET_ID;
   const jobsResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: produccionSheetId,
-    range: 'Hoja 1!A2:N',
+    range: 'Hoja 1!M2:N', // Col M (MecanicoAsignado), Col N (StatusParo)
   });
   const jobs = jobsResponse.data.values || [];
-  let activeJobRowId = null;
+  let hasActiveJob = false;
 
   for (let i = 0; i < jobs.length; i++) {
-    const row = i + 2;
-    const mecanicoAsignado = jobs[i][12]; // Col M
-    const statusParo = jobs[i][13]; // Col N
+    const mecanicoAsignado = jobs[i][0]; // Col M
+    const statusParo = jobs[i][1]; // Col N
     
     if (mecanicoAsignado === name && (statusParo === 'En Proceso' || statusParo === 'Asignado')) {
-        activeJobRowId = row;
-        break; 
+        hasActiveJob = true;
+        break; // Encontramos un trabajo activo
     }
   }
 
-  if (activeJobRowId) {
+  if (hasActiveJob) {
     mechanic.status = 'Ocupado';
-    mechanic.TareaActual_RowID = activeJobRowId;
   } else {
+    // No tiene trabajos activos, puede estar "Libre"
     mechanic.status = 'Libre';
-    mechanic.TareaActual_RowID = '';
   }
+  // --- ¡FIN DE CORRECCIÓN DE BUG! ---
   
   return mechanic;
 }
@@ -150,15 +152,18 @@ async function updateMechanicStatus(sheets, row, status, reportRowId) {
 
 // Actualiza Disponibilidad (Sincronizado)
 async function updateMechanicAvailability(sheets, name, availability) {
+  // findMechanicByName AHORA corrige el estado
   const mechanic = await findMechanicByName(sheets, name); 
   if (!mechanic) throw new Error(`Mecánico ${name} no encontrado en MECANICOS_DB.`);
   
   const spreadsheetId = process.env.MECANICOS_SHEET_ID;
+  // Usamos el 'mechanic.status' que ya está corregido
   let newStatusSistema = mechanic.status; 
 
   if (availability === 'Disponible' && newStatusSistema === 'Libre') {
       newStatusSistema = 'Libre';
   } else {
+      // Si está Ocupado (por la sincronización) O se está deslogueando
       newStatusSistema = 'Ocupado';
   }
   
@@ -174,11 +179,10 @@ async function updateMechanicAvailability(sheets, name, availability) {
   return mechanic;
 }
 
-// --- ¡INICIO DE LA LÓGICA DE "COLA COMPARTIDA"! ---
+// --- Lógica de "Cola Compartida" (WMS) ---
 
 /**
  * Busca el próximo trabajo "En Cola" MÁS URGENTE en un ÁREA,
- * sin importar quién lo tenga asignado.
  */
 async function findNextJobInSharedQueue(sheets, mechanicArea) {
   const spreadsheetId = process.env.MANTENIMIENTO_SHEET_ID;
@@ -197,20 +201,17 @@ async function findNextJobInSharedQueue(sheets, mechanicArea) {
     const jobStatusMaquina = jobs[i][4]; 
     const jobStatusParo = jobs[i][11]; 
 
-    // Si es del área correcta Y está "En Cola"
     if (jobArea === mechanicArea && jobStatusParo === 'En Cola') {
-      // Prioridad 1: Detenida
       if (jobStatusMaquina === 'detenida' && !highPriorityJob) {
         highPriorityJob = { row: row };
-        break; // Encontramos el más importante, salir
+        break; 
       }
-      // Prioridad 2: Trabajando
       if (jobStatusMaquina === 'trabajando' && !lowPriorityJob) {
         lowPriorityJob = { row: row };
       }
     }
   }
-  return highPriorityJob || lowPriorityJob; // Devuelve P1, o si no, P2
+  return highPriorityJob || lowPriorityJob;
 }
 
 /**
@@ -219,17 +220,15 @@ async function findNextJobInSharedQueue(sheets, mechanicArea) {
 async function reAssignPendingJob(sheets, mechanic, jobRow) {
   console.log(`RE-ASIGNACIÓN dinámica: ${mechanic.name} -> Fila ${jobRow}`);
   
-  // 1. Poner al mecánico como Ocupado y actualizar su TareaActual
   await updateMechanicStatus(sheets, mechanic.row, 'Ocupado', jobRow);
   
-  // 2. Actualizar el paro: nuevo MecanicoAsignado y status "Asignado"
   const spreadsheetId = process.env.MANTENIMIENTO_SHEET_ID;
   await sheets.spreadsheets.values.update({
     spreadsheetId: spreadsheetId,
     range: `Hoja 1!M${jobRow}:N${jobRow}`, // Col M (MecanicoAsignado) y N (StatusParo)
     valueInputOption: 'USER_ENTERED',
     resource: {
-      values: [[mechanic.name, 'Asignado']], // ¡Sobreescribe al mecánico anterior!
+      values: [[mechanic.name, 'Asignado']], // Sobreescribe al mecánico anterior
     },
   });
 }
@@ -246,23 +245,20 @@ async function releaseMechanicAndCheckQueue(sheets, mechanicName) {
       return;
   }
   
-  // 1. Buscar si hay trabajo "En Cola" en su ÁREA (de cualquier mecánico)
   const nextJob = await findNextJobInSharedQueue(sheets, mechanic.area);
   
   if (nextJob) {
-      // 2a. ¡Hay trabajo! RE-ASIGNARLO a este mecánico.
       console.log(`Mecánico ${mechanicName} liberado, RE-ASIGNANDO trabajo (Fila ${nextJob.row}).`);
       await reAssignPendingJob(sheets, mechanic, nextJob.row);
   } else {
-      // 2b. No hay cola. Ponerlo "Libre".
       console.log(`Mecánico ${mechanicName} liberado. No hay trabajos en cola.`);
       await updateMechanicStatus(sheets, mechanic.row, 'Libre', '');
   }
 }
-// --- ¡FIN DE LA LÓGICA DE "COLA COMPARTIDA"! ---
 
 // --- Handler Principal ---
 exports.handler = async function (event) {
+  // (Validación HTTP - sin cambios)
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
@@ -279,8 +275,7 @@ exports.handler = async function (event) {
     const sheets = getSheetsAPI(auth);
     
     switch (action) {
-      // --- Acción: ABRIR REPORTE (Sin cambios) ---
-      // Sigue usando el "Balanceo de Carga" para la asignación inicial.
+      // --- Acción: ABRIR REPORTE (Balanceo de Carga) ---
       case 'abrir': {
         if (!data) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "data".' }) };
         const now = new Date();
@@ -319,12 +314,12 @@ exports.handler = async function (event) {
         };
       }
       
-      // --- Acción: CERRAR REPORTE (Actualizada) ---
+      // --- Acción: CERRAR REPORTE (Cola Compartida) ---
       case 'cerrar': {
         if (!row || !data) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "row" o "data".' }) };
         const mecanicoQueCerro = data[1]; 
         
-        // ¡NUEVO! Esta función ahora activa la "Cola Compartida"
+        // ¡Esta función ahora activa la "Cola Compartida"!
         await releaseMechanicAndCheckQueue(sheets, mecanicoQueCerro);
         
         await sheets.spreadsheets.values.batchUpdate({
@@ -341,12 +336,13 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: 'Paro finalizado.' }) };
       }
       
-      // --- Acción: LOGIN DE MECÁNICO (Actualizada) ---
+      // --- Acción: LOGIN DE MECÁNICO (Corregido) ---
       case 'mecanico_check_in': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
+        // Esta función ahora arregla el estado ("Libre" / "Ocupado")
         const mechanic = await updateMechanicAvailability(sheets, name, 'Disponible');
         
-        // ¡NUEVO! Si el login te marca como "Libre", busca en la "Cola Compartida"
+        // Si el login te marca como "Libre", busca en la "Cola Compartida"
         if (mechanic.status === 'Libre' && !mechanic.TareaActual_RowID) {
             console.log(`Mecánico ${name} está libre, buscando trabajo en COLA COMPARTIDA...`);
             const nextJob = await findNextJobInSharedQueue(sheets, mechanic.area);
@@ -419,8 +415,13 @@ exports.handler = async function (event) {
                 if (statusParo === 'En Proceso') {
                     tareaActual = tarea;
                 }
-                else if (statusParo === 'Asignado' && String(row) === String(mechanic.TareaActual_RowID)) {
-                    tareaActual = tarea;
+                else if (statusParo === 'Asignado') {
+                    // Si no hay nada "En Proceso", esta es la Tarea Actual
+                    if (!tareaActual) {
+                         tareaActual = tarea;
+                    } else {
+                         tareasEnCola.push(tarea);
+                    }
                 }
                 else if (statusParo === 'En Cola') {
                     tareasEnCola.push(tarea);
@@ -428,18 +429,7 @@ exports.handler = async function (event) {
             }
         }
         
-        if (tareaActual && tareaActual.statusParo === 'En Proceso' && mechanic.TareaActual_RowID) {
-             for (let i = 0; i < jobs.length; i++) {
-                 const row = i + 2;
-                 if (String(row) === String(mechanic.TareaActual_RowID)) {
-                     const [folio, , area, maquina, estacion, , statusMaquina, , , , , , mecanicoAsignado, statusParo] = jobs[i];
-                     if(mecanicoAsignado === name && statusParo === 'Asignado') {
-                         tareasEnCola.unshift({ folio, area, maquina, estacion, statusParo, statusMaquina });
-                     }
-                 }
-             }
-        }
-
+        // Ordenar la cola por prioridad
         tareasEnCola.sort((a, b) => {
             if (a.statusMaquina === 'detenida' && b.statusMaquina !== 'detenida') return -1;
             if (a.statusMaquina !== 'detenida' && b.statusMaquina === 'detenida') return 1;
