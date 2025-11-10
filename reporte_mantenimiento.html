@@ -204,15 +204,14 @@
                 if (!response.ok) return;
                 const result = await response.json();
                 
-                // Si pasa de "En Cola" a "Asignado"
+                // ¡NUEVA LÓGICA! Si pasa de "En Cola" a "Asignado"
                 if (result.status === 'Asignado') {
                     console.log("¡Asignación detectada!");
-                    // --- ¡CORRECCIÓN AQUÍ! ---
-                    // Usamos el mensaje correcto para "Asignado"
+                    // Ahora sí, mostrar el mecánico
                     andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${result.mecanico}</strong>. <br> En camino.`;
                     stopStatusCheck(); // Deja de preguntar, ya está asignado
                 }
-                // Si sigue "En Cola", no hace nada, solo espera
+                // Si sigue "En Cola", no hace nada
             } catch (error) {
                 console.error("Error al revisar status:", error);
             }
@@ -231,35 +230,27 @@
             paroForm.style.display = 'none';
             solucionForm.style.display = 'none';
 
-            // Configurar color y título
             if (statusMaquina === 'detenida') {
                 andonScreen.classList.add('andon-red');
-                andonScreen.classList.remove('andon-yellow');
                 andonIcon.className = 'fas fa-exclamation-triangle';
                 andonTitle.textContent = 'MÁQUINA DETENIDA';
             } else {
                 andonScreen.classList.add('andon-yellow');
-                andonScreen.classList.remove('andon-red');
                 andonIcon.className = 'fas fa-tools';
                 andonTitle.textContent = 'REPORTE DE MANTENIMIENTO';
             }
             
             andonFolio.textContent = `FOLIO: ${folio}`;
             
-            // --- ¡INICIO DE LA CORRECCIÓN DE LÓGICA! ---
-            // Esta es la lógica que arregla tu bug.
+            // --- ¡NUEVA LÓGICA DE MENSAJES (según tu petición)! ---
             if (status === 'Asignado') {
-                 // Mensaje estándar "En camino"
                  andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${mecanico}</strong>. <br> En camino.`;
             } else if (status === 'En Cola') {
-                 // ¡NUEVO MENSAJE! El que tú pediste.
-                 andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${mecanico}</strong>. <br> Pero está ocupado en otra máquina, te atenderá a la brevedad.`;
+                 // Este es el nuevo mensaje que pediste
+                 andonStatusMessage.innerHTML = `<strong>Todos los mecánicos están ocupados.</strong> <br> Su reporte está en espera.`;
             } else if (status === 'En Proceso') {
-                // Mensaje si se recarga la página y ya está en proceso
                 andonStatusMessage.innerHTML = `<strong>${mecanico}</strong> está trabajando en tu máquina.`;
             }
-            // --- FIN DE LA CORRECCIÓN DE LÓGICA! ---
-            
             
             // Configurar botones
             if (status === 'En Cola' || status === 'Asignado') {
@@ -269,7 +260,8 @@
                 if (status === 'En Cola') {
                     const row = localStorage.getItem('paroRow');
                     stopStatusCheck();
-                    statusCheckInterval = setInterval(() => checkParoStatus(row), 15000); // Revisa cada 15 seg
+                    // --- ¡NUEVO TIEMPO! 10 segundos ---
+                    statusCheckInterval = setInterval(() => checkParoStatus(row), 10000); 
                 }
 
             } else if (status === 'En Proceso') {
@@ -306,7 +298,7 @@
 
                 if (!response.ok) throw new Error('No se pudo recuperar el estado del paro.');
                 
-                const data = await response.json(); // { mecanico, status }
+                const data = await response.json(); 
                 
                 if (data.status === 'Cerrado') {
                     console.log("El paro guardado ya estaba cerrado. Limpiando...");
@@ -319,7 +311,6 @@
                 
                 const folio = localStorage.getItem('paroFolio');
                 const statusMaquina = localStorage.getItem('paroStatusMaquina');
-                // La función ahora tiene la lógica correcta para "En Cola"
                 buildAndonScreen(data.status, data.mecanico, folio, statusMaquina);
 
             } catch (error) {
@@ -336,7 +327,7 @@
 
         // --- Event Listeners (Formularios) ---
 
-        // 1. GENERAR PARO (Actualizado)
+        // 1. GENERAR PARO
         paroForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             mostrarError('');
@@ -385,7 +376,7 @@
             }
         });
 
-        // 2. REGISTRAR LLEGADA (Sin cambios)
+        // 2. REGISTRAR LLEGADA
         llegadaMecanicoBtn.addEventListener('click', async () => {
             stopStatusCheck();
             mostrarError('');
@@ -412,7 +403,6 @@
                 llegadaMecanicoBtn.style.display = 'none';
                 fallaAtendidaBtn.style.display = 'block';
                 
-                // Actualizar mensaje por si acaso (aunque el polling ya debería estar detenido)
                 const mecanico = andonStatusMessage.querySelector('strong') ? andonStatusMessage.querySelector('strong').textContent : 'El mecánico';
                 andonStatusMessage.innerHTML = `<strong>${mecanico}</strong> está trabajando en tu máquina.`;
 
@@ -425,14 +415,14 @@
             }
         });
 
-        // 3. MOSTRAR FORMULARIO DE SOLUCIÓN (Sin cambios)
+        // 3. MOSTRAR FORMULARIO DE SOLUCIÓN
         fallaAtendidaBtn.addEventListener('click', () => {
             stopStatusCheck();
             solucionForm.style.display = 'block';
             fallaAtendidaBtn.style.display = 'none';
         });
 
-        // 4. FINALIZAR PARO (Sin cambios)
+        // 4. FINALIZAR PARO
         solucionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             stopStatusCheck();
