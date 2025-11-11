@@ -1337,14 +1337,7 @@ body.color-validator-body .main-content {
     text-decoration: none;
 }
 
-
 /* --- ▼▼ INICIA EL NUEVO CÓDIGO DE GALERÍA Y ZOOM ▼▼ --- */
-
-/* Clase que se añade con JS cuando la imagen está ampliada */
-.lightbox-content.zoomed {
-    transform: scale(1.5); /* Ajusta el nivel de zoom como prefieras */
-    cursor: zoom-out;
-}
 
 /* Botones de navegación (flechas) */
 .gallery-nav {
@@ -1381,22 +1374,58 @@ body.color-validator-body .main-content {
     background-color: rgba(0, 0, 0, 0.7); /* Más oscuro al pasar el mouse */
 }
 
-/* Botón de zoom (Lupa 🔍) */
-.gallery-zoom {
-    cursor: pointer;
+.zoom-toolbar {
     position: absolute;
-    top: 15px;
-    right: 85px; /* Al lado del botón de cerrar (que está en 35px) */
-    color: white;
-    font-size: 28px;
-    transition: 0.3s ease;
-    user-select: none;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(30, 30, 30, 0.8);
+    border-radius: 20px;
+    padding: 5px;
     display: none; /* Se controla por JS */
-    z-index: 1001; /* Asegura que esté sobre la imagen */
+    z-index: 1002;
+    user-select: none;
 }
 
-.gallery-zoom:hover {
-    color: #ccc; /* Un gris claro al pasar el mouse */
+.zoom-btn {
+    background-color: transparent;
+    border: none;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    line-height: 40px; /* Centra el - y + verticalmente */
+    text-align: center;
+    transition: background-color 0.2s;
+    border-radius: 50%; /* Botones redondos */
+}
+
+.zoom-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 2. Estilos para el nuevo 'wrapper' de la imagen */
+#lightbox-image-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden; /* ¡MUY IMPORTANTE! Oculta lo que se sale */
+}
+
+/* 3. Modificaciones al contenido del lightbox (la imagen) */
+.lightbox-content {
+    /* Quitamos los max-width/height para que el zoom funcione sin límites */
+    max-width: none; 
+    max-height: none;
+    
+    /* El JS controlará el 'transform' (scale y translate) */
+    transition: none; /* Desactivamos la transición de CSS */
+    
+    /* El cursor inicial (zoom-in) se controlará por JS */
 }
 
 /* --- ▲▲ FIN DEL NUEVO CÓDIGO DE GALERÍA Y ZOOM ▲▲ --- */
@@ -1488,3 +1517,4 @@ body.color-validator-body .main-content {
     box-shadow: var(--shadow-lg);
 
 }
+
