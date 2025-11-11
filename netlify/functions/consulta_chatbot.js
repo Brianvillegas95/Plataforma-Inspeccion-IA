@@ -38,15 +38,24 @@ exports.handler = async function(event) {
     const infoFinal = informacion.find(item => item.id_categoria === currentId);
 
     if (infoFinal) {
-      // Si encontramos información, la enviamos de forma estructurada.
+      
+      let processedMediaUrl = null; 
+      const rawMediaUrl = infoFinal.media_url; 
+      if (rawMediaUrl && typeof rawMediaUrl === 'string') {
+          if (rawMediaUrl.includes(',')) {
+              processedMediaUrl = rawMediaUrl.split(',');
+          } else {
+              processedMediaUrl = rawMediaUrl;
+          }
+      }
+      
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: infoFinal.titulo,
           content: infoFinal.contenido,
-          // ¡Añadimos la media_url aquí!
-          mediaUrl: infoFinal.media_url || null, 
+          mediaUrl: processedMediaUrl,
           options: [{ text: 'Volver al inicio', nextId: '0' }]
         })
       };
@@ -74,4 +83,5 @@ exports.handler = async function(event) {
     console.error('Error:', error);
     return { statusCode: 500, body: JSON.stringify({ error: 'Error interno del servidor.' }) };
   }
+
 };
