@@ -1296,15 +1296,29 @@ body.color-validator-body .main-content {
     align-items: center;
 }
 
-/* La imagen dentro del lightbox */
+/* La imagen dentro del lightbox (MODIFICADA) */
 .lightbox-content {
     margin: auto;
     display: block;
     max-width: 85%;
     max-height: 85vh; /* Ocupa como máximo el 85% de la altura de la pantalla */
+
+    /* Animación de zoom al abrir (de tu código original) */
+    animation-name: zoom;
+    animation-duration: 0.4s;
+
+    /* --- ▼▼ NUEVO: Añadido para el zoom de la galería ▼▼ --- */
+    transition: transform 0.2s ease;
+    cursor: zoom-in;
+    /* --- ▲▲ FIN DE LO NUEVO ▲▲ --- */
 }
 
-/* Botón para cerrar el lightbox */
+@keyframes zoom {
+    from {transform: scale(0)} 
+    to {transform: scale(1)}
+}
+
+/* Botón para cerrar el lightbox (MODIFICADO) */
 .lightbox-close {
     position: absolute;
     top: 20px;
@@ -1314,6 +1328,7 @@ body.color-validator-body .main-content {
     font-weight: bold;
     transition: 0.3s;
     cursor: pointer;
+    z-index: 1001; 
 }
 
 .lightbox-close:hover,
@@ -1322,16 +1337,70 @@ body.color-validator-body .main-content {
     text-decoration: none;
 }
 
-/* Animación de zoom al abrir */
-.lightbox-content {  
-    animation-name: zoom;
-    animation-duration: 0.4s;
+
+/* --- ▼▼ INICIA EL NUEVO CÓDIGO DE GALERÍA Y ZOOM ▼▼ --- */
+
+/* Clase que se añade con JS cuando la imagen está ampliada */
+.lightbox-content.zoomed {
+    transform: scale(1.5); /* Ajusta el nivel de zoom como prefieras */
+    cursor: zoom-out;
 }
 
-@keyframes zoom {
-    from {transform: scale(0)} 
-    to {transform: scale(1)}
+/* Botones de navegación (flechas) */
+.gallery-nav {
+    cursor: pointer;
+    position: absolute;
+    top: 50%;
+    width: auto;
+    padding: 16px;
+    margin-top: -22px;
+    color: white;
+    font-weight: bold;
+    font-size: 30px;
+    transition: 0.3s ease;
+    user-select: none; /* Evita que el texto se seleccione */
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 0 3px 3px 0;
+    display: none; /* Se controlan por JS */
+    z-index: 1001; /* Asegura que estén sobre la imagen */
 }
+
+/* Flecha "Anterior" */
+.gallery-prev {
+    left: 0;
+    border-radius: 3px 0 0 3px;
+}
+
+/* Flecha "Siguiente" */
+.gallery-next {
+    right: 0;
+    border-radius: 0 3px 3px 0;
+}
+
+.gallery-nav:hover {
+    background-color: rgba(0, 0, 0, 0.7); /* Más oscuro al pasar el mouse */
+}
+
+/* Botón de zoom (Lupa 🔍) */
+.gallery-zoom {
+    cursor: pointer;
+    position: absolute;
+    top: 15px;
+    right: 85px; /* Al lado del botón de cerrar (que está en 35px) */
+    color: white;
+    font-size: 28px;
+    transition: 0.3s ease;
+    user-select: none;
+    display: none; /* Se controla por JS */
+    z-index: 1001; /* Asegura que esté sobre la imagen */
+}
+
+.gallery-zoom:hover {
+    color: #ccc; /* Un gris claro al pasar el mouse */
+}
+
+/* --- ▲▲ FIN DEL NUEVO CÓDIGO DE GALERÍA Y ZOOM ▲▲ --- */
+
 /* Archivo: css/estilos.css */
 
 .chat-media-link {
@@ -1417,4 +1486,5 @@ body.color-validator-body .main-content {
     background-color: #ffca2c; /* Amarillo más claro */
     transform: scale(1.05); /* Efecto de zoom */
     box-shadow: var(--shadow-lg);
+
 }
