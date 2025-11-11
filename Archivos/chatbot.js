@@ -1,45 +1,55 @@
-// Archivo: chatbot.js (Versión final con GALERÍA y reapertura de chat)
+// Archivo: chatbot.js (Versión final con Pan & Zoom y reapertura de chat)
 
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Elementos del DOM ---
+    // --- Elementos del DOM (Chat) ---
     const chatBubble = document.getElementById('chat-bubble');
     const chatContainer = document.getElementById('chat-container');
     const closeChat = document.getElementById('close-chat');
     const messagesContainer = document.getElementById('chat-messages');
     const optionsContainer = document.getElementById('chat-options');
 
-    // --- Elementos para el Lightbox (GALERÍA) ---
+    // --- Elementos del DOM (Lightbox - Galería) ---
     const lightbox = document.getElementById('lightbox');
-    const lightboxImg = document.getElementById('lightbox-img');
     const lightboxClose = document.querySelector('.lightbox-close');
-    
-    // ▼▼ NUEVO: Elementos de la galería (Asegúrate de tenerlos en tu HTML) ▼▼
     const galleryPrev = document.getElementById('gallery-prev');
     const galleryNext = document.getElementById('gallery-next');
-    const galleryZoom = document.getElementById('gallery-zoom');
-    // ▲▲ FIN DE NUEVO ▲▲
+    
+    // ▼▼ INICIO DE CAMBIOS (NUEVOS ELEMENTOS DE ZOOM) ▼▼
+    const imageWrapper = document.getElementById('lightbox-image-wrapper');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const zoomToolbar = document.getElementById('zoom-toolbar');
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    // ▲▲ FIN DE CAMBIOS ▲▲
 
-    if (!chatBubble || !chatContainer || !closeChat || !messagesContainer || !optionsContainer || !lightbox || !lightboxImg || !lightboxClose || !galleryPrev || !galleryNext || !galleryZoom) {
+    // Verificación de elementos
+    if (!chatBubble || !chatContainer || !closeChat || !messagesContainer || !optionsContainer || !lightbox || !lightboxClose || !galleryPrev || !galleryNext || !imageWrapper || !lightboxImg || !zoomToolbar || !zoomInBtn || !zoomOutBtn) {
         console.error("No se encontraron los elementos necesarios para el chatbot o la galería lightbox. Revisa el HTML.");
-        console.error("Elementos faltantes:", {
-            galleryPrev: !!galleryPrev,
-            galleryNext: !!galleryNext,
-            galleryZoom: !!galleryZoom,
-            lightbox: !!lightbox
-        });
+        // Muestra qué falta
+        console.error({ chatBubble, chatContainer, closeChat, messagesContainer, optionsContainer, lightbox, lightboxClose, galleryPrev, galleryNext, imageWrapper, lightboxImg, zoomToolbar, zoomInBtn, zoomOutBtn });
         return;
     }
 
     let isChatInitiated = false;
     let historyStack = [];
-    
-    // ▼▼ NUEVO: Estado de la galería ▼▼
+
+    // ▼▼ INICIO DE CAMBIOS (ESTADO DE ZOOM Y PAN) ▼▼
     let currentGalleryImages = [];
     let currentGalleryIndex = 0;
-    let isZoomed = false;
-    // ▲▲ FIN DE NUEVO ▲▲
+
+    // Estado para Pan & Zoom
+    const MIN_ZOOM = 1.0;
+    const MAX_ZOOM = 3.0;
+    const ZOOM_STEP = 0.5;
+    let currentZoom = MIN_ZOOM;
+    let isDragging = false;
+    let startPan = { x: 0, y: 0 }; // Posición inicial del clic
+    let currentPan = { x: 0, y: 0 }; // Desplazamiento actual
+    let imageNaturalSize = { width: 0, height: 0 }; // Tamaño real de la imagen
+    // ▲▲ FIN DE CAMBIOS ▲▲
 
     // --- ABRIR Y CERRAR EL CHAT ---
+    // (Esta sección no tiene cambios)
     chatBubble.addEventListener('click', () => {
         chatContainer.classList.toggle('open');
         if (!isChatInitiated && chatContainer.classList.contains('open')) {
@@ -55,88 +65,193 @@ document.addEventListener('DOMContentLoaded', () => {
         chatContainer.classList.remove('open');
     });
 
-    // --- LÓGICA DEL LIGHTBOX (GALERÍA MEJORADA) ---
+    // --- LÓGICA DEL LIGHTBOX (GALERÍA MEJORADA CON PAN & ZOOM) ---
 
-    // ▼▼ MODIFICADO: Cerrar el lightbox ▼▼
+    // ▼▼ INICIO DE CAMBIOS (NUEVAS FUNCIONES DE TRANSFORMACIÓN) ▼▼
+    
+    // Resetea el zoom y pan a su estado inicial
+    function resetImageTransform() {
+        currentZoom = MIN_ZOOM;
+        currentPan = { x: 0, y: 0 };
+        
+        // Obtenemos el tamaño del 'wrapper' y de la imagen
+        const wrapperRect = imageWrapper.getBoundingClientRect();
+        
+        // Calculamos el zoom inicial para que la imagen quepa ("fit")
+        const scaleX = wrapperRect.width / imageNaturalSize.width;
+        const scaleY = wrapperRect.height / imageNaturalSize.height;
+        currentZoom = Math.min(scaleX, scaleY, MIN_ZOOM); // No queremos que sea más grande que 1.0 al inicio
+        
+        // Si la imagen es más pequeña que la pantalla, la centramos con zoom 1.0
+        if (imageNaturalSize.width < wrapperRect.width && imageNaturalSize.height < wrapperRect.height) {
+            currentZoom = MIN_ZOOM;
+        }
+
+        updateImageTransform();
+    }
+
+    // Aplica la transformación CSS (scale y translate) a la imagen
+    function updateImageTransform() {
+        // Limitamos el "pan" para que no se salga de los bordes (opcional pero recomendado)
+        // Esta parte puede ser compleja, por ahora solo aplicamos el transform
+        
+        lightboxImg.style.transform = `translate(${currentPan.x}px, ${currentPan.y}px) scale(${currentZoom})`;
+        
+        // Actualiza el cursor
+        if (currentZoom > MIN_ZOOM) {
+            lightboxImg.style.cursor = 'grab';
+        } else {
+            lightboxImg.style.cursor = 'zoom-in';
+        }
+        
+        // Deshabilitar botones de zoom en los límites
+        zoomInBtn.disabled = currentZoom >= MAX_ZOOM;
+        zoomOutBtn.disabled = currentZoom <= MIN_ZOOM;
+    }
+
+    // CERRAR LIGHTBOX (Modificado)
     function closeLightbox() {
         lightbox.style.display = 'none';
         chatContainer.classList.add('open'); // Vuelve a abrir el chat
         
-        // Ocultar controles de galería
+        // Ocultar controles
         galleryPrev.style.display = 'none';
         galleryNext.style.display = 'none';
-        galleryZoom.style.display = 'none';
-        
-        // Resetear zoom
-        lightboxImg.classList.remove('zoomed');
-        isZoomed = false;
+        zoomToolbar.style.display = 'none'; // Ocultar barra de zoom
         
         // Limpiar galería
         currentGalleryImages = [];
         currentGalleryIndex = 0;
+        
+        // Resetear transformaciones de la imagen
+        lightboxImg.style.transform = 'none'; 
+        lightboxImg.style.opacity = 0; // Ocultar para la carga de la siguiente
     }
 
     lightboxClose.addEventListener('click', closeLightbox);
     lightbox.addEventListener('click', (e) => {
-        if (e.target === lightbox) { // Si se hace clic en el fondo oscuro
+        // Cierra solo si se hace clic en el fondo (el wrapper o el lightbox mismo)
+        if (e.target === lightbox || e.target === imageWrapper) { 
             closeLightbox();
         }
     });
-    // ▲▲ FIN DE MODIFICADO ▲▲
-    
-    // ▼▼ NUEVO: Navegación de la galería ▼▼
+
+    // MOSTRAR IMAGEN DE GALERÍA (Modificado)
     function showGalleryImage(index) {
         if (index < 0 || index >= currentGalleryImages.length) {
-            return; // No hacer nada si el índice está fuera de rango
+            return; 
         }
         
         currentGalleryIndex = index;
+        lightboxImg.style.opacity = 0; // Ocultar mientras carga
         lightboxImg.src = currentGalleryImages[currentGalleryIndex];
         
-        // Resetear zoom al cambiar de imagen
-        lightboxImg.classList.remove('zoomed');
-        isZoomed = false;
+        // Cuando la nueva imagen cargue, reseteamos el zoom
+        lightboxImg.onload = () => {
+            // Guardamos el tamaño real de la imagen
+            imageNaturalSize = { width: lightboxImg.naturalWidth, height: lightboxImg.naturalHeight };
+            resetImageTransform(); // Aplicamos el zoom "fit" inicial
+            lightboxImg.style.opacity = 1; // Mostrar imagen
+        };
 
         // Mostrar/ocultar flechas
         galleryPrev.style.display = (currentGalleryIndex > 0) ? 'block' : 'none';
         galleryNext.style.display = (currentGalleryIndex < currentGalleryImages.length - 1) ? 'block' : 'none';
     }
-
+    
+    // NAVEGACIÓN (Sin cambios en lógica, solo llaman a showGalleryImage)
     galleryPrev.addEventListener('click', (e) => {
-        e.stopPropagation(); // Evitar que el clic cierre el lightbox
+        e.stopPropagation(); 
         showGalleryImage(currentGalleryIndex - 1);
     });
 
     galleryNext.addEventListener('click', (e) => {
-        e.stopPropagation(); // Evitar que el clic cierre el lightbox
+        e.stopPropagation(); 
         showGalleryImage(currentGalleryIndex + 1);
     });
     
-    // Zoom
-    galleryZoom.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isZoomed = !isZoomed;
-        lightboxImg.classList.toggle('zoomed', isZoomed);
-    });
-    
-    // También permitir zoom/unzoom al hacer clic en la imagen
-    lightboxImg.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isZoomed = !isZoomed;
-        lightboxImg.classList.toggle('zoomed', isZoomed);
-    });
-
-    // Función para abrir la galería
+    // ABRIR GALERÍA (Modificado)
     function openGallery(images, startIndex) {
         currentGalleryImages = images;
         lightbox.style.display = 'flex';
-        galleryZoom.style.display = 'block'; // Mostrar botón de zoom
+        zoomToolbar.style.display = 'flex'; // Mostrar barra de zoom
         chatContainer.classList.remove('open');
         showGalleryImage(startIndex);
     }
-    // ▲▲ FIN DE NUEVO ▲▲
+    
+    // --- NUEVOS EVENT LISTENERS PARA PAN & ZOOM ---
 
-    // --- MANEJO DE LA INTERACCIÓN DEL USUARIO ---
+    // Botones de Zoom
+    zoomInBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM);
+        updateImageTransform();
+    });
+
+    zoomOutBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM);
+        
+        // Si volvemos al zoom mínimo, centramos la imagen
+        if (currentZoom === MIN_ZOOM) {
+            currentPan = { x: 0, y: 0 };
+        }
+        updateImageTransform();
+    });
+    
+    // Arrastrar para Pan (Mover)
+    
+    lightboxImg.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // Evitar que la imagen se arrastre (comportamiento nativo)
+        
+        if (currentZoom <= MIN_ZOOM) {
+            // Si no hay zoom, un clic hace "zoom in"
+            currentZoom += ZOOM_STEP;
+            updateImageTransform();
+            return;
+        }
+        
+        // Iniciar arrastre
+        isDragging = true;
+        startPan.x = e.clientX - currentPan.x; // e.clientX es la pos del mouse
+        startPan.y = e.clientY - currentPan.y;
+        lightboxImg.style.cursor = 'grabbing';
+    });
+    
+    // Mover el mouse (sobre el wrapper para no perderlo)
+    imageWrapper.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        e.preventDefault();
+        
+        // Calculamos el nuevo pan
+        currentPan.x = e.clientX - startPan.x;
+        currentPan.y = e.clientY - startPan.y;
+        
+        updateImageTransform(); // Aplicamos la nueva posición
+    });
+
+    // Soltar el clic (sobre el wrapper)
+    imageWrapper.addEventListener('mouseup', (e) => {
+        isDragging = false;
+        if (currentZoom > MIN_ZOOM) {
+            lightboxImg.style.cursor = 'grab';
+        } else {
+            lightboxImg.style.cursor = 'zoom-in';
+        }
+    });
+
+    // Si el mouse se sale del wrapper, dejamos de arrastrar
+    imageWrapper.addEventListener('mouseleave', (e) => {
+        isDragging = false;
+        if (currentZoom > MIN_ZOOM) {
+            lightboxImg.style.cursor = 'grab';
+        }
+    });
+
+    // ▲▲ FIN DE CAMBIOS ▲▲
+
+    // --- MANEJO DE LA INTERACCIÓN DEL USUARIO (Sin cambios) ---
     function handleOptionClick(option) {
         const userMessageElement = document.createElement('div');
         userMessageElement.classList.add('user-message');
@@ -156,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
         getNextDialogue(option.nextId);
     }
 
-    // --- FUNCIÓN PARA MANEJAR LA LÓGICA DE RETROCESO ---
+    // --- FUNCIÓN PARA MANEJAR LA LÓGICA DE RETROCESO (Sin cambios) ---
     function goBack() {
         if (historyStack.length > 1) {
             historyStack.pop();
@@ -165,7 +280,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- FUNCIÓN CENTRAL PARA MOSTRAR MENSAJES DEL BOT (MODIFICADA) ---
+    // --- FUNCIÓN CENTRAL PARA MOSTRAR MENSAJES DEL BOT ---
+    // (La lógica interna de esta función es la misma que la versión anterior de galería)
     function showBotMessage(text, mediaUrl = null) {
         const botMessageElement = document.createElement('div');
         botMessageElement.classList.add('bot-message');
@@ -175,15 +291,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const urlRegex = /(https?:\/\/[^\s]+)/g;
         // Modificación: Evitar que las URLs de la galería se conviertan en enlaces <a>
         formattedText = formattedText.replace(urlRegex, (url) => {
-            // Si mediaUrl es un array y la url está en él, no la conviertas en enlace
             if (Array.isArray(mediaUrl) && mediaUrl.includes(url)) {
-                return url; // Devuelve la URL como texto plano
+                return url; 
             }
-            // Si mediaUrl es un string y es igual a la url, no la conviertas
             if (typeof mediaUrl === 'string' && mediaUrl === url) {
-                 return url; // Devuelve la URL como texto plano
+                 return url; 
             }
-            // Si no, es un enlace normal en el texto
             return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
         });
 
@@ -192,37 +305,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mediaUrl) {
             let mediaElement;
             
-            // ▼▼ LÓGICA MODIFICADA para mediaUrl (string o array) ▼▼
-            
             // CASO 1: mediaUrl es un array (GALERÍA)
             if (Array.isArray(mediaUrl) && mediaUrl.length > 0) {
                 mediaElement = document.createElement('div');
                 mediaElement.classList.add('gallery-preview');
                 
-                // Mostrar la primera imagen como miniatura
                 const img = document.createElement('img');
                 img.src = mediaUrl[0];
                 img.classList.add('chat-media');
                 img.style.cursor = 'pointer';
                 img.onclick = () => {
-                    openGallery(mediaUrl, 0); // Abrir galería en la imagen 0
+                    openGallery(mediaUrl, 0); 
                 };
                 mediaElement.appendChild(img);
                 
-                // Añadir un indicador de cuántas imágenes más hay
                 if (mediaUrl.length > 1) {
                     const countBadge = document.createElement('span');
                     countBadge.classList.add('gallery-badge');
                     countBadge.textContent = `+${mediaUrl.length - 1}`;
                     countBadge.onclick = (e) => {
-                        e.stopPropagation(); // Evitar que el clic también dispare el clic de la imagen
-                        openGallery(mediaUrl, 0); // Abrir galería
+                        e.stopPropagation(); 
+                        openGallery(mediaUrl, 0); 
                     };
                     mediaElement.appendChild(countBadge);
                 }
                 
-                // (Opcional) Añadir CSS para .gallery-preview y .gallery-badge
-                // Es mejor poner esto en tu archivo CSS principal, pero funciona aquí
                 const styleId = 'gallery-styles';
                 if (!document.getElementById(styleId)) {
                     const style = document.createElement('style');
@@ -250,10 +357,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             background-color: rgba(0,0,0,0.9);
                         }
                         .chat-media {
-                            max-width: 100%; /* Asegura que la imagen no se desborde */
+                            max-width: 100%; 
                         }
                     `;
-                    document.head.appendChild(style); // Añade el estilo
+                    document.head.appendChild(style); 
                 }
                 
             } 
@@ -285,12 +392,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     mediaElement.classList.add('chat-media');
                     mediaElement.style.cursor = 'pointer';
                     mediaElement.onclick = () => {
-                        // Abrir la galería pero con una sola imagen
                         openGallery([mediaUrl], 0); 
                     };
                 }
             }
-            // ▲▲ FIN DE LÓGICA MODIFICADA ▲▲
 
             if(mediaElement) {
                 botMessageElement.appendChild(mediaElement);
@@ -302,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 100);
     }
 
-    // --- FUNCIÓN PARA PROCESAR Y MOSTRAR DIÁLOGOS ---
+    // --- FUNCIÓN PARA PROCESAR Y MOSTRAR DIÁLOGOS (Sin cambios) ---
     function showDialogue(data) {
         optionsContainer.innerHTML = '';
 
@@ -318,13 +423,9 @@ document.addEventListener('DOMContentLoaded', () => {
             infoText += data.content;
         }
         
-        // ▼▼ MODIFICACIÓN PEQUEÑA ▼▼
-        // Mostrar este bloque solo si hay texto O mediaUrl
         if (infoText || data.mediaUrl) { 
-            // Si no hay texto, pasa un string vacío, pero mediaUrl sí se procesa
             showBotMessage(infoText, data.mediaUrl || null); 
         }
-        // ▲▲ FIN DE MODIFICACIÓN ▲▲
 
         if (data.options && data.options.length > 0) {
             data.options.forEach(option => {
@@ -347,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- FUNCIÓN PARA OBTENER DATOS DEL SERVIDOR ---
+    // --- FUNCIÓN PARA OBTENER DATOS DEL SERVIDOR (Sin cambios) ---
     async function getNextDialogue(id) {
         optionsContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Cargando...</p>';
         try {
@@ -368,3 +469,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
