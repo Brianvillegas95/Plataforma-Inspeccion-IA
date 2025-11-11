@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión final con Pan & Zoom y Ajuste de Ventana)
+// Archivo: chatbot.js (Versión final V4 - Corregido el "parpadeo" y el "corte")
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM (Chat) ---
@@ -77,17 +77,14 @@ document.addEventListener('DOMContentLoaded', () => {
         zoomOutBtn.disabled = currentZoom <= fitZoom;
     }
 
-    // ▼▼ INICIO DE LA CORRECCIÓN ▼▼
     // Resetea el zoom y pan a su estado inicial ("fit-to-screen")
     function resetImageTransform() {
         currentPan = { x: 0, y: 0 };
         
-        // CORRECCIÓN: Usamos window.innerWidth/Height en lugar de getBoundingClientRect.
-        // Esto es 100% robusto y evita el error de "tamaño 0" al abrir.
-        const wrapperWidth = window.innerWidth;
-        const wrapperHeight = window.innerHeight;
+        // ▼▼ CORRECCIÓN 1: Usamos la medida más robusta del viewport (espacio visible) ▼▼
+        const wrapperWidth = document.documentElement.clientWidth;
+        const wrapperHeight = document.documentElement.clientHeight;
 
-        // Comprobación de seguridad
         if (wrapperWidth === 0 || wrapperHeight === 0 || imageNaturalSize.width === 0) {
             console.error("Error al medir la ventana o la imagen.");
             fitZoom = 1.0;
@@ -96,20 +93,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Calculamos las escalas
         const scaleX = wrapperWidth / imageNaturalSize.width;
         const scaleY = wrapperHeight / imageNaturalSize.height;
         
-        // Decidimos el zoom de ajuste
         if (imageNaturalSize.width < wrapperWidth && imageNaturalSize.height < wrapperHeight) {
-            // Si la imagen es más pequeña que la pantalla, su 'fit' es 1.0
             fitZoom = DEFAULT_ZOOM;
         } else {
-            // Si la imagen es más grande, su 'fit' es la escala más pequeña para que quepa
             fitZoom = Math.min(scaleX, scaleY);
         }
         
-        currentZoom = fitZoom; // El zoom inicial ES el 'fitZoom'
+        currentZoom = fitZoom; 
         updateImageTransform();
     }
 
@@ -149,16 +142,18 @@ document.addEventListener('DOMContentLoaded', () => {
         lightboxImg.onload = () => {
             imageNaturalSize = { width: lightboxImg.naturalWidth, height: lightboxImg.naturalHeight };
             
-            // CORRECCIÓN: Eliminamos el 'requestAnimationFrame' que ya no es necesario
-            // gracias a la medición directa de la ventana.
-            resetImageTransform(); // Aplica el zoom "fit" inicial
-            lightboxImg.style.opacity = 1; // Muestra la imagen
+            // ▼▼ CORRECCIÓN 2: Volvemos a usar requestAnimationFrame ▼▼
+            // Esto soluciona 100% el "parpadeo" y la pantalla negra.
+            // Le dice al script: "Espera a que el navegador esté listo antes de calcular"
+            requestAnimationFrame(() => {
+                resetImageTransform(); // Ahora sí, calculamos el "fit"
+                lightboxImg.style.opacity = 1; // Y mostramos la imagen
+            });
         };
 
         galleryPrev.style.display = (currentGalleryIndex > 0) ? 'block' : 'none';
         galleryNext.style.display = (currentGalleryIndex < currentGalleryImages.length - 1) ? 'block' : 'none';
     }
-    // ▲▲ FIN DE LA CORRECCIÓN ▲▲
     
     // NAVEGACIÓN (Sin cambios)
     galleryPrev.addEventListener('click', (e) => {
@@ -180,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showGalleryImage(startIndex);
     }
     
-    // --- EVENT LISTENERS PARA PAN & ZOOM (Sin cambios desde la V2) ---
+    // --- EVENT LISTENERS PARA PAN & ZOOM (Sin cambios) ---
 
     // Botón +
     zoomInBtn.addEventListener('click', (e) => {
