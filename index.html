@@ -439,12 +439,20 @@
 
     <div id="lightbox" class="lightbox">
         <span class="lightbox-close">&times;</span>
-		<span class="gallery-nav gallery-prev" id="gallery-prev">&#10094;</span>
+        <span class="gallery-nav gallery-prev" id="gallery-prev">&#10094;</span>
         <span class="gallery-nav gallery-next" id="gallery-next">&#10095;</span>
-        <span class="gallery-zoom" id="gallery-zoom">🔍</span>
-        <img class="lightbox-content" id="lightbox-img">
-    </div>
+
+        <div id="lightbox-image-wrapper">
+            <img class="lightbox-content" id="lightbox-img">
+        </div>
+
+        <div class="zoom-toolbar" id="zoom-toolbar">
+            <button id="zoom-out" class="zoom-btn">-</button>
+            <button id="zoom-in" class="zoom-btn">+</button>
+        </div>
+        </div>
 
 </body>
 
 </html>
+
