@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión final con Pan & Zoom y reapertura de chat)
+// Archivo: chatbot.js (Versión final con Pan & Zoom CORREGIDO y reapertura de chat)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM (Chat) ---
@@ -14,18 +14,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const galleryPrev = document.getElementById('gallery-prev');
     const galleryNext = document.getElementById('gallery-next');
     
-    // ▼▼ INICIO DE CAMBIOS (NUEVOS ELEMENTOS DE ZOOM) ▼▼
     const imageWrapper = document.getElementById('lightbox-image-wrapper');
     const lightboxImg = document.getElementById('lightbox-img');
     const zoomToolbar = document.getElementById('zoom-toolbar');
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
-    // ▲▲ FIN DE CAMBIOS ▲▲
 
     // Verificación de elementos
     if (!chatBubble || !chatContainer || !closeChat || !messagesContainer || !optionsContainer || !lightbox || !lightboxClose || !galleryPrev || !galleryNext || !imageWrapper || !lightboxImg || !zoomToolbar || !zoomInBtn || !zoomOutBtn) {
         console.error("No se encontraron los elementos necesarios para el chatbot o la galería lightbox. Revisa el HTML.");
-        // Muestra qué falta
         console.error({ chatBubble, chatContainer, closeChat, messagesContainer, optionsContainer, lightbox, lightboxClose, galleryPrev, galleryNext, imageWrapper, lightboxImg, zoomToolbar, zoomInBtn, zoomOutBtn });
         return;
     }
@@ -33,19 +30,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let isChatInitiated = false;
     let historyStack = [];
 
-    // ▼▼ INICIO DE CAMBIOS (ESTADO DE ZOOM Y PAN) ▼▼
+    // ▼▼ INICIO DE CAMBIOS (NUEVA LÓGICA DE ZOOM) ▼▼
     let currentGalleryImages = [];
     let currentGalleryIndex = 0;
 
     // Estado para Pan & Zoom
-    const MIN_ZOOM = 1.0;
-    const MAX_ZOOM = 3.0;
-    const ZOOM_STEP = 0.5;
-    let currentZoom = MIN_ZOOM;
+    const MAX_ZOOM = 3.0;        // Zoom máximo (ej. 300%)
+    const ZOOM_STEP = 0.5;       // Cuánto aumenta/reduce por clic
+    const DEFAULT_ZOOM = 1.0;    // Zoom para imágenes pequeñas (100%)
+
+    let fitZoom = 1.0;           // El zoom "fit-to-screen" (calculado)
+    let currentZoom = 1.0;       // El nivel de zoom actual
     let isDragging = false;
-    let startPan = { x: 0, y: 0 }; // Posición inicial del clic
-    let currentPan = { x: 0, y: 0 }; // Desplazamiento actual
-    let imageNaturalSize = { width: 0, height: 0 }; // Tamaño real de la imagen
+    let startPan = { x: 0, y: 0 }; 
+    let currentPan = { x: 0, y: 0 }; 
+    let imageNaturalSize = { width: 0, height: 0 }; 
     // ▲▲ FIN DE CAMBIOS ▲▲
 
     // --- ABRIR Y CERRAR EL CHAT ---
@@ -65,101 +64,109 @@ document.addEventListener('DOMContentLoaded', () => {
         chatContainer.classList.remove('open');
     });
 
-    // --- LÓGICA DEL LIGHTBOX (GALERÍA MEJORADA CON PAN & ZOOM) ---
+    // --- LÓGICA DEL LIGHTBOX (GALERÍA CORREGIDA) ---
 
-    // ▼▼ INICIO DE CAMBIOS (NUEVAS FUNCIONES DE TRANSFORMACIÓN) ▼▼
+    // ▼▼ INICIO DE CAMBIOS (FUNCIONES DE ZOOM CORREGIDAS) ▼▼
     
-    // Resetea el zoom y pan a su estado inicial
-    function resetImageTransform() {
-        currentZoom = MIN_ZOOM;
-        currentPan = { x: 0, y: 0 };
-        
-        // Obtenemos el tamaño del 'wrapper' y de la imagen
-        const wrapperRect = imageWrapper.getBoundingClientRect();
-        
-        // Calculamos el zoom inicial para que la imagen quepa ("fit")
-        const scaleX = wrapperRect.width / imageNaturalSize.width;
-        const scaleY = wrapperRect.height / imageNaturalSize.height;
-        currentZoom = Math.min(scaleX, scaleY, MIN_ZOOM); // No queremos que sea más grande que 1.0 al inicio
-        
-        // Si la imagen es más pequeña que la pantalla, la centramos con zoom 1.0
-        if (imageNaturalSize.width < wrapperRect.width && imageNaturalSize.height < wrapperRect.height) {
-            currentZoom = MIN_ZOOM;
-        }
-
-        updateImageTransform();
-    }
-
     // Aplica la transformación CSS (scale y translate) a la imagen
     function updateImageTransform() {
-        // Limitamos el "pan" para que no se salga de los bordes (opcional pero recomendado)
-        // Esta parte puede ser compleja, por ahora solo aplicamos el transform
-        
         lightboxImg.style.transform = `translate(${currentPan.x}px, ${currentPan.y}px) scale(${currentZoom})`;
         
         // Actualiza el cursor
-        if (currentZoom > MIN_ZOOM) {
-            lightboxImg.style.cursor = 'grab';
+        if (currentZoom > fitZoom) {
+            lightboxImg.style.cursor = 'grab'; // Se puede arrastrar
         } else {
-            lightboxImg.style.cursor = 'zoom-in';
+            lightboxImg.style.cursor = 'default'; // No se puede arrastrar (sin zoom)
         }
         
         // Deshabilitar botones de zoom en los límites
         zoomInBtn.disabled = currentZoom >= MAX_ZOOM;
-        zoomOutBtn.disabled = currentZoom <= MIN_ZOOM;
+        // CORRECCIÓN: El zoom mínimo es 'fitZoom', no 1.0
+        zoomOutBtn.disabled = currentZoom <= fitZoom;
     }
 
-    // CERRAR LIGHTBOX (Modificado)
+    // Resetea el zoom y pan a su estado inicial ("fit-to-screen")
+    function resetImageTransform() {
+        currentPan = { x: 0, y: 0 };
+        const wrapperRect = imageWrapper.getBoundingClientRect();
+
+        // Safety check por si algo falla al medir
+        if (wrapperRect.width === 0 || imageNaturalSize.width === 0) {
+            console.error("Error al medir la imagen o el contenedor.");
+            fitZoom = 1.0;
+            currentZoom = 1.0;
+            updateImageTransform();
+            return;
+        }
+
+        const scaleX = wrapperRect.width / imageNaturalSize.width;
+        const scaleY = wrapperRect.height / imageNaturalSize.height;
+        
+        // CORRECCIÓN: Calcular el 'fitZoom' correctamente
+        if (imageNaturalSize.width < wrapperRect.width && imageNaturalSize.height < wrapperRect.height) {
+            // Si la imagen es más pequeña que la pantalla, su 'fit' es 1.0
+            fitZoom = DEFAULT_ZOOM;
+        } else {
+            // Si la imagen es más grande, su 'fit' es la escala más pequeña
+            fitZoom = Math.min(scaleX, scaleY);
+        }
+        
+        // El zoom inicial ES el 'fitZoom'
+        currentZoom = fitZoom; 
+        updateImageTransform();
+    }
+
+    // CERRAR LIGHTBOX (Sin cambios)
     function closeLightbox() {
         lightbox.style.display = 'none';
-        chatContainer.classList.add('open'); // Vuelve a abrir el chat
+        chatContainer.classList.add('open'); 
         
-        // Ocultar controles
         galleryPrev.style.display = 'none';
         galleryNext.style.display = 'none';
-        zoomToolbar.style.display = 'none'; // Ocultar barra de zoom
+        zoomToolbar.style.display = 'none'; 
         
-        // Limpiar galería
         currentGalleryImages = [];
         currentGalleryIndex = 0;
         
-        // Resetear transformaciones de la imagen
         lightboxImg.style.transform = 'none'; 
-        lightboxImg.style.opacity = 0; // Ocultar para la carga de la siguiente
+        lightboxImg.style.opacity = 0; 
     }
 
     lightboxClose.addEventListener('click', closeLightbox);
     lightbox.addEventListener('click', (e) => {
-        // Cierra solo si se hace clic en el fondo (el wrapper o el lightbox mismo)
         if (e.target === lightbox || e.target === imageWrapper) { 
             closeLightbox();
         }
     });
 
-    // MOSTRAR IMAGEN DE GALERÍA (Modificado)
+    // MOSTRAR IMAGEN DE GALERÍA (Corregido)
     function showGalleryImage(index) {
         if (index < 0 || index >= currentGalleryImages.length) {
             return; 
         }
         
         currentGalleryIndex = index;
-        lightboxImg.style.opacity = 0; // Ocultar mientras carga
+        lightboxImg.style.opacity = 0; 
         lightboxImg.src = currentGalleryImages[currentGalleryIndex];
         
-        // Cuando la nueva imagen cargue, reseteamos el zoom
+        // Cuando la nueva imagen cargue...
         lightboxImg.onload = () => {
-            // Guardamos el tamaño real de la imagen
             imageNaturalSize = { width: lightboxImg.naturalWidth, height: lightboxImg.naturalHeight };
-            resetImageTransform(); // Aplicamos el zoom "fit" inicial
-            lightboxImg.style.opacity = 1; // Mostrar imagen
+            
+            // ▼▼ CORRECCIÓN (Problema 1): Usar requestAnimationFrame ▼▼
+            // Esto espera a que el navegador dibuje el lightbox
+            // antes de medirlo, evitando el error de tamaño 0.
+            requestAnimationFrame(() => {
+                resetImageTransform(); // Aplica el zoom "fit" inicial
+                lightboxImg.style.opacity = 1; // Muestra la imagen
+            });
         };
 
-        // Mostrar/ocultar flechas
         galleryPrev.style.display = (currentGalleryIndex > 0) ? 'block' : 'none';
         galleryNext.style.display = (currentGalleryIndex < currentGalleryImages.length - 1) ? 'block' : 'none';
     }
     
-    // NAVEGACIÓN (Sin cambios en lógica, solo llaman a showGalleryImage)
+    // NAVEGACIÓN (Sin cambios)
     galleryPrev.addEventListener('click', (e) => {
         e.stopPropagation(); 
         showGalleryImage(currentGalleryIndex - 1);
@@ -170,82 +177,75 @@ document.addEventListener('DOMContentLoaded', () => {
         showGalleryImage(currentGalleryIndex + 1);
     });
     
-    // ABRIR GALERÍA (Modificado)
+    // ABRIR GALERÍA (Sin cambios)
     function openGallery(images, startIndex) {
         currentGalleryImages = images;
         lightbox.style.display = 'flex';
-        zoomToolbar.style.display = 'flex'; // Mostrar barra de zoom
+        zoomToolbar.style.display = 'flex'; 
         chatContainer.classList.remove('open');
         showGalleryImage(startIndex);
     }
     
-    // --- NUEVOS EVENT LISTENERS PARA PAN & ZOOM ---
+    // --- EVENT LISTENERS PARA PAN & ZOOM (Corregidos) ---
 
-    // Botones de Zoom
+    // Botón +
     zoomInBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         currentZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM);
         updateImageTransform();
     });
 
+    // Botón -
     zoomOutBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        currentZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM);
+        // ▼▼ CORRECCIÓN (Problema 2): El zoom mínimo es 'fitZoom' ▼▼
+        currentZoom = Math.max(currentZoom - ZOOM_STEP, fitZoom);
         
-        // Si volvemos al zoom mínimo, centramos la imagen
-        if (currentZoom === MIN_ZOOM) {
+        // Si volvemos al zoom 'fit', centramos la imagen
+        if (currentZoom === fitZoom) {
             currentPan = { x: 0, y: 0 };
         }
         updateImageTransform();
     });
     
     // Arrastrar para Pan (Mover)
-    
     lightboxImg.addEventListener('mousedown', (e) => {
-        e.preventDefault(); // Evitar que la imagen se arrastre (comportamiento nativo)
+        e.preventDefault(); 
         
-        if (currentZoom <= MIN_ZOOM) {
-            // Si no hay zoom, un clic hace "zoom in"
-            currentZoom += ZOOM_STEP;
-            updateImageTransform();
-            return;
+        // ▼▼ CORRECCIÓN (Problema 3): Eliminado el "click-to-zoom" ▼▼
+        // Solo permitir arrastrar SI la imagen está zoomeada
+        if (currentZoom > fitZoom) {
+            isDragging = true;
+            startPan.x = e.clientX - currentPan.x; 
+            startPan.y = e.clientY - currentPan.y;
+            lightboxImg.style.cursor = 'grabbing';
         }
-        
-        // Iniciar arrastre
-        isDragging = true;
-        startPan.x = e.clientX - currentPan.x; // e.clientX es la pos del mouse
-        startPan.y = e.clientY - currentPan.y;
-        lightboxImg.style.cursor = 'grabbing';
     });
     
-    // Mover el mouse (sobre el wrapper para no perderlo)
     imageWrapper.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        
         e.preventDefault();
-        
-        // Calculamos el nuevo pan
         currentPan.x = e.clientX - startPan.x;
         currentPan.y = e.clientY - startPan.y;
-        
-        updateImageTransform(); // Aplicamos la nueva posición
+        updateImageTransform(); 
     });
 
-    // Soltar el clic (sobre el wrapper)
-    imageWrapper.addEventListener('mouseup', (e) => {
+    // ▼▼ CORRECCIÓN: Actualizar cursor al soltar clic ▼▼
+    imageWrapper.addEventListener('mouseup', () => {
         isDragging = false;
-        if (currentZoom > MIN_ZOOM) {
+        if (currentZoom > fitZoom) {
             lightboxImg.style.cursor = 'grab';
         } else {
-            lightboxImg.style.cursor = 'zoom-in';
+            lightboxImg.style.cursor = 'default';
         }
     });
 
-    // Si el mouse se sale del wrapper, dejamos de arrastrar
-    imageWrapper.addEventListener('mouseleave', (e) => {
+    imageWrapper.addEventListener('mouseleave', () => {
         isDragging = false;
-        if (currentZoom > MIN_ZOOM) {
+        if (currentZoom > fitZoom) {
             lightboxImg.style.cursor = 'grab';
+        } else {
+            lightboxImg.style.cursor = 'default';
         }
     });
 
@@ -280,8 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- FUNCIÓN CENTRAL PARA MOSTRAR MENSAJES DEL BOT ---
-    // (La lógica interna de esta función es la misma que la versión anterior de galería)
+    // --- FUNCIÓN CENTRAL PARA MOSTRAR MENSAJES DEL BOT (Sin cambios) ---
     function showBotMessage(text, mediaUrl = null) {
         const botMessageElement = document.createElement('div');
         botMessageElement.classList.add('bot-message');
@@ -289,7 +288,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let formattedText = text.replace(/(?<!http:|https:)\/\//g, '<br><br>');
         
         const urlRegex = /(https?:\/\/[^\s]+)/g;
-        // Modificación: Evitar que las URLs de la galería se conviertan en enlaces <a>
         formattedText = formattedText.replace(urlRegex, (url) => {
             if (Array.isArray(mediaUrl) && mediaUrl.includes(url)) {
                 return url; 
@@ -305,7 +303,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mediaUrl) {
             let mediaElement;
             
-            // CASO 1: mediaUrl es un array (GALERÍA)
             if (Array.isArray(mediaUrl) && mediaUrl.length > 0) {
                 mediaElement = document.createElement('div');
                 mediaElement.classList.add('gallery-preview');
@@ -364,7 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
             } 
-            // CASO 2: mediaUrl es un string (PDF, MP4, o IMAGEN ÚNICA)
             else if (typeof mediaUrl === 'string') {
                 const mediaUrlLower = mediaUrl.toLowerCase();
                 
@@ -386,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     mediaElement.style.borderRadius = '10px';
                     mediaElement.style.marginTop = '10px';
                 } else {
-                    // Imagen única
                     mediaElement = document.createElement('img');
                     mediaElement.src = mediaUrl;
                     mediaElement.classList.add('chat-media');
@@ -469,4 +464,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
-
