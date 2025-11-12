@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión final V6 - "Sala de Espera" Robusta)
+// Archivo: chatbot.js (Versión final V7 - Corregido el SyntaxError)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM (Chat) ---
@@ -123,7 +123,6 @@ document.addEventListener('DOMContentLoaded', () => {
         lightboxImg.style.transform = 'none'; 
         lightboxImg.style.opacity = 0;
         
-        // ▼▼ CORRECCIÓN: Nos aseguramos de detener al "vigilante" si cerramos ▼▼
         if (imageCheckInterval) {
             clearInterval(imageCheckInterval);
             imageCheckInterval = null;
@@ -137,9 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // ▼▼ INICIO DE LA CORRECCIÓN V6 ("SALA DE ESPERA") ▼▼
-
-    // MOSTRAR IMAGEN DE GALERÍA (Reescrito)
+    
+    // MOSTRAR IMAGEN DE GALERÍA (Corregido V7)
     function showGalleryImage(index) {
         if (index < 0 || index >= currentGalleryImages.length) {
             return; 
@@ -162,7 +160,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 3. Mostramos/ocultamos flechas (esto es rápido)
         galleryPrev.style.display = (currentGalleryIndex > 0) ? 'block' : 'none';
-        galleryNext.style.display = (currentGalleryIndex < currentGalleryImages.length - 1) ? 'block : 'none';
+        
+        // ▼▼ CORRECCIÓN V7: Aquí estaba el SyntaxError ▼▼
+        galleryNext.style.display = (currentGalleryIndex < currentGalleryImages.length - 1) ? 'block' : 'none';
+        // ▲▲ FIN DE LA CORRECCIÓN V7 ▲▲
     }
 
     // NUEVA FUNCIÓN: El "Vigilante" (Sala de Espera)
@@ -200,8 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
         }, 10); // Revisa cada 10 milisegundos
     }
-    
-    // ▲▲ FIN DE LA CORRECCIÓN V6 ▲▲
     
     
     // NAVEGACIÓN (Sin cambios)
