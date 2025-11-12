@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión final V5 - Anti-colapso / División por Cero)
+// Archivo: chatbot.js (Versión final V6 - "Sala de Espera" Robusta)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM (Chat) ---
@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let startPan = { x: 0, y: 0 }; 
     let currentPan = { x: 0, y: 0 }; 
     let imageNaturalSize = { width: 0, height: 0 }; 
+    let imageCheckInterval = null; // Variable para nuestro "vigilante"
 
     // --- ABRIR Y CERRAR EL CHAT (Sin cambios) ---
     chatBubble.addEventListener('click', () => {
@@ -81,37 +82,33 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetImageTransform() {
         currentPan = { x: 0, y: 0 };
         
+        // Usamos la medida más robusta del viewport (espacio visible)
         const wrapperWidth = document.documentElement.clientWidth;
         const wrapperHeight = document.documentElement.clientHeight;
 
-        // ▼▼ CORRECCIÓN V5 (Anti-División por Cero) ▼▼
-        // Esta es la "barrera de seguridad" que detiene la pantalla negra.
-        // Si la ventana O la imagen tienen tamaño 0, usa un zoom 1.0 por defecto.
+        // Guardia anti-división por cero
         if (wrapperWidth === 0 || wrapperHeight === 0 || !imageNaturalSize || imageNaturalSize.width === 0 || imageNaturalSize.height === 0) {
-            
             console.error("Error al medir la ventana o la imagen (dimensiones 0). Se usará zoom 1.0 por defecto para evitar el colapso.");
             fitZoom = 1.0;
             currentZoom = 1.0;
-            updateImageTransform(); // Aplicar un zoom de 1.0
-            return; // Salir de la función
-        }
-        // ▲▲ FIN DE LA CORRECCIÓN V5 ▲▲
-
-        // Si llegamos aquí, las medidas son seguras.
-        const scaleX = wrapperWidth / imageNaturalSize.width;
-        const scaleY = wrapperHeight / imageNaturalSize.height;
-        
-        if (imageNaturalSize.width < wrapperWidth && imageNaturalSize.height < wrapperHeight) {
-            fitZoom = DEFAULT_ZOOM;
         } else {
-            fitZoom = Math.min(scaleX, scaleY);
+            // Cálculo de "fit-to-screen"
+            const scaleX = wrapperWidth / imageNaturalSize.width;
+            const scaleY = wrapperHeight / imageNaturalSize.height;
+            
+            if (imageNaturalSize.width < wrapperWidth && imageNaturalSize.height < wrapperHeight) {
+                fitZoom = DEFAULT_ZOOM;
+            } else {
+                fitZoom = Math.min(scaleX, scaleY);
+            }
+            currentZoom = fitZoom; 
         }
         
-        currentZoom = fitZoom; 
+        // Aplicamos el transform final
         updateImageTransform();
     }
 
-    // CERRAR LIGHTBOX (Sin cambios)
+    // CERRAR LIGHTBOX (Modificado para limpiar el "vigilante")
     function closeLightbox() {
         lightbox.style.display = 'none';
         chatContainer.classList.add('open'); 
@@ -124,7 +121,13 @@ document.addEventListener('DOMContentLoaded', () => {
         currentGalleryIndex = 0;
         
         lightboxImg.style.transform = 'none'; 
-        lightboxImg.style.opacity = 0; 
+        lightboxImg.style.opacity = 0;
+        
+        // ▼▼ CORRECCIÓN: Nos aseguramos de detener al "vigilante" si cerramos ▼▼
+        if (imageCheckInterval) {
+            clearInterval(imageCheckInterval);
+            imageCheckInterval = null;
+        }
     }
 
     lightboxClose.addEventListener('click', closeLightbox);
@@ -133,30 +136,73 @@ document.addEventListener('DOMContentLoaded', () => {
             closeLightbox();
         }
     });
+    
+    // ▼▼ INICIO DE LA CORRECCIÓN V6 ("SALA DE ESPERA") ▼▼
 
-    // MOSTRAR IMAGEN DE GALERÍA (Sin cambios desde V4)
+    // MOSTRAR IMAGEN DE GALERÍA (Reescrito)
     function showGalleryImage(index) {
         if (index < 0 || index >= currentGalleryImages.length) {
             return; 
         }
         
         currentGalleryIndex = index;
-        lightboxImg.style.opacity = 0; 
+        lightboxImg.style.opacity = 0; // Ocultamos la imagen
+        
+        // Limpiamos cualquier "vigilante" anterior
+        if (imageCheckInterval) {
+            clearInterval(imageCheckInterval);
+            imageCheckInterval = null;
+        }
+
+        // 1. Asignamos el nuevo SRC
         lightboxImg.src = currentGalleryImages[currentGalleryIndex];
         
-        lightboxImg.onload = () => {
-            imageNaturalSize = { width: lightboxImg.naturalWidth, height: lightboxImg.naturalHeight };
-            
-            // Usamos requestAnimationFrame para asegurar que el DOM esté listo
-            requestAnimationFrame(() => {
-                resetImageTransform(); // Llamamos a nuestra NUEVA función segura
-                lightboxImg.style.opacity = 1; 
-            });
-        };
+        // 2. Inmediatamente iniciamos el "vigilante"
+        startImageCheck();
 
+        // 3. Mostramos/ocultamos flechas (esto es rápido)
         galleryPrev.style.display = (currentGalleryIndex > 0) ? 'block' : 'none';
-        galleryNext.style.display = (currentGalleryIndex < currentGalleryImages.length - 1) ? 'block' : 'none';
+        galleryNext.style.display = (currentGalleryIndex < currentGalleryImages.length - 1) ? 'block : 'none';
     }
+
+    // NUEVA FUNCIÓN: El "Vigilante" (Sala de Espera)
+    function startImageCheck() {
+        let attempts = 0;
+        const maxAttempts = 300; // 300 * 10ms = 3 segundos de espera máxima
+
+        imageCheckInterval = setInterval(() => {
+            attempts++;
+
+            // PREGUNTA CLAVE: La imagen ya tiene dimensiones?
+            if (lightboxImg.naturalWidth > 0 && lightboxImg.naturalHeight > 0) {
+                // ¡SÍ! La imagen está lista.
+                clearInterval(imageCheckInterval); // Detenemos al vigilante
+                imageCheckInterval = null;
+                
+                // Guardamos las dimensiones seguras
+                imageNaturalSize = { width: lightboxImg.naturalWidth, height: lightboxImg.naturalHeight };
+                
+                // Calculamos el zoom y mostramos
+                resetImageTransform();
+                lightboxImg.style.opacity = 1;
+                
+            } else if (attempts > maxAttempts) {
+                // ¡NO! Y se acabó el tiempo.
+                clearInterval(imageCheckInterval);
+                imageCheckInterval = null;
+                console.error("No se pudieron obtener las dimensiones de la imagen después de 3 segundos.");
+                // Mostramos un zoom 1.0 por defecto para evitar la pantalla negra
+                imageNaturalSize = { width: 0, height: 0 }; // Forzamos el fallback en reset
+                resetImageTransform();
+                lightboxImg.style.opacity = 1;
+            }
+            // Si ninguna de las dos, el vigilante sigue esperando...
+            
+        }, 10); // Revisa cada 10 milisegundos
+    }
+    
+    // ▲▲ FIN DE LA CORRECCIÓN V6 ▲▲
+    
     
     // NAVEGACIÓN (Sin cambios)
     galleryPrev.addEventListener('click', (e) => {
