@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión final V7 - Corregido el SyntaxError)
+// Archivo: chatbot.js (Versión final V8 - onload + rAF)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM (Chat) ---
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let startPan = { x: 0, y: 0 }; 
     let currentPan = { x: 0, y: 0 }; 
     let imageNaturalSize = { width: 0, height: 0 }; 
-    let imageCheckInterval = null; // Variable para nuestro "vigilante"
+    // Quitamos el 'imageCheckInterval'
 
     // --- ABRIR Y CERRAR EL CHAT (Sin cambios) ---
     chatBubble.addEventListener('click', () => {
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chatContainer.classList.remove('open');
     });
 
-    // --- LÓGICA DEL LIGHTBOX (GALERÍA CORREGIDA) ---
+    // --- LÓGICA DEL LIGHTBOX (GALERÍA CORREGIDA V8) ---
 
     // Aplica la transformación CSS (scale y translate) a la imagen
     function updateImageTransform() {
@@ -82,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetImageTransform() {
         currentPan = { x: 0, y: 0 };
         
-        // Usamos la medida más robusta del viewport (espacio visible)
         const wrapperWidth = document.documentElement.clientWidth;
         const wrapperHeight = document.documentElement.clientHeight;
 
@@ -108,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateImageTransform();
     }
 
-    // CERRAR LIGHTBOX (Modificado para limpiar el "vigilante")
+    // CERRAR LIGHTBOX (Sin cambios)
     function closeLightbox() {
         lightbox.style.display = 'none';
         chatContainer.classList.add('open'); 
@@ -123,10 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lightboxImg.style.transform = 'none'; 
         lightboxImg.style.opacity = 0;
         
-        if (imageCheckInterval) {
-            clearInterval(imageCheckInterval);
-            imageCheckInterval = null;
-        }
+        // Ya no hay "vigilante" que limpiar
     }
 
     lightboxClose.addEventListener('click', closeLightbox);
@@ -137,7 +133,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     
-    // MOSTRAR IMAGEN DE GALERÍA (Corregido V7)
+    // ▼▼ INICIO DE LA CORRECCIÓN V8 (onload + rAF) ▼▼
+
+    // MOSTRAR IMAGEN DE GALERÍA (Reescrito)
     function showGalleryImage(index) {
         if (index < 0 || index >= currentGalleryImages.length) {
             return; 
@@ -145,62 +143,35 @@ document.addEventListener('DOMContentLoaded', () => {
         
         currentGalleryIndex = index;
         lightboxImg.style.opacity = 0; // Ocultamos la imagen
-        
-        // Limpiamos cualquier "vigilante" anterior
-        if (imageCheckInterval) {
-            clearInterval(imageCheckInterval);
-            imageCheckInterval = null;
-        }
 
         // 1. Asignamos el nuevo SRC
         lightboxImg.src = currentGalleryImages[currentGalleryIndex];
         
-        // 2. Inmediatamente iniciamos el "vigilante"
-        startImageCheck();
-
-        // 3. Mostramos/ocultamos flechas (esto es rápido)
-        galleryPrev.style.display = (currentGalleryIndex > 0) ? 'block' : 'none';
-        
-        // ▼▼ CORRECCIÓN V7: Aquí estaba el SyntaxError ▼▼
-        galleryNext.style.display = (currentGalleryIndex < currentGalleryImages.length - 1) ? 'block' : 'none';
-        // ▲▲ FIN DE LA CORRECCIÓN V7 ▲▲
-    }
-
-    // NUEVA FUNCIÓN: El "Vigilante" (Sala de Espera)
-    function startImageCheck() {
-        let attempts = 0;
-        const maxAttempts = 300; // 300 * 10ms = 3 segundos de espera máxima
-
-        imageCheckInterval = setInterval(() => {
-            attempts++;
-
-            // PREGUNTA CLAVE: La imagen ya tiene dimensiones?
-            if (lightboxImg.naturalWidth > 0 && lightboxImg.naturalHeight > 0) {
-                // ¡SÍ! La imagen está lista.
-                clearInterval(imageCheckInterval); // Detenemos al vigilante
-                imageCheckInterval = null;
-                
-                // Guardamos las dimensiones seguras
-                imageNaturalSize = { width: lightboxImg.naturalWidth, height: lightboxImg.naturalHeight };
-                
-                // Calculamos el zoom y mostramos
-                resetImageTransform();
-                lightboxImg.style.opacity = 1;
-                
-            } else if (attempts > maxAttempts) {
-                // ¡NO! Y se acabó el tiempo.
-                clearInterval(imageCheckInterval);
-                imageCheckInterval = null;
-                console.error("No se pudieron obtener las dimensiones de la imagen después de 3 segundos.");
-                // Mostramos un zoom 1.0 por defecto para evitar la pantalla negra
-                imageNaturalSize = { width: 0, height: 0 }; // Forzamos el fallback en reset
-                resetImageTransform();
-                lightboxImg.style.opacity = 1;
-            }
-            // Si ninguna de las dos, el vigilante sigue esperando...
+        // 2. Usamos el evento 'onload' de la imagen
+        lightboxImg.onload = () => {
+            // A. La imagen cargó, guardamos sus dimensiones SEGURAS
+            imageNaturalSize = { width: lightboxImg.naturalWidth, height: lightboxImg.naturalHeight };
             
-        }, 10); // Revisa cada 10 milisegundos
+            // B. Esperamos a que el navegador esté listo para dibujar
+            requestAnimationFrame(() => {
+                // C. AHORA SÍ: Calculamos el zoom y la mostramos
+                resetImageTransform();
+                lightboxImg.style.opacity = 1;
+            });
+        };
+        
+        // 3. (Opcional) Manejo de error si la imagen no carga
+        lightboxImg.onerror = () => {
+             console.error("Error: No se pudo cargar la imagen", lightboxImg.src);
+             // (Aquí podríamos mostrar un mensaje de error, pero por ahora solo lo logueamos)
+        }
+
+        // 4. Mostramos/ocultamos flechas (esto es rápido)
+        galleryPrev.style.display = (currentGalleryIndex > 0) ? 'block' : 'none';
+        galleryNext.style.display = (currentGalleryIndex < currentGalleryImages.length - 1) ? 'block' : 'none';
     }
+    
+    // ▲▲ FIN DE LA CORRECCIÓN V8 ▲▲
     
     
     // NAVEGACIÓN (Sin cambios)
