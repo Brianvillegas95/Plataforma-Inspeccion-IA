@@ -1,4 +1,4 @@
-// Archivo: chatbot.js (Versión final V4 - Corregido el "parpadeo" y el "corte")
+// Archivo: chatbot.js (Versión final V5 - Anti-colapso / División por Cero)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM (Chat) ---
@@ -81,18 +81,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetImageTransform() {
         currentPan = { x: 0, y: 0 };
         
-        // ▼▼ CORRECCIÓN 1: Usamos la medida más robusta del viewport (espacio visible) ▼▼
         const wrapperWidth = document.documentElement.clientWidth;
         const wrapperHeight = document.documentElement.clientHeight;
 
-        if (wrapperWidth === 0 || wrapperHeight === 0 || imageNaturalSize.width === 0) {
-            console.error("Error al medir la ventana o la imagen.");
+        // ▼▼ CORRECCIÓN V5 (Anti-División por Cero) ▼▼
+        // Esta es la "barrera de seguridad" que detiene la pantalla negra.
+        // Si la ventana O la imagen tienen tamaño 0, usa un zoom 1.0 por defecto.
+        if (wrapperWidth === 0 || wrapperHeight === 0 || !imageNaturalSize || imageNaturalSize.width === 0 || imageNaturalSize.height === 0) {
+            
+            console.error("Error al medir la ventana o la imagen (dimensiones 0). Se usará zoom 1.0 por defecto para evitar el colapso.");
             fitZoom = 1.0;
             currentZoom = 1.0;
-            updateImageTransform();
-            return;
+            updateImageTransform(); // Aplicar un zoom de 1.0
+            return; // Salir de la función
         }
+        // ▲▲ FIN DE LA CORRECCIÓN V5 ▲▲
 
+        // Si llegamos aquí, las medidas son seguras.
         const scaleX = wrapperWidth / imageNaturalSize.width;
         const scaleY = wrapperHeight / imageNaturalSize.height;
         
@@ -129,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // MOSTRAR IMAGEN DE GALERÍA (Corregido)
+    // MOSTRAR IMAGEN DE GALERÍA (Sin cambios desde V4)
     function showGalleryImage(index) {
         if (index < 0 || index >= currentGalleryImages.length) {
             return; 
@@ -142,12 +147,10 @@ document.addEventListener('DOMContentLoaded', () => {
         lightboxImg.onload = () => {
             imageNaturalSize = { width: lightboxImg.naturalWidth, height: lightboxImg.naturalHeight };
             
-            // ▼▼ CORRECCIÓN 2: Volvemos a usar requestAnimationFrame ▼▼
-            // Esto soluciona 100% el "parpadeo" y la pantalla negra.
-            // Le dice al script: "Espera a que el navegador esté listo antes de calcular"
+            // Usamos requestAnimationFrame para asegurar que el DOM esté listo
             requestAnimationFrame(() => {
-                resetImageTransform(); // Ahora sí, calculamos el "fit"
-                lightboxImg.style.opacity = 1; // Y mostramos la imagen
+                resetImageTransform(); // Llamamos a nuestra NUEVA función segura
+                lightboxImg.style.opacity = 1; 
             });
         };
 
