@@ -45,9 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let startPan = { x: 0, y: 0 }; 
     let currentPan = { x: 0, y: 0 }; 
     let imageNaturalSize = { width: 0, height: 0 }; 
-    // Quitamos el 'imageCheckInterval'
 
-    // --- ABRIR Y CERRAR EL CHAT (Sin cambios) ---
     chatBubble.addEventListener('click', () => {
         chatContainer.classList.toggle('open');
         if (!isChatInitiated && chatContainer.classList.contains('open')) {
@@ -104,7 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
             currentZoom = fitZoom; 
         }
         
-        // Aplicamos el transform final
         updateImageTransform();
     }
 
@@ -126,7 +123,6 @@ document.addEventListener('DOMContentLoaded', () => {
         lightboxImg.style.transform = 'none'; 
         lightboxImg.style.opacity = 0;
         
-        // Ya no hay "vigilante" que limpiar
     }
 
     lightboxClose.addEventListener('click', closeLightbox);
@@ -167,7 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // 3. (Opcional) Manejo de error si la imagen no carga
         lightboxImg.onerror = () => {
              console.error("Error: No se pudo cargar la imagen", lightboxImg.src);
-             // (Aquí podríamos mostrar un mensaje de error, pero por ahora solo lo logueamos)
         }
 
         // 4. Mostramos/ocultamos flechas (esto es rápido)
@@ -473,5 +468,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
-
 
