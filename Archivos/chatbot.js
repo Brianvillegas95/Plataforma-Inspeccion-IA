@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomToolbar = document.getElementById('zoom-toolbar');
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
-
+    const mainNavBar = document.querySelector('app-header');
+    
     // Verificación de elementos
     if (!chatBubble || !chatContainer || !closeChat || !messagesContainer || !optionsContainer || !lightbox || !lightboxClose || !galleryPrev || !galleryNext || !imageWrapper || !lightboxImg || !zoomToolbar || !zoomInBtn || !zoomOutBtn) {
         console.error("No se encontraron los elementos necesarios para el chatbot o la galería lightbox. Revisa el HTML.");
@@ -109,6 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // CERRAR LIGHTBOX (Sin cambios)
     function closeLightbox() {
+        if (mainNavBar) {
+            mainNavBar.style.display = ''; // Restaura el display original
+        }
         lightbox.style.display = 'none';
         chatContainer.classList.add('open'); 
         
@@ -187,6 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // ABRIR GALERÍA (Sin cambios)
     function openGallery(images, startIndex) {
+        if (mainNavBar) {
+            mainNavBar.style.display = 'none';
+        }
         currentGalleryImages = images;
         lightbox.style.display = 'flex';
         zoomToolbar.style.display = 'flex'; 
@@ -466,3 +473,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
