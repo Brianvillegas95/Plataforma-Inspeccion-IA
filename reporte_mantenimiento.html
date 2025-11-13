@@ -50,8 +50,10 @@
                 </select>
             </div>
             <div class="form-group">
-                <label for="mecanico-input">Nombre del Mecánico:</label>
-                <input type="text" id="mecanico-input" class="form-control" required>
+                <label for="mecanico-select">Nombre del Mecánico:</label>
+                <select id="mecanico-select" class="form-control" required>
+                    <option value="" disabled selected>-- Cargando mecánicos... --</option>
+                </select>
             </div>
             <button type="submit" id="finalizar-paro-btn" class="button primary-action" style="background-color: var(--success-color); border-color: var(--success-color);">
                 <i class="fas fa-check-circle"></i> Finalizar Paro
@@ -150,6 +152,10 @@
         const maquinaSelect = document.getElementById('maquina-input');
         const estacionSelect = document.getElementById('estacion-input');
         const solucionSelect = document.getElementById('solucion-input');
+        
+        // ¡CAMBIO! Apuntar al nuevo <select>
+        const mecanicoSelect = document.getElementById('mecanico-select'); 
+        
         const paroForm = document.getElementById('paro-form');
         const solucionForm = document.getElementById('solucion-form');
         const andonScreen = document.getElementById('andon-screen');
@@ -172,11 +178,37 @@
         let statusCheckInterval = null;
 
         // --- Lógica de Menús Desplegables ---
+        
+        // Carga Áreas, Máquinas, Estaciones Y Soluciones (de 'leer-listas-mantenimiento')
         async function cargarDatosDeConfiguracion(){try{const response=await fetch('/.netlify/functions/leer-listas-mantenimiento');if(!response.ok)throw new Error('Error de red al cargar la configuración.');const data=await response.json();configData=data.data||{};cargarAreas(Object.keys(configData));cargarSoluciones(data.soluciones||[])}catch(error){console.error("Error al cargar datos:",error);areaSelect.innerHTML='<option value="">Error al cargar</option>';solucionSelect.innerHTML='<option value="">Error al cargar</option>'}}
         function cargarAreas(areas){areaSelect.innerHTML='<option value="" disabled selected>-- Seleccione un área --</option>';areas.sort().forEach(area=>{areaSelect.add(new Option(area,area))});areaSelect.disabled=false}
         function cargarMaquinas(areaSeleccionada){const maquinas=Object.keys(configData[areaSeleccionada]||{});maquinaSelect.innerHTML='<option value="" disabled selected>-- Seleccione una máquina --</option>';estacionSelect.innerHTML='<option value="" disabled selected>-- Primero seleccione una máquina --</option>';estacionSelect.disabled=true;maquinas.sort().forEach(maquina=>{maquinaSelect.add(new Option(maquina,maquina))});maquinaSelect.disabled=false}
         function cargarEstaciones(areaSeleccionada,maquinaSeleccionada){const estaciones=configData[areaSeleccionada]?.[maquinaSeleccionada]||[];estacionSelect.innerHTML='<option value="" disabled selected>-- Seleccione una estación --</option>';estaciones.sort().forEach(estacion=>{estacionSelect.add(new Option(estacion,estacion))});estacionSelect.disabled=false}
         function cargarSoluciones(soluciones){solucionSelect.innerHTML='<option value="" disabled selected>-- Seleccione una solución --</option>';soluciones.sort().forEach(solucion=>{solucionSelect.add(new Option(solucion,solucion))})}
+        
+        // ¡NUEVA FUNCIÓN! Carga mecánicos 'Disponibles' (de 'escribir-mantenimiento')
+        async function cargarMecanicosActivos() {
+            try {
+                const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'get_mecanicos_activos' }),
+                });
+                if (!response.ok) throw new Error('Error de red al cargar mecánicos.');
+                const data = await response.json();
+                
+                mecanicoSelect.innerHTML = '<option value="" disabled selected>-- Seleccione un mecánico --</option>';
+                (data.mecanicos || []).forEach(mecanico => {
+                    mecanicoSelect.add(new Option(mecanico, mecanico));
+                });
+                mecanicoSelect.disabled = false;
+
+            } catch (error) {
+                console.error("Error al cargar mecánicos:", error);
+                mecanicoSelect.innerHTML = '<option value="">Error al cargar</option>';
+            }
+        }
+        
         areaSelect.addEventListener('change',()=>{cargarMaquinas(areaSelect.value)});maquinaSelect.addEventListener('change',()=>{cargarEstaciones(areaSelect.value,maquinaSelect.value)});
         // ------------------------------------
 
@@ -204,14 +236,11 @@
                 if (!response.ok) return;
                 const result = await response.json();
                 
-                // ¡NUEVA LÓGICA! Si pasa de "En Cola" a "Asignado"
                 if (result.status === 'Asignado') {
                     console.log("¡Asignación detectada!");
-                    // Ahora sí, mostrar el mecánico
                     andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${result.mecanico}</strong>. <br> En camino.`;
-                    stopStatusCheck(); // Deja de preguntar, ya está asignado
+                    stopStatusCheck();
                 }
-                // Si sigue "En Cola", no hace nada
             } catch (error) {
                 console.error("Error al revisar status:", error);
             }
@@ -223,9 +252,6 @@
             errorMessage.style.display = mensaje ? 'block' : 'none';
         }
 
-        /**
-         * Reconstruye la pantalla de Andon (Actualizada)
-         */
         function buildAndonScreen(status, mecanico, folio, statusMaquina) {
             paroForm.style.display = 'none';
             solucionForm.style.display = 'none';
@@ -242,17 +268,14 @@
             
             andonFolio.textContent = `FOLIO: ${folio}`;
             
-            // --- ¡NUEVA LÓGICA DE MENSAJES (según tu petición)! ---
             if (status === 'Asignado') {
                  andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${mecanico}</strong>. <br> En camino.`;
             } else if (status === 'En Cola') {
-                 // Este es el nuevo mensaje que pediste
                  andonStatusMessage.innerHTML = `<strong>Todos los mecánicos están ocupados.</strong> <br> Su reporte está en espera.`;
             } else if (status === 'En Proceso') {
                 andonStatusMessage.innerHTML = `<strong>${mecanico}</strong> está trabajando en tu máquina.`;
             }
             
-            // Configurar botones
             if (status === 'En Cola' || status === 'Asignado') {
                 llegadaMecanicoBtn.style.display = 'block';
                 fallaAtendidaBtn.style.display = 'none';
@@ -260,7 +283,6 @@
                 if (status === 'En Cola') {
                     const row = localStorage.getItem('paroRow');
                     stopStatusCheck();
-                    // --- ¡NUEVO TIEMPO! 10 segundos ---
                     statusCheckInterval = setInterval(() => checkParoStatus(row), 10000); 
                 }
 
@@ -272,9 +294,6 @@
             andonScreen.style.display = 'flex';
         }
 
-        /**
-         * Revisa si un paro ya está activo (Actualizado)
-         */
         async function checkForActiveParo() {
             const activeRow = localStorage.getItem('paroRow');
             if (!activeRow) {
@@ -420,6 +439,8 @@
             stopStatusCheck();
             solucionForm.style.display = 'block';
             fallaAtendidaBtn.style.display = 'none';
+            // ¡NUEVO! Cargamos la lista de mecánicos al abrir el form
+            cargarMecanicosActivos();
         });
 
         // 4. FINALIZAR PARO
@@ -429,8 +450,11 @@
             mostrarError('');
             finalizarParoBtn.disabled = true;
             loadingSolucion.style.display = 'block';
+            
             const solucion = solucionSelect.value;
-            const mecanico = document.getElementById('mecanico-input').value;
+            // ¡CAMBIO! Leer el valor del <select>
+            const mecanico = mecanicoSelect.value; 
+            
             const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
             const rowToUpdate = localStorage.getItem('paroRow');
             if (!rowToUpdate) {
@@ -445,7 +469,7 @@
                     body: JSON.stringify({
                         action: 'cerrar',
                         row: rowToUpdate,
-                        data: [solucion, mecanico, fechaCierre]
+                        data: [solucion, mecanico, fechaCierre] // Enviamos el nombre seleccionado
                     }),
                 });
                 if (!response.ok) throw new Error('Error del servidor al cerrar el reporte.');
@@ -478,8 +502,8 @@
         });
         
         // --- INICIALIZACIÓN ---
-        await cargarDatosDeConfiguracion();
-        await checkForActiveParo();
+        await cargarDatosDeConfiguracion(); // Carga Áreas, Soluciones, etc.
+        await checkForActiveParo(); // Revisa si ya hay un paro activo
         
     });
     </script>
