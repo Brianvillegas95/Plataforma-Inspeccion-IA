@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomToolbar = document.getElementById('zoom-toolbar');
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
-    const mainNavBar = document.querySelector('app-header');
+    const mainNavBar = document.querySelector('.app-header');
     
     // Verificación de elementos
     if (!chatBubble || !chatContainer || !closeChat || !messagesContainer || !optionsContainer || !lightbox || !lightboxClose || !galleryPrev || !galleryNext || !imageWrapper || !lightboxImg || !zoomToolbar || !zoomInBtn || !zoomOutBtn) {
@@ -473,4 +473,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
