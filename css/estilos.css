@@ -1344,13 +1344,13 @@ body.color-validator-body .main-content {
 /* Flecha "Anterior" */
 .gallery-prev {
     left: 0;
-    border-radius: 3px 0 0 3px;
+    border-radius: 4px 0 0 4px;
 }
 
 /* Flecha "Siguiente" */
 .gallery-next {
     right: 0;
-    border-radius: 0 3px 3px 0;
+    border-radius: 0 4px 4px 0;
 }
 
 .gallery-nav:hover {
@@ -1359,11 +1359,11 @@ body.color-validator-body .main-content {
 
 .zoom-toolbar {
     position: absolute;
-    bottom: 20px;
+    bottom: 25px;
     left: 50%;
     transform: translateX(-50%);
     background-color: rgba(30, 30, 30, 0.8);
-    border-radius: 20px;
+    border-radius: 25px;
     padding: 5px;
     display: none; /* Se controla por JS */
     z-index: 1002;
@@ -1401,7 +1401,6 @@ body.color-validator-body .main-content {
 
 /* 3. Modificaciones al contenido del lightbox (la imagen) */
 .lightbox-content {
-    /* Quitamos los max-width/height para que el zoom funcione sin límites */
     max-width: none; 
     max-height: none;
     
@@ -1501,6 +1500,7 @@ body.color-validator-body .main-content {
     box-shadow: var(--shadow-lg);
 
 }
+
 
 
 
