@@ -1296,23 +1296,6 @@ body.color-validator-body .main-content {
     align-items: center;
 }
 
-/* La imagen dentro del lightbox (MODIFICADA) */
-.lightbox-content {
-    margin: auto;
-    display: block;
-    max-width: 85%;
-    max-height: 85vh; /* Ocupa como máximo el 85% de la altura de la pantalla */
-
-    /* Animación de zoom al abrir (de tu código original) */
-    animation-name: zoom;
-    animation-duration: 0.4s;
-
-    /* --- ▼▼ NUEVO: Añadido para el zoom de la galería ▼▼ --- */
-    transition: transform 0.2s ease;
-    cursor: zoom-in;
-    /* --- ▲▲ FIN DE LO NUEVO ▲▲ --- */
-}
-
 @keyframes zoom {
     from {transform: scale(0)} 
     to {transform: scale(1)}
@@ -1518,5 +1501,6 @@ body.color-validator-body .main-content {
     box-shadow: var(--shadow-lg);
 
 }
+
 
 
