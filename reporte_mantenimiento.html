@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* (Tus estilos CSS van aquí - sin cambios) */
         .maintenance-tool { max-width: 600px; margin: 0 auto; padding: 25px; background-color: var(--surface-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-md); }
         #andon-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; display: none; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; transition: background-color 0.3s ease; }
         #andon-screen.andon-red { background-color: rgba(220, 53, 69, 0.9); }
@@ -150,10 +151,7 @@
         const maquinaSelect = document.getElementById('maquina-input');
         const estacionSelect = document.getElementById('estacion-input');
         const solucionSelect = document.getElementById('solucion-input');
-        
-        // --- ¡CAMBIO! Volvemos al <select>
         const mecanicoSelect = document.getElementById('mecanico-select'); 
-        
         const paroForm = document.getElementById('paro-form');
         const solucionForm = document.getElementById('solucion-form');
         const andonScreen = document.getElementById('andon-screen');
@@ -179,7 +177,6 @@
 
         // --- Lógica de Menús Desplegables ---
         
-        // Carga Áreas, Máquinas, Estaciones Y Soluciones
         async function cargarDatosDeConfiguracion(){try{const response=await fetch('/.netlify/functions/leer-listas-mantenimiento');if(!response.ok)throw new Error('Error de red al cargar la configuración.');const data=await response.json();configData=data.data||{};cargarAreas(Object.keys(configData));cargarSoluciones(data.soluciones||[])}catch(error){console.error("Error al cargar datos:",error);areaSelect.innerHTML='<option value="">Error al cargar</option>';solucionSelect.innerHTML='<option value="">Error al cargar</option>'}}
         function cargarAreas(areas){areaSelect.innerHTML='<option value="" disabled selected>-- Seleccione un área --</option>';areas.sort().forEach(area=>{areaSelect.add(new Option(area,area))});areaSelect.disabled=false}
         function cargarMaquinas(areaSeleccionada){const maquinas=Object.keys(configData[areaSeleccionada]||{});maquinaSelect.innerHTML='<option value="" disabled selected>-- Seleccione una máquina --</option>';estacionSelect.innerHTML='<option value="" disabled selected>-- Primero seleccione una máquina --</option>';estacionSelect.disabled=true;maquinas.sort().forEach(maquina=>{maquinaSelect.add(new Option(maquina,maquina))});maquinaSelect.disabled=false}
@@ -187,7 +184,6 @@
         function cargarSoluciones(soluciones){solucionSelect.innerHTML='<option value="" disabled selected>-- Seleccione una solución --</option>';soluciones.sort().forEach(solucion=>{solucionSelect.add(new Option(solucion,solucion))})}
         
         // --- ¡FUNCIÓN RESTAURADA! ---
-        // Carga mecánicos 'Disponibles' desde el backend
         async function cargarMecanicosActivos() {
             try {
                 const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -215,16 +211,32 @@
 
         // --- Lógica de Polling (Sondeo) ---
         function stopStatusCheck(){if(statusCheckInterval){clearInterval(statusCheckInterval);statusCheckInterval=null;console.log("Sondeo de status detenido.")}}
-        async function checkParoStatus(rowToCheck){if(!rowToCheck){stopStatusCheck();return}console.log(`Revisando status de la fila ${rowToCheck}...`);try{const response=await fetch('/.netlify/functions/escribir-mantenimiento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check_status',row:rowToCheck}),});if(!response.ok)return;const result=await response.json();
         
-            // Si el mecánico asignado cambia (ej. de "Brian" a "En Espera", o de "En Espera" a "Fernando")
-            const currentMessage = andonStatusMessage.innerHTML;
-            if (!currentMessage.includes(result.mecanico)) {
-                 console.log(`¡Actualización de estado detectada! Recargando...`);
-                 window.location.reload(); 
-            }
+        // --- ¡FUNCIÓN MEJORADA! (Anti-flash) ---
+        async function checkParoStatus(rowToCheck){
+            if(!rowToCheck){stopStatusCheck();return}
+            
+            console.log(`Revisando status de la fila ${rowToCheck}...`);
+            try{
+                const response=await fetch('/.netlify/functions/escribir-mantenimiento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check_status',row:rowToCheck}),});
+                if(!response.ok)return;
+                const result=await response.json(); // {mecanico, status, statusMaquina}
+                
+                const folio = localStorage.getItem('paroFolio');
+                
+                // Actualizamos el status de la máquina en caso de que haya cambiado (escalado)
+                localStorage.setItem('paroStatusMaquina', result.statusMaquina);
 
-        }catch(error){console.error("Error al revisar status:",error)}}
+                // Volvemos a construir la pantalla con los nuevos datos, sin recargar
+                buildAndonScreen(result.status, result.mecanico, folio, result.statusMaquina);
+
+            }catch(error){
+                console.error("Error al revisar status:",error);
+                // Si falla (ej. paro cerrado), sí recargamos
+                window.location.reload();
+            }
+        }
+        // --- FIN DE MEJORA ---
 
         // --- Lógica de UI ---
         function mostrarError(mensaje) {
@@ -304,7 +316,9 @@
                     body: JSON.stringify({ action: 'check_status', row: activeRow }),
                 });
                 if (!response.ok) throw new Error('No se pudo recuperar el estado del paro.');
-                const data = await response.json(); 
+                
+                const data = await response.json(); // {mecanico, status, statusMaquina}
+                
                 if (data.status === 'Cerrado') {
                     console.log("El paro guardado ya estaba cerrado. Limpiando...");
                     localStorage.removeItem('paroRow');
@@ -313,9 +327,13 @@
                     window.location.reload();
                     return;
                 }
+                
                 const folio = localStorage.getItem('paroFolio');
-                const statusMaquina = localStorage.getItem('paroStatusMaquina');
-                buildAndonScreen(data.status, data.mecanico, folio, statusMaquina);
+                // Guardamos el statusMaquina por si el usuario recarga
+                localStorage.setItem('paroStatusMaquina', data.statusMaquina); 
+                
+                buildAndonScreen(data.status, data.mecanico, folio, data.statusMaquina);
+
             } catch (error) {
                 console.error("Error al recuperar paro:", error);
                 mostrarError("Error al recuperar el paro activo. Limpiando estado...");
@@ -401,11 +419,14 @@
                     }),
                 });
                 if (!response.ok) throw new Error('Error del servidor al registrar la llegada.');
+                
+                // Actualización discreta (sin recargar)
                 llegadaMecanicoBtn.style.display = 'none';
                 escalarParoBtn.style.display = 'none';
                 fallaAtendidaBtn.style.display = 'block';
                 const mecanico = andonStatusMessage.querySelector('strong') ? andonStatusMessage.querySelector('strong').textContent : 'El mecánico';
                 andonStatusMessage.innerHTML = `<strong>${mecanico}</strong> está trabajando en tu máquina.`;
+
             } catch (error) {
                 console.error('Error al registrar llegada:', error);
                 mostrarError('No se pudo registrar la llegada. Intente de nuevo.');
@@ -420,7 +441,7 @@
             stopStatusCheck();
             solucionForm.style.display = 'block';
             fallaAtendidaBtn.style.display = 'none';
-            // --- ¡CAMBIO! Cargamos los mecánicos activos para el <select>
+            // --- ¡CAMBIO! Cargamos los mecánicos para el <select>
             cargarMecanicosActivos();
         });
 
@@ -454,6 +475,8 @@
                     }),
                 });
                 if (!response.ok) throw new Error('Error del servidor al cerrar el reporte.');
+                
+                // Limpieza y reseteo
                 andonScreen.style.display = 'none';
                 paroForm.reset();
                 solucionForm.reset(); 
@@ -492,14 +515,24 @@
                     body: JSON.stringify({ action: 'escalar_paro', row: rowToUpdate }),
                 });
                 if (!response.ok) throw new Error('Error al escalar el paro.');
+                
+                // Actualización discreta (sin recargar)
                 localStorage.setItem('paroStatusMaquina', 'detenida');
-                window.location.reload();
+                
+                // Volvemos a dibujar la pantalla en modo "rojo"
+                const folio = localStorage.getItem('paroFolio');
+                const status = andonStatusMessage.innerHTML.includes('En camino') ? 'Asignado' : 'En Cola';
+                const mecanico = andonStatusMessage.querySelector('strong') ? andonStatusMessage.querySelector('strong').textContent : 'En Espera';
+                
+                buildAndonScreen(status, mecanico, folio, 'detenida');
+
             } catch (error) {
                 console.error('Error al escalar:', error);
                 mostrarError('No se pudo escalar el paro. Intente de nuevo.');
+            } finally {
+                // Siempre re-habilitamos los botones
                 escalarParoBtn.disabled = false;
                 llegadaMecanicoBtn.disabled = false;
-            } finally {
                 loadingEscalar.style.display = 'none';
             }
         });
