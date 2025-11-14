@@ -54,11 +54,10 @@
                     <option value="" disabled selected>-- Cargando soluciones... --</option>
                 </select>
             </div>
+            
             <div class="form-group">
-                <label for="mecanico-select">Nombre del Mecánico:</label>
-                <select id="mecanico-select" class="form-control" required>
-                    <option value="" disabled selected>-- Cargando mecánicos... --</option>
-                </select>
+                <label for="mecanico-input">Nombre del Mecánico:</label>
+                <input type="text" id="mecanico-input" class="form-control" required placeholder="Ej: Brian Villegas">
             </div>
             <button type="submit" id="finalizar-paro-btn" class="button primary-action" style="background-color: var(--success-color); border-color: var(--success-color);">
                 <i class="fas fa-check-circle"></i> Finalizar Paro
@@ -144,12 +143,15 @@
     <script>
     document.addEventListener('DOMContentLoaded', async () => {
         
-        // --- Variables Globales (DOM) (Sin cambios) ---
+        // --- Variables Globales (DOM) ---
         const areaSelect = document.getElementById('area-input');
         const maquinaSelect = document.getElementById('maquina-input');
         const estacionSelect = document.getElementById('estacion-input');
         const solucionSelect = document.getElementById('solucion-input');
-        const mecanicoSelect = document.getElementById('mecanico-select'); 
+        
+        // --- ¡CAMBIO! Apuntamos al <input>
+        const mecanicoInput = document.getElementById('mecanico-input'); 
+        
         const paroForm = document.getElementById('paro-form');
         const solucionForm = document.getElementById('solucion-form');
         const andonScreen = document.getElementById('andon-screen');
@@ -167,22 +169,41 @@
         const errorMessage = document.getElementById('error-message');
         const escalarParoBtn = document.getElementById('escalar-paro-btn');
         const loadingEscalar = document.getElementById('loading-spinner-escalar');
+        
         document.getElementById('currentYear').textContent = new Date().getFullYear();
+        
         let configData = {};
         let statusCheckInterval = null;
 
-        // --- Lógica de Menús Desplegables (Sin cambios) ---
+        // --- Lógica de Menús Desplegables ---
+        
+        // Carga Áreas, Máquinas, Estaciones Y Soluciones
         async function cargarDatosDeConfiguracion(){try{const response=await fetch('/.netlify/functions/leer-listas-mantenimiento');if(!response.ok)throw new Error('Error de red al cargar la configuración.');const data=await response.json();configData=data.data||{};cargarAreas(Object.keys(configData));cargarSoluciones(data.soluciones||[])}catch(error){console.error("Error al cargar datos:",error);areaSelect.innerHTML='<option value="">Error al cargar</option>';solucionSelect.innerHTML='<option value="">Error al cargar</option>'}}
         function cargarAreas(areas){areaSelect.innerHTML='<option value="" disabled selected>-- Seleccione un área --</option>';areas.sort().forEach(area=>{areaSelect.add(new Option(area,area))});areaSelect.disabled=false}
         function cargarMaquinas(areaSeleccionada){const maquinas=Object.keys(configData[areaSeleccionada]||{});maquinaSelect.innerHTML='<option value="" disabled selected>-- Seleccione una máquina --</option>';estacionSelect.innerHTML='<option value="" disabled selected>-- Primero seleccione una máquina --</option>';estacionSelect.disabled=true;maquinas.sort().forEach(maquina=>{maquinaSelect.add(new Option(maquina,maquina))});maquinaSelect.disabled=false}
         function cargarEstaciones(areaSeleccionada,maquinaSeleccionada){const estaciones=configData[areaSeleccionada]?.[maquinaSeleccionada]||[];estacionSelect.innerHTML='<option value="" disabled selected>-- Seleccione una estación --</option>';estaciones.sort().forEach(estacion=>{estacionSelect.add(new Option(estacion,estacion))});estacionSelect.disabled=false}
         function cargarSoluciones(soluciones){solucionSelect.innerHTML='<option value="" disabled selected>-- Seleccione una solución --</option>';soluciones.sort().forEach(solucion=>{solucionSelect.add(new Option(solucion,solucion))})}
-        async function cargarMecanicosActivos(){try{const response=await fetch('/.netlify/functions/escribir-mantenimiento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'get_mecanicos_activos'}),});if(!response.ok)throw new Error('Error de red al cargar mecánicos.');const data=await response.json();mecanicoSelect.innerHTML='<option value="" disabled selected>-- Seleccione un mecánico --</option>';(data.mecanicos||[]).forEach(mecanico=>{mecanicoSelect.add(new Option(mecanico,mecanico))});mecanicoSelect.disabled=false}catch(error){console.error("Error al cargar mecánicos:",error);mecanicoSelect.innerHTML='<option value="">Error al cargar</option>'}}
-        areaSelect.addEventListener('change',()=>{cargarMaquinas(areaSelect.value)});maquinaSelect.addEventListener('change',()=>{cargarEstaciones(areaSelect.value,maquinaSelect.value)});
         
-        // --- Lógica de Polling (Sondeo) (Sin cambios) ---
+        // --- ¡CAMBIO! Eliminamos la función cargarMecanicosActivos()
+        
+        areaSelect.addEventListener('change',()=>{cargarMaquinas(areaSelect.value)});maquinaSelect.addEventListener('change',()=>{cargarEstaciones(areaSelect.value,maquinaSelect.value)});
+        // ------------------------------------
+
+        // --- Lógica de Polling (Sondeo) ---
         function stopStatusCheck(){if(statusCheckInterval){clearInterval(statusCheckInterval);statusCheckInterval=null;console.log("Sondeo de status detenido.")}}
-        async function checkParoStatus(rowToCheck){if(!rowToCheck){stopStatusCheck();return}console.log(`Revisando status de la fila ${rowToCheck}...`);try{const response=await fetch('/.netlify/functions/escribir-mantenimiento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check_status',row:rowToCheck}),});if(!response.ok)return;const result=await response.json();if(result.status==='Asignado'){console.log("¡Asignación detectada!");andonStatusMessage.innerHTML=`Se ha asignado a: <strong>${result.mecanico}</strong>. <br> En camino.`;stopStatusCheck()}}catch(error){console.error("Error al revisar status:",error)}}
+        async function checkParoStatus(rowToCheck){if(!rowToCheck){stopStatusCheck();return}console.log(`Revisando status de la fila ${rowToCheck}...`);try{const response=await fetch('/.netlify/functions/escribir-mantenimiento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check_status',row:rowToCheck}),});if(!response.ok)return;const result=await response.json();
+        
+            // --- ¡MEJORA! Actualizar la pantalla si cambia el mecánico ---
+            // Si el mecánico asignado cambia (ej. de "Brian" a "En Espera", o de "En Espera" a "Fernando")
+            const currentMessage = andonStatusMessage.innerHTML;
+            if (!currentMessage.includes(result.mecanico)) {
+                 console.log(`¡Actualización de estado detectada! Recargando...`);
+                 // La forma más simple de actualizar la pantalla es recargar
+                 window.location.reload(); 
+            }
+            // --- FIN DE MEJORA ---
+
+        }catch(error){console.error("Error al revisar status:",error)}}
 
         // --- Lógica de UI ---
         function mostrarError(mensaje) {
@@ -190,7 +211,6 @@
             errorMessage.style.display = mensaje ? 'block' : 'none';
         }
 
-        // --- ¡FUNCIÓN 'buildAndonScreen' MODIFICADA! ---
         function buildAndonScreen(status, mecanico, folio, statusMaquina) {
             paroForm.style.display = 'none';
             solucionForm.style.display = 'none';
@@ -201,17 +221,11 @@
 
             // Lógica de Mensaje
             if (mecanico === 'En Espera') {
-                 // Este es el caso "No hay mecánicos logueados"
                  andonStatusMessage.innerHTML = `<strong>Todos los mecánicos están ocupados.</strong> <br> Su reporte está en espera.`;
             } else if (status === 'Asignado') {
                  andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${mecanico}</strong>. <br> En camino.`;
-            
-            // --- ¡CAMBIO DE TEXTO SOLICITADO! ---
             } else if (status === 'En Cola') {
-                 // Este es el caso "Mecánico ocupado, reporte en su cola personal"
                  andonStatusMessage.innerHTML = `<strong>${mecanico} está ocupado.</strong> <br> Su reporte está en espera, ya se reportó al mecánico.`;
-            // --- FIN DEL CAMBIO ---
-
             } else if (status === 'En Proceso') {
                 andonStatusMessage.innerHTML = `<strong>${mecanico}</strong> está trabajando en tu máquina.`;
             }
@@ -237,11 +251,12 @@
                 if (mecanico !== 'En Espera') {
                     llegadaMecanicoBtn.style.display = 'block';
                 }
-                if (status === 'En Cola' || mecanico === 'En Espera') {
-                    const row = localStorage.getItem('paroRow');
-                    stopStatusCheck();
-                    statusCheckInterval = setInterval(() => checkParoStatus(row), 10000); 
-                }
+                // Siempre activamos el sondeo si el paro no está 'En Proceso'
+                // para detectar re-asignaciones (ej. logout)
+                const row = localStorage.getItem('paroRow');
+                stopStatusCheck();
+                statusCheckInterval = setInterval(() => checkParoStatus(row), 10000); // 10 segundos
+                
             } else if (status === 'En Proceso') {
                 fallaAtendidaBtn.style.display = 'block';
                 escalarParoBtn.style.display = 'none';
@@ -249,7 +264,6 @@
             
             andonScreen.style.display = 'flex';
         }
-        // --- FIN DE MODIFICACIÓN ---
 
         async function checkForActiveParo() {
             const activeRow = localStorage.getItem('paroRow');
@@ -297,7 +311,7 @@
 
         // --- Event Listeners (Formularios) ---
 
-        // 1. GENERAR PARO (Con manejo de error 409)
+        // 1. GENERAR PARO
         paroForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             mostrarError('');
@@ -344,7 +358,7 @@
             }
         });
 
-        // 2. REGISTRAR LLEGADA (Sin cambios)
+        // 2. REGISTRAR LLEGADA
         llegadaMecanicoBtn.addEventListener('click', async () => {
             stopStatusCheck();
             mostrarError('');
@@ -382,23 +396,26 @@
             }
         });
 
-        // 3. MOSTRAR FORMULARIO DE SOLUCIÓN (Sin cambios)
+        // 3. MOSTRAR FORMULARIO DE SOLUCIÓN
         fallaAtendidaBtn.addEventListener('click', () => {
             stopStatusCheck();
             solucionForm.style.display = 'block';
             fallaAtendidaBtn.style.display = 'none';
-            cargarMecanicosActivos();
+            // --- ¡CAMBIO! Ya no llamamos a cargarMecanicosActivos()
         });
 
-        // 4. FINALIZAR PARO (Sin cambios)
+        // 4. FINALIZAR PARO
         solucionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             stopStatusCheck();
             mostrarError('');
             finalizarParoBtn.disabled = true;
             loadingSolucion.style.display = 'block';
+            
             const solucion = solucionSelect.value;
-            const mecanico = mecanicoSelect.value; 
+            // --- ¡CAMBIO! Leemos del <input>
+            const mecanico = mecanicoInput.value; 
+            
             const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
             const rowToUpdate = localStorage.getItem('paroRow');
             if (!rowToUpdate) {
@@ -419,7 +436,7 @@
                 if (!response.ok) throw new Error('Error del servidor al cerrar el reporte.');
                 andonScreen.style.display = 'none';
                 paroForm.reset();
-                solucionForm.reset();
+                solucionForm.reset(); // Esto también limpiará el mecanico-input
                 paroForm.style.display = 'block';
                 areaSelect.disabled = false;
                 maquinaSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione un área --</option>';
@@ -440,7 +457,7 @@
             }
         });
 
-        // 5. ESCALAR PARO (Sin cambios)
+        // 5. ESCALAR PARO
         escalarParoBtn.addEventListener('click', async () => {
             stopStatusCheck();
             mostrarError('');
@@ -467,7 +484,7 @@
             }
         });
         
-        // --- INICIALIZACIÓN (Sin cambios) ---
+        // --- INICIALIZACIÓN ---
         await cargarDatosDeConfiguracion();
         await checkForActiveParo();
         
