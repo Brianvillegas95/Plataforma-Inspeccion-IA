@@ -34,7 +34,7 @@ async function checkForOpenDuplicate(sheets, area, maquina, estacion) {
   const produccionSheetId = process.env.MANTENIMIENTO_SHEET_ID;
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: produccionSheetId,
-    range: 'Hoja 1!C2:N', // C(Area), D(Maquina), E(Estacion), N(StatusParo)
+    range: 'Hoja 1!C2:N',
   });
   const jobs = response.data.values || [];
   
@@ -46,7 +46,7 @@ async function checkForOpenDuplicate(sheets, area, maquina, estacion) {
     const jobArea = job[0] ? job[0].trim() : '';
     const jobMaquina = job[1] ? job[1].trim() : '';
     const jobEstacion = job[2] ? job[2].trim() : '';
-    const jobStatus = job[11] ? job[11].trim() : ''; // Col N (índice 11)
+    const jobStatus = job[11] ? job[11].trim() : '';
 
     if (jobArea === normArea && jobMaquina === normMaquina && jobEstacion === normEstacion &&
         (jobStatus === 'Asignado' || jobStatus === 'En Proceso' || jobStatus === 'En Cola')) {
@@ -466,7 +466,6 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: `Mecánico ${name} check-out.` }) };
       }
       
-      // --- Acción 'get_mecanico_tareas' (CORREGIDA) ---
       case 'get_mecanico_tareas': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
         
@@ -490,7 +489,6 @@ exports.handler = async function (event) {
             const [folio, , area, maquina, estacion, , statusMaquina, , , , , , mecanicoAsignado, statusParo] = jobs[i];
             const jobArea = area ? area.trim() : '';
             
-            // Si falta algún dato clave (especialmente 'mecanicoAsignado'), saltar esta fila
             if (!mecanicoAsignado || !statusParo) continue; 
             
             const tarea = { row, folio, area, maquina, estacion, statusParo, statusMaquina };
@@ -510,10 +508,8 @@ exports.handler = async function (event) {
                     tareasEnCola.push(tarea);
                 }
             }
-            // ¡AQUÍ ESTABA EL ERROR!
             else if (jobArea === normMechanicArea && mecanicoAsignado === 'En Espera' && statusParo === 'En Cola') {
                 tareasEnCola.push(tarea); 
-                // La 'Y' ha sido eliminada.
             }
         }
 
@@ -526,28 +522,14 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ tareaActual, tareasEnCola }) };
       }
       
-      case 'get_mecanicos_activos': {
-          const spreadsheetId = process.env.MECANICOS_SHEET_ID;
-          if (!spreadsheetId) {
-            throw new Error('MECANICOS_SHEET_ID no está configurado.');
-          }
-          const mecsResponse = await sheets.spreadsheets.values.get({
-            spreadsheetId: spreadsheetId,
-            range: 'Hoja 1!A2:C',
-          });
-          const mechanics = mecsResponse.data.values || [];
-          const activos = mechanics
-            .filter(mec => mec[0] && mec[2] === 'Disponible')
-            .map(mec => mec[0]);
-          return { statusCode: 200, body: JSON.stringify({ mecanicos: activos.sort() }) };
-        }
+      // --- ¡ACCIÓN ELIMINADA! ---
+      // 'get_mecanicos_activos' ya no se necesita
       
       default:
         return { statusCode: 400, body: JSON.stringify({ error: `Acción desconocida: "${action}".` }) };
     }
   } catch (error) {
     console.error('Error fatal en la función:', error);
-    // Añadir más detalles al error 500
     return {
       statusCode: 500,
       body: JSON.stringify({ 
