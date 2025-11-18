@@ -3,139 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KPIs Mantenimiento - Grupo Azor</title>
+    <title>KPIs Mantenimiento | Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-    
+    <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+
     <style>
-        body { background-color: #f4f7fa; font-family: Arial, sans-serif; margin: 0; }
-        .app-header { background-color: #005f9e; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .app-header h1 { margin: 0; font-size: 1.5em; }
-        .logo { height: 40px; vertical-align: middle; margin-right: 10px; }
-        .main-content { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
         
-        /* Cards */
-        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px; }
-        .kpi-card { background-color: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); text-align: center; border-left: 4px solid #005f9e; }
-        .kpi-title { font-size: 0.9em; color: #666; margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
-        .kpi-value { font-size: 2.2em; font-weight: 700; color: #333; }
-        .kpi-sub { font-size: 0.8em; color: #888; margin-top: 5px; }
+        /* HEADER PRO */
+        .app-header { background-color: #ffffff; border-bottom: 1px solid #e1e4e8; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .logo-container { display: flex; align-items: center; gap: 15px; }
+        .logo { height: 45px; width: auto; } /* El logo ya tiene fondo blanco o transparente, se verá bien en fondo blanco */
+        .app-title { font-size: 1.4em; font-weight: 700; color: #005f9e; margin: 0; }
         
-        /* Filters & Panels */
-        .dashboard-panel { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        .panel-title { border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 20px; color: #333; font-size: 1.2em; display: flex; align-items: center; gap: 10px; }
-        .filter-controls { display: flex; gap: 15px; flex-wrap: wrap; align-items: end; }
-        .filter-group { display: flex; flex-direction: column; }
-        .filter-group label { font-size: 0.8em; margin-bottom: 5px; font-weight: bold; color: #555; }
-        .filter-group select, .filter-group input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
-        .btn-reset { padding: 8px 15px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; }
-        .btn-filter { padding: 8px 20px; background: #005f9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-bottom: 25px; }
-        @media(max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
-        .chart-container { height: 350px; position: relative; }
-        .table-wrapper { overflow-x: auto; max-height: 500px; }
-        .results-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
-        .results-table th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; position: sticky; top: 0; }
-        .results-table td { padding: 10px; border-bottom: 1px solid #eee; }
-        .results-table tr:hover { background-color: #f1f1f1; }
+        .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
+
+        /* KPI CARDS */
+        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .kpi-card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid #005f9e; position: relative; overflow: hidden; transition: transform 0.2s; }
+        .kpi-card:hover { transform: translateY(-3px); }
+        .kpi-title { font-size: 0.85em; font-weight: 700; color: #6c757d; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
+        .kpi-value { font-size: 2.5em; font-weight: 800; color: #212529; margin-bottom: 5px; }
+        .kpi-sub { font-size: 0.85em; color: #adb5bd; font-weight: 500; }
+        
+        /* FILTROS */
+        .dashboard-panel { background: #fff; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; }
+        .panel-title { font-size: 1.2em; font-weight: 700; color: #343a40; margin: 0; display: flex; align-items: center; gap: 10px; }
+        
+        .filter-grid { display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
+        .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 150px; }
+        .filter-group label { font-size: 0.8em; font-weight: 700; color: #495057; margin-bottom: 5px; }
+        .filter-control { padding: 10px 15px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; color: #495057; font-size: 0.95em; transition: border-color 0.2s; }
+        .filter-control:focus { border-color: #005f9e; outline: none; background: #fff; }
+        
+        .btn-primary { background: #005f9e; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .btn-primary:hover { background: #004a7c; }
+        .btn-secondary { background: #6c757d; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+
+        /* GRÁFICAS */
+        .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; margin-bottom: 30px; }
+        .charts-full { grid-column: span 2; }
+        @media(max-width: 992px) { .charts-grid { grid-template-columns: 1fr; } .charts-full { grid-column: span 1; } }
+        .chart-box { height: 350px; position: relative; }
+
+        /* TABLA */
+        .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid #e9ecef; }
+        .custom-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .custom-table th { background: #f8f9fa; color: #495057; font-weight: 700; text-align: left; padding: 15px; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+        .custom-table td { padding: 12px 15px; border-bottom: 1px solid #e9ecef; color: #212529; }
+        .custom-table tr:hover { background-color: #f8f9fa; }
+        
+        /* Utilerias */
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: 700; }
+        .badge-blue { background: #e7f1ff; color: #005f9e; }
+        .text-danger { color: #dc3545; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <div style="display: flex; align-items: center;">
-                <img src="imagenes/Logo azor.png" alt="Logo" class="logo" style="background:white; padding:2px; border-radius:4px;">
-                <h1>KPIs Mantenimiento</h1>
+
+    <header class="app-header">
+        <div class="logo-container">
+            <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
+            <h1 class="app-title">Dashboard de Mantenimiento</h1>
+        </div>
+        <div>
+             <button onclick="window.location.href='admin_mantenimiento.html'" class="btn-secondary" style="background: #fff; color: #555; border: 1px solid #ddd;">Ir a Admin</button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <h2 class="panel-title"><i class="fas fa-filter"></i> Filtros de Análisis</h2>
+                <button id="btn-reset" class="btn-secondary" style="padding: 5px 15px; font-size: 0.8em;">Limpiar Filtros</button>
             </div>
-            <button onclick="window.location.href='admin_mantenimiento.html'" class="btn-reset">Ir a Admin</button>
-        </header>
-
-        <main class="main-content">
-            <section class="kpi-container">
-                <div class="kpi-card">
-                    <div class="kpi-title"><i class="fas fa-check-circle"></i> Tickets Cerrados</div>
-                    <div class="kpi-value" id="kpi-count">0</div>
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label>Rango de Fechas (Día Específico)</label>
+                    <input type="date" id="filter-date" class="filter-control">
                 </div>
-                <div class="kpi-card" style="border-left-color: #28a745;">
-                    <div class="kpi-title"><i class="fas fa-stopwatch"></i> MTTR (Reparación)</div>
-                    <div class="kpi-value" id="kpi-repair">0 m</div>
-                    <div class="kpi-sub">Promedio</div>
+                <div class="filter-group">
+                    <label>Área</label>
+                    <select id="filter-area" class="filter-control"><option value="TODAS">Todas las Áreas</option></select>
                 </div>
-                <div class="kpi-card" style="border-left-color: #ffc107;">
-                    <div class="kpi-title"><i class="fas fa-running"></i> MTTA (Respuesta)</div>
-                    <div class="kpi-value" id="kpi-response">0 m</div>
-                    <div class="kpi-sub">Promedio</div>
+                <div class="filter-group">
+                    <label>Máquina</label>
+                    <select id="filter-machine" class="filter-control"><option value="TODAS">Todas las Máquinas</option></select>
                 </div>
-                <div class="kpi-card" style="border-left-color: #dc3545;">
-                    <div class="kpi-title"><i class="fas fa-clock"></i> Tiempo Total Paro</div>
-                    <div class="kpi-value" id="kpi-total">0 m</div>
-                    <div class="kpi-sub">Acumulado</div>
+                <div class="filter-group">
+                    <label>Mecánico</label>
+                    <select id="filter-mec" class="filter-control"><option value="TODOS">Todos los Mecánicos</option></select>
                 </div>
-            </section>
-
-            <section class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-filter"></i> Filtros de Datos</h2>
-                <div class="filter-controls">
-                    <div class="filter-group">
-                        <label>Área</label>
-                        <select id="filter-area"><option value="TODAS">Todas</option></select>
-                    </div>
-                    <div class="filter-group">
-                        <label>Mecánico</label>
-                        <select id="filter-mec"><option value="TODOS">Todos</option></select>
-                    </div>
-                    <div class="filter-group">
-                        <label>Mes</label>
-                        <input type="month" id="filter-date">
-                    </div>
-                    <button id="btn-apply-filter" class="btn-filter">Aplicar</button>
-                    <button id="btn-reset-filter" class="btn-reset">Limpiar</button>
-                </div>
-            </section>
-
-            <div class="charts-row">
-                <div class="dashboard-panel">
-                    <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Fallas por Máquina</h2>
-                    <div class="chart-container"><canvas id="chartMachines"></canvas></div>
-                </div>
-                <div class="dashboard-panel">
-                    <h2 class="panel-title"><i class="fas fa-chart-pie"></i> Tickets por Mecánico</h2>
-                    <div class="chart-container"><canvas id="chartMechanics"></canvas></div>
+                <div class="filter-group" style="justify-content: flex-end;">
+                    <button id="btn-apply" class="btn-primary"><i class="fas fa-search"></i> Filtrar Datos</button>
                 </div>
             </div>
+        </section>
 
-            <section class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-table"></i> Historial Detallado</h2>
-                <div class="table-wrapper">
-                    <table class="results-table">
-                        <thead>
-                            <tr>
-                                <th>Folio</th>
-                                <th>Fecha</th>
-                                <th>Área</th>
-                                <th>Máquina</th>
-                                <th>Falla</th>
-                                <th>Mecánico</th>
-                                <th>T. Resp</th>
-                                <th>T. Rep</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-body">
-                            <tr><td colspan="8" style="text-align:center;">Cargando datos...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
-    </div>
+        <section class="kpi-container">
+            <div class="kpi-card">
+                <div class="kpi-title">Tickets Totales</div>
+                <div class="kpi-value" id="kpi-count">0</div>
+                <div class="kpi-sub">Cerrados en periodo</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #28a745;">
+                <div class="kpi-title">MTTR (Tiempo Reparación)</div>
+                <div class="kpi-value" id="kpi-mttr">0 min</div>
+                <div class="kpi-sub">Promedio</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #ffc107;">
+                <div class="kpi-title">MTTA (Tiempo Respuesta)</div>
+                <div class="kpi-value" id="kpi-mtta">0 min</div>
+                <div class="kpi-sub">Promedio</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #dc3545;">
+                <div class="kpi-title">Tiempo Muerto Total</div>
+                <div class="kpi-value" id="kpi-total-downtime">0 min</div>
+                <div class="kpi-sub">Acumulado</div>
+            </div>
+        </section>
+
+        <div class="charts-grid">
+            <div class="dashboard-panel charts-full">
+                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Top 10 Máquinas con más Fallas (Pareto)</h2>
+                <div class="chart-box"><canvas id="chartMachines"></canvas></div>
+            </div>
+            
+            <div class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-chart-pie"></i> Fallas por Área</h2>
+                <div class="chart-box"><canvas id="chartAreas"></canvas></div>
+            </div>
+
+            <div class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-tools"></i> Tipos de Solución Aplicada</h2>
+                <div class="chart-box"><canvas id="chartSolutions"></canvas></div>
+            </div>
+        </div>
+
+        <section class="dashboard-panel">
+            <h2 class="panel-title"><i class="fas fa-list"></i> Historial Detallado</h2>
+            <div class="table-container">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Folio</th>
+                            <th>Fecha</th>
+                            <th>Área</th>
+                            <th>Máquina</th>
+                            <th>Falla</th>
+                            <th>Solución</th>
+                            <th>Mecánico</th>
+                            <th>T. Resp (Min)</th>
+                            <th>T. Rep (Min)</th>
+                            <th>T. Total (Min)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="10" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+        
+        // --- CONFIGURACIÓN ---
+        Chart.register(ChartDataLabels);
         let rawData = [];
         let charts = {};
 
+        // --- CARGA INICIAL ---
         async function loadData() {
             try {
                 const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -144,13 +190,19 @@
                 });
                 const json = await res.json();
                 rawData = json.data || [];
-                populateFilters();
-                processData();
-            } catch(e) { console.error(e); alert("Error cargando datos."); }
+                
+                initFilters();
+                processData(); 
+            } catch(e) { 
+                console.error(e); 
+                alert("Error cargando datos del servidor."); 
+            }
         }
 
+        // --- PARSERS DE FECHA ROBUSTOS ---
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
+            // Intenta parsear "DD/MM/YYYY, HH:MM:SS"
             try {
                 const [dPart, tPart] = dateStr.split(', ');
                 if(!dPart || !tPart) return null;
@@ -160,103 +212,165 @@
             } catch (e) { return null; }
         }
 
-        function diffMinutes(d1, d2) {
-            if(!d1 || !d2) return 0;
-            return Math.round((d2 - d1) / 1000 / 60);
+        function getDiffMinutes(dStart, dEnd) {
+            if(!dStart || !dEnd) return 0;
+            return Math.round((dEnd - dStart) / 1000 / 60);
         }
 
-        function populateFilters() {
+        // --- LÓGICA DE FILTROS ---
+        const elArea = document.getElementById('filter-area');
+        const elMachine = document.getElementById('filter-machine');
+        const elMec = document.getElementById('filter-mec');
+        const elDate = document.getElementById('filter-date');
+
+        function initFilters() {
             const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
+            const machines = [...new Set(rawData.map(r => r.maquina).filter(Boolean))].sort();
             const mecs = [...new Set(rawData.map(r => r.mecanico).filter(Boolean))].sort();
-            const selArea = document.getElementById('filter-area');
-            const selMec = document.getElementById('filter-mec');
-            
-            selArea.innerHTML = '<option value="TODAS">Todas</option>';
-            selMec.innerHTML = '<option value="TODOS">Todos</option>';
-            areas.forEach(a => selArea.add(new Option(a, a)));
-            mecs.forEach(m => selMec.add(new Option(m, m)));
+
+            elArea.innerHTML = '<option value="TODAS">Todas las Áreas</option>';
+            elMachine.innerHTML = '<option value="TODAS">Todas las Máquinas</option>';
+            elMec.innerHTML = '<option value="TODOS">Todos los Mecánicos</option>';
+
+            areas.forEach(x => elArea.add(new Option(x, x)));
+            machines.forEach(x => elMachine.add(new Option(x, x)));
+            mecs.forEach(x => elMec.add(new Option(x, x)));
         }
 
-        document.getElementById('btn-apply-filter').addEventListener('click', processData);
-        document.getElementById('btn-reset-filter').addEventListener('click', () => {
-            document.getElementById('filter-area').value = 'TODAS';
-            document.getElementById('filter-mec').value = 'TODOS';
-            document.getElementById('filter-date').value = '';
+        document.getElementById('btn-apply').addEventListener('click', processData);
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            elArea.value = 'TODAS'; elMachine.value = 'TODAS'; elMec.value = 'TODOS'; elDate.value = '';
             processData();
         });
 
+        // --- PROCESAMIENTO CENTRAL ---
         function processData() {
-            const fArea = document.getElementById('filter-area').value;
-            const fMec = document.getElementById('filter-mec').value;
-            const fDate = document.getElementById('filter-date').value;
+            const fArea = elArea.value;
+            const fMach = elMachine.value;
+            const fMec = elMec.value;
+            const fDate = elDate.value; // YYYY-MM-DD
 
             const data = rawData.filter(r => {
-                if(!r.cierre) return false;
-                if(fArea !== 'TODAS' && r.area !== fArea) return false;
-                if(fMec !== 'TODOS' && r.mecanico !== fMec) return false;
-                if(fDate) {
-                    const [year, month] = fDate.split('-');
-                    const rDate = parseCustomDate(r.apertura);
-                    if(rDate && (rDate.getFullYear() != year || (rDate.getMonth() + 1) != month)) return false;
+                if (!r.cierre) return false; // Solo cerrados para estadísticas
+                if (fArea !== 'TODAS' && r.area !== fArea) return false;
+                if (fMach !== 'TODAS' && r.maquina !== fMach) return false;
+                if (fMec !== 'TODOS' && r.mecanico !== fMec) return false;
+                
+                if (fDate) {
+                    const rDateObj = parseCustomDate(r.apertura);
+                    if(rDateObj) {
+                        const rIsoDate = rDateObj.toISOString().split('T')[0];
+                        if (rIsoDate !== fDate) return false;
+                    }
                 }
                 return true;
             });
 
+            calculateMetrics(data);
+        }
+
+        function calculateMetrics(data) {
             let sumResp = 0, sumRep = 0, sumTot = 0, count = 0;
-            const machineCounts = {};
-            const mecCounts = {};
-            const tableRows = [];
+            const countsMachine = {};
+            const countsArea = {};
+            const countsSol = {};
+            let tableHtml = '';
 
             data.forEach(r => {
                 const tOpen = parseCustomDate(r.apertura);
                 const tArrive = parseCustomDate(r.llegada);
                 const tClose = parseCustomDate(r.cierre);
-                let tResp = 0, tRep = 0;
+                
+                let tResp = 0, tRep = 0, tTotal = 0;
 
                 if (tOpen && tClose) {
                     const validArrive = tArrive || tOpen; 
-                    tResp = diffMinutes(tOpen, validArrive);
-                    tRep = diffMinutes(validArrive, tClose);
-                    const tTot = diffMinutes(tOpen, tClose);
-                    sumResp += tResp; sumRep += tRep; sumTot += tTot; count++;
+                    tResp = getDiffMinutes(tOpen, validArrive);
+                    tRep = getDiffMinutes(validArrive, tClose);
+                    tTotal = getDiffMinutes(tOpen, tClose);
+
+                    sumResp += tResp; sumRep += tRep; sumTot += tTotal; count++;
                 }
 
-                const maq = r.maquina || 'N/A';
-                machineCounts[maq] = (machineCounts[maq] || 0) + 1;
-                const mec = r.mecanico || 'Sin Asignar';
-                mecCounts[mec] = (mecCounts[mec] || 0) + 1;
+                // Contadores para gráficas
+                const maq = r.maquina || 'N/A'; countsMachine[maq] = (countsMachine[maq] || 0) + 1;
+                const area = r.area || 'N/A'; countsArea[area] = (countsArea[area] || 0) + 1;
+                const sol = r.solucion || 'Sin Clasificar'; countsSol[sol] = (countsSol[sol] || 0) + 1;
 
-                tableRows.push(`<tr><td><strong>${r.folio}</strong></td><td>${r.apertura.split(',')[0]}</td><td>${r.area}</td><td>${r.maquina}</td><td>${r.falla}</td><td>${r.mecanico}</td><td>${tResp} m</td><td>${tRep} m</td></tr>`);
+                // Estilo para tiempos altos (> 30 min rojo, > 15 amarillo)
+                const timeClass = tTotal > 30 ? 'text-danger' : '';
+
+                tableHtml += `
+                    <tr>
+                        <td><span class="badge badge-blue">${r.folio}</span></td>
+                        <td>${r.apertura.split(',')[0]}</td>
+                        <td>${r.area}</td>
+                        <td><b>${r.maquina}</b></td>
+                        <td>${r.falla}</td>
+                        <td>${r.solucion || '-'}</td>
+                        <td>${r.mecanico}</td>
+                        <td>${tResp}</td>
+                        <td>${tRep}</td>
+                        <td class="${timeClass}">${tTotal}</td>
+                    </tr>
+                `;
             });
 
+            // Render KPIs
             document.getElementById('kpi-count').textContent = count;
-            document.getElementById('kpi-response').textContent = count ? Math.round(sumResp / count) + " m" : "0";
-            document.getElementById('kpi-repair').textContent = count ? Math.round(sumRep / count) + " m" : "0";
-            document.getElementById('kpi-total').textContent = sumTot + " m";
-            document.getElementById('table-body').innerHTML = tableRows.length ? tableRows.join('') : '<tr><td colspan="8" style="text-align:center; padding:20px;">No se encontraron datos.</td></tr>';
+            document.getElementById('kpi-mttr').textContent = count ? Math.round(sumRep / count) + " min" : "0";
+            document.getElementById('kpi-mtta').textContent = count ? Math.round(sumResp / count) + " min" : "0";
+            document.getElementById('kpi-total-downtime').textContent = sumTot + " min";
+            
+            // Render Table
+            document.getElementById('table-body').innerHTML = tableHtml || '<tr><td colspan="10" style="text-align:center; padding:20px;">No se encontraron datos.</td></tr>';
 
-            renderBarChart('chartMachines', machineCounts);
-            renderPieChart('chartMechanics', mecCounts);
+            // Render Charts
+            updateChart('chartMachines', 'bar', countsMachine, 'Fallas');
+            updateChart('chartAreas', 'doughnut', countsArea, 'Distribución');
+            updateChart('chartSolutions', 'pie', countsSol, 'Soluciones');
         }
 
-        function renderBarChart(id, dataObj) {
-            const entries = Object.entries(dataObj).sort((a,b) => b[1] - a[1]).slice(0, 10);
+        function updateChart(id, type, dataObj, label) {
             const ctx = document.getElementById(id).getContext('2d');
-            if(charts[id]) charts[id].destroy();
-            charts[id] = new Chart(ctx, {
-                type: 'bar',
-                data: { labels: entries.map(e => e[0]), datasets: [{ label: 'Fallas', data: entries.map(e => e[1]), backgroundColor: '#005f9e' }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-            });
-        }
+            
+            // Ordenar y Limitar (Top 10 para barras)
+            let entries = Object.entries(dataObj).sort((a,b) => b[1] - a[1]);
+            if (type === 'bar') entries = entries.slice(0, 10);
 
-        function renderPieChart(id, dataObj) {
-            const ctx = document.getElementById(id).getContext('2d');
+            const labels = entries.map(e => e[0]);
+            const values = entries.map(e => e[1]);
+
             if(charts[id]) charts[id].destroy();
+
             charts[id] = new Chart(ctx, {
-                type: 'doughnut',
-                data: { labels: Object.keys(dataObj), datasets: [{ data: Object.values(dataObj), backgroundColor: ['#005f9e', '#28a745', '#ffc107', '#dc3545', '#17a2b8'] }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: values,
+                        backgroundColor: ['#005f9e', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6610f2', '#fd7e14', '#20c997'],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: type !== 'bar', position: 'right' },
+                        datalabels: {
+                            color: '#fff',
+                            display: (ctx) => {
+                                // Solo mostrar labels si el segmento es grande > 5%
+                                const val = ctx.dataset.data[ctx.dataIndex];
+                                const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                                return (val/total) > 0.05; 
+                            },
+                            font: { weight: 'bold' }
+                        }
+                    }
+                }
             });
         }
 
