@@ -551,6 +551,8 @@ exports.handler = async function (event) {
       }
 
       case 'get_kpi_data': {
+          // *** CORRECCIÓN CRÍTICA DE RANGO Y MAPEADO ***
+          // El rango ahora incluye hasta la columna N para obtener MecanicoAsignado y StatusParo.
           const res = await sheets.spreadsheets.values.get({ spreadsheetId: produccionSheetId, range: 'Hoja 1!A2:N' });
           const data = (res.data.values || []).map(r => ({
               folio: r[0],
@@ -558,11 +560,13 @@ exports.handler = async function (event) {
               area: r[2],
               maquina: r[3],
               estacion: r[4], // Estacion/Falla
-              falla: r[7], // Falla (Col H) - Usaremos Falla/Estacion para el filtro
+              falla: r[7], // Falla (Col H)
               solucion: r[8], // Solucion (Col I)
-              mecanico: r[9], 
-              llegada: r[10],
-              cierre: r[11]
+              mecanico: r[9], // Mecanico (Col J)
+              llegada: r[10], // Llegada (Col K)
+              cierre: r[11], // Cierre (Col L)
+              mecanicoAsignado: r[12], // Col M (Índice 12)
+              statusParo: r[13] // Col N (Índice 13)
           }));
           return { statusCode: 200, body: JSON.stringify({ data }) };
       }
