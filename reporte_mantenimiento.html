@@ -250,6 +250,11 @@
         let maquinaConfig = {};
         let allActiveTickets = [];
         let statusCheckInterval = null;
+        
+        // Variables de estado temporal para gestión de tickets SIN PC
+        let kioskTicketRow = null; 
+        let kioskTicketFolio = null;
+        let kioskTicketStatus = null;
 
         // --- Funciones de Configuración ---
         async function cargarDatosDeConfiguracion(){
@@ -387,13 +392,19 @@
         }
 
         window.atenderTicketKiosco = function(row, folio, statusMaquina, mecanico, statusParo) {
-            localStorage.setItem('paroRow', row);
-            localStorage.setItem('paroFolio', folio);
-            localStorage.setItem('paroStatusMaquina', statusMaquina);
+            // **IMPORTANTE:** Usamos variables globales temporales en lugar de localStorage
+            // para NO activar el flujo de bloqueo de pantalla principal.
+            kioskTicketRow = row;
+            kioskTicketFolio = folio;
+            kioskTicketStatus = statusParo; // Guardamos el estado original
+
             listaTicketsSection.style.display = 'none';
+            
             let displayStatus = statusParo; 
             if (statusParo === 'En Cola') displayStatus = 'Asignado'; 
-            buildAndonScreen(displayStatus, mecanico, folio, statusMaquina);
+            
+            // Pasamos un flag para indicar que estamos en modo Kiosco
+            buildAndonScreen(displayStatus, mecanico, folio, statusMaquina, true); 
         };
 
         // --- Lógica de Polling ---
@@ -420,7 +431,7 @@
             errorMessage.style.display = mensaje ? 'block' : 'none';
         }
 
-        function buildAndonScreen(status, mecanico, folio, statusMaquina) {
+        function buildAndonScreen(status, mecanico, folio, statusMaquina, isKioskoMode = false) {
             paroForm.style.display = 'none';
             solucionForm.style.display = 'none';
             llegadaMecanicoBtn.style.display = 'none';
@@ -430,10 +441,8 @@
 
             if (mecanico === 'En Espera') {
                  andonStatusMessage.innerHTML = `<strong>Todos los mecánicos están ocupados.</strong> <br> Su reporte está en espera.`;
-            } else if (status === 'Asignado') {
+            } else if (status === 'Asignado' || status === 'En Cola') {
                  andonStatusMessage.innerHTML = `Se ha asignado a: <strong>${mecanico}</strong>. <br> En camino.`;
-            } else if (status === 'En Cola') {
-                 andonStatusMessage.innerHTML = `<strong>${mecanico} está ocupado.</strong> <br> Su reporte está en espera.`;
             } else if (status === 'En Proceso') {
                 andonStatusMessage.innerHTML = `<strong>${mecanico}</strong> está trabajando en tu máquina.`;
             }
@@ -448,7 +457,8 @@
                 andonScreen.classList.add('andon-yellow');
                 andonIcon.className = 'fas fa-tools';
                 andonTitle.textContent = 'REPORTE DE MANTENIMIENTO';
-                if (status !== 'En Proceso') escalarParoBtn.style.display = 'block';
+                // SOLO mostrar el botón de escalar en la pantalla principal NO-Kiosco
+                if (!isKioskoMode && status !== 'En Proceso') escalarParoBtn.style.display = 'block';
             }
             
             if (status === 'En Cola' || status === 'Asignado') {
@@ -463,9 +473,15 @@
                     llegadaMecanicoBtn.classList.remove('btn-rescue');
                 }
 
-                const row = localStorage.getItem('paroRow');
-                stopStatusCheck();
-                statusCheckInterval = setInterval(() => checkParoStatus(row), 10000);
+                // Si estamos en modo Kiosco, no hacer polling
+                if (isKioskoMode) {
+                    stopStatusCheck();
+                } else {
+                    const row = localStorage.getItem('paroRow');
+                    stopStatusCheck();
+                    statusCheckInterval = setInterval(() => checkParoStatus(row), 10000);
+                }
+                
             } else if (status === 'En Proceso') {
                 fallaAtendidaBtn.style.display = 'block';
                 escalarParoBtn.style.display = 'none';
@@ -604,7 +620,10 @@
             stopStatusCheck();
             llegadaMecanicoBtn.disabled = true;
             loadingLlegada.style.display = 'block';
-            const rowToUpdate = localStorage.getItem('paroRow');
+            
+            // *** Determinar la fila correcta (Kiosco vs. Paro Activo) ***
+            const rowToUpdate = kioskTicketRow || localStorage.getItem('paroRow'); 
+            
             const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
             
             const payload = { action: 'llegada', row: rowToUpdate, data: [fechaLlegada] };
@@ -618,12 +637,26 @@
                 });
                 if (!response.ok) throw new Error('Error registro llegada.');
                 
-                llegadaMecanicoBtn.style.display = 'none';
-                escalarParoBtn.style.display = 'none';
-                fallaAtendidaBtn.style.display = 'block';
-                
-                const displayMec = rescueName || "El mecánico";
-                andonStatusMessage.innerHTML = `<strong>${displayMec}</strong> está trabajando en tu máquina.`;
+                // *** Flujo Kiosco: Regresar a la lista de tickets ***
+                if (kioskTicketRow) {
+                    andonScreen.style.display = 'none';
+                    kioskTicketRow = null; // Limpiar estado temporal
+                    kioskTicketFolio = null;
+                    kioskTicketStatus = null;
+                    listaTicketsSection.style.display = 'block';
+                    reportSection.style.display = 'none'; // Asegurar que el reporte esté oculto
+                    await cargarTicketsKiosco(); // Recargar la lista para reflejar el cambio de estado
+                    alert("Llegada registrada. El ticket está 'En Proceso'.");
+                } else {
+                    // Flujo de pantalla principal con bloqueo (Andon)
+                    llegadaMecanicoBtn.style.display = 'none';
+                    escalarParoBtn.style.display = 'none';
+                    fallaAtendidaBtn.style.display = 'block';
+                    
+                    const displayMec = rescueName || "El mecánico";
+                    andonStatusMessage.innerHTML = `<strong>${displayMec}</strong> está trabajando en tu máquina.`;
+                }
+
             } catch (error) {
                 mostrarError('Error al registrar llegada.');
                 llegadaMecanicoBtn.disabled = false;
@@ -646,7 +679,9 @@
             const solucion = solucionSelect.value;
             const mecanico = mecanicoSelect.value; 
             const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
-            const rowToUpdate = localStorage.getItem('paroRow');
+            
+            // *** Determinar la fila correcta (Kiosco vs. Paro Activo) ***
+            const rowToUpdate = kioskTicketRow || localStorage.getItem('paroRow'); 
 
             try {
                 const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -659,15 +694,23 @@
                 andonScreen.style.display = 'none';
                 paroForm.reset();
                 solucionForm.reset();
-                localStorage.removeItem('paroRow');
-                localStorage.removeItem('paroFolio');
-                localStorage.removeItem('paroStatusMaquina');
-
-                if (listaTicketsSection.style.display === 'none' && reportSection.style.display === 'none') {
+                
+                // *** Flujo Kiosco: Regresar a la lista de tickets ***
+                if (kioskTicketRow) {
+                    kioskTicketRow = null; // Limpiar estado temporal
+                    kioskTicketFolio = null;
+                    kioskTicketStatus = null;
                     listaTicketsSection.style.display = 'block';
+                    reportSection.style.display = 'none'; // Asegurar que el reporte esté oculto
                     cargarTicketsKiosco(); 
-                    alert("Ticket cerrado correctamente.");
+                    alert("¡Paro finalizado y ticket cerrado correctamente!");
                 } else {
+                    // Flujo de pantalla principal con bloqueo (Andon)
+                    localStorage.removeItem('paroRow');
+                    localStorage.removeItem('paroFolio');
+                    localStorage.removeItem('paroStatusMaquina');
+                    
+                    // Lógica para volver a mostrar el formulario de reporte
                     paroForm.style.display = 'block';
                     areaSelect.disabled = false;
                     maquinaSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione un área --</option>';
