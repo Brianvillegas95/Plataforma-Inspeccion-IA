@@ -14,9 +14,9 @@
     <style>
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
         
-        /* HEADER PRO - CAMBIO DE COLOR */
+        /* HEADER PRO */
         .app-header { 
-            background-color: #005f9e; /* Azul Institucional */
+            background-color: #005f9e; 
             border-bottom: 1px solid #004a7c; 
             padding: 15px 30px; 
             display: flex; 
@@ -25,14 +25,14 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
         }
         .logo-container { display: flex; align-items: center; gap: 15px; }
-        .logo { height: 45px; width: auto; filter: brightness(0) invert(1); /* Logo en blanco */ }
-        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; /* Letras en blanco */ margin: 0; }
+        .logo { height: 45px; width: auto; filter: brightness(0) invert(1); }
+        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
         
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
 
         /* KPI CARDS */
         .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .kpi-card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid #005f9e; position: relative; overflow: hidden; transition: transform 0.2s; }
+        .kpi-card { background: #fff; padding: 25px; border-radius: 12px; border-left: 5px solid #005f9e; position: relative; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }
         .kpi-card:hover { transform: translateY(-3px); }
         .kpi-title { font-size: 0.85em; font-weight: 700; color: #6c757d; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
         .kpi-value { font-size: 2.5em; font-weight: 800; color: #212529; margin-bottom: 5px; }
@@ -53,51 +53,72 @@
         }
         .filter-control:focus { border-color: #005f9e; outline: none; background: #fff; }
         
-        /* CORRECCIÓN CSS PARA SELECCIÓN MÚLTIPLE */
-        .filter-control[multiple] { 
-            padding: 5px;
-            height: 100px; /* Altura fija para que no se vea el resize feo */
-            min-height: 80px;
-            overflow-y: auto;
-            border-radius: 6px;
+        /* ESTILOS PARA LA SELECCIÓN MÚLTIPLE (MEJORADO) */
+        .multiselect-container {
+            position: relative;
+            flex: 1;
+            min-width: 150px;
         }
-        .filter-control[multiple] option {
-            padding: 5px 10px;
-            margin: 2px 0;
-            border-radius: 4px;
+        .multiselect-button {
+            width: 100%;
+            text-align: left;
+            padding: 10px 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: #f8f9fa;
+            color: #495057;
+            font-size: 0.95em;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .multiselect-button:hover {
+            border-color: #005f9e;
+        }
+        .multiselect-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 20;
+            max-height: 250px;
+            overflow-y: auto;
+            margin-top: 5px;
+            padding: 5px 0;
+        }
+        .multiselect-option {
+            padding: 8px 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .multiselect-option:hover {
+            background-color: #f0f8ff;
+        }
+        .multiselect-option input[type="checkbox"] {
+            margin: 0;
         }
         
         /* BOTONES PRO */
-        .btn-primary { 
-            background: #005f9e; color: white; border: none; padding: 10px 25px; border-radius: 6px; 
-            font-weight: 600; cursor: pointer; transition: background 0.2s; 
-        }
+        .btn-primary { background: #005f9e; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
         .btn-primary:hover { background: #004a7c; }
-        .btn-secondary { 
-            background: #6c757d; color: white; border: none; padding: 10px 25px; border-radius: 6px; 
-            font-weight: 600; cursor: pointer; 
-        }
-        .btn-header-nav { /* Estilo para el botón de navegación del header */
-            background: #ffffff; color: #005f9e; border: 1px solid #ffffff; 
-            padding: 8px 15px; border-radius: 6px; font-weight: 600; 
-            cursor: pointer; transition: background 0.2s, color 0.2s;
-        }
+        .btn-secondary { background: #6c757d; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        .btn-header-nav { background: #ffffff; color: #005f9e; border: 1px solid #ffffff; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; }
         .btn-header-nav:hover { background: #e0e0e0; color: #005f9e; border-color: #e0e0e0; }
 
-        /* GRÁFICAS */
+        /* GRÁFICAS Y TABLA (Se mantienen los estilos anteriores) */
         .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; margin-bottom: 30px; }
-        .charts-full { grid-column: span 2; }
-        @media(max-width: 992px) { .charts-grid { grid-template-columns: 1fr; } .charts-full { grid-column: span 1; } }
         .chart-box { height: 350px; position: relative; }
-
-        /* TABLA */
         .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid #e9ecef; }
         .custom-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
         .custom-table th { background: #f8f9fa; color: #495057; font-weight: 700; text-align: left; padding: 15px; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
         .custom-table td { padding: 12px 15px; border-bottom: 1px solid #e9ecef; color: #212529; }
-        .custom-table tr:hover { background-color: #f8f9fa; }
-        
-        /* Utilerias */
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: 700; }
         .badge-blue { background: #e7f1ff; color: #005f9e; }
         .text-danger { color: #dc3545; font-weight: bold; }
@@ -135,22 +156,32 @@
                     <label>Área</label>
                     <select id="filter-area" class="filter-control"><option value="TODAS">Todas las Áreas</option></select>
                 </div>
-                <div class="filter-group">
+                
+                <div class="filter-group multiselect-container" id="machine-filter-group">
                     <label>Máquina (Selección Múltiple)</label>
-                    <select id="filter-machine-select" class="filter-control" multiple size="3">
-                        <option value="TODAS" selected>Todas las Máquinas</option>
-                    </select>
+                    <button class="multiselect-button" id="btn-machine-select">
+                        <span>Todas las Máquinas</span>
+                        <i class="fas fa-caret-down"></i>
+                    </button>
+                    <div class="multiselect-dropdown" id="machine-dropdown" style="display: none;">
+                        </div>
                 </div>
+
                 <div class="filter-group">
                     <label>Mecánico</label>
                     <select id="filter-mec" class="filter-control"><option value="TODOS">Todos los Mecánicos</option></select>
                 </div>
-                <div class="filter-group">
+                
+                <div class="filter-group multiselect-container" id="status-filter-group">
                     <label>Status del Paro</label>
-                    <select id="filter-status" class="filter-control" multiple size="3">
-                        <option value="TODOS" selected>Todos los Status</option>
-                    </select>
+                    <button class="multiselect-button" id="btn-status-select">
+                        <span>Todos los Status</span>
+                        <i class="fas fa-caret-down"></i>
+                    </button>
+                    <div class="multiselect-dropdown" id="status-dropdown" style="display: none;">
+                        </div>
                 </div>
+                
                 <div class="filter-group" style="justify-content: flex-end;">
                     <button id="btn-apply" class="btn-primary"><i class="fas fa-search"></i> Filtrar Datos</button>
                 </div>
@@ -239,18 +270,22 @@
     document.addEventListener('DOMContentLoaded', () => {
         
         // --- CONFIGURACIÓN INICIAL ---
-        // El error ReferenceError: ChartDataLabels is not defined se resuelve al tener los scripts en el head
         Chart.register(ChartDataLabels);
         let rawData = [];
         let charts = {};
         
         // --- DOM REFERENCES ---
         const elArea = document.getElementById('filter-area');
-        const elMachineSelect = document.getElementById('filter-machine-select'); 
         const elMec = document.getElementById('filter-mec');
         const elStartDate = document.getElementById('filter-start-date');
         const elEndDate = document.getElementById('filter-end-date');
-        const elStatus = document.getElementById('filter-status'); 
+        
+        // Elementos para el nuevo Multiselect de Máquina
+        const btnMachineSelect = document.getElementById('btn-machine-select');
+        const machineDropdown = document.getElementById('machine-dropdown');
+        // Elementos para el nuevo Multiselect de Status
+        const btnStatusSelect = document.getElementById('btn-status-select');
+        const statusDropdown = document.getElementById('status-dropdown');
 
         // --- PARSERS ROBUSTOS ---
         function parseCustomDate(dateStr) {
@@ -277,6 +312,66 @@
             return Math.round((dEnd - dStart) / 1000 / 60);
         }
 
+        // --- LÓGICA DE MULTISELECT CON CHECKBOXES ---
+        
+        // Abre/Cierra el dropdown al hacer click en el botón
+        function toggleDropdown(button, dropdown) {
+            const isVisible = dropdown.style.display === 'block';
+            dropdown.style.display = isVisible ? 'none' : 'block';
+            button.querySelector('i').classList.toggle('fa-caret-up', !isVisible);
+            button.querySelector('i').classList.toggle('fa-caret-down', isVisible);
+        }
+        
+        btnMachineSelect.addEventListener('click', (e) => {
+            e.preventDefault();
+            toggleDropdown(btnMachineSelect, machineDropdown);
+        });
+
+        btnStatusSelect.addEventListener('click', (e) => {
+            e.preventDefault();
+            toggleDropdown(btnStatusSelect, statusDropdown);
+        });
+
+        // Cierra los dropdowns si se hace click fuera
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#machine-filter-group')) {
+                machineDropdown.style.display = 'none';
+                btnMachineSelect.querySelector('i').classList.replace('fa-caret-up', 'fa-caret-down');
+            }
+            if (!e.target.closest('#status-filter-group')) {
+                statusDropdown.style.display = 'none';
+                btnStatusSelect.querySelector('i').classList.replace('fa-caret-up', 'fa-caret-down');
+            }
+        });
+
+        // Actualiza el texto del botón y aplica el filtro
+        function updateMultiselectText(button, dropdownId, labelSingular, labelPlural) {
+            const checkboxes = document.querySelectorAll(`#${dropdownId} input[type="checkbox"]:checked`);
+            const selectedCount = checkboxes.length;
+            const textSpan = button.querySelector('span');
+
+            if (selectedCount === 0) {
+                textSpan.textContent = `Todas las ${labelPlural}`;
+            } else if (selectedCount === 1) {
+                textSpan.textContent = checkboxes[0].value;
+            } else {
+                textSpan.textContent = `${selectedCount} ${labelPlural} Seleccionadas`;
+            }
+            processData();
+        }
+
+        // Función para obtener valores seleccionados de un multiselect
+        function getSelectedMultiselectValues(dropdownId) {
+            const values = Array.from(document.querySelectorAll(`#${dropdownId} input[type="checkbox"]:checked`))
+                .map(checkbox => checkbox.value);
+            
+            // Si no hay valores seleccionados, consideramos TODAS para el filtro.
+            if (values.length === 0) {
+                return ['TODAS'];
+            }
+            return values.filter(v => v !== 'TODAS');
+        }
+        
         // --- CARGA DE DATOS Y FILTROS ---
         async function loadData() {
             try {
@@ -291,32 +386,96 @@
             } catch(e) { console.error(e); alert("Error cargando datos. Revisa la consola."); }
         }
 
+        function populateMultiselect(dropdownEl, items, type) {
+            dropdownEl.innerHTML = '';
+            const allValue = type === 'machine' ? 'Todas las Máquinas' : 'Todos los Status';
+            
+            // Opción "Seleccionar Todos"
+            const selectAll = document.createElement('div');
+            selectAll.className = 'multiselect-option';
+            selectAll.innerHTML = `<input type="checkbox" id="check-all-${type}" value="TODAS" checked>
+                                   <label for="check-all-${type}">**${allValue}**</label>`;
+            dropdownEl.appendChild(selectAll);
+            
+            // Opciones individuales
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'multiselect-option';
+                div.innerHTML = `<input type="checkbox" id="check-${type}-${item}" value="${item}" checked>
+                                 <label for="check-${type}-${item}">${item}</label>`;
+                dropdownEl.appendChild(div);
+            });
+            
+            // Event Listener para manejar el check/uncheck de TODOS
+            document.getElementById(`check-all-${type}`).addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                dropdownEl.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                });
+                updateMultiselectText(type === 'machine' ? btnMachineSelect : btnStatusSelect, 
+                                      type === 'machine' ? 'machine-dropdown' : 'status-dropdown', 
+                                      type === 'machine' ? 'Máquina' : 'Status', 
+                                      type === 'machine' ? 'Máquinas' : 'Status');
+            });
+            
+            // Event Listener para opciones individuales
+            dropdownEl.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.value === 'TODAS') return;
+                    
+                    if (!e.target.checked) {
+                        // Desmarcar 'TODAS' si una opción se desmarca
+                        document.getElementById(`check-all-${type}`).checked = false;
+                    }
+                    
+                    // Si todas están marcadas, marcar 'TODAS'
+                    const allChecked = Array.from(dropdownEl.querySelectorAll('input[type="checkbox"]'))
+                        .filter(cb => cb.value !== 'TODAS')
+                        .every(cb => cb.checked);
+                        
+                    document.getElementById(`check-all-${type}`).checked = allChecked;
+                    
+                    updateMultiselectText(type === 'machine' ? btnMachineSelect : btnStatusSelect, 
+                                          type === 'machine' ? 'machine-dropdown' : 'status-dropdown', 
+                                          type === 'machine' ? 'Máquina' : 'Status', 
+                                          type === 'machine' ? 'Máquinas' : 'Status');
+                });
+            });
+
+            // Initial text update
+            updateMultiselectText(type === 'machine' ? btnMachineSelect : btnStatusSelect, 
+                                  type === 'machine' ? 'machine-dropdown' : 'status-dropdown', 
+                                  type === 'machine' ? 'Máquina' : 'Status', 
+                                  type === 'machine' ? 'Máquinas' : 'Status');
+        }
+
         function initFilters() {
             const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
             const machines = [...new Set(rawData.map(r => r.maquina).filter(Boolean))].sort();
-            // Mecánico toma de Mecánico (quien cerró) para que el filtro sea relevante a la eficiencia
+            // El filtro de Mecánico (single select) se llena con Mecánicos que cerraron tickets.
             const mecs = [...new Set(rawData.map(r => r.mecanico).filter(Boolean))].sort();
+            // Statuses disponibles (incluye 'Asignado', 'Trabajando', 'Cerrado', 'detenida', etc.)
             const statuses = [...new Set(rawData.map(r => r.statusParo).filter(Boolean))].sort();
             
             areas.forEach(x => elArea.add(new Option(x, x)));
             mecs.forEach(x => elMec.add(new Option(x, x)));
             
-            // Llenar select de Máquinas (múltiple)
-            elMachineSelect.innerHTML = '<option value="TODAS" selected>Todas las Máquinas</option>';
-            machines.forEach(x => elMachineSelect.add(new Option(x, x)));
-            
-            // Llenar select de Status (múltiple)
-            elStatus.innerHTML = '<option value="TODOS" selected>Todos los Status</option>';
-            statuses.forEach(x => elStatus.add(new Option(x, x)));
+            populateMultiselect(machineDropdown, machines, 'machine');
+            populateMultiselect(statusDropdown, statuses, 'status');
         }
 
         // Manejar cambio en filtros simples
         [elArea, elMec].forEach(el => el.addEventListener('change', processData));
-        // Manejar cambio en filtros múltiples
-        [elMachineSelect, elStatus].forEach(el => el.addEventListener('change', processData));
 
 
-        document.getElementById('btn-apply').addEventListener('click', processData);
+        document.getElementById('btn-apply').addEventListener('click', (e) => {
+            e.preventDefault();
+            // Forzar el cierre de los dropdowns al filtrar
+            machineDropdown.style.display = 'none';
+            statusDropdown.style.display = 'none';
+            processData();
+        });
+        
         document.getElementById('btn-reset').addEventListener('click', () => {
             elArea.value = 'TODAS'; 
             elMec.value = 'TODOS'; 
@@ -324,19 +483,16 @@
             elEndDate.value = '';
             
             // Resetear selects múltiples
-            Array.from(elMachineSelect.options).forEach(opt => opt.selected = opt.value === 'TODAS');
-            Array.from(elStatus.options).forEach(opt => opt.selected = opt.value === 'TODOS');
+            document.querySelectorAll('.multiselect-dropdown input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = true;
+            });
+
+            updateMultiselectText(btnMachineSelect, 'machine-dropdown', 'Máquina', 'Máquinas');
+            updateMultiselectText(btnStatusSelect, 'status-dropdown', 'Status', 'Status');
             
             processData();
         });
 
-
-        // Función para obtener valores seleccionados de un select múltiple
-        function getSelectedValues(selectElement) {
-            return Array.from(selectElement.options)
-                .filter(option => option.selected)
-                .map(option => option.value);
-        }
         
         // --- PROCESAMIENTO Y RENDERIZADO ---
         function processData() {
@@ -345,32 +501,37 @@
             const fStartDate = elStartDate.value;
             const fEndDate = elEndDate.value;
             
-            const fMachs = getSelectedValues(elMachineSelect).filter(v => v !== 'TODAS');
-            const fStatuses = getSelectedValues(elStatus).filter(v => v !== 'TODOS');
+            // Obtener selecciones múltiples
+            const fMachs = getSelectedMultiselectValues('machine-dropdown');
+            const fStatuses = getSelectedMultiselectValues('status-dropdown');
 
             const data = rawData.filter(r => {
                 // FILTRO DE ÁREA
                 if (fArea !== 'TODAS' && r.area !== fArea) return false;
                 
-                // FILTRO DE MECÁNICO (Usa Mecánico [cerrador] por defecto, y MecánicoAsignado si el ticket está abierto)
+                // FILTRO DE MECÁNICO
                 const filterMecValue = r.mecanico || r.mecanicoAsignado;
                 if (fMec !== 'TODOS' && filterMecValue !== fMec) return false;
                 
                 // FILTRO DE MÁQUINAS (Múltiple)
-                if (fMachs.length > 0 && !fMachs.includes(r.maquina)) return false;
+                if (fMachs.includes(r.maquina) === false) return false;
                 
                 // FILTRO DE STATUS (Múltiple)
-                if (fStatuses.length > 0 && !fStatuses.includes(r.statusParo)) return false;
+                if (fStatuses.includes(r.statusParo) === false) return false;
 
-                // Lógica de RANGO DE FECHAS - POR FECHA DE APERTURA
+                // Lógica de RANGO DE FECHAS - POR FECHA DE APERTURA (CORREGIDO)
                 if (fStartDate) {
-                    const rOpenDay = dateToDayOnly(parseCustomDate(r.apertura));
+                    const rOpenDate = parseCustomDate(r.apertura);
                     const startDateObj = dateToDayOnly(new Date(fStartDate));
-                    const endDateObj = fEndDate ? dateToDayOnly(new Date(fEndDate)) : startDateObj; 
                     
-                    if (!rOpenDay || !startDateObj || !endDateObj) return false;
+                    // Ajustar la fecha fin para incluir todo el día
+                    const endDateFilter = new Date(fEndDate || fStartDate);
+                    const endDateObj = dateToDayOnly(new Date(endDateFilter.getFullYear(), endDateFilter.getMonth(), endDateFilter.getDate(), 23, 59, 59));
+                    
+                    if (!rOpenDate || !startDateObj || !endDateObj) return false;
 
-                    if (rOpenDay < startDateObj || rOpenDay > endDateObj) {
+                    // Si el tiempo de apertura es anterior a la medianoche del día de inicio O posterior al final del día de fin.
+                    if (rOpenDate < startDateObj || rOpenDate > endDateObj) {
                         return false;
                     }
                 }
@@ -402,8 +563,7 @@
                 let tResp = 0, tRep = 0, tTotal = 0;
                 let isClosed = false;
 
-                // Conteo para KPI de Eficiencia de Solución
-                // Se cuenta si tiene asignado, sin importar el estatus
+                // Conteo para KPI de Eficiencia de Solución: Si tiene MecánicoAsignado.
                 if (r.mecanicoAsignado) {
                     ticketsAsignados++;
                 }
@@ -417,7 +577,7 @@
                     
                     sumResp += tResp; sumRep += tRep; sumTot += tTotal; countClosed++;
                     
-                    // Si tiene fecha de cierre Y tiene Mecánico (quien cerró), cuenta como solucionado
+                    // Si tiene fecha de cierre Y Mecánico (quien cerró), cuenta como solucionado.
                     if (r.mecanico) {
                          ticketsSolucionados++;
                     }
