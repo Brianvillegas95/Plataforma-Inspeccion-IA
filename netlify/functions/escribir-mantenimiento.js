@@ -28,7 +28,7 @@ function getRowFromRange(range) {
   return null;
 }
 
-// --- Funciones de Verificación y Ayuda ---
+// --- Funciones de Verificación ---
 
 async function checkForOpenDuplicate(sheets, area, maquina, estacion) {
   const produccionSheetId = process.env.MANTENIMIENTO_SHEET_ID;
@@ -46,7 +46,7 @@ async function checkForOpenDuplicate(sheets, area, maquina, estacion) {
     const jobArea = job[0] ? job[0].trim() : '';
     const jobMaquina = job[1] ? job[1].trim() : '';
     const jobEstacion = job[2] ? job[2].trim() : '';
-    const jobStatus = job[11] ? job[11].trim() : ''; 
+    const jobStatus = job[11] ? job[11].trim() : '';
 
     if (jobArea === normArea && jobMaquina === normMaquina && jobEstacion === normEstacion &&
         (jobStatus === 'Asignado' || jobStatus === 'En Proceso' || jobStatus === 'En Cola')) {
@@ -55,6 +55,8 @@ async function checkForOpenDuplicate(sheets, area, maquina, estacion) {
   }
   return false;
 }
+
+// --- Funciones de Ayuda para Mecánicos ---
 
 async function findMechanicByName(sheets, name) {
   const spreadsheetId = process.env.MECANICOS_SHEET_ID;
@@ -127,7 +129,9 @@ async function updateMechanicStatus(sheets, row, status, reportRowId) {
     spreadsheetId: spreadsheetId,
     range: `Hoja 1!D${row}:E${row}`,
     valueInputOption: 'USER_ENTERED',
-    resource: { values: [[status, reportRowId || '']] },
+    resource: {
+      values: [[status, reportRowId || '']],
+    },
   });
 }
 
@@ -149,12 +153,16 @@ async function updateMechanicAvailability(sheets, name, availability) {
     spreadsheetId: spreadsheetId,
     range: `Hoja 1!C${mechanic.row}:D${mechanic.row}`,
     valueInputOption: 'USER_ENTERED',
-    resource: { values: [[availability, newStatusSistema]] },
+    resource: {
+      values: [[availability, newStatusSistema]],
+    },
   });
   
   mechanic.status = newStatusSistema;
   return mechanic;
 }
+
+// --- Lógica de "Cola Compartida" (WMS) ---
 
 async function findNextJobInSharedQueue(sheets, mechanicArea) {
   const spreadsheetId = process.env.MANTENIMIENTO_SHEET_ID;
@@ -196,20 +204,28 @@ async function reAssignPendingJob(sheets, mechanic, jobRow) {
     spreadsheetId: spreadsheetId,
     range: `Hoja 1!M${jobRow}:N${jobRow}`, 
     valueInputOption: 'USER_ENTERED',
-    resource: { values: [[mechanic.name, 'Asignado']] },
+    resource: {
+      values: [[mechanic.name, 'Asignado']],
+    },
   });
 }
 
 async function findAndAssignNextJob(sheets, mechanicName) {
   if (!mechanicName || mechanicName === 'En Espera') return;
+  
   const mechanic = await findMechanicByName(sheets, mechanicName.trim()); 
-  if (!mechanic) return;
+  if (!mechanic) {
+      console.log(`Mecánico ${mechanicName} no encontrado en DB.`);
+      return;
+  }
   
   const nextJob = await findNextJobInSharedQueue(sheets, mechanic.area);
+  
   if (nextJob) {
       console.log(`Mecánico ${mechanicName} está "Libre", asignando nuevo trabajo (Fila ${nextJob.row}).`);
       await reAssignPendingJob(sheets, mechanic, nextJob.row);
   } else {
+      console.log(`Mecánico ${mechanicName} libre. No hay trabajos en cola "En Espera".`);
       await updateMechanicStatus(sheets, mechanic.row, 'Libre', '');
   }
 }
@@ -233,7 +249,10 @@ async function releaseAllJobs(sheets, mechanicName) {
         }
     }
 
-    if (jobsToRelease.length === 0) return;
+    if (jobsToRelease.length === 0) {
+        console.log(`Mecánico ${mechanicName} no tiene trabajos activos que liberar.`);
+        return;
+    }
 
     const dataForBatchUpdate = jobsToRelease.map(row => ({
         range: `Hoja 1!M${row}:N${row}`,
@@ -242,8 +261,12 @@ async function releaseAllJobs(sheets, mechanicName) {
     
     await sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: spreadsheetId,
-        resource: { valueInputOption: 'USER_ENTERED', data: dataForBatchUpdate }
+        resource: {
+            valueInputOption: 'USER_ENTERED',
+            data: dataForBatchUpdate
+        }
     });
+    console.log(`Liberados ${jobsToRelease.length} trabajos de ${mechanicName} a la cola "En Espera".`);
 }
 
 
@@ -253,12 +276,14 @@ exports.handler = async function (event) {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
   try {
-    const { action, data, row, name, sessionRow, rescueMecanico } = JSON.parse(event.body);
+    // Leemos TODOS los parámetros posibles
+    const { action, data, row, name, sessionRow, rescueMecanico, newMechanic } = JSON.parse(event.body);
 
     if (!action) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "action".' }) };
     
     const produccionSheetId = process.env.MANTENIMIENTO_SHEET_ID;
     const registrosSheetId = process.env.REGISTROSMECANICOS_SHEET_ID; 
+    const mecanicosSheetId = process.env.MECANICOS_SHEET_ID;
 
     if (!produccionSheetId) throw new Error('MANTENIMIENTO_SHEET_ID no está configurado.');
     
@@ -267,20 +292,31 @@ exports.handler = async function (event) {
     
     switch (action) {
       
-      // 1. ABRIR PARO
       case 'abrir': {
         if (!data) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "data".' }) };
         const [fechaApertura, areaDelParo, maquinaDelParo, estacionDelParo, operador, statusMaquina, workOrder] = data;
 
         const isDuplicate = await checkForOpenDuplicate(sheets, areaDelParo, maquinaDelParo, estacionDelParo);
-        if (isDuplicate) return { statusCode: 409, body: JSON.stringify({ error: 'Ya existe un reporte de paro activo para esta máquina.' }) };
+        if (isDuplicate) {
+            return { statusCode: 409, body: JSON.stringify({ error: 'Ya existe un reporte de paro activo para esta máquina.' }) };
+        }
 
         const now = new Date();
         const folio = `MAN-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
         
         const mechanicToAssign = await findMechanicToAssign(sheets, areaDelParo);
-        let statusParo = mechanicToAssign ? 'Asignado' : 'En Cola';
-        let mecanicoAsignado = mechanicToAssign ? mechanicToAssign.name : 'En Espera';
+        let statusParo;
+        let mecanicoAsignado;
+        
+        if (mechanicToAssign) {
+            statusParo = 'Asignado';
+            mecanicoAsignado = mechanicToAssign.name;
+            console.log(`Asignando a ${mechanicToAssign.name} (está Libre)`);
+        } else {
+            console.log(`No hay mecánicos LIBRES para ${areaDelParo}. Poniendo "En Espera".`);
+            statusParo = 'En Cola';
+            mecanicoAsignado = 'En Espera';
+        }
         
         const dataToWrite = [ folio, ...data, '', '', '', '', mecanicoAsignado, statusParo ];
         const response = await sheets.spreadsheets.values.append({
@@ -290,13 +326,13 @@ exports.handler = async function (event) {
           insertDataOption: 'INSERT_ROWS',
           resource: { values: [dataToWrite] },
         });
+
         const newRow = getRowFromRange(response.data.updates.updatedRange);
         if (mechanicToAssign) await updateMechanicStatus(sheets, mechanicToAssign.row, 'Ocupado', newRow);
         
         return { statusCode: 200, body: JSON.stringify({ row: newRow, status: statusParo, mecanico: mecanicoAsignado, folio: folio }) };
       }
       
-      // 2. CERRAR PARO
       case 'cerrar': {
         if (!row || !data) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "row" o "data".' }) };
         const nombreMecanicoFormulario = data[1]; 
@@ -318,18 +354,21 @@ exports.handler = async function (event) {
             ]
           }
         });
+
         if (mecanicoAsignadoOriginal && mecanicoAsignadoOriginal !== 'En Espera') {
+            console.log(`Mecánico ${mecanicoAsignadoOriginal} terminó trabajo. Buscando próximo...`);
             await findAndAssignNextJob(sheets, mecanicoAsignadoOriginal);
-        } 
+        }
         return { statusCode: 200, body: JSON.stringify({ message: 'Paro finalizado.' }) };
       }
       
-      // 3. MECÁNICO CHECK-IN
       case 'mecanico_check_in': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
         
         const mechanic = await updateMechanicAvailability(sheets, name, 'Disponible');
-        if (mechanic.status === 'Libre') await findAndAssignNextJob(sheets, mechanic.name);
+        if (mechanic.status === 'Libre') {
+            await findAndAssignNextJob(sheets, mechanic.name);
+        }
 
         let newSessionRow = null;
         if (registrosSheetId) {
@@ -348,20 +387,17 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: `Check-in OK.`, sessionRow: newSessionRow }) };
       }
 
-      // 4. REGISTRAR LLEGADA (¡ACTUALIZADO PARA RESCATE!)
       case 'llegada': {
         if (!row || !data) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "row" o "data".' }) };
         
         const updates = [
-            { range: `Hoja 1!K${row}`, values: [data] },         // Fecha Atención
-            { range: `Hoja 1!N${row}`, values: [['En Proceso']] } // Status
+            { range: `Hoja 1!K${row}`, values: [data] },         
+            { range: `Hoja 1!N${row}`, values: [['En Proceso']] } 
         ];
 
-        // Si es RESCATE, actualizamos el nombre del mecánico asignado (Col M)
+        // LÓGICA DE RESCATE: Si se recibe nombre de rescate, sobrescribir asignación
         if (rescueMecanico) {
              updates.push({ range: `Hoja 1!M${row}`, values: [[rescueMecanico]] });
-             
-             // Marcar al rescatista como "Ocupado"
              const mecInfo = await findMechanicByName(sheets, rescueMecanico);
              if (mecInfo) {
                  await updateMechanicStatus(sheets, mecInfo.row, 'Ocupado', row);
@@ -370,15 +406,11 @@ exports.handler = async function (event) {
 
         await sheets.spreadsheets.values.batchUpdate({
           spreadsheetId: produccionSheetId,
-          resource: {
-            valueInputOption: 'USER_ENTERED',
-            data: updates
-          }
+          resource: { valueInputOption: 'USER_ENTERED', data: updates }
         });
         return { statusCode: 200, body: JSON.stringify({ message: 'Llegada registrada.' }) };
       }
 
-      // 5. ESCALAR PARO
       case 'escalar_paro': {
         if (!row) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "row".' }) };
         await sheets.spreadsheets.values.update({
@@ -390,7 +422,6 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: 'Paro escalado a DETENIDA.' }) };
       }
 
-      // 6. CONSULTAR ESTADO
       case 'check_status': {
         if (!row) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "row".' }) };
         const response = await sheets.spreadsheets.values.get({
@@ -409,7 +440,6 @@ exports.handler = async function (event) {
         };
       }
       
-      // 7. MECÁNICO CHECK-OUT
       case 'mecanico_check_out': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
         const mechanic = await findMechanicByName(sheets, name);
@@ -436,7 +466,6 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: `Check-out OK.` }) };
       }
       
-      // 8. OBTENER TAREAS APP
       case 'get_mecanico_tareas': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
         const mechanic = await findMechanicByName(sheets, name);
@@ -456,7 +485,7 @@ exports.handler = async function (event) {
             const row = i + 2; 
             const [folio, , area, maquina, estacion, , statusMaquina, , , , , , mecanicoAsignado, statusParo] = jobs[i];
             const jobArea = area ? area.trim() : '';
-            if (!mecanicoAsignado || !statusParo) continue; 
+            if (!mecanicoAsignado || !statusParo || statusParo === 'Cerrado') continue; 
             
             const tarea = { row, folio, area, maquina, estacion, statusParo, statusMaquina };
             
@@ -477,7 +506,6 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ tareaActual, tareasEnCola }) };
       }
       
-      // 9. OBTENER MECÁNICOS ACTIVOS (Selectores)
       case 'get_mecanicos_activos': {
           const spreadsheetId = process.env.MECANICOS_SHEET_ID;
           if (!spreadsheetId) throw new Error('MECANICOS_SHEET_ID no configurado.');
@@ -490,7 +518,6 @@ exports.handler = async function (event) {
           return { statusCode: 200, body: JSON.stringify({ mecanicos: activos.sort() }) };
       }
 
-      // 10. OBTENER PAROS ACTIVOS (Kiosco)
       case 'get_active_paros': {
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: produccionSheetId,
@@ -509,14 +536,74 @@ exports.handler = async function (event) {
                 row, folio, area, maquina, estacion, statusMaquina, mecanico, statusParo
             });
         }
-        
         activos.sort((a, b) => {
             if (a.statusMaquina === 'detenida' && b.statusMaquina !== 'detenida') return -1;
             if (a.statusMaquina !== 'detenida' && b.statusMaquina === 'detenida') return 1;
             return a.row - b.row;
         });
-
         return { statusCode: 200, body: JSON.stringify({ activos }) };
+      }
+
+      // --- 2. NUEVAS FUNCIONES DE ADMINISTRACIÓN & KPI ---
+
+      case 'admin_get_dashboard': {
+          // 1. Mecánicos
+          const resMec = await sheets.spreadsheets.values.get({ spreadsheetId: mecanicosSheetId, range: 'Hoja 1!A2:D' });
+          const mecanicos = (resMec.data.values || []).map(m => ({ name: m[0], area: m[1], active: m[2], status: m[3] }));
+          
+          // 2. Trabajos Activos
+          const resJobs = await sheets.spreadsheets.values.get({ spreadsheetId: produccionSheetId, range: 'Hoja 1!A2:N' });
+          const jobs = (resJobs.data.values || [])
+             .map((j, i) => ({ row: i+2, folio: j[0], area: j[2], maquina: j[3], status: j[6], mecanico: j[12], estado: j[13] }))
+             .filter(j => j.estado && j.estado !== 'Cerrado');
+             
+          return { statusCode: 200, body: JSON.stringify({ mecanicos, jobs }) };
+      }
+
+      case 'admin_reassign': {
+          if (!row || !newMechanic) return { statusCode: 400, body: 'Faltan datos' };
+          
+          // 1. Leer quién tenía el trabajo antes
+          const resOld = await sheets.spreadsheets.values.get({ spreadsheetId: produccionSheetId, range: `Hoja 1!M${row}` });
+          const oldMechanic = resOld.data.values?.[0]?.[0];
+
+          // 2. Actualizar Planilla Mantenimiento (Cambiar nombre y poner Asignado)
+          await sheets.spreadsheets.values.update({
+              spreadsheetId: produccionSheetId,
+              range: `Hoja 1!M${row}:N${row}`,
+              valueInputOption: 'USER_ENTERED',
+              resource: { values: [[newMechanic, 'Asignado']] }
+          });
+
+          // 3. Actualizar Estados en DB Mecánicos
+          // Liberar al anterior (si no era "En Espera")
+          if (oldMechanic && oldMechanic !== 'En Espera') {
+              const mecInfo = await findMechanicByName(sheets, oldMechanic);
+              if (mecInfo) await updateMechanicStatus(sheets, mecInfo.row, 'Libre');
+          }
+          // Ocupar al nuevo
+          const newMecInfo = await findMechanicByName(sheets, newMechanic);
+          if (newMecInfo) await updateMechanicStatus(sheets, newMecInfo.row, 'Ocupado');
+
+          return { statusCode: 200, body: JSON.stringify({ message: 'Reasignado con éxito' }) };
+      }
+
+      case 'get_kpi_data': {
+          // Traer TODO el historial para análisis
+          const res = await sheets.spreadsheets.values.get({ spreadsheetId: produccionSheetId, range: 'Hoja 1!A2:N' });
+          // Filtramos solo los cerrados para estadística de tiempos, o todos para conteos
+          const data = (res.data.values || []).map(r => ({
+              folio: r[0],
+              apertura: r[1],
+              area: r[2],
+              maquina: r[3],
+              falla: r[4], // Estacion/Falla
+              solucion: r[8],
+              mecanico: r[9], // Mecanico Final
+              llegada: r[10],
+              cierre: r[11]
+          }));
+          return { statusCode: 200, body: JSON.stringify({ data }) };
       }
       
       default:
