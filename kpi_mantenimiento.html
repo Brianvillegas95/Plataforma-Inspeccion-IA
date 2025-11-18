@@ -329,7 +329,7 @@
         const btnStatusSelect = document.getElementById('btn-status-select');
         const statusDropdown = document.getElementById('status-dropdown');
 
-        // --- PARSERS ROBUSTOS (AJUSTADO PARA FORMATO DD/MM/YYYY HH:MM:SS) ---
+        // --- PARSERS ROBUSTOS ---
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
             try {
@@ -365,7 +365,6 @@
         }
 
         function getDiffMinutes(dStart, dEnd) {
-            // Devuelve 0 si la fecha de inicio o fin no son válidas o si son NaN
             if(!dStart || !dEnd || isNaN(dStart.getTime()) || isNaN(dEnd.getTime())) return 0;
             return Math.round((dEnd - dStart) / 1000 / 60);
         }
@@ -437,7 +436,7 @@
             return selectedValues;
         }
         
-        // --- CARGA DE DATOS Y FILTROS (sin cambios) ---
+        // --- CARGA DE DATOS Y FILTROS ---
         async function loadData() {
             try {
                 // Asegúrate de que esta URL y action sean correctos para tu backend
@@ -575,17 +574,39 @@
         function processData() {
             const fArea = elArea.value;
             const fMec = elMec.value;
-            const fStartDateValue = elStartDate.value; // Contiene YYYY-MM-DDTHH:MM
-            const fEndDateValue = elEndDate.value; // Contiene YYYY-MM-DDTHH:MM
             
+            // Lógica para establecer hora por defecto y mejorar UX
+            const fStartDateValue = elStartDate.value;
+            const fEndDateValue = elEndDate.value;
+            
+            let fStartDateObj = null;
+            let fEndDateObj = null;
+
+            if (fStartDateValue) {
+                // Si la hora no está especificada (solo YYYY-MM-DD), fijar a 00:00:00
+                if (fStartDateValue.length === 10) { // YYYY-MM-DD
+                    fStartDateObj = new Date(fStartDateValue + 'T00:00:00');
+                } else { // YYYY-MM-DDTHH:MM
+                    fStartDateObj = new Date(fStartDateValue);
+                }
+            }
+
+            if (fEndDateValue) {
+                 // Si la hora no está especificada (solo YYYY-MM-DD), fijar a 23:59:59
+                if (fEndDateValue.length === 10) {
+                    // Creamos la fecha del día siguiente a las 00:00:00 y restamos un milisegundo.
+                    const dateEnd = new Date(fEndDateValue);
+                    fEndDateObj = new Date(dateEnd.getFullYear(), dateEnd.getMonth(), dateEnd.getDate() + 1, 0, 0, 0, 0);
+                    fEndDateObj.setMilliseconds(fEndDateObj.getMilliseconds() - 1);
+                } else { // YYYY-MM-DDTHH:MM
+                    fEndDateObj = new Date(fEndDateValue);
+                }
+            }
+
+
             const fMachs = getSelectedMultiselectValues('machine-dropdown');
             const fStatuses = getSelectedMultiselectValues('status-dropdown');
 
-            // Convertir valores de input a objetos Date. Si el input está vacío, es null.
-            const fStartDateObj = fStartDateValue ? new Date(fStartDateValue) : null;
-            const fEndDateObj = fEndDateValue ? new Date(fEndDateValue) : null;
-            
-            // Validar que los objetos Date del filtro sean válidos
             const isFilterStartValid = fStartDateObj && !isNaN(fStartDateObj.getTime());
             const isFilterEndValid = fEndDateObj && !isNaN(fEndDateObj.getTime());
 
@@ -601,11 +622,10 @@
                 
                 if (fStatuses.length > 0 && fStatuses.includes(r.statusParo) === false) return false;
 
-                // 2. Lógica de RANGO DE FECHAS Y HORA (AHORA MUCHO MÁS FÁCIL)
+                // 2. Lógica de RANGO DE FECHAS Y HORA (AJUSTADA POR DEFENSA DE UX)
                 if (isFilterStartValid) {
                     const rOpenDate = parseCustomDate(r.apertura); 
                     
-                    // Si no se puede parsear la fecha de apertura o es inválida, descartar
                     if (!rOpenDate || isNaN(rOpenDate.getTime())) return false; 
                     
                     const rOpenTime = rOpenDate.getTime();
@@ -642,6 +662,7 @@
             let tableHtml = '';
             let totalTickets = data.length; 
             let allAreas = new Set(); 
+            let allMecs = new Set(); // Nuevo: Para asegurar que todos los mecánicos salgan en la tabla de eficiencia.
 
             data.forEach(r => {
                 const tOpen = parseCustomDate(r.apertura);
@@ -656,9 +677,15 @@
                 const soluciono = r.mecanico || r.Mecanico || r.MecanicoTrabajo; 
                 const area = r.area || 'N/A';
                 
+                // Agregamos al Mecánico que SOLUCIONÓ (Trabajo) a la lista global.
+                if (soluciono) {
+                    allMecs.add(soluciono);
+                }
+
                 // 1. Lógica para KPI de Eficiencia General y por Mecánico Asignado
                 if (asignado) {
                     ticketsAsignados++;
+                    // Si el asignado existe, lo inicializamos.
                     if (!mecEfficiency[asignado]) {
                         mecEfficiency[asignado] = { asignados: 0, solucionados: 0 };
                     }
@@ -702,7 +729,6 @@
 
                 // 4. Lógica para Tabla Detallada
                 const timeClass = tTotal > 30 ? 'text-danger' : '';
-                // Mostrar fecha de apertura si es válida, sino la cadena cruda (solo la parte de la fecha si es posible)
                 const displayDate = tOpen && !isNaN(tOpen.getTime()) ? tOpen.toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: 'numeric'}) : (r.apertura || '-').split(/[\s,]+/)[0];
 
 
@@ -738,11 +764,13 @@
             document.getElementById('table-body').innerHTML = tableHtml || '<tr><td colspan="11" style="text-align:center; padding:20px;">No se encontraron datos.</td></tr>';
 
             
-            // --- RENDERIZADO DE TABLA DE EFICIENCIA POR MECÁNICO ASIGNADO ---
+            // --- RENDERIZADO DE TABLA DE EFICIENCIA POR MECÁNICO ASIGNADO (CORRECCIÓN FINAL) ---
             let mecTableHtml = '';
-            const mecEntries = Object.entries(mecEfficiency).sort((a, b) => b[1].asignados - a[1].asignados);
+            // Recorremos TODOS los mecánicos que existen en el filtro de datos
+            const finalMecs = Array.from(allMecs).sort(); 
 
-            mecEntries.forEach(([mecanico, metrics]) => {
+            finalMecs.forEach(mecanico => {
+                const metrics = mecEfficiency[mecanico] || { asignados: 0, solucionados: 0 };
                 const efficiencyMec = metrics.asignados > 0 
                     ? ((metrics.solucionados / metrics.asignados) * 100).toFixed(1)
                     : 0;
@@ -769,11 +797,11 @@
             document.getElementById('table-area-mec-header').innerHTML = areaHeaderHtml;
             
             let areaBodyHtml = '';
-            const allMec = Object.keys(mecAreaSolution).sort();
+            const allMecSolution = Object.keys(mecAreaSolution).sort(); // Solo los que realmente solucionaron
             const colSpan = sortedAreas.length + 2; // Mecánico + Areas + Total
             
-            if (allMec.length > 0) {
-                 allMec.forEach(mecanico => {
+            if (allMecSolution.length > 0) {
+                 allMecSolution.forEach(mecanico => {
                     let totalMec = 0;
                     let row = `<tr><td><b>${mecanico}</b></td>`;
                     
