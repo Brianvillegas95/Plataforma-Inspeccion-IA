@@ -153,12 +153,12 @@
             </div>
             <div class="filter-grid">
                 <div class="filter-group">
-                    <label>Fecha Inicio</label>
-                    <input type="date" id="filter-start-date" class="filter-control">
+                    <label>Fecha y Hora Inicio</label>
+                    <input type="datetime-local" id="filter-start-date" class="filter-control">
                 </div>
                 <div class="filter-group">
-                    <label>Fecha Fin</label>
-                    <input type="date" id="filter-end-date" class="filter-control">
+                    <label>Fecha y Hora Fin</label>
+                    <input type="datetime-local" id="filter-end-date" class="filter-control">
                 </div>
                 <div class="filter-group">
                     <label>Área</label>
@@ -320,6 +320,7 @@
         // --- DOM REFERENCES ---
         const elArea = document.getElementById('filter-area');
         const elMec = document.getElementById('filter-mec');
+        // Los inputs ahora son datetime-local
         const elStartDate = document.getElementById('filter-start-date');
         const elEndDate = document.getElementById('filter-end-date');
         
@@ -328,20 +329,17 @@
         const btnStatusSelect = document.getElementById('btn-status-select');
         const statusDropdown = document.getElementById('status-dropdown');
 
-        // --- PARSERS ROBUSTOS (CORREGIDO PARA MANEJAR DIVERSOS SEPARADORES DE FECHA/HORA) ---
+        // --- PARSERS ROBUSTOS (AJUSTADO PARA FORMATO DD/MM/YYYY HH:MM:SS) ---
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
             try {
-                // Separamos por cualquier espacio (o coma si existe) para dividir Fecha y Hora
+                // Separamos por cualquier espacio (o coma) para dividir Fecha y Hora
                 const parts = dateStr.trim().split(/[\s,]+/); 
                 
-                if (parts.length < 2) {
-                    // Si solo hay una parte, asumimos que es solo fecha
-                    parts.push('00:00:00');
-                }
+                if (parts.length < 1) return null;
                 
                 const dPart = parts[0]; // DD/MM/YYYY
-                const tPart = parts[1] || '00:00:00'; // HH:MM:SS
+                const tPart = parts[1] || '00:00:00'; // HH:MM:SS (si solo hay fecha)
                 
                 // Procesamos la fecha
                 const dateParts = dPart.split('/');
@@ -349,31 +347,25 @@
 
                 const [day, month, year] = dateParts.map(Number);
 
-                // Procesamos la hora (tolerancia a formatos sin segundos)
+                // Procesamos la hora
                 const timeParts = tPart.split(':');
                 const hour = Number(timeParts[0]);
                 const min = Number(timeParts[1]);
-                const sec = Number(timeParts[2] || 0); // Si no hay segundos, es 0
+                const sec = Number(timeParts[2] || 0);
                 
-                // Validaciones básicas
                 if (isNaN(day) || isNaN(month) || isNaN(year) || isNaN(hour) || isNaN(min) || isNaN(sec)) return null;
 
-                // Creamos la fecha (Month en JS es 0-indexed)
+                // Importante: validar rangos básicos
+                if (month < 1 || month > 12 || day < 1 || day > 31 || year < 2000) return null;
+                
                 return new Date(year, month - 1, day, hour, min, sec);
             } catch (e) { 
                 return null; 
             }
         }
 
-        function dateToDayOnly(dateObj) {
-            if (!dateObj) return null;
-            const d = new Date(dateObj);
-            // Crea un objeto Date al inicio del día (00:00:00)
-            return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-        }
-
         function getDiffMinutes(dStart, dEnd) {
-            // Devuelve 0 si la fecha de inicio o fin no son válidas
+            // Devuelve 0 si la fecha de inicio o fin no son válidas o si son NaN
             if(!dStart || !dEnd || isNaN(dStart.getTime()) || isNaN(dEnd.getTime())) return 0;
             return Math.round((dEnd - dStart) / 1000 / 60);
         }
@@ -583,11 +575,20 @@
         function processData() {
             const fArea = elArea.value;
             const fMec = elMec.value;
-            const fStartDate = elStartDate.value; // Formato YYYY-MM-DD
-            const fEndDate = elEndDate.value; // Formato YYYY-MM-DD
+            const fStartDateValue = elStartDate.value; // Contiene YYYY-MM-DDTHH:MM
+            const fEndDateValue = elEndDate.value; // Contiene YYYY-MM-DDTHH:MM
             
             const fMachs = getSelectedMultiselectValues('machine-dropdown');
             const fStatuses = getSelectedMultiselectValues('status-dropdown');
+
+            // Convertir valores de input a objetos Date. Si el input está vacío, es null.
+            const fStartDateObj = fStartDateValue ? new Date(fStartDateValue) : null;
+            const fEndDateObj = fEndDateValue ? new Date(fEndDateValue) : null;
+            
+            // Validar que los objetos Date del filtro sean válidos
+            const isFilterStartValid = fStartDateObj && !isNaN(fStartDateObj.getTime());
+            const isFilterEndValid = fEndDateObj && !isNaN(fEndDateObj.getTime());
+
 
             const data = rawData.filter(r => {
                 // 1. Filtros de Categoría
@@ -600,29 +601,22 @@
                 
                 if (fStatuses.length > 0 && fStatuses.includes(r.statusParo) === false) return false;
 
-                // 2. Lógica de RANGO DE FECHAS - CORRECCIÓN DEFINITIVA
-                if (fStartDate) {
+                // 2. Lógica de RANGO DE FECHAS Y HORA (AHORA MUCHO MÁS FÁCIL)
+                if (isFilterStartValid) {
                     const rOpenDate = parseCustomDate(r.apertura); 
                     
-                    // Si no se puede parsear la fecha de apertura o es inválida (NaN), lo descartamos
+                    // Si no se puede parsear la fecha de apertura o es inválida, descartar
                     if (!rOpenDate || isNaN(rOpenDate.getTime())) return false; 
-
-                    // Obtenemos la fecha de apertura sólo con el día (medianoche)
-                    const rOpenDayOnly = dateToDayOnly(rOpenDate); 
-
-                    // 1. Convertimos la Fecha Inicio del filtro a medianoche.
-                    const startDateFilter = new Date(fStartDate);
-                    const startDateObj = dateToDayOnly(startDateFilter); 
                     
-                    // 2. Determinamos la Fecha Fin a usar (si está vacía, usamos la de inicio)
-                    const endDateToUse = fEndDate || fStartDate; 
-                    const endDateFilter = new Date(endDateToUse);
+                    const rOpenTime = rOpenDate.getTime();
                     
-                    // 3. Calculamos la medianoche del DÍA SIGUIENTE al final del rango.
-                    const endDayNext = new Date(endDateFilter.getFullYear(), endDateFilter.getMonth(), endDateFilter.getDate() + 1); 
-
-                    // La fecha de apertura (sólo día) debe ser >= inicio Y < al día siguiente del fin.
-                    if (rOpenDayOnly.getTime() < startDateObj.getTime() || rOpenDayOnly.getTime() >= endDayNext.getTime()) {
+                    // Si la fecha de apertura es anterior al inicio del filtro, descartar
+                    if (rOpenTime < fStartDateObj.getTime()) {
+                        return false;
+                    }
+                    
+                    // Si hay fecha de fin y la fecha de apertura es posterior al fin del filtro, descartar
+                    if (isFilterEndValid && rOpenTime > fEndDateObj.getTime()) {
                         return false;
                     }
                 }
@@ -657,7 +651,7 @@
                 let tResp = 0, tRep = 0, tTotal = 0;
                 let isClosed = false;
                 
-                // Usamos una sintaxis flexible para acceder al campo asignado en caso de errores de mayúsculas/minúsculas
+                // Usamos sintaxis flexible para acceder a los campos de Mecánico
                 const asignado = r.mecanicoAsignado || r.MecanicoAsignado; 
                 const soluciono = r.mecanico || r.Mecanico || r.MecanicoTrabajo; 
                 const area = r.area || 'N/A';
@@ -672,10 +666,8 @@
                 }
 
                 if (tOpen && tClose) {
-                    // Validar que ambas fechas de tiempo sean válidas
-                    if (isNaN(tOpen.getTime()) || isNaN(tClose.getTime())) {
-                        tTotal = 0; 
-                    } else {
+                    // Solo calcula tiempos si las fechas son válidas (no NaN)
+                    if (!isNaN(tOpen.getTime()) && !isNaN(tClose.getTime())) {
                         isClosed = true;
                         const validArrive = tArrive && !isNaN(tArrive.getTime()) ? tArrive : tOpen; 
                         tResp = getDiffMinutes(tOpen, validArrive);
@@ -685,10 +677,10 @@
                         sumResp += tResp; sumRep += tRep; sumTot += tTotal; countClosed++;
                     }
                     
-                    if (soluciono) { // Si hay un Mecánico (Trabajo), se considera solucionado
+                    if (soluciono) { 
                          ticketsSolucionados++;
                          
-                         // Eficiencia por Mecánico: compara Asignado y Solucionó
+                         // Eficiencia por Mecánico: solo si Asignado y Solucionó son iguales
                          if (asignado && soluciono === asignado) { 
                             mecEfficiency[asignado].solucionados++;
                          }
@@ -710,6 +702,7 @@
 
                 // 4. Lógica para Tabla Detallada
                 const timeClass = tTotal > 30 ? 'text-danger' : '';
+                // Mostrar fecha de apertura si es válida, sino la cadena cruda (solo la parte de la fecha si es posible)
                 const displayDate = tOpen && !isNaN(tOpen.getTime()) ? tOpen.toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: 'numeric'}) : (r.apertura || '-').split(/[\s,]+/)[0];
 
 
