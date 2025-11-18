@@ -112,13 +112,20 @@
         .btn-header-nav { background: #ffffff; color: #005f9e; border: 1px solid #ffffff; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; }
         .btn-header-nav:hover { background: #e0e0e0; color: #005f9e; border-color: #e0e0e0; }
 
-        /* GRÁFICAS Y TABLA (Se mantienen los estilos anteriores) */
+        /* GRÁFICAS */
         .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; margin-bottom: 30px; }
+        .charts-full { grid-column: span 2; }
+        @media(max-width: 992px) { .charts-grid { grid-template-columns: 1fr; } .charts-full { grid-column: span 1; } }
         .chart-box { height: 350px; position: relative; }
+
+        /* TABLA */
         .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid #e9ecef; }
         .custom-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
         .custom-table th { background: #f8f9fa; color: #495057; font-weight: 700; text-align: left; padding: 15px; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
         .custom-table td { padding: 12px 15px; border-bottom: 1px solid #e9ecef; color: #212529; }
+        .custom-table tr:hover { background-color: #f8f9fa; }
+        
+        /* Utilerias */
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: 700; }
         .badge-blue { background: #e7f1ff; color: #005f9e; }
         .text-danger { color: #dc3545; font-weight: bold; }
@@ -273,6 +280,7 @@
         Chart.register(ChartDataLabels);
         let rawData = [];
         let charts = {};
+        let allMachinesByArea = {}; // Mapa para almacenar Máquinas agrupadas por Área
         
         // --- DOM REFERENCES ---
         const elArea = document.getElementById('filter-area');
@@ -347,29 +355,47 @@
         // Actualiza el texto del botón y aplica el filtro
         function updateMultiselectText(button, dropdownId, labelSingular, labelPlural) {
             const checkboxes = document.querySelectorAll(`#${dropdownId} input[type="checkbox"]:checked`);
-            const selectedCount = checkboxes.length;
+            const allCheckbox = document.getElementById(`check-all-${dropdownId.split('-')[0]}`);
+            const totalOptions = document.querySelectorAll(`#${dropdownId} input[type="checkbox"]`).length - 1; // Menos la opción 'TODAS'
+
+            // Contamos solo las opciones individuales seleccionadas
+            const selectedCount = Array.from(checkboxes).filter(cb => cb.value !== 'TODAS').length; 
             const textSpan = button.querySelector('span');
 
-            if (selectedCount === 0) {
+            if (selectedCount === 0 || selectedCount === totalOptions) {
                 textSpan.textContent = `Todas las ${labelPlural}`;
             } else if (selectedCount === 1) {
-                textSpan.textContent = checkboxes[0].value;
+                // Obtener el valor del único checkbox seleccionado (no el de TODAS)
+                const singleValue = Array.from(checkboxes).filter(cb => cb.value !== 'TODAS')[0].value;
+                textSpan.textContent = singleValue;
             } else {
                 textSpan.textContent = `${selectedCount} ${labelPlural} Seleccionadas`;
             }
-            processData();
+            
+            // Forzar el estado de la casilla 'TODAS' para reflejar la selección actual
+            if (allCheckbox) {
+                allCheckbox.checked = (selectedCount === totalOptions);
+            }
+
+            processData(); // Aplicar filtro después de actualizar el texto
         }
 
         // Función para obtener valores seleccionados de un multiselect
         function getSelectedMultiselectValues(dropdownId) {
-            const values = Array.from(document.querySelectorAll(`#${dropdownId} input[type="checkbox"]:checked`))
+            const selectedValues = Array.from(document.querySelectorAll(`#${dropdownId} input[type="checkbox"]:checked`))
                 .map(checkbox => checkbox.value);
             
-            // Si no hay valores seleccionados, consideramos TODAS para el filtro.
-            if (values.length === 0) {
-                return ['TODAS'];
+            // Si el valor 'TODAS' está presente O si no hay selecciones, retornamos el array vacío para filtrar todos los elementos en JS.
+            if (selectedValues.includes('TODAS') || selectedValues.length === 0) {
+                return []; 
             }
-            return values.filter(v => v !== 'TODAS');
+            // Si se seleccionaron todos excepto 'TODAS', también devolvemos []
+            const allOptions = Array.from(document.querySelectorAll(`#${dropdownId} input[type="checkbox"]`)).length - 1;
+            if (selectedValues.length === allOptions) {
+                 return [];
+            }
+
+            return selectedValues;
         }
         
         // --- CARGA DE DATOS Y FILTROS ---
@@ -381,96 +407,106 @@
                 const json = await res.json();
                 rawData = json.data || [];
                 
+                // Preparar los datos agrupados por área
+                rawData.forEach(r => {
+                    const area = r.area || 'N/A';
+                    if (!allMachinesByArea[area]) {
+                        allMachinesByArea[area] = new Set();
+                    }
+                    allMachinesByArea[area].add(r.maquina);
+                });
+
                 initFilters();
+                updateMachineFilterByArea(); // Inicializar las máquinas según el área por defecto ('TODAS')
                 processData();
             } catch(e) { console.error(e); alert("Error cargando datos. Revisa la consola."); }
         }
 
         function populateMultiselect(dropdownEl, items, type) {
+            const dropdownId = dropdownEl.id;
             dropdownEl.innerHTML = '';
-            const allValue = type === 'machine' ? 'Todas las Máquinas' : 'Todos los Status';
             
+            const typeKey = dropdownId.split('-')[0]; // 'machine' o 'status'
+            const labelPlural = typeKey === 'machine' ? 'Máquinas' : 'Status';
+            const buttonEl = typeKey === 'machine' ? btnMachineSelect : btnStatusSelect;
+
             // Opción "Seleccionar Todos"
             const selectAll = document.createElement('div');
             selectAll.className = 'multiselect-option';
-            selectAll.innerHTML = `<input type="checkbox" id="check-all-${type}" value="TODAS" checked>
-                                   <label for="check-all-${type}">**${allValue}**</label>`;
+            selectAll.innerHTML = `<input type="checkbox" id="check-all-${typeKey}" value="TODAS" checked>
+                                   <label for="check-all-${typeKey}">**Todas las ${labelPlural}**</label>`;
             dropdownEl.appendChild(selectAll);
             
             // Opciones individuales
             items.forEach(item => {
+                if (!item) return;
                 const div = document.createElement('div');
                 div.className = 'multiselect-option';
-                div.innerHTML = `<input type="checkbox" id="check-${type}-${item}" value="${item}" checked>
-                                 <label for="check-${type}-${item}">${item}</label>`;
+                div.innerHTML = `<input type="checkbox" id="check-${typeKey}-${item}" value="${item}" checked>
+                                 <label for="check-${typeKey}-${item}">${item}</label>`;
                 dropdownEl.appendChild(div);
             });
             
             // Event Listener para manejar el check/uncheck de TODOS
-            document.getElementById(`check-all-${type}`).addEventListener('change', (e) => {
+            document.getElementById(`check-all-${typeKey}`).addEventListener('change', (e) => {
                 const isChecked = e.target.checked;
                 dropdownEl.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                     checkbox.checked = isChecked;
                 });
-                updateMultiselectText(type === 'machine' ? btnMachineSelect : btnStatusSelect, 
-                                      type === 'machine' ? 'machine-dropdown' : 'status-dropdown', 
-                                      type === 'machine' ? 'Máquina' : 'Status', 
-                                      type === 'machine' ? 'Máquinas' : 'Status');
+                updateMultiselectText(buttonEl, dropdownId, typeKey === 'machine' ? 'Máquina' : 'Status', labelPlural);
             });
             
             // Event Listener para opciones individuales
             dropdownEl.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                 checkbox.addEventListener('change', (e) => {
-                    if (e.target.value === 'TODAS') return;
-                    
-                    if (!e.target.checked) {
-                        // Desmarcar 'TODAS' si una opción se desmarca
-                        document.getElementById(`check-all-${type}`).checked = false;
-                    }
-                    
-                    // Si todas están marcadas, marcar 'TODAS'
-                    const allChecked = Array.from(dropdownEl.querySelectorAll('input[type="checkbox"]'))
-                        .filter(cb => cb.value !== 'TODAS')
-                        .every(cb => cb.checked);
-                        
-                    document.getElementById(`check-all-${type}`).checked = allChecked;
-                    
-                    updateMultiselectText(type === 'machine' ? btnMachineSelect : btnStatusSelect, 
-                                          type === 'machine' ? 'machine-dropdown' : 'status-dropdown', 
-                                          type === 'machine' ? 'Máquina' : 'Status', 
-                                          type === 'machine' ? 'Máquinas' : 'Status');
+                    updateMultiselectText(buttonEl, dropdownId, typeKey === 'machine' ? 'Máquina' : 'Status', labelPlural);
                 });
             });
 
             // Initial text update
-            updateMultiselectText(type === 'machine' ? btnMachineSelect : btnStatusSelect, 
-                                  type === 'machine' ? 'machine-dropdown' : 'status-dropdown', 
-                                  type === 'machine' ? 'Máquina' : 'Status', 
-                                  type === 'machine' ? 'Máquinas' : 'Status');
+            updateMultiselectText(buttonEl, dropdownId, typeKey === 'machine' ? 'Máquina' : 'Status', labelPlural);
         }
+        
+        // FUNCIÓN CRUCIAL: Subfiltrar las máquinas por área (Se ejecuta al cambiar el Área)
+        function updateMachineFilterByArea() {
+            const selectedArea = elArea.value;
+            let filteredMachines = [];
+            
+            if (selectedArea === 'TODAS') {
+                const allMachines = new Set();
+                Object.values(allMachinesByArea).forEach(set => {
+                    set.forEach(m => allMachines.add(m));
+                });
+                filteredMachines = Array.from(allMachines).sort();
+            } else if (allMachinesByArea[selectedArea]) {
+                filteredMachines = Array.from(allMachinesByArea[selectedArea]).sort();
+            }
+
+            populateMultiselect(machineDropdown, filteredMachines, 'machine');
+            processData();
+        }
+
 
         function initFilters() {
             const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
-            const machines = [...new Set(rawData.map(r => r.maquina).filter(Boolean))].sort();
-            // El filtro de Mecánico (single select) se llena con Mecánicos que cerraron tickets.
             const mecs = [...new Set(rawData.map(r => r.mecanico).filter(Boolean))].sort();
-            // Statuses disponibles (incluye 'Asignado', 'Trabajando', 'Cerrado', 'detenida', etc.)
             const statuses = [...new Set(rawData.map(r => r.statusParo).filter(Boolean))].sort();
             
             areas.forEach(x => elArea.add(new Option(x, x)));
             mecs.forEach(x => elMec.add(new Option(x, x)));
             
-            populateMultiselect(machineDropdown, machines, 'machine');
-            populateMultiselect(statusDropdown, statuses, 'status');
+            populateMultiselect(statusDropdown, statuses, 'status'); // El Status no depende del Área
+
+            // Añadir listener para la dependencia Área -> Máquina
+            elArea.addEventListener('change', updateMachineFilterByArea);
         }
 
-        // Manejar cambio en filtros simples
-        [elArea, elMec].forEach(el => el.addEventListener('change', processData));
+        // Manejar cambio en filtros simples (excepto Area, que tiene su propia función de cambio)
+        [elMec, elStartDate, elEndDate].forEach(el => el.addEventListener('change', processData));
 
 
         document.getElementById('btn-apply').addEventListener('click', (e) => {
             e.preventDefault();
-            // Forzar el cierre de los dropdowns al filtrar
             machineDropdown.style.display = 'none';
             statusDropdown.style.display = 'none';
             processData();
@@ -482,12 +518,18 @@
             elStartDate.value = '';
             elEndDate.value = '';
             
-            // Resetear selects múltiples
+            // Resetear selects múltiples (solo se necesita marcar el checkbox 'TODAS')
             document.querySelectorAll('.multiselect-dropdown input[type="checkbox"]').forEach(checkbox => {
-                checkbox.checked = true;
+                checkbox.checked = false;
             });
+            document.getElementById('check-all-machine').checked = true;
+            document.getElementById('check-all-status').checked = true;
 
-            updateMultiselectText(btnMachineSelect, 'machine-dropdown', 'Máquina', 'Máquinas');
+            // Llamar a la función para resetear las máquinas a TODAS las áreas
+            elArea.value = 'TODAS'; // Asegurar que el filtro de área se resetee antes de la actualización de máquinas
+            updateMachineFilterByArea(); // Recalcula máquinas y actualiza el texto
+
+            // Asegurar que el texto del status se actualice correctamente
             updateMultiselectText(btnStatusSelect, 'status-dropdown', 'Status', 'Status');
             
             processData();
@@ -501,7 +543,6 @@
             const fStartDate = elStartDate.value;
             const fEndDate = elEndDate.value;
             
-            // Obtener selecciones múltiples
             const fMachs = getSelectedMultiselectValues('machine-dropdown');
             const fStatuses = getSelectedMultiselectValues('status-dropdown');
 
@@ -511,23 +552,27 @@
                 
                 // FILTRO DE MECÁNICO
                 const filterMecValue = r.mecanico || r.mecanicoAsignado;
+                // Si el filtro no es TODOS, debe coincidir con Mecánico o MecánicoAsignado
                 if (fMec !== 'TODOS' && filterMecValue !== fMec) return false;
                 
-                // FILTRO DE MÁQUINAS (Múltiple)
-                if (fMachs.includes(r.maquina) === false) return false;
+                // FILTRO DE MÁQUINAS (Múltiple): Si fMachs está vacío, se incluyen todas.
+                if (fMachs.length > 0 && fMachs.includes(r.maquina) === false) return false;
                 
-                // FILTRO DE STATUS (Múltiple)
-                if (fStatuses.includes(r.statusParo) === false) return false;
+                // FILTRO DE STATUS (Múltiple): Si fStatuses está vacío, se incluyen todos.
+                if (fStatuses.length > 0 && fStatuses.includes(r.statusParo) === false) return false;
 
                 // Lógica de RANGO DE FECHAS - POR FECHA DE APERTURA (CORREGIDO)
                 if (fStartDate) {
                     const rOpenDate = parseCustomDate(r.apertura);
                     const startDateObj = dateToDayOnly(new Date(fStartDate));
                     
-                    // Ajustar la fecha fin para incluir todo el día
+                    // Ajustar la fecha fin para incluir todo el día de fin del filtro (23:59:59)
                     const endDateFilter = new Date(fEndDate || fStartDate);
-                    const endDateObj = dateToDayOnly(new Date(endDateFilter.getFullYear(), endDateFilter.getMonth(), endDateFilter.getDate(), 23, 59, 59));
+                    const endDateObj = dateToDayOnly(new Date(endDateFilter.getFullYear(), endDateFilter.getMonth(), endDateFilter.getDate()));
                     
+                    // Crear el final del día
+                    endDateObj.setHours(23, 59, 59);
+
                     if (!rOpenDate || !startDateObj || !endDateObj) return false;
 
                     // Si el tiempo de apertura es anterior a la medianoche del día de inicio O posterior al final del día de fin.
