@@ -575,7 +575,7 @@
             const fArea = elArea.value;
             const fMec = elMec.value;
             
-            // Lógica para establecer hora por defecto y mejorar UX
+            // 1. Lógica para establecer hora por defecto y mejorar UX
             const fStartDateValue = elStartDate.value;
             const fEndDateValue = elEndDate.value;
             
@@ -583,8 +583,8 @@
             let fEndDateObj = null;
 
             if (fStartDateValue) {
-                // Si la hora no está especificada (solo YYYY-MM-DD), fijar a 00:00:00
-                if (fStartDateValue.length === 10) { // YYYY-MM-DD
+                // Si la hora NO está especificada (solo YYYY-MM-DD), fijar a 00:00:00
+                if (fStartDateValue.length === 10) { 
                     fStartDateObj = new Date(fStartDateValue + 'T00:00:00');
                 } else { // YYYY-MM-DDTHH:MM
                     fStartDateObj = new Date(fStartDateValue);
@@ -592,10 +592,10 @@
             }
 
             if (fEndDateValue) {
-                 // Si la hora no está especificada (solo YYYY-MM-DD), fijar a 23:59:59
+                 // Si la hora NO está especificada (solo YYYY-MM-DD), fijar a 23:59:59
                 if (fEndDateValue.length === 10) {
-                    // Creamos la fecha del día siguiente a las 00:00:00 y restamos un milisegundo.
                     const dateEnd = new Date(fEndDateValue);
+                    // DÍA SIGUIENTE a las 00:00:00 y retroceder 1 milisegundo.
                     fEndDateObj = new Date(dateEnd.getFullYear(), dateEnd.getMonth(), dateEnd.getDate() + 1, 0, 0, 0, 0);
                     fEndDateObj.setMilliseconds(fEndDateObj.getMilliseconds() - 1);
                 } else { // YYYY-MM-DDTHH:MM
@@ -615,6 +615,7 @@
                 // 1. Filtros de Categoría
                 if (fArea !== 'TODAS' && r.area !== fArea) return false;
                 
+                // Nota: Usamos r.mecanicoAsignado ahora que se corrigió el backend
                 const filterMecValue = r.mecanico || r.mecanicoAsignado; 
                 if (fMec !== 'TODOS' && filterMecValue !== fMec) return false;
                 
@@ -622,7 +623,7 @@
                 
                 if (fStatuses.length > 0 && fStatuses.includes(r.statusParo) === false) return false;
 
-                // 2. Lógica de RANGO DE FECHAS Y HORA (AJUSTADA POR DEFENSA DE UX)
+                // 2. Lógica de RANGO DE FECHAS Y HORA
                 if (isFilterStartValid) {
                     const rOpenDate = parseCustomDate(r.apertura); 
                     
@@ -662,7 +663,7 @@
             let tableHtml = '';
             let totalTickets = data.length; 
             let allAreas = new Set(); 
-            let allMecs = new Set(); // Nuevo: Para asegurar que todos los mecánicos salgan en la tabla de eficiencia.
+            let allMecs = new Set(); 
 
             data.forEach(r => {
                 const tOpen = parseCustomDate(r.apertura);
@@ -672,9 +673,9 @@
                 let tResp = 0, tRep = 0, tTotal = 0;
                 let isClosed = false;
                 
-                // Usamos sintaxis flexible para acceder a los campos de Mecánico
-                const asignado = r.mecanicoAsignado || r.MecanicoAsignado; 
-                const soluciono = r.mecanico || r.Mecanico || r.MecanicoTrabajo; 
+                // Usamos la propiedad corregida del backend (r.mecanicoAsignado)
+                const asignado = r.mecanicoAsignado; 
+                const soluciono = r.mecanico; 
                 const area = r.area || 'N/A';
                 
                 // Agregamos al Mecánico que SOLUCIONÓ (Trabajo) a la lista global.
@@ -684,8 +685,8 @@
 
                 // 1. Lógica para KPI de Eficiencia General y por Mecánico Asignado
                 if (asignado) {
+                    allMecs.add(asignado); // Añadir también el asignado a la lista de mecánicos
                     ticketsAsignados++;
-                    // Si el asignado existe, lo inicializamos.
                     if (!mecEfficiency[asignado]) {
                         mecEfficiency[asignado] = { asignados: 0, solucionados: 0 };
                     }
@@ -709,6 +710,10 @@
                          
                          // Eficiencia por Mecánico: solo si Asignado y Solucionó son iguales
                          if (asignado && soluciono === asignado) { 
+                            // Inicializar si no existe, ya que el flujo de 'asignado' podría ser distinto
+                            if (!mecEfficiency[asignado]) {
+                                mecEfficiency[asignado] = { asignados: 0, solucionados: 0 };
+                            }
                             mecEfficiency[asignado].solucionados++;
                          }
                          
@@ -766,27 +771,30 @@
             
             // --- RENDERIZADO DE TABLA DE EFICIENCIA POR MECÁNICO ASIGNADO (CORRECCIÓN FINAL) ---
             let mecTableHtml = '';
-            // Recorremos TODOS los mecánicos que existen en el filtro de datos
-            const finalMecs = Array.from(allMecs).sort(); 
+            // Recorremos SOLO los mecánicos que fueron ASIGNADOS (ya que el KPI es de asignación)
+            const assignedMecs = Object.keys(mecEfficiency).sort(); 
 
-            finalMecs.forEach(mecanico => {
-                const metrics = mecEfficiency[mecanico] || { asignados: 0, solucionados: 0 };
-                const efficiencyMec = metrics.asignados > 0 
-                    ? ((metrics.solucionados / metrics.asignados) * 100).toFixed(1)
-                    : 0;
-                const colorClass = parseFloat(efficiencyMec) < 50 ? 'text-danger' : '';
+            if (assignedMecs.length === 0) {
+                 document.getElementById('table-mec-efficiency').innerHTML = '<tr><td colspan="4" class="text-center" style="padding:20px;">No se encontraron asignaciones en este filtro.</td></tr>';
+            } else {
+                 assignedMecs.forEach(mecanico => {
+                    const metrics = mecEfficiency[mecanico]; // Ya sabemos que existe
+                    const efficiencyMec = metrics.asignados > 0 
+                        ? ((metrics.solucionados / metrics.asignados) * 100).toFixed(1)
+                        : 0;
+                    const colorClass = parseFloat(efficiencyMec) < 50 ? 'text-danger' : '';
 
-                mecTableHtml += `
-                    <tr>
-                        <td><b>${mecanico}</b></td>
-                        <td class="text-center">${metrics.asignados}</td>
-                        <td class="text-center">${metrics.solucionados}</td>
-                        <td class="${colorClass} text-center">${efficiencyMec}%</td>
-                    </tr>
-                `;
-            });
-
-            document.getElementById('table-mec-efficiency').innerHTML = mecTableHtml || '<tr><td colspan="4" class="text-center" style="padding:20px;">No se encontraron datos de asignación.</td></tr>';
+                    mecTableHtml += `
+                        <tr>
+                            <td><b>${mecanico}</b></td>
+                            <td class="text-center">${metrics.asignados}</td>
+                            <td class="text-center">${metrics.solucionados}</td>
+                            <td class="${colorClass} text-center">${efficiencyMec}%</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('table-mec-efficiency').innerHTML = mecTableHtml;
+            }
 
             
             // --- RENDERIZADO DE TABLA DE SOLUCIONADOS POR ÁREA Y MECÁNICO ---
