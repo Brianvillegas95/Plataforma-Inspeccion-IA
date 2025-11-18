@@ -8,23 +8,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-    <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-
+    
     <style>
         body { background-color: #f4f7fa; font-family: Arial, sans-serif; margin: 0; }
-        
-        /* Header Styles */
         .app-header { background-color: #005f9e; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
         .app-header h1 { margin: 0; font-size: 1.5em; }
         .logo { height: 40px; vertical-align: middle; margin-right: 10px; }
-        
-        /* Login Overlay */
-        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
-        
-        /* Dashboard Layout */
         .main-content { padding: 20px; max-width: 1400px; margin: 0 auto; }
         
-        /* KPIs Cards */
+        /* Cards */
         .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px; }
         .kpi-card { background-color: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); text-align: center; border-left: 4px solid #005f9e; }
         .kpi-title { font-size: 0.9em; color: #666; margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
@@ -34,20 +26,15 @@
         /* Filters & Panels */
         .dashboard-panel { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); margin-bottom: 25px; }
         .panel-title { border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 20px; color: #333; font-size: 1.2em; display: flex; align-items: center; gap: 10px; }
-        
         .filter-controls { display: flex; gap: 15px; flex-wrap: wrap; align-items: end; }
         .filter-group { display: flex; flex-direction: column; }
         .filter-group label { font-size: 0.8em; margin-bottom: 5px; font-weight: bold; color: #555; }
         .filter-group select, .filter-group input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
         .btn-reset { padding: 8px 15px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; }
         .btn-filter { padding: 8px 20px; background: #005f9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-
-        /* Charts */
         .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-bottom: 25px; }
         @media(max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
         .chart-container { height: 350px; position: relative; }
-
-        /* Table */
         .table-wrapper { overflow-x: auto; max-height: 500px; }
         .results-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
         .results-table th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; position: sticky; top: 0; }
@@ -56,28 +43,16 @@
     </style>
 </head>
 <body>
-
-    <div id="login-overlay">
-        <img src="imagenes/Logo azor.png" style="height: 60px; margin-bottom: 20px;">
-        <h2 style="color:#333;">Acceso a KPIs</h2>
-        <p>Inicia sesión para ver los indicadores.</p>
-        <button onclick="netlifyIdentity.open()" class="button primary-action" style="padding: 10px 25px; font-size: 1.1em;">Iniciar Sesión</button>
-    </div>
-
     <div class="app-container">
         <header class="app-header">
             <div style="display: flex; align-items: center;">
                 <img src="imagenes/Logo azor.png" alt="Logo" class="logo" style="background:white; padding:2px; border-radius:4px;">
                 <h1>KPIs Mantenimiento</h1>
             </div>
-            <div>
-                <button onclick="window.location.href='admin_mantenimiento.html'" class="btn-reset" style="margin-right: 10px;">Admin Panel</button>
-                <button onclick="netlifyIdentity.logout()" class="btn-reset">Salir</button>
-            </div>
+            <button onclick="window.location.href='admin_mantenimiento.html'" class="btn-reset">Ir a Admin</button>
         </header>
 
         <main class="main-content">
-            
             <section class="kpi-container">
                 <div class="kpi-card">
                     <div class="kpi-title"><i class="fas fa-check-circle"></i> Tickets Cerrados</div>
@@ -122,16 +97,12 @@
 
             <div class="charts-row">
                 <div class="dashboard-panel">
-                    <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Fallas por Máquina (Pareto)</h2>
-                    <div class="chart-container">
-                        <canvas id="chartMachines"></canvas>
-                    </div>
+                    <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Fallas por Máquina</h2>
+                    <div class="chart-container"><canvas id="chartMachines"></canvas></div>
                 </div>
                 <div class="dashboard-panel">
                     <h2 class="panel-title"><i class="fas fa-chart-pie"></i> Tickets por Mecánico</h2>
-                    <div class="chart-container">
-                        <canvas id="chartMechanics"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartMechanics"></canvas></div>
                 </div>
             </div>
 
@@ -162,51 +133,24 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // 1. Configurar Netlify Identity
-        netlifyIdentity.init();
-        
-        // Función para manejar el overlay de login
-        const checkAuth = () => {
-            const user = netlifyIdentity.currentUser();
-            if (user) {
-                document.getElementById('login-overlay').style.display = 'none';
-                loadData(); // Cargar datos solo si hay usuario
-            } else {
-                document.getElementById('login-overlay').style.display = 'flex';
-            }
-        };
-
-        netlifyIdentity.on('login', () => checkAuth());
-        netlifyIdentity.on('logout', () => checkAuth());
-        checkAuth(); // Chequeo inicial
-
-        // --- VARIABLES GLOBALES ---
         let rawData = [];
         let charts = {};
 
-        // --- CARGA DE DATOS ---
         async function loadData() {
             try {
-                // LLAMADA AL BACKEND
                 const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
                     body: JSON.stringify({ action: 'get_kpi_data' })
                 });
                 const json = await res.json();
                 rawData = json.data || [];
-                
                 populateFilters();
-                processData(); // Procesar y pintar
-            } catch(e) { 
-                console.error(e);
-                alert("Error cargando datos. Revisa la consola."); 
-            }
+                processData();
+            } catch(e) { console.error(e); alert("Error cargando datos."); }
         }
 
-        // --- UTILERIAS DE FECHA ---
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
-            // Formato esperado: "18/11/2025, 10:56:18"
             try {
                 const [dPart, tPart] = dateStr.split(', ');
                 if(!dPart || !tPart) return null;
@@ -221,18 +165,14 @@
             return Math.round((d2 - d1) / 1000 / 60);
         }
 
-        // --- FILTROS ---
         function populateFilters() {
             const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
             const mecs = [...new Set(rawData.map(r => r.mecanico).filter(Boolean))].sort();
-            
             const selArea = document.getElementById('filter-area');
             const selMec = document.getElementById('filter-mec');
             
-            // Limpiar previos para no duplicar
             selArea.innerHTML = '<option value="TODAS">Todas</option>';
             selMec.innerHTML = '<option value="TODOS">Todos</option>';
-
             areas.forEach(a => selArea.add(new Option(a, a)));
             mecs.forEach(m => selMec.add(new Option(m, m)));
         }
@@ -245,21 +185,15 @@
             processData();
         });
 
-        // --- PROCESAMIENTO Y RENDERIZADO ---
         function processData() {
             const fArea = document.getElementById('filter-area').value;
             const fMec = document.getElementById('filter-mec').value;
-            const fDate = document.getElementById('filter-date').value; // YYYY-MM
+            const fDate = document.getElementById('filter-date').value;
 
-            // 1. Filtrar Datos
             const data = rawData.filter(r => {
-                // Solo contar tickets CERRADOS para KPIs de tiempo, o ABIERTOS para conteo general?
-                // Para evitar bugs de tiempo negativo, filtramos los que tienen fecha de cierre
                 if(!r.cierre) return false;
-
                 if(fArea !== 'TODAS' && r.area !== fArea) return false;
                 if(fMec !== 'TODOS' && r.mecanico !== fMec) return false;
-                
                 if(fDate) {
                     const [year, month] = fDate.split('-');
                     const rDate = parseCustomDate(r.apertura);
@@ -268,120 +202,65 @@
                 return true;
             });
 
-            // 2. Calcular Métricas
             let sumResp = 0, sumRep = 0, sumTot = 0, count = 0;
             const machineCounts = {};
             const mecCounts = {};
-
             const tableRows = [];
 
             data.forEach(r => {
                 const tOpen = parseCustomDate(r.apertura);
                 const tArrive = parseCustomDate(r.llegada);
                 const tClose = parseCustomDate(r.cierre);
-
                 let tResp = 0, tRep = 0;
 
                 if (tOpen && tClose) {
-                    // Si no hay llegada, asumimos que llegó al momento de cerrar (fallback) o al abrir
                     const validArrive = tArrive || tOpen; 
-                    
                     tResp = diffMinutes(tOpen, validArrive);
                     tRep = diffMinutes(validArrive, tClose);
                     const tTot = diffMinutes(tOpen, tClose);
-
-                    sumResp += tResp;
-                    sumRep += tRep;
-                    sumTot += tTot;
-                    count++;
+                    sumResp += tResp; sumRep += tRep; sumTot += tTot; count++;
                 }
 
-                // Agrupamientos
                 const maq = r.maquina || 'N/A';
                 machineCounts[maq] = (machineCounts[maq] || 0) + 1;
-                
                 const mec = r.mecanico || 'Sin Asignar';
                 mecCounts[mec] = (mecCounts[mec] || 0) + 1;
 
-                // Filas Tabla
-                tableRows.push(`
-                    <tr>
-                        <td><strong>${r.folio}</strong></td>
-                        <td>${r.apertura.split(',')[0]}</td>
-                        <td>${r.area}</td>
-                        <td>${r.maquina}</td>
-                        <td>${r.falla}</td>
-                        <td>${r.mecanico}</td>
-                        <td>${tResp} min</td>
-                        <td>${tRep} min</td>
-                    </tr>
-                `);
+                tableRows.push(`<tr><td><strong>${r.folio}</strong></td><td>${r.apertura.split(',')[0]}</td><td>${r.area}</td><td>${r.maquina}</td><td>${r.falla}</td><td>${r.mecanico}</td><td>${tResp} m</td><td>${tRep} m</td></tr>`);
             });
 
-            // 3. Actualizar DOM
             document.getElementById('kpi-count').textContent = count;
-            document.getElementById('kpi-response').textContent = count ? Math.round(sumResp / count) + " min" : "0";
-            document.getElementById('kpi-repair').textContent = count ? Math.round(sumRep / count) + " min" : "0";
-            document.getElementById('kpi-total').textContent = sumTot + " min";
-
+            document.getElementById('kpi-response').textContent = count ? Math.round(sumResp / count) + " m" : "0";
+            document.getElementById('kpi-repair').textContent = count ? Math.round(sumRep / count) + " m" : "0";
+            document.getElementById('kpi-total').textContent = sumTot + " m";
             document.getElementById('table-body').innerHTML = tableRows.length ? tableRows.join('') : '<tr><td colspan="8" style="text-align:center; padding:20px;">No se encontraron datos.</td></tr>';
 
-            // 4. Actualizar Gráficas
-            renderBarChart('chartMachines', machineCounts, 'Top Máquinas con Fallas');
+            renderBarChart('chartMachines', machineCounts);
             renderPieChart('chartMechanics', mecCounts);
         }
 
-        function renderBarChart(id, dataObj, label) {
-            // Ordenar de mayor a menor (Pareto simple)
-            const entries = Object.entries(dataObj).sort((a,b) => b[1] - a[1]).slice(0, 10); // Top 10
-            const labels = entries.map(e => e[0]);
-            const data = entries.map(e => e[1]);
-
+        function renderBarChart(id, dataObj) {
+            const entries = Object.entries(dataObj).sort((a,b) => b[1] - a[1]).slice(0, 10);
             const ctx = document.getElementById(id).getContext('2d');
             if(charts[id]) charts[id].destroy();
-
             charts[id] = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Nº de Fallas',
-                        data: data,
-                        backgroundColor: '#005f9e',
-                        borderRadius: 5
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
+                data: { labels: entries.map(e => e[0]), datasets: [{ label: 'Fallas', data: entries.map(e => e[1]), backgroundColor: '#005f9e' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
 
         function renderPieChart(id, dataObj) {
-            const labels = Object.keys(dataObj);
-            const data = Object.values(dataObj);
             const ctx = document.getElementById(id).getContext('2d');
-            
             if(charts[id]) charts[id].destroy();
-
             charts[id] = new Chart(ctx, {
                 type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: ['#005f9e', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6610f2']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'right' } }
-                }
+                data: { labels: Object.keys(dataObj), datasets: [{ data: Object.values(dataObj), backgroundColor: ['#005f9e', '#28a745', '#ffc107', '#dc3545', '#17a2b8'] }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
             });
         }
+
+        loadData();
     });
     </script>
 </body>
