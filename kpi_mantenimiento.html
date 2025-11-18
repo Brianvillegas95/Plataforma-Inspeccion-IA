@@ -304,7 +304,10 @@
                 const [hour, min, sec] = tPart.split(':').map(Number);
                 
                 return new Date(year, month - 1, day, hour, min, sec);
-            } catch (e) { return null; }
+            } catch (e) { 
+                console.error("Error parsing date:", dateStr, e);
+                return null; 
+            }
         }
 
         function dateToDayOnly(dateObj) {
@@ -534,7 +537,7 @@
                 
                 if (fStatuses.length > 0 && fStatuses.includes(r.statusParo) === false) return false;
 
-                // Lógica de RANGO DE FECHAS - CORRECCIÓN CRÍTICA DE COMPARACIÓN
+                // Lógica de RANGO DE FECHAS - SOLUCIÓN ROBUSTA
                 if (fStartDate) {
                     const rOpenDate = parseCustomDate(r.apertura); // Fecha y hora completa de apertura
                     
