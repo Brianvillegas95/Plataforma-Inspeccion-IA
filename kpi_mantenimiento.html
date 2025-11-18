@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.com/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 
     <style>
@@ -52,8 +52,19 @@
             transition: border-color 0.2s; 
         }
         .filter-control:focus { border-color: #005f9e; outline: none; background: #fff; }
+        
+        /* CORRECCIÓN CSS PARA SELECCIÓN MÚLTIPLE */
         .filter-control[multiple] { 
-            padding: 5px 15px; 
+            padding: 5px;
+            height: 100px; /* Altura fija para que no se vea el resize feo */
+            min-height: 80px;
+            overflow-y: auto;
+            border-radius: 6px;
+        }
+        .filter-control[multiple] option {
+            padding: 5px 10px;
+            margin: 2px 0;
+            border-radius: 4px;
         }
         
         /* BOTONES PRO */
@@ -126,7 +137,7 @@
                 </div>
                 <div class="filter-group">
                     <label>Máquina (Selección Múltiple)</label>
-                    <select id="filter-machine-select" class="filter-control" multiple size="3" style="min-height: 80px;">
+                    <select id="filter-machine-select" class="filter-control" multiple size="3">
                         <option value="TODAS" selected>Todas las Máquinas</option>
                     </select>
                 </div>
@@ -136,7 +147,7 @@
                 </div>
                 <div class="filter-group">
                     <label>Status del Paro</label>
-                    <select id="filter-status" class="filter-control" multiple size="3" style="min-height: 80px;">
+                    <select id="filter-status" class="filter-control" multiple size="3">
                         <option value="TODOS" selected>Todos los Status</option>
                     </select>
                 </div>
@@ -228,6 +239,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         
         // --- CONFIGURACIÓN INICIAL ---
+        // El error ReferenceError: ChartDataLabels is not defined se resuelve al tener los scripts en el head
         Chart.register(ChartDataLabels);
         let rawData = [];
         let charts = {};
@@ -244,14 +256,12 @@
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
             try {
-                // Función mejorada para manejar el formato 'dd/mm/yyyy, HH:MM:SS'
                 const parts = dateStr.split(', ');
                 const [dPart, tPart] = parts.length === 2 ? parts : [dateStr, '00:00:00'];
                 
                 const [day, month, year] = dPart.split('/').map(Number);
                 const [hour, min, sec] = tPart.split(':').map(Number);
                 
-                // Nota: Month - 1 porque JS usa 0-11 para meses
                 return new Date(year, month - 1, day, hour, min, sec);
             } catch (e) { return null; }
         }
@@ -259,7 +269,6 @@
         function dateToDayOnly(dateObj) {
             if (!dateObj) return null;
             const d = new Date(dateObj);
-            // Crea una nueva fecha a medianoche para solo comparar días
             return new Date(d.getFullYear(), d.getMonth(), d.getDate());
         }
 
@@ -285,8 +294,8 @@
         function initFilters() {
             const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
             const machines = [...new Set(rawData.map(r => r.maquina).filter(Boolean))].sort();
+            // Mecánico toma de Mecánico (quien cerró) para que el filtro sea relevante a la eficiencia
             const mecs = [...new Set(rawData.map(r => r.mecanico).filter(Boolean))].sort();
-            // NUEVO: Statuses disponibles
             const statuses = [...new Set(rawData.map(r => r.statusParo).filter(Boolean))].sort();
             
             areas.forEach(x => elArea.add(new Option(x, x)));
@@ -336,7 +345,6 @@
             const fStartDate = elStartDate.value;
             const fEndDate = elEndDate.value;
             
-            // Obtener selecciones múltiples
             const fMachs = getSelectedValues(elMachineSelect).filter(v => v !== 'TODAS');
             const fStatuses = getSelectedValues(elStatus).filter(v => v !== 'TODOS');
 
@@ -344,8 +352,7 @@
                 // FILTRO DE ÁREA
                 if (fArea !== 'TODAS' && r.area !== fArea) return false;
                 
-                // FILTRO DE MECÁNICO (Usando la columna 'mecanico' = quien arregló)
-                // Usamos Mecánico Asignado si Mecánico está vacío para que el filtro funcione con tickets abiertos
+                // FILTRO DE MECÁNICO (Usa Mecánico [cerrador] por defecto, y MecánicoAsignado si el ticket está abierto)
                 const filterMecValue = r.mecanico || r.mecanicoAsignado;
                 if (fMec !== 'TODOS' && filterMecValue !== fMec) return false;
                 
@@ -355,18 +362,14 @@
                 // FILTRO DE STATUS (Múltiple)
                 if (fStatuses.length > 0 && !fStatuses.includes(r.statusParo)) return false;
 
-                // Lógica de RANGO DE FECHAS - POR FECHA DE APERTURA (CORREGIDO)
+                // Lógica de RANGO DE FECHAS - POR FECHA DE APERTURA
                 if (fStartDate) {
-                    // Obtener el día de apertura del registro (sin hora)
                     const rOpenDay = dateToDayOnly(parseCustomDate(r.apertura));
-                    
-                    // Fechas de inicio y fin del filtro (solo día, a medianoche)
                     const startDateObj = dateToDayOnly(new Date(fStartDate));
                     const endDateObj = fEndDate ? dateToDayOnly(new Date(fEndDate)) : startDateObj; 
                     
                     if (!rOpenDay || !startDateObj || !endDateObj) return false;
 
-                    // Verifica si el día de apertura está en el rango [startDateObj, endDateObj]
                     if (rOpenDay < startDateObj || rOpenDay > endDateObj) {
                         return false;
                     }
@@ -380,8 +383,8 @@
 
         function calculateMetrics(data) {
             let sumResp = 0, sumRep = 0, sumTot = 0, countClosed = 0; 
-            let ticketsAsignados = 0; // NUEVO: Contador de tickets asignados (MecanicoAsignado)
-            let ticketsSolucionados = 0; // NUEVO: Contador de tickets solucionados (Mecanico, y Cierre no nulo)
+            let ticketsAsignados = 0; 
+            let ticketsSolucionados = 0; 
             
             const countsMachine = {};
             const countsArea = {};
@@ -389,7 +392,7 @@
             const countsStation = {}; 
 
             let tableHtml = '';
-            let totalTickets = data.length; // Conteo de todos los tickets filtrados por otros parámetros
+            let totalTickets = data.length; 
 
             data.forEach(r => {
                 const tOpen = parseCustomDate(r.apertura);
@@ -400,7 +403,7 @@
                 let isClosed = false;
 
                 // Conteo para KPI de Eficiencia de Solución
-                // Si tiene MecánicoAsignado, cuenta como asignado.
+                // Se cuenta si tiene asignado, sin importar el estatus
                 if (r.mecanicoAsignado) {
                     ticketsAsignados++;
                 }
@@ -414,7 +417,7 @@
                     
                     sumResp += tResp; sumRep += tRep; sumTot += tTotal; countClosed++;
                     
-                    // Si tiene fecha de cierre, cuenta como solucionado (el Mecánico es el que lo cerró)
+                    // Si tiene fecha de cierre Y tiene Mecánico (quien cerró), cuenta como solucionado
                     if (r.mecanico) {
                          ticketsSolucionados++;
                     }
