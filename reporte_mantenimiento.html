@@ -30,17 +30,12 @@
         
         select:disabled { background-color: #e9ecef; cursor: not-allowed; }
 
-        /* Estilo extra para el filtro de Kiosco */
-        .kiosk-filter-bar {
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 20px; 
-            border-bottom: 2px solid #eee; 
-            padding-bottom: 15px;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
+        /* Estilo Kiosco */
+        .kiosk-filter-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        
+        /* Estilo Botón Rescate */
+        .btn-rescue { background-color: #17a2b8 !important; border-color: #17a2b8 !important; animation: pulse-btn 2s infinite; }
+        @keyframes pulse-btn { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body class="color-validator-body">
@@ -193,6 +188,20 @@
         </footer>
     </div>
 
+    <div id="rescue-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 400px; text-align: center;">
+            <h3 style="color: #333; margin-top:0;"><i class="fas fa-user-shield"></i> Asignación Manual</h3>
+            <p style="color: #555;">Seleccione el mecánico que atenderá la falla:</p>
+            <select id="rescue-mechanic-select" class="form-control" style="margin-bottom: 20px;">
+                <option value="" disabled selected>-- Cargando... --</option>
+            </select>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="btn-confirm-rescue" class="button primary-action" style="padding: 10px 20px;">Confirmar</button>
+                <button id="btn-cancel-rescue" class="button" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
     document.addEventListener('DOMContentLoaded', async () => {
         
@@ -226,35 +235,39 @@
         const ticketsContainer = document.getElementById('tickets-container');
         const btnVolverReporte = document.getElementById('btn-volver-reporte');
         const reportSection = document.querySelector('.color-validator-tool');
-        const kioskAreaFilter = document.getElementById('kiosk-area-filter'); // Nuevo selector
+        const kioskAreaFilter = document.getElementById('kiosk-area-filter');
+
+        // Referencias Modal Rescate
+        const rescueModal = document.getElementById('rescue-modal');
+        const rescueSelect = document.getElementById('rescue-mechanic-select');
+        const btnConfirmRescue = document.getElementById('btn-confirm-rescue');
+        const btnCancelRescue = document.getElementById('btn-cancel-rescue');
+        let isRescueMode = false;
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         
         let configData = {};
         let maquinaConfig = {};
-        let allActiveTickets = []; // Para guardar todos antes de filtrar
+        let allActiveTickets = [];
         let statusCheckInterval = null;
 
         // --- Funciones de Configuración ---
         async function cargarDatosDeConfiguracion(){
             try{
                 const response=await fetch('/.netlify/functions/leer-listas-mantenimiento');
-                if(!response.ok)throw new Error('Error de red al cargar la configuración.');
+                if(!response.ok)throw new Error('Error config.');
                 const data=await response.json();
                 configData = data.data || {};
                 maquinaConfig = data.maquinaConfig || {}; 
                 
-                // Cargamos áreas en el formulario principal
                 const areas = Object.keys(configData).sort();
                 cargarAreas(areas);
                 cargarSoluciones(data.soluciones||[]);
 
-                // Cargamos áreas en el filtro del Kiosco
                 areas.forEach(area => {
                     kioskAreaFilter.add(new Option(area, area));
                 });
 
-                // Recuperar última selección de área del Kiosco
                 const savedArea = localStorage.getItem('kioskSelectedArea');
                 if (savedArea && areas.includes(savedArea)) {
                     kioskAreaFilter.value = savedArea;
@@ -280,20 +293,28 @@
                 });
                 if (!response.ok) throw new Error('Error de red al cargar mecánicos.');
                 const data = await response.json();
+                
+                // Llenar select principal
                 mecanicoSelect.innerHTML = '<option value="" disabled selected>-- Seleccione un mecánico --</option>';
+                // Llenar select de rescate
+                rescueSelect.innerHTML = '<option value="" disabled selected>-- Seleccione --</option>';
+                
                 (data.mecanicos || []).forEach(mecanico => {
                     mecanicoSelect.add(new Option(mecanico, mecanico));
+                    rescueSelect.add(new Option(mecanico, mecanico));
                 });
+                
                 mecanicoSelect.disabled = false;
+                return true;
             } catch (error) {
                 console.error("Error al cargar mecánicos:", error);
-                mecanicoSelect.innerHTML = '<option value="">Error al cargar</option>';
+                return false;
             }
         }
         
         areaSelect.addEventListener('change',()=>{cargarMaquinas(areaSelect.value)});maquinaSelect.addEventListener('change',()=>{cargarEstaciones(areaSelect.value,maquinaSelect.value)});
 
-        // --- Lógica Kiosco / Zona Mecánicos ---
+        // --- Lógica Kiosco ---
         btnZonaMecanicos.addEventListener('click', (e) => {
             e.preventDefault();
             reportSection.style.display = 'none';
@@ -306,7 +327,6 @@
             reportSection.style.display = 'block';
         });
         
-        // Evento cambio de filtro de área
         kioskAreaFilter.addEventListener('change', () => {
             localStorage.setItem('kioskSelectedArea', kioskAreaFilter.value);
             filterAndRenderTickets();
@@ -322,31 +342,21 @@
                 });
                 if (!response.ok) throw new Error('Error al cargar tickets.');
                 const data = await response.json();
-                allActiveTickets = data.activos || []; // Guardamos todos
-                filterAndRenderTickets(); // Filtramos y dibujamos
+                allActiveTickets = data.activos || [];
+                filterAndRenderTickets();
             } catch (error) {
-                console.error(error);
                 ticketsContainer.innerHTML = '<p style="color: red; text-align: center;">Error al cargar la lista.</p>';
             }
         }
 
         function filterAndRenderTickets() {
             const selectedArea = kioskAreaFilter.value;
-            
-            // FILTRADO INTELIGENTE
             const ticketsFiltrados = allActiveTickets.filter(t => {
-                // 1. Filtro de configuración: Solo máquinas SIN PC
-                // Si no existe config, asumimos SI (y lo ocultamos) para seguridad.
-                // Queremos ver SOLO las que tienen config explícita 'NO'.
                 const tienePC = maquinaConfig[t.maquina];
-                if (tienePC !== 'NO') return false;
-
-                // 2. Filtro de Área
+                if (tienePC !== 'NO') return false; // Solo mostrar sin PC
                 if (selectedArea !== 'TODAS' && t.area !== selectedArea) return false;
-
                 return true;
             });
-
             renderTickets(ticketsFiltrados);
         }
 
@@ -376,17 +386,13 @@
             ticketsContainer.innerHTML = html;
         }
 
-        // Función Global para el botón "Gestionar"
         window.atenderTicketKiosco = function(row, folio, statusMaquina, mecanico, statusParo) {
             localStorage.setItem('paroRow', row);
             localStorage.setItem('paroFolio', folio);
             localStorage.setItem('paroStatusMaquina', statusMaquina);
-            
             listaTicketsSection.style.display = 'none';
-            
             let displayStatus = statusParo; 
             if (statusParo === 'En Cola') displayStatus = 'Asignado'; 
-
             buildAndonScreen(displayStatus, mecanico, folio, statusMaquina);
         };
 
@@ -408,7 +414,7 @@
             }
         }
 
-        // --- Lógica de UI ---
+        // --- Lógica UI Andon ---
         function mostrarError(mensaje) {
             errorMessage.textContent = mensaje;
             errorMessage.style.display = mensaje ? 'block' : 'none';
@@ -446,7 +452,17 @@
             }
             
             if (status === 'En Cola' || status === 'Asignado') {
-                if (mecanico !== 'En Espera') llegadaMecanicoBtn.style.display = 'block';
+                llegadaMecanicoBtn.style.display = 'block';
+                
+                // LÓGICA DE BOTÓN RESCATE
+                if (mecanico === 'En Espera') {
+                    llegadaMecanicoBtn.innerHTML = '<i class="fas fa-user-plus"></i> Asignar y Registrar Llegada';
+                    llegadaMecanicoBtn.classList.add('btn-rescue');
+                } else {
+                    llegadaMecanicoBtn.innerHTML = '<i class="fas fa-running"></i> Registrar Llegada de Mecánico';
+                    llegadaMecanicoBtn.classList.remove('btn-rescue');
+                }
+
                 const row = localStorage.getItem('paroRow');
                 stopStatusCheck();
                 statusCheckInterval = setInterval(() => checkParoStatus(row), 10000);
@@ -489,7 +505,6 @@
                 localStorage.setItem('paroStatusMaquina', data.statusMaquina); 
                 buildAndonScreen(data.status, data.mecanico, folio, data.statusMaquina);
             } catch (error) {
-                console.error("Error recovery:", error);
                 localStorage.removeItem('paroRow');
                 window.location.reload();
             } finally {
@@ -497,7 +512,7 @@
             }
         }
 
-        // --- Listeners Formularios ---
+        // --- Listeners Formularios Principal ---
 
         paroForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -524,11 +539,9 @@
                 if (!response.ok) throw new Error('Error al crear reporte.');
                 const result = await response.json();
                 
-                // LÓGICA KIOSCO vs ANDON
                 const tienePC = maquinaConfig[maquina] || 'SI';
 
                 if (tienePC === 'NO') {
-                    // Modo Kiosco
                     loadingParo.style.display = 'none';
                     paroForm.reset();
                     maquinaSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione un área --</option>';
@@ -545,7 +558,6 @@
                         generarParoBtn.disabled = false;
                     }, 4000);
                 } else {
-                    // Modo Andon
                     localStorage.setItem('paroRow', result.row);
                     localStorage.setItem('paroFolio', result.folio);
                     localStorage.setItem('paroStatusMaquina', statusMaquina); 
@@ -554,36 +566,69 @@
                     buildAndonScreen(result.status, result.mecanico, result.folio, statusMaquina);
                 }
             } catch (error) {
-                console.error(error);
                 mostrarError(error.message); 
                 generarParoBtn.disabled = false;
                 loadingParo.style.display = 'none';
             }
         });
 
+        // --- LÓGICA DE LLEGADA Y RESCATE ---
+        
         llegadaMecanicoBtn.addEventListener('click', async () => {
+            const currentMecanicoText = andonStatusMessage.innerText;
+            isRescueMode = currentMecanicoText.includes('En Espera') || currentMecanicoText.includes('ocupados');
+
+            if (isRescueMode) {
+                rescueModal.style.display = 'flex';
+                await cargarMecanicosActivos(); // Reutilizamos función para llenar select
+                return;
+            }
+            executeLlegada();
+        });
+
+        btnConfirmRescue.addEventListener('click', () => {
+            const selectedMec = rescueSelect.value;
+            if (!selectedMec) {
+                alert("Por favor seleccione un mecánico.");
+                return;
+            }
+            rescueModal.style.display = 'none';
+            executeLlegada(selectedMec); // Llamada con nombre de rescate
+        });
+
+        btnCancelRescue.addEventListener('click', () => {
+            rescueModal.style.display = 'none';
+        });
+
+        async function executeLlegada(rescueName = null) {
             stopStatusCheck();
             llegadaMecanicoBtn.disabled = true;
             loadingLlegada.style.display = 'block';
             const rowToUpdate = localStorage.getItem('paroRow');
             const fechaLlegada = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
+            
+            const payload = { action: 'llegada', row: rowToUpdate, data: [fechaLlegada] };
+            if (rescueName) payload.rescueMecanico = rescueName;
+
             try {
                 const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'llegada', row: rowToUpdate, data: [fechaLlegada] }),
+                    body: JSON.stringify(payload),
                 });
                 if (!response.ok) throw new Error('Error registro llegada.');
                 
                 llegadaMecanicoBtn.style.display = 'none';
                 escalarParoBtn.style.display = 'none';
                 fallaAtendidaBtn.style.display = 'block';
-                andonStatusMessage.innerHTML = `<strong>El mecánico</strong> está trabajando en tu máquina.`;
+                
+                const displayMec = rescueName || "El mecánico";
+                andonStatusMessage.innerHTML = `<strong>${displayMec}</strong> está trabajando en tu máquina.`;
             } catch (error) {
                 mostrarError('Error al registrar llegada.');
                 llegadaMecanicoBtn.disabled = false;
             } finally { loadingLlegada.style.display = 'none'; }
-        });
+        }
 
         fallaAtendidaBtn.addEventListener('click', () => {
             stopStatusCheck();
