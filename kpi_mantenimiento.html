@@ -129,6 +129,7 @@
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: 700; }
         .badge-blue { background: #e7f1ff; color: #005f9e; }
         .text-danger { color: #dc3545; font-weight: bold; }
+        .text-center { text-align: center; }
     </style>
 </head>
 <body>
@@ -251,13 +252,28 @@
                         <thead>
                             <tr>
                                 <th>Mecánico Asignado</th>
-                                <th>Tickets Asignados</th>
-                                <th>Tickets Solucionados</th>
-                                <th style="text-align:center;">Eficiencia (%)</th>
+                                <th class="text-center">Tickets Asignados</th>
+                                <th class="text-center">Tickets Solucionados</th>
+                                <th class="text-center">Eficiencia (%)</th>
                             </tr>
                         </thead>
                         <tbody id="table-mec-efficiency">
                             <tr><td colspan="4" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="dashboard-panel charts-full">
+                <h2 class="panel-title"><i class="fas fa-sitemap"></i> Solucionados por Área y Mecánico</h2>
+                <div class="table-container">
+                    <table class="custom-table">
+                        <thead>
+                            <tr id="table-area-mec-header">
+                                <th>Mecánico</th>
+                                </tr>
+                        </thead>
+                        <tbody id="table-area-mec-body">
+                            <tr><td colspan="1" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -326,7 +342,7 @@
                 // Nota: Los meses en JavaScript son 0-indexados (Enero es 0, Diciembre es 11)
                 return new Date(year, month - 1, day, hour, min, sec);
             } catch (e) { 
-                console.error("Error parsing date:", dateStr, e);
+                // console.error("Error parsing date:", dateStr, e); // Desactivado para evitar spam en consola
                 return null; 
             }
         }
@@ -393,10 +409,6 @@
             if (allCheckbox) {
                 allCheckbox.checked = (selectedCount === totalOptions);
             }
-
-            // No llamamos a processData aquí para evitar recálculos excesivos
-            // en cada click, solo lo haremos al usar el botón Filtrar.
-            // processData(); 
         }
 
         function getSelectedMultiselectValues(dropdownId) {
@@ -434,7 +446,7 @@
 
                 initFilters();
                 updateMachineFilterByArea();
-                processData(); // Primera carga de datos
+                processData(); 
             } catch(e) { console.error(e); alert("Error cargando datos. Revisa la consola."); }
         }
 
@@ -471,7 +483,6 @@
             
             dropdownEl.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                 checkbox.addEventListener('change', (e) => {
-                    // Si se deselecciona uno, deseleccionar 'TODAS'
                     const totalOptions = dropdownEl.querySelectorAll('input[type="checkbox"]').length - 1;
                     const selectedCount = Array.from(dropdownEl.querySelectorAll('input[type="checkbox"]:checked')).filter(cb => cb.value !== 'TODAS').length;
                     const allCheckbox = document.getElementById(`check-all-${typeKey}`);
@@ -509,8 +520,8 @@
 
 
         function initFilters() {
-            // Se asume que r.mecanico es el que SOLUCIONÓ (MecánicoTrabajo) y r.mecanicoAsignado es el Asignado.
             const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
+            // Se incluyen ambos campos para asegurar que el filtro de mecánico tenga todas las opciones.
             const mecs = [...new Set(rawData.map(r => r.mecanico || r.mecanicoAsignado).filter(Boolean))].sort();
             const statuses = [...new Set(rawData.map(r => r.statusParo).filter(Boolean))].sort();
             
@@ -520,13 +531,12 @@
             populateMultiselect(statusDropdown, statuses, 'status');
 
             elArea.addEventListener('change', updateMachineFilterByArea);
-            elMec.addEventListener('change', processData); // El cambio de Mecánico no requiere Apply
+            elMec.addEventListener('change', processData); 
         }
 
 
         document.getElementById('btn-apply').addEventListener('click', (e) => {
             e.preventDefault();
-            // Cerrar dropdowns antes de filtrar
             machineDropdown.style.display = 'none';
             statusDropdown.style.display = 'none';
             processData();
@@ -538,13 +548,12 @@
             elStartDate.value = '';
             elEndDate.value = '';
             
-            // Re-chequear todos los checkboxes en ambos multiselect
             document.querySelectorAll('.multiselect-dropdown input[type="checkbox"]').forEach(checkbox => {
                 checkbox.checked = true;
             });
 
             elArea.value = 'TODAS';
-            updateMachineFilterByArea(); // Esto repuebla máquinas y llama a processData
+            updateMachineFilterByArea(); 
 
             updateMultiselectText(btnStatusSelect, 'status-dropdown', 'Status', 'Status');
             
@@ -563,7 +572,7 @@
             const fStatuses = getSelectedMultiselectValues('status-dropdown');
 
             const data = rawData.filter(r => {
-                // Filtros de Área, Mecánico, Máquinas y Status...
+                // 1. Filtros de Categoría
                 if (fArea !== 'TODAS' && r.area !== fArea) return false;
                 
                 // Se filtra por el Mecánico que Solucionó (r.mecanico) o el Asignado (r.mecanicoAsignado)
@@ -574,26 +583,25 @@
                 
                 if (fStatuses.length > 0 && fStatuses.includes(r.statusParo) === false) return false;
 
-                // Lógica de RANGO DE FECHAS - SOLUCIÓN ROBUSTA
+                // 2. Lógica de RANGO DE FECHAS - CORRECCIÓN CRÍTICA
                 if (fStartDate) {
-                    const rOpenDate = parseCustomDate(r.apertura); // Fecha y hora completa de apertura
+                    const rOpenDate = parseCustomDate(r.apertura); 
                     
-                    if (!rOpenDate) return false; // Si no se puede parsear, se ignora
+                    if (!rOpenDate) return false; 
 
                     // Obtiene la fecha de apertura SIN la hora (medianoche de ese día)
                     const rOpenDayOnly = dateToDayOnly(rOpenDate); 
 
-                    // 1. Definir el inicio del rango: Medianoche del día de inicio
                     const startDateFilter = new Date(fStartDate);
-                    const startDateObj = dateToDayOnly(startDateFilter); // dd/mm/yyyy 00:00:00
+                    const startDateObj = dateToDayOnly(startDateFilter); 
                     
-                    // 2. Definir el final del rango: Medianoche del día SIGUIENTE al final del rango
-                    const endDateFilter = new Date(fEndDate || fStartDate);
-                    // Añadimos un día completo para que el rango sea exclusivo del día siguiente
-                    const endDayNext = dateToDayOnly(new Date(endDateFilter.getTime() + (24 * 60 * 60 * 1000))); 
+                    const endDateToUse = fEndDate || fStartDate; // Usa el inicio si el fin está vacío
+                    const endDateFilter = new Date(endDateToUse);
+                    
+                    // Calculamos la medianoche del día siguiente al final del rango.
+                    const endDayNext = dateToDayOnly(new Date(endDateFilter.getFullYear(), endDateFilter.getMonth(), endDateFilter.getDate() + 1)); 
 
-                    // Comparamos si la fecha de apertura está DENTRO del rango:
-                    // Mayor o igual al inicio Y menor al día siguiente al fin.
+                    // La fecha de apertura (solo día) debe ser >= inicio Y < al día siguiente del fin.
                     if (rOpenDayOnly < startDateObj || rOpenDayOnly >= endDayNext) {
                         return false;
                     }
@@ -614,10 +622,12 @@
             const countsArea = {};
             const countsSol = {};
             const countsStation = {}; 
-            const mecEfficiency = {}; // Nuevo objeto para el KPI de Eficiencia por Mecánico
+            const mecEfficiency = {}; 
+            const mecAreaSolution = {}; // Nuevo objeto para Tickets Solucionados por Área y Mecánico
             
             let tableHtml = '';
             let totalTickets = data.length; 
+            let allAreas = new Set(); // Para la cabecera de la nueva tabla
 
             data.forEach(r => {
                 const tOpen = parseCustomDate(r.apertura);
@@ -628,7 +638,9 @@
                 let isClosed = false;
                 
                 const asignado = r.mecanicoAsignado;
-
+                const soluciono = r.mecanico;
+                const area = r.area || 'N/A';
+                
                 // 1. Lógica para KPI de Eficiencia General y por Mecánico Asignado
                 if (asignado) {
                     ticketsAsignados++;
@@ -647,23 +659,30 @@
                     
                     sumResp += tResp; sumRep += tRep; sumTot += tTotal; countClosed++;
                     
-                    if (r.mecanico) { // Si hay un Mecánico (Trabajo), se considera solucionado
+                    if (soluciono) { // Si hay un Mecánico (Trabajo), se considera solucionado
                          ticketsSolucionados++;
                          
-                         // Contar para el KPI de eficiencia del Mecánico Asignado
-                         if (asignado && r.mecanico === asignado) { 
+                         // *** CORRECCIÓN CRÍTICA DE EFICIENCIA POR MECÁNICO: Se comparan los nombres ***
+                         if (asignado && soluciono === asignado) { 
                             mecEfficiency[asignado].solucionados++;
                          }
+                         
+                         // 2. Lógica para Tickets Solucionados por Área y Mecánico
+                         allAreas.add(area);
+                         if (!mecAreaSolution[soluciono]) {
+                            mecAreaSolution[soluciono] = {};
+                         }
+                         mecAreaSolution[soluciono][area] = (mecAreaSolution[soluciono][area] || 0) + 1;
                     }
                 }
                 
-                // 2. Lógica para Gráficas
+                // 3. Lógica para Gráficas
                 const maq = r.maquina || 'N/A'; countsMachine[maq] = (countsMachine[maq] || 0) + 1;
-                const area = r.area || 'N/A'; countsArea[area] = (countsArea[area] || 0) + 1;
+                countsArea[area] = (countsArea[area] || 0) + 1;
                 const sol = r.solucion || 'Sin Clasificar'; countsSol[sol] = (countsSol[sol] || 0) + 1;
                 const station = r.estacion || r.falla || 'Sin Estación'; countsStation[station] = (countsStation[station] || 0) + 1; 
 
-                // 3. Lógica para Tabla Detallada
+                // 4. Lógica para Tabla Detallada
                 const timeClass = tTotal > 30 ? 'text-danger' : '';
 
                 tableHtml += `
@@ -675,9 +694,9 @@
                         <td>${station}</td> <td>${r.falla}</td>
                         <td>${r.solucion || '-'}</td>
                         <td>${r.mecanico}</td>
-                        <td>${isClosed ? tResp : '-'}</td>
-                        <td>${isClosed ? tRep : '-'}</td>
-                        <td class="${timeClass}">${isClosed ? tTotal : '-'}</td>
+                        <td class="text-center">${isClosed ? tResp : '-'}</td>
+                        <td class="text-center">${isClosed ? tRep : '-'}</td>
+                        <td class="${timeClass} text-center">${isClosed ? tTotal : '-'}</td>
                     </tr>
                 `;
             });
@@ -711,14 +730,45 @@
                 mecTableHtml += `
                     <tr>
                         <td><b>${mecanico}</b></td>
-                        <td style="text-align:center;">${metrics.asignados}</td>
-                        <td style="text-align:center;">${metrics.solucionados}</td>
-                        <td class="${colorClass}" style="text-align:center;">${efficiencyMec}%</td>
+                        <td class="text-center">${metrics.asignados}</td>
+                        <td class="text-center">${metrics.solucionados}</td>
+                        <td class="${colorClass} text-center">${efficiencyMec}%</td>
                     </tr>
                 `;
             });
 
-            document.getElementById('table-mec-efficiency').innerHTML = mecTableHtml || '<tr><td colspan="4" style="text-align:center; padding:20px;">No se encontraron datos de asignación.</td></tr>';
+            document.getElementById('table-mec-efficiency').innerHTML = mecTableHtml || '<tr><td colspan="4" class="text-center" style="padding:20px;">No se encontraron datos de asignación.</td></tr>';
+
+            
+            // --- RENDERIZADO DE TABLA DE SOLUCIONADOS POR ÁREA Y MECÁNICO ---
+            const sortedAreas = Array.from(allAreas).sort();
+            
+            // Construir cabecera: Mecánico + Áreas + Total
+            let areaHeaderHtml = '<th>Mecánico</th>' + sortedAreas.map(area => `<th>${area}</th>`).join('') + '<th class="text-center">Total</th>';
+            document.getElementById('table-area-mec-header').innerHTML = areaHeaderHtml;
+            
+            let areaBodyHtml = '';
+            const allMec = Object.keys(mecAreaSolution).sort();
+            const colSpan = sortedAreas.length + 2; // Mecánico + Areas + Total
+            
+            if (allMec.length > 0) {
+                 allMec.forEach(mecanico => {
+                    let totalMec = 0;
+                    let row = `<tr><td><b>${mecanico}</b></td>`;
+                    
+                    sortedAreas.forEach(area => {
+                        const count = mecAreaSolution[mecanico][area] || 0;
+                        row += `<td class="text-center">${count > 0 ? count : '-'}</td>`;
+                        totalMec += count;
+                    });
+                    
+                    row += `<td class="text-center"><b>${totalMec}</b></td></tr>`;
+                    areaBodyHtml += row;
+                 });
+            }
+            
+            document.getElementById('table-area-mec-body').innerHTML = areaBodyHtml || `<tr><td colspan="${colSpan}" class="text-center" style="padding:20px;">No se encontraron tickets solucionados.</td></tr>`;
+
 
             // --- RENDERIZADO DE GRÁFICAS ---
             updateChart('chartMachines', 'bar', countsMachine, 'Fallas por Máquina');
