@@ -46,7 +46,7 @@ async function checkForOpenDuplicate(sheets, area, maquina, estacion) {
     const jobArea = job[0] ? job[0].trim() : '';
     const jobMaquina = job[1] ? job[1].trim() : '';
     const jobEstacion = job[2] ? job[2].trim() : '';
-    const jobStatus = job[11] ? job[11].trim() : ''; // Columna N (índice 11 en el rango C:N)
+    const jobStatus = job[11] ? job[11].trim() : ''; 
 
     if (jobArea === normArea && jobMaquina === normMaquina && jobEstacion === normEstacion &&
         (jobStatus === 'Asignado' || jobStatus === 'En Proceso' || jobStatus === 'En Cola')) {
@@ -253,7 +253,7 @@ exports.handler = async function (event) {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
   try {
-    const { action, data, row, name, sessionRow } = JSON.parse(event.body);
+    const { action, data, row, name, sessionRow, rescueMecanico } = JSON.parse(event.body);
 
     if (!action) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "action".' }) };
     
@@ -324,7 +324,7 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: 'Paro finalizado.' }) };
       }
       
-      // 3. MECÁNICO CHECK-IN (Con registro de tiempo)
+      // 3. MECÁNICO CHECK-IN
       case 'mecanico_check_in': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
         
@@ -348,17 +348,31 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: `Check-in OK.`, sessionRow: newSessionRow }) };
       }
 
-      // 4. REGISTRAR LLEGADA
+      // 4. REGISTRAR LLEGADA (¡ACTUALIZADO PARA RESCATE!)
       case 'llegada': {
         if (!row || !data) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "row" o "data".' }) };
+        
+        const updates = [
+            { range: `Hoja 1!K${row}`, values: [data] },         // Fecha Atención
+            { range: `Hoja 1!N${row}`, values: [['En Proceso']] } // Status
+        ];
+
+        // Si es RESCATE, actualizamos el nombre del mecánico asignado (Col M)
+        if (rescueMecanico) {
+             updates.push({ range: `Hoja 1!M${row}`, values: [[rescueMecanico]] });
+             
+             // Marcar al rescatista como "Ocupado"
+             const mecInfo = await findMechanicByName(sheets, rescueMecanico);
+             if (mecInfo) {
+                 await updateMechanicStatus(sheets, mecInfo.row, 'Ocupado', row);
+             }
+        }
+
         await sheets.spreadsheets.values.batchUpdate({
           spreadsheetId: produccionSheetId,
           resource: {
             valueInputOption: 'USER_ENTERED',
-            data: [
-              { range: `Hoja 1!K${row}`, values: [data] }, 
-              { range: `Hoja 1!N${row}`, values: [['En Proceso']] } 
-            ]
+            data: updates
           }
         });
         return { statusCode: 200, body: JSON.stringify({ message: 'Llegada registrada.' }) };
@@ -376,7 +390,7 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: 'Paro escalado a DETENIDA.' }) };
       }
 
-      // 6. CONSULTAR ESTADO (Polling)
+      // 6. CONSULTAR ESTADO
       case 'check_status': {
         if (!row) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "row".' }) };
         const response = await sheets.spreadsheets.values.get({
@@ -395,7 +409,7 @@ exports.handler = async function (event) {
         };
       }
       
-      // 7. MECÁNICO CHECK-OUT (Con registro de tiempo)
+      // 7. MECÁNICO CHECK-OUT
       case 'mecanico_check_out': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
         const mechanic = await findMechanicByName(sheets, name);
@@ -422,7 +436,7 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: `Check-out OK.` }) };
       }
       
-      // 8. OBTENER TAREAS DE UN MECÁNICO (Para App)
+      // 8. OBTENER TAREAS APP
       case 'get_mecanico_tareas': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
         const mechanic = await findMechanicByName(sheets, name);
@@ -463,7 +477,7 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ tareaActual, tareasEnCola }) };
       }
       
-      // 9. OBTENER MECÁNICOS ACTIVOS (Para Select)
+      // 9. OBTENER MECÁNICOS ACTIVOS (Selectores)
       case 'get_mecanicos_activos': {
           const spreadsheetId = process.env.MECANICOS_SHEET_ID;
           if (!spreadsheetId) throw new Error('MECANICOS_SHEET_ID no configurado.');
@@ -476,7 +490,7 @@ exports.handler = async function (event) {
           return { statusCode: 200, body: JSON.stringify({ mecanicos: activos.sort() }) };
       }
 
-      // 10. NUEVA ACCIÓN: OBTENER TODOS LOS PAROS ACTIVOS (Para Kiosco)
+      // 10. OBTENER PAROS ACTIVOS (Kiosco)
       case 'get_active_paros': {
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: produccionSheetId,
