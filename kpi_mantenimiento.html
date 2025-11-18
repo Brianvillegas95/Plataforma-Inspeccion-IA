@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="https://cdn.jsdelivr.com/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 
     <style>
@@ -46,30 +46,14 @@
         .filter-grid { display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 150px; }
         .filter-group label { font-size: 0.8em; font-weight: 700; color: #495057; margin-bottom: 5px; }
-        .filter-control { padding: 10px 15px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; color: #495057; font-size: 0.95em; transition: border-color 0.2s; }
-        .filter-control:focus { border-color: #005f9e; outline: none; background: #fff; }
-        
-        /* ESTILO PARA AGRUPAR BUSQUEDA DE MÁQUINA */
-        .machine-filter-group {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            min-width: 150px;
-            position: relative; /* Para posicionar el select */
+        .filter-control { 
+            padding: 10px 15px; border: 1px solid #dee2e6; border-radius: 6px; 
+            background: #f8f9fa; color: #495057; font-size: 0.95em; 
+            transition: border-color 0.2s; 
         }
-        
-        #filter-machine-select {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            width: 100%;
-            z-index: 10;
-            margin-top: 5px;
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        .filter-control:focus { border-color: #005f9e; outline: none; background: #fff; }
+        .filter-control[multiple] { 
+            padding: 5px 15px; 
         }
         
         /* BOTONES PRO */
@@ -140,14 +124,21 @@
                     <label>Área</label>
                     <select id="filter-area" class="filter-control"><option value="TODAS">Todas las Áreas</option></select>
                 </div>
-                <div class="machine-filter-group"> 
-                    <label>Máquina (Búsqueda o Filtro)</label>
-                    <input type="text" id="filter-machine-search" placeholder="Escriba o seleccione..." class="filter-control">
-                    <select id="filter-machine-select" class="filter-control" size="5" style="display: none; position: absolute; top: 100%; left: 0; width: 100%; z-index: 10; margin-top: 5px;"><option value="TODAS">Todas las Máquinas</option></select>
+                <div class="filter-group">
+                    <label>Máquina (Selección Múltiple)</label>
+                    <select id="filter-machine-select" class="filter-control" multiple size="3" style="min-height: 80px;">
+                        <option value="TODAS" selected>Todas las Máquinas</option>
+                    </select>
                 </div>
                 <div class="filter-group">
                     <label>Mecánico</label>
                     <select id="filter-mec" class="filter-control"><option value="TODOS">Todos los Mecánicos</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Status del Paro</label>
+                    <select id="filter-status" class="filter-control" multiple size="3" style="min-height: 80px;">
+                        <option value="TODOS" selected>Todos los Status</option>
+                    </select>
                 </div>
                 <div class="filter-group" style="justify-content: flex-end;">
                     <button id="btn-apply" class="btn-primary"><i class="fas fa-search"></i> Filtrar Datos</button>
@@ -159,7 +150,7 @@
             <div class="kpi-card">
                 <div class="kpi-title">Tickets Totales</div>
                 <div class="kpi-value" id="kpi-count">0</div>
-                <div class="kpi-sub">Cerrados en periodo</div>
+                <div class="kpi-sub">Incluidos en el periodo</div>
             </div>
             <div class="kpi-card" style="border-left-color: #28a745;">
                 <div class="kpi-title">MTTR (Tiempo Reparación)</div>
@@ -175,6 +166,11 @@
                 <div class="kpi-title">Tiempo Muerto Total</div>
                 <div class="kpi-value" id="kpi-total-downtime">0 min</div>
                 <div class="kpi-sub">Acumulado</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #17a2b8;">
+                <div class="kpi-title">Eficiencia de Solución</div>
+                <div class="kpi-value" id="kpi-efficiency">0%</div>
+                <div class="kpi-sub" id="kpi-efficiency-sub">0 de 0 Asignados</div>
             </div>
         </section>
 
@@ -226,7 +222,6 @@
             </div>
         </section>
 
-
     </main>
 
     <script>
@@ -236,20 +231,20 @@
         Chart.register(ChartDataLabels);
         let rawData = [];
         let charts = {};
-        let allMachines = {}; // Mapa de máquinas para búsqueda global
-
+        
         // --- DOM REFERENCES ---
         const elArea = document.getElementById('filter-area');
-        const elMachineSelect = document.getElementById('filter-machine-select');
-        const elMachineSearch = document.getElementById('filter-machine-search');
+        const elMachineSelect = document.getElementById('filter-machine-select'); 
         const elMec = document.getElementById('filter-mec');
         const elStartDate = document.getElementById('filter-start-date');
         const elEndDate = document.getElementById('filter-end-date');
+        const elStatus = document.getElementById('filter-status'); 
 
         // --- PARSERS ROBUSTOS ---
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
             try {
+                // Función mejorada para manejar el formato 'dd/mm/yyyy, HH:MM:SS'
                 const parts = dateStr.split(', ');
                 const [dPart, tPart] = parts.length === 2 ? parts : [dateStr, '00:00:00'];
                 
@@ -291,132 +286,90 @@
             const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
             const machines = [...new Set(rawData.map(r => r.maquina).filter(Boolean))].sort();
             const mecs = [...new Set(rawData.map(r => r.mecanico).filter(Boolean))].sort();
+            // NUEVO: Statuses disponibles
+            const statuses = [...new Set(rawData.map(r => r.statusParo).filter(Boolean))].sort();
             
             areas.forEach(x => elArea.add(new Option(x, x)));
-            machines.forEach(x => { 
-                elMachineSelect.add(new Option(x, x));
-                allMachines[x] = rawData.filter(r => r.maquina === x).map(r => r.area)[0] || 'TODAS'; // Mapa global de máquina -> área
-            });
             mecs.forEach(x => elMec.add(new Option(x, x)));
+            
+            // Llenar select de Máquinas (múltiple)
+            elMachineSelect.innerHTML = '<option value="TODAS" selected>Todas las Máquinas</option>';
+            machines.forEach(x => elMachineSelect.add(new Option(x, x)));
+            
+            // Llenar select de Status (múltiple)
+            elStatus.innerHTML = '<option value="TODOS" selected>Todos los Status</option>';
+            statuses.forEach(x => elStatus.add(new Option(x, x)));
         }
 
-        // Lógica de dependencia Área -> Máquina
-        elArea.addEventListener('change', () => {
-            const selectedArea = elArea.value;
-            // Limpiar y resetear filtro de máquina
-            elMachineSelect.innerHTML = '<option value="TODAS">Todas las Máquinas</option>';
-            elMachineSearch.value = '';
-            elMachineSelect.style.display = 'none'; 
-
-            const filteredMachines = Object.keys(allMachines)
-                .filter(m => selectedArea === 'TODAS' || allMachines[m] === selectedArea)
-                .sort();
-            
-            filteredMachines.forEach(x => elMachineSelect.add(new Option(x, x)));
-            
-            processData();
-        });
-
-        // Lógica de búsqueda manual
-        elMachineSearch.addEventListener('input', () => {
-            const searchTerm = elMachineSearch.value.toLowerCase();
-            const selectedArea = elArea.value;
-
-            // Mostrar el SELECT para sugerencias SOLO si hay texto o el select no está vacío.
-            elMachineSelect.style.display = (searchTerm.length > 0) ? 'block' : 'none';
-            
-            elMachineSelect.innerHTML = '<option value="TODAS">Todas las Máquinas</option>';
-            
-            const options = Object.keys(allMachines)
-                .filter(m => {
-                    const matchesArea = selectedArea === 'TODAS' || allMachines[m] === selectedArea;
-                    const matchesSearch = m.toLowerCase().includes(searchTerm);
-                    return matchesArea && matchesSearch;
-                })
-                .sort();
-            
-            options.forEach(x => elMachineSelect.add(new Option(x, x)));
-            
-            // Si el término de búsqueda coincide con una opción, seleccionarla
-            if (options.includes(elMachineSearch.value)) {
-                 elMachineSelect.value = elMachineSearch.value;
-            } else {
-                 elMachineSelect.value = 'TODAS';
-            }
-            
-            processData(); // Filtrar en tiempo real por la búsqueda
-        });
-        
-        // Al seleccionar de la lista de sugerencias, actualizar el campo de texto y filtrar
-        elMachineSelect.addEventListener('change', () => {
-            if (elMachineSelect.value !== 'TODAS') {
-                elMachineSearch.value = elMachineSelect.value;
-                elMachineSelect.style.display = 'none'; // Ocultar después de seleccionar
-            } else {
-                elMachineSearch.value = '';
-                elMachineSelect.style.display = 'none';
-            }
-            processData();
-        });
+        // Manejar cambio en filtros simples
+        [elArea, elMec].forEach(el => el.addEventListener('change', processData));
+        // Manejar cambio en filtros múltiples
+        [elMachineSelect, elStatus].forEach(el => el.addEventListener('change', processData));
 
 
-        document.getElementById('btn-apply').addEventListener('click', () => {
-             // Esconder el select al aplicar filtro
-             elMachineSelect.style.display = 'none';
-             processData();
-        });
+        document.getElementById('btn-apply').addEventListener('click', processData);
         document.getElementById('btn-reset').addEventListener('click', () => {
             elArea.value = 'TODAS'; 
-            elMachineSearch.value = ''; 
             elMec.value = 'TODOS'; 
             elStartDate.value = '';
             elEndDate.value = '';
-            elMachineSelect.style.display = 'none';
-            // Resetear lista de máquinas a global
-            elMachineSelect.innerHTML = '<option value="TODAS">Todas las Máquinas</option>';
-            Object.keys(allMachines).forEach(x => elMachineSelect.add(new Option(x, x)));
+            
+            // Resetear selects múltiples
+            Array.from(elMachineSelect.options).forEach(opt => opt.selected = opt.value === 'TODAS');
+            Array.from(elStatus.options).forEach(opt => opt.selected = opt.value === 'TODOS');
+            
             processData();
         });
 
 
+        // Función para obtener valores seleccionados de un select múltiple
+        function getSelectedValues(selectElement) {
+            return Array.from(selectElement.options)
+                .filter(option => option.selected)
+                .map(option => option.value);
+        }
+        
         // --- PROCESAMIENTO Y RENDERIZADO ---
         function processData() {
             const fArea = elArea.value;
-            const fMach = elMachineSearch.value; 
             const fMec = elMec.value;
             const fStartDate = elStartDate.value;
             const fEndDate = elEndDate.value;
+            
+            // Obtener selecciones múltiples
+            const fMachs = getSelectedValues(elMachineSelect).filter(v => v !== 'TODAS');
+            const fStatuses = getSelectedValues(elStatus).filter(v => v !== 'TODOS');
 
             const data = rawData.filter(r => {
-                // Filtro para tickets cerrados (Requisito para KPIs de tiempo)
-                if (!r.cierre) return false; 
-                
-                // Filtros de Texto
+                // FILTRO DE ÁREA
                 if (fArea !== 'TODAS' && r.area !== fArea) return false;
-                if (fMec !== 'TODOS' && r.mecanico !== fMec) return false;
-                if (fMach && fMach !== 'TODAS' && r.maquina !== fMach) return false;
                 
-                // Lógica de RANGO DE FECHAS - CORRECCIÓN CRÍTICA
+                // FILTRO DE MECÁNICO (Usando la columna 'mecanico' = quien arregló)
+                // Usamos Mecánico Asignado si Mecánico está vacío para que el filtro funcione con tickets abiertos
+                const filterMecValue = r.mecanico || r.mecanicoAsignado;
+                if (fMec !== 'TODOS' && filterMecValue !== fMec) return false;
+                
+                // FILTRO DE MÁQUINAS (Múltiple)
+                if (fMachs.length > 0 && !fMachs.includes(r.maquina)) return false;
+                
+                // FILTRO DE STATUS (Múltiple)
+                if (fStatuses.length > 0 && !fStatuses.includes(r.statusParo)) return false;
+
+                // Lógica de RANGO DE FECHAS - POR FECHA DE APERTURA (CORREGIDO)
                 if (fStartDate) {
-                    // Usamos la Fecha y Hora de Apertura para filtrar (como solicitaste)
-                    const tOpenDate = dateToDayOnly(parseCustomDate(r.apertura));
+                    // Obtener el día de apertura del registro (sin hora)
+                    const rOpenDay = dateToDayOnly(parseCustomDate(r.apertura));
+                    
+                    // Fechas de inicio y fin del filtro (solo día, a medianoche)
                     const startDateObj = dateToDayOnly(new Date(fStartDate));
+                    const endDateObj = fEndDate ? dateToDayOnly(new Date(fEndDate)) : startDateObj; 
                     
-                    // Si hay fecha final, la ajustamos al final del día.
-                    let endDateObj = fEndDate ? dateToDayOnly(new Date(fEndDate)) : startDateObj; 
-                    
-                    if (!tOpenDate || !startDateObj || !endDateObj) return false;
+                    if (!rOpenDay || !startDateObj || !endDateObj) return false;
 
-                    // Si solo se eligió una fecha (fEndDate es vacío o igual a fStartDate), 
-                    // el rango debe incluir todo el día de inicio.
-                    // Si se eligió un rango, debe incluir desde la medianoche del inicio
-                    // hasta la medianoche del fin.
-                    
-                    // Si la fecha de apertura es anterior a la fecha de inicio, no pasa el filtro.
-                    if (tOpenDate < startDateObj) return false;
-
-                    // Si la fecha de apertura es posterior a la fecha de fin (al final del día), no pasa.
-                    if (tOpenDate > endDateObj) return false;
+                    // Verifica si el día de apertura está en el rango [startDateObj, endDateObj]
+                    if (rOpenDay < startDateObj || rOpenDay > endDateObj) {
+                        return false;
+                    }
                 }
                 
                 return true;
@@ -426,13 +379,17 @@
         }
 
         function calculateMetrics(data) {
-            let sumResp = 0, sumRep = 0, sumTot = 0, count = 0;
+            let sumResp = 0, sumRep = 0, sumTot = 0, countClosed = 0; 
+            let ticketsAsignados = 0; // NUEVO: Contador de tickets asignados (MecanicoAsignado)
+            let ticketsSolucionados = 0; // NUEVO: Contador de tickets solucionados (Mecanico, y Cierre no nulo)
+            
             const countsMachine = {};
             const countsArea = {};
             const countsSol = {};
             const countsStation = {}; 
 
             let tableHtml = '';
+            let totalTickets = data.length; // Conteo de todos los tickets filtrados por otros parámetros
 
             data.forEach(r => {
                 const tOpen = parseCustomDate(r.apertura);
@@ -440,14 +397,27 @@
                 const tClose = parseCustomDate(r.cierre);
                 
                 let tResp = 0, tRep = 0, tTotal = 0;
+                let isClosed = false;
+
+                // Conteo para KPI de Eficiencia de Solución
+                // Si tiene MecánicoAsignado, cuenta como asignado.
+                if (r.mecanicoAsignado) {
+                    ticketsAsignados++;
+                }
 
                 if (tOpen && tClose) {
+                    isClosed = true;
                     const validArrive = tArrive || tOpen; 
                     tResp = getDiffMinutes(tOpen, validArrive);
                     tRep = getDiffMinutes(validArrive, tClose);
                     tTotal = getDiffMinutes(tOpen, tClose);
-
-                    sumResp += tResp; sumRep += tRep; sumTot += tTotal; count++;
+                    
+                    sumResp += tResp; sumRep += tRep; sumTot += tTotal; countClosed++;
+                    
+                    // Si tiene fecha de cierre, cuenta como solucionado (el Mecánico es el que lo cerró)
+                    if (r.mecanico) {
+                         ticketsSolucionados++;
+                    }
                 }
 
                 // Contadores para gráficas
@@ -468,22 +438,27 @@
                         <td>${station}</td> <td>${r.falla}</td>
                         <td>${r.solucion || '-'}</td>
                         <td>${r.mecanico}</td>
-                        <td>${tResp}</td>
-                        <td>${tRep}</td>
-                        <td class="${timeClass}">${tTotal}</td>
+                        <td>${isClosed ? tResp : '-'}</td>
+                        <td>${isClosed ? tRep : '-'}</td>
+                        <td class="${timeClass}">${isClosed ? tTotal : '-'}</td>
                     </tr>
                 `;
             });
 
-            // MTTA and MTTR calculations
-            const avgResp = count ? Math.round(sumResp / count) : 0;
-            const avgRep = count ? Math.round(sumRep / count) : 0;
+            // MTTA and MTTR calculations - Solo con tickets cerrados
+            const avgResp = countClosed ? Math.round(sumResp / countClosed) : 0;
+            const avgRep = countClosed ? Math.round(sumRep / countClosed) : 0;
+            
+            // Cálculo de Eficiencia
+            const efficiency = ticketsAsignados > 0 ? ((ticketsSolucionados / ticketsAsignados) * 100).toFixed(1) : 0;
 
             // Render KPIs
-            document.getElementById('kpi-count').textContent = count;
+            document.getElementById('kpi-count').textContent = totalTickets; 
             document.getElementById('kpi-mttr').textContent = avgRep + " min";
             document.getElementById('kpi-mtta').textContent = avgResp + " min";
             document.getElementById('kpi-total-downtime').textContent = sumTot + " min";
+            document.getElementById('kpi-efficiency').textContent = efficiency + "%";
+            document.getElementById('kpi-efficiency-sub').textContent = `${ticketsSolucionados} de ${ticketsAsignados} Asignados`;
             
             // Render Table - Colspan 11
             document.getElementById('table-body').innerHTML = tableHtml || '<tr><td colspan="11" style="text-align:center; padding:20px;">No se encontraron datos.</td></tr>';
