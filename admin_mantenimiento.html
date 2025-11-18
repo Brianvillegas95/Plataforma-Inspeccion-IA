@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Mantenimiento - Grupo Azor</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <style>
+        body { background-color: #f4f6f9; }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; }
+        @media(max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
+        
+        .panel { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; }
+        .panel-header { background: var(--azor-blue, #005f9e); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .panel-body { padding: 15px; max-height: 80vh; overflow-y: auto; }
+
+        .job-card, .mec-card { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .job-card { border-left: 4px solid #ffc107; display: flex; justify-content: space-between; align-items: center; }
+        .job-card.detenida { border-left-color: #dc3545; }
+        
+        .mec-card { display: flex; justify-content: space-between; align-items: center; }
+        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .dot-green { background: #28a745; }
+        .dot-red { background: #dc3545; }
+        .dot-grey { background: #6c757d; }
+
+        .action-btn { font-size: 0.8em; padding: 5px 10px; cursor: pointer; background: #fff; border: 1px solid #ccc; border-radius: 4px; }
+        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    </style>
+</head>
+<body>
+
+    <div id="login-overlay" class="login-overlay">
+        <h2>Panel Administrativo</h2>
+        <p>Acceso restringido a Jefatura.</p>
+        <button onclick="netlifyIdentity.open()" class="button primary-action">Iniciar Sesión</button>
+    </div>
+
+    <header class="app-header">
+        <div class="logo-container">
+            <img src="imagenes/Logo azor.png" alt="Logo" class="logo">
+            <h1>Panel de Control Mantenimiento</h1>
+        </div>
+        <button onclick="netlifyIdentity.logout()" class="button" style="background:rgba(255,255,255,0.2); color:white; border:none;">Salir</button>
+    </header>
+
+    <main class="dashboard-grid">
+        <div class="panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-tasks"></i> Tickets Activos</h3>
+                <button onclick="loadDashboard()" class="action-btn"><i class="fas fa-sync"></i></button>
+            </div>
+            <div class="panel-body" id="active-jobs-list">
+                <p>Cargando...</p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-users-cog"></i> Fuerza de Trabajo</h3>
+            </div>
+            <div class="panel-body" id="mechanics-list">
+                <p>Cargando...</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            netlifyIdentity.init();
+            const user = netlifyIdentity.currentUser();
+            if(user) {
+                document.getElementById('login-overlay').style.display = 'none';
+                loadDashboard();
+                setInterval(loadDashboard, 15000);
+            }
+            
+            netlifyIdentity.on('login', () => { document.getElementById('login-overlay').style.display = 'none'; loadDashboard(); });
+            netlifyIdentity.on('logout', () => { document.getElementById('login-overlay').style.display = 'flex'; });
+        });
+
+        async function loadDashboard() {
+            try {
+                const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'admin_get_dashboard' })
+                });
+                const data = await res.json();
+                
+                renderMechanics(data.mecanicos || []);
+                renderJobs(data.jobs || []);
+            } catch (e) { console.error(e); }
+        }
+
+        function renderMechanics(mecanicos) {
+            const container = document.getElementById('mechanics-list');
+            if(mecanicos.length === 0) { container.innerHTML = '<p>No hay datos.</p>'; return; }
+            
+            let html = '';
+            mecanicos.forEach(m => {
+                let dot = 'dot-grey';
+                if(m.active === 'Disponible') dot = (m.status === 'Libre') ? 'dot-green' : 'dot-red';
+                
+                html += `
+                <div class="mec-card">
+                    <div>
+                        <span class="status-dot ${dot}"></span>
+                        <strong>${m.name}</strong> <small>(${m.area})</small>
+                    </div>
+                    <span style="font-size:0.8em; color:#666;">${m.active === 'Disponible' ? m.status : 'Ausente'}</span>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderJobs(jobs) {
+            const container = document.getElementById('active-jobs-list');
+            if(jobs.length === 0) { container.innerHTML = '<p style="text-align:center">Planta operando normal. Sin paros.</p>'; return; }
+            
+            let html = '';
+            jobs.forEach(j => {
+                const isStopped = j.status === 'detenida';
+                html += `
+                <div class="job-card ${isStopped ? 'detenida' : ''}">
+                    <div>
+                        <div style="font-weight:bold; color:var(--azor-blue)">${j.maquina}</div>
+                        <div style="font-size:0.85em">${j.folio} | ${j.area}</div>
+                        <div style="font-size:0.85em; color:#555;">Mec: <strong>${j.mecanico}</strong> (${j.estado})</div>
+                    </div>
+                    <button onclick="promptReassign(${j.row}, '${j.mecanico}')" class="action-btn">Reasignar</button>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        async function promptReassign(row, currentMec) {
+            const newMec = prompt(`Reasignar trabajo (Fila ${row}).\nActual: ${currentMec}\n\nEscribe el nombre EXACTO del nuevo mecánico:`);
+            
+            if(newMec && newMec !== currentMec) {
+                if(confirm(`¿Confirmar cambio de ${currentMec} a ${newMec}?`)) {
+                    try {
+                        await fetch('/.netlify/functions/escribir-mantenimiento', {
+                            method: 'POST',
+                            body: JSON.stringify({ action: 'admin_reassign', row: row, newMechanic: newMec })
+                        });
+                        alert("Reasignado.");
+                        loadDashboard();
+                    } catch(e) { alert("Error al reasignar"); }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

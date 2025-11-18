@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KPIs Mantenimiento - Grupo Azor</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+
+    <style>
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; padding: 20px; }
+        .kpi-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+        .kpi-value { font-size: 2.5em; font-weight: bold; color: var(--azor-blue, #005f9e); }
+        .kpi-label { color: #666; font-size: 0.9em; text-transform: uppercase; }
+        
+        .charts-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; }
+        @media(max-width: 768px) { .charts-container { grid-template-columns: 1fr; } }
+        .chart-box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+
+        .filters { background: #fff; padding: 15px 20px; display: flex; gap: 15px; align-items: center; border-bottom: 1px solid #eee; flex-wrap: wrap;}
+        .filter-group { display: flex; flex-direction: column; }
+        .filter-group label { font-size: 0.8em; color: #888; margin-bottom: 3px; }
+        .form-control-sm { padding: 5px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="login-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:9999;display:flex;justify-content:center;align-items:center;flex-direction:column;">
+        <h2>Indicadores de Desempeño</h2>
+        <button onclick="netlifyIdentity.open()" class="button primary-action">Ver KPIs</button>
+    </div>
+
+    <header class="app-header">
+        <div class="logo-container">
+            <img src="imagenes/Logo azor.png" alt="Logo" class="logo">
+            <h1>KPIs Mantenimiento</h1>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button onclick="window.location.href='admin_mantenimiento.html'" class="button" style="background:rgba(255,255,255,0.2);color:white;border:none;">Admin</button>
+            <button onclick="netlifyIdentity.logout()" class="button" style="background:rgba(255,255,255,0.2);color:white;border:none;">Salir</button>
+        </div>
+    </header>
+
+    <div class="filters">
+        <div class="filter-group">
+            <label>Área</label>
+            <select id="filter-area" class="form-control-sm"><option value="TODAS">Todas</option></select>
+        </div>
+        <div class="filter-group">
+            <label>Mecánico</label>
+            <select id="filter-mec" class="form-control-sm"><option value="TODOS">Todos</option></select>
+        </div>
+        <button onclick="processData()" class="button primary-action" style="margin-top: 15px; padding: 5px 15px;">Filtrar</button>
+    </div>
+
+    <main>
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-value" id="kpi-count">0</div>
+                <div class="kpi-label">Tickets Cerrados</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value" id="kpi-response">0m</div>
+                <div class="kpi-label">Tiempo Respuesta (Prom)</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value" id="kpi-repair">0m</div>
+                <div class="kpi-label">Tiempo Reparación (Prom)</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value" id="kpi-total">0m</div>
+                <div class="kpi-label">Tiempo Total Paro (Prom)</div>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-box">
+                <h3>Top Fallas por Máquina</h3>
+                <canvas id="chartMachines"></canvas>
+            </div>
+            <div class="chart-box">
+                <h3>Tipos de Solución</h3>
+                <canvas id="chartSolutions"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let rawData = [];
+        let charts = {};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            netlifyIdentity.init();
+            const user = netlifyIdentity.currentUser();
+            if(user) {
+                document.getElementById('login-overlay').style.display = 'none';
+                loadData();
+            }
+            netlifyIdentity.on('login', () => { document.getElementById('login-overlay').style.display = 'none'; loadData(); });
+        });
+
+        async function loadData() {
+            try {
+                const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'get_kpi_data' })
+                });
+                const json = await res.json();
+                rawData = json.data || [];
+                
+                populateFilters();
+                processData();
+            } catch(e) { console.error(e); alert("Error cargando datos KPI"); }
+        }
+
+        function parseDate(str) {
+            if(!str) return null;
+            // Asume formato DD/MM/YYYY, HH:MM:SS (Formato standard de JS toLocaleString mx)
+            const [datePart, timePart] = str.split(', ');
+            if(!datePart || !timePart) return null;
+            const [day, month, year] = datePart.split('/').map(Number);
+            const [hours, minutes, seconds] = timePart.split(':').map(Number);
+            return new Date(year, month - 1, day, hours, minutes, seconds);
+        }
+
+        function diffMinutes(d1, d2) {
+            if(!d1 || !d2) return 0;
+            return (d2 - d1) / 1000 / 60; // ms -> min
+        }
+
+        function populateFilters() {
+            const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
+            const mecs = [...new Set(rawData.map(r => r.mecanico).filter(Boolean))].sort();
+            
+            const selArea = document.getElementById('filter-area');
+            areas.forEach(a => selArea.add(new Option(a, a)));
+
+            const selMec = document.getElementById('filter-mec');
+            mecs.forEach(m => selMec.add(new Option(m, m)));
+        }
+
+        function processData() {
+            const fArea = document.getElementById('filter-area').value;
+            const fMec = document.getElementById('filter-mec').value;
+
+            const data = rawData.filter(r => {
+                if(!r.cierre) return false;
+                if(fArea !== 'TODAS' && r.area !== fArea) return false;
+                if(fMec !== 'TODOS' && r.mecanico !== fMec) return false;
+                return true;
+            });
+
+            let totalResponse = 0, totalRepair = 0, totalTotal = 0, count = 0;
+            const machineCounts = {};
+            const solutionCounts = {};
+
+            data.forEach(r => {
+                const tOpen = parseDate(r.apertura);
+                const tArrive = parseDate(r.llegada);
+                const tClose = parseDate(r.cierre);
+
+                if(tOpen && tClose) {
+                    const tResp = tArrive ? diffMinutes(tOpen, tArrive) : 0;
+                    const tRep = tArrive ? diffMinutes(tArrive, tClose) : diffMinutes(tOpen, tClose);
+                    const tTot = diffMinutes(tOpen, tClose);
+
+                    totalResponse += tResp;
+                    totalRepair += tRep;
+                    totalTotal += tTot;
+                    count++;
+                }
+
+                machineCounts[r.maquina] = (machineCounts[r.maquina] || 0) + 1;
+                const sol = r.solucion || 'Sin Clasificar';
+                solutionCounts[sol] = (solutionCounts[sol] || 0) + 1;
+            });
+
+            document.getElementById('kpi-count').textContent = count;
+            document.getElementById('kpi-response').textContent = count ? Math.round(totalResponse / count) + "m" : "0m";
+            document.getElementById('kpi-repair').textContent = count ? Math.round(totalRepair / count) + "m" : "0m";
+            document.getElementById('kpi-total').textContent = count ? Math.round(totalTotal / count) + "m" : "0m";
+
+            renderChart('chartMachines', 'bar', machineCounts, 'Fallas por Máquina');
+            renderChart('chartSolutions', 'pie', solutionCounts, 'Tipos de Solución');
+        }
+
+        function renderChart(canvasId, type, dataObj, label) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const labels = Object.keys(dataObj);
+            const values = Object.values(dataObj);
+            
+            if(charts[canvasId]) charts[canvasId].destroy();
+
+            charts[canvasId] = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: values,
+                        backgroundColor: ['#005f9e', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6c757d']
+                    }]
+                },
+                options: { responsive: true }
+            });
+        }
+    </script>
+</body>
+</html>
