@@ -41,7 +41,7 @@
             padding: 2px 6px;
         }
         
-        /* Estilos para NUESTROS botones personalizados */
+        /* Estilos para botones personalizados */
         .header-btn, .login-btn {
             background-color: #fff !important;
             color: var(--azor-blue, #005f9e) !important;
@@ -70,7 +70,6 @@
             display: none; /* Se activa por JS */
         }
         
-        /* (Estilos de .task-section, .status-maquina, etc. sin cambios) */
         .task-section{background-color:var(--surface-bg,#fff);border-radius:var(--border-radius,8px);margin-bottom:25px;box-shadow:var(--shadow-md,0 4px 6px rgba(0,0,0,.1));overflow:hidden}.task-header{background-color:var(--azor-blue,#005f9e);color:var(--text-primary,#fff);padding:15px 20px}.task-header.secondary{background-color:var(--medium-bg,#e0e0e0);color:var(--text-main,#333)}.task-header h2{margin:0;font-size:1.25em}.task-content{padding:20px}.task-content p{font-size:1.1em;line-height:1.6;margin:.5em 0;color:var(--text-secondary,#555)}.task-content strong{color:var(--text-main,#222);font-weight:600}.status-maquina{font-weight:700;padding:3px 8px;border-radius:4px;color:#fff;text-transform:uppercase}.status-maquina.detenida{background-color:var(--danger-color,#dc3545)}.status-maquina.trabajando{background-color:var(--warning-color,#ffc107);color:#333}.no-task{text-align:center;padding:40px 20px;font-size:1.2em;color:var(--text-secondary,#777);font-style:italic}.loading-spinner{display:none;width:40px;height:40px;border:4px solid var(--light-bg,#f4f7f6);border-top:4px solid var(--azor-blue,#005f9e);border-radius:50%;animation:spin 1s linear infinite;margin:20px auto}@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
         
     </style>
@@ -125,13 +124,16 @@
         let taskCheckInterval = null;
         let currentUserName = null;
 
-        // --- API Calls (sin cambios) ---
-        async function callApi(action, name) {
+        // --- API Calls (Actualizada para soportar extraData) ---
+        async function callApi(action, name, extraData = {}) {
             try {
+                // Fusionamos action, name y cualquier dato extra (como sessionRow)
+                const bodyPayload = { action, name, ...extraData };
+                
                 const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, name })
+                    body: JSON.stringify(bodyPayload)
                 });
                 if (!response.ok) throw new Error(`Error en ${action}`);
                 return await response.json();
@@ -140,7 +142,7 @@
             }
         }
         
-        // --- (Función getMisTareas - corregida) ---
+        // --- (Función getMisTareas) ---
         async function getMisTareas() {
             if (!currentUserName) return;
             console.log("Revisando tareas...");
@@ -194,8 +196,8 @@
             }
         }
 
-        // --- Lógica de Autenticación (con 'body' tag) ---
-        function showApp(user) {
+        // --- Lógica de Autenticación (Actualizada con Registro de Tiempos) ---
+        async function showApp(user) {
             loginContainer.style.display = 'none';
             appWrapper.style.display = 'block'; 
             currentUserName = user.user_metadata.full_name;
@@ -205,21 +207,39 @@
                 netlifyIdentity.logout();
                 return;
             }
-            callApi('mecanico_check_in', currentUserName);
+            
             loadingSpinner.style.display = 'block';
+            
+            // 1. Realizar Check-In y capturar respuesta
+            const response = await callApi('mecanico_check_in', currentUserName);
+            
+            // 2. Guardar la "sessionRow" si el servidor la devuelve
+            if (response && response.sessionRow) {
+                console.log(`Sesión registrada en fila: ${response.sessionRow}`);
+                localStorage.setItem('sessionRow', response.sessionRow);
+            }
+
             getMisTareas();
             stopTaskCheck();
-            // --- ¡NUEVO TIEMPO! 10 segundos ---
             taskCheckInterval = setInterval(getMisTareas, 10000); 
         }
 
-        function showLogin() {
+        async function showLogin() {
             appWrapper.style.display = 'none';
             loginContainer.style.display = 'block';
             stopTaskCheck();
+            
             if (currentUserName) {
                 console.log(`Usuario cerrando sesión: ${currentUserName}`);
-                callApi('mecanico_check_out', currentUserName);
+                
+                // 1. Recuperar la "sessionRow" guardada al entrar
+                const sessionRow = localStorage.getItem('sessionRow');
+                
+                // 2. Enviar Check-Out incluyendo la sessionRow
+                await callApi('mecanico_check_out', currentUserName, { sessionRow: sessionRow });
+                
+                // 3. Limpiar
+                localStorage.removeItem('sessionRow');
                 currentUserName = null;
             }
         }
