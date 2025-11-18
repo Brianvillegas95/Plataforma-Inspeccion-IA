@@ -328,34 +328,39 @@
         const btnStatusSelect = document.getElementById('btn-status-select');
         const statusDropdown = document.getElementById('status-dropdown');
 
-        // --- PARSERS ROBUSTOS (AJUSTADO PARA FORMATO DD/MM/YYYY HH:MM:SS SIN COMA) ---
+        // --- PARSERS ROBUSTOS (CORREGIDO PARA MANEJAR DIVERSOS SEPARADORES DE FECHA/HORA) ---
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
             try {
-                // El formato en la hoja parece ser "DD/MM/YYYY HH:MM:SS" (sin coma entre fecha y hora)
-                const parts = dateStr.split(/\s+/); // Separa por cualquier espacio
+                // Separamos por cualquier espacio (o coma si existe) para dividir Fecha y Hora
+                const parts = dateStr.trim().split(/[\s,]+/); 
                 
                 if (parts.length < 2) {
-                     // Intenta el formato anterior por si acaso: DD/MM/YYYY, HH:MM:SS
-                    const commaParts = dateStr.split(', ');
-                    if (commaParts.length === 2) {
-                         parts[0] = commaParts[0];
-                         parts[1] = commaParts[1];
-                    } else {
-                        return null; // Formato no reconocido
-                    }
+                    // Si solo hay una parte, asumimos que es solo fecha
+                    parts.push('00:00:00');
                 }
                 
-                const dPart = parts[0];
-                const tPart = parts[1] || '00:00:00'; // Asegura una hora si solo hay fecha
+                const dPart = parts[0]; // DD/MM/YYYY
+                const tPart = parts[1] || '00:00:00'; // HH:MM:SS
                 
-                const [day, month, year] = dPart.split('/').map(Number);
-                const [hour, min, sec] = tPart.split(':').map(Number);
+                // Procesamos la fecha
+                const dateParts = dPart.split('/');
+                if (dateParts.length !== 3) return null;
+
+                const [day, month, year] = dateParts.map(Number);
+
+                // Procesamos la hora (tolerancia a formatos sin segundos)
+                const timeParts = tPart.split(':');
+                const hour = Number(timeParts[0]);
+                const min = Number(timeParts[1]);
+                const sec = Number(timeParts[2] || 0); // Si no hay segundos, es 0
                 
-                // Nota: Los meses en JavaScript son 0-indexados (Enero es 0, Diciembre es 11)
+                // Validaciones básicas
+                if (isNaN(day) || isNaN(month) || isNaN(year) || isNaN(hour) || isNaN(min) || isNaN(sec)) return null;
+
+                // Creamos la fecha (Month en JS es 0-indexed)
                 return new Date(year, month - 1, day, hour, min, sec);
             } catch (e) { 
-                // console.error("Error parsing date:", dateStr, e); 
                 return null; 
             }
         }
@@ -368,7 +373,8 @@
         }
 
         function getDiffMinutes(dStart, dEnd) {
-            if(!dStart || !dEnd) return 0;
+            // Devuelve 0 si la fecha de inicio o fin no son válidas
+            if(!dStart || !dEnd || isNaN(dStart.getTime()) || isNaN(dEnd.getTime())) return 0;
             return Math.round((dEnd - dStart) / 1000 / 60);
         }
 
@@ -598,8 +604,8 @@
                 if (fStartDate) {
                     const rOpenDate = parseCustomDate(r.apertura); 
                     
-                    // Si no se puede parsear la fecha de apertura, lo descartamos
-                    if (!rOpenDate) return false; 
+                    // Si no se puede parsear la fecha de apertura o es inválida (NaN), lo descartamos
+                    if (!rOpenDate || isNaN(rOpenDate.getTime())) return false; 
 
                     // Obtenemos la fecha de apertura sólo con el día (medianoche)
                     const rOpenDayOnly = dateToDayOnly(rOpenDate); 
@@ -613,7 +619,6 @@
                     const endDateFilter = new Date(endDateToUse);
                     
                     // 3. Calculamos la medianoche del DÍA SIGUIENTE al final del rango.
-                    // Esto asegura que se incluyan todos los tickets abiertos hasta las 23:59:59 del día final.
                     const endDayNext = new Date(endDateFilter.getFullYear(), endDateFilter.getMonth(), endDateFilter.getDate() + 1); 
 
                     // La fecha de apertura (sólo día) debe ser >= inicio Y < al día siguiente del fin.
@@ -631,7 +636,7 @@
         function calculateMetrics(data) {
             let sumResp = 0, sumRep = 0, sumTot = 0, countClosed = 0; 
             let ticketsAsignados = 0; 
-            let ticketsSolucionados = 0; // Tickets que tienen 'r.mecanico' (MecánicoTrabajo)
+            let ticketsSolucionados = 0; 
             
             const countsMachine = {};
             const countsArea = {};
@@ -652,8 +657,9 @@
                 let tResp = 0, tRep = 0, tTotal = 0;
                 let isClosed = false;
                 
-                const asignado = r.mecanicoAsignado; // Mecánico Asignado (Columna I)
-                const soluciono = r.mecanico; // Mecánico Trabajo (Columna H)
+                // Usamos una sintaxis flexible para acceder al campo asignado en caso de errores de mayúsculas/minúsculas
+                const asignado = r.mecanicoAsignado || r.MecanicoAsignado; 
+                const soluciono = r.mecanico || r.Mecanico || r.MecanicoTrabajo; 
                 const area = r.area || 'N/A';
                 
                 // 1. Lógica para KPI de Eficiencia General y por Mecánico Asignado
@@ -666,23 +672,28 @@
                 }
 
                 if (tOpen && tClose) {
-                    isClosed = true;
-                    const validArrive = tArrive || tOpen; 
-                    tResp = getDiffMinutes(tOpen, validArrive);
-                    tRep = getDiffMinutes(validArrive, tClose);
-                    tTotal = getDiffMinutes(tOpen, tClose);
-                    
-                    sumResp += tResp; sumRep += tRep; sumTot += tTotal; countClosed++;
+                    // Validar que ambas fechas de tiempo sean válidas
+                    if (isNaN(tOpen.getTime()) || isNaN(tClose.getTime())) {
+                        tTotal = 0; 
+                    } else {
+                        isClosed = true;
+                        const validArrive = tArrive && !isNaN(tArrive.getTime()) ? tArrive : tOpen; 
+                        tResp = getDiffMinutes(tOpen, validArrive);
+                        tRep = getDiffMinutes(validArrive, tClose);
+                        tTotal = getDiffMinutes(tOpen, tClose);
+                        
+                        sumResp += tResp; sumRep += tRep; sumTot += tTotal; countClosed++;
+                    }
                     
                     if (soluciono) { // Si hay un Mecánico (Trabajo), se considera solucionado
                          ticketsSolucionados++;
                          
-                         // *** CORRECCIÓN CRÍTICA DE EFICIENCIA POR MECÁNICO: Se comparan los nombres ***
+                         // Eficiencia por Mecánico: compara Asignado y Solucionó
                          if (asignado && soluciono === asignado) { 
                             mecEfficiency[asignado].solucionados++;
                          }
                          
-                         // 2. Lógica para Tickets Solucionados por Área y Mecánico
+                         // Solucionados por Área y Mecánico: se usa el que Solucionó (r.mecanico)
                          allAreas.add(area);
                          if (!mecAreaSolution[soluciono]) {
                             mecAreaSolution[soluciono] = {};
@@ -699,9 +710,7 @@
 
                 // 4. Lógica para Tabla Detallada
                 const timeClass = tTotal > 30 ? 'text-danger' : '';
-
-                // El formato de la columna Fecha debe ser el día solamente
-                const displayDate = tOpen ? tOpen.toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: 'numeric'}) : (r.apertura || '-').split(/\s+/)[0];
+                const displayDate = tOpen && !isNaN(tOpen.getTime()) ? tOpen.toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: 'numeric'}) : (r.apertura || '-').split(/[\s,]+/)[0];
 
 
                 tableHtml += `
@@ -712,7 +721,7 @@
                         <td><b>${r.maquina}</b></td>
                         <td>${station}</td> <td>${r.falla}</td>
                         <td>${r.solucion || '-'}</td>
-                        <td>${r.mecanico}</td>
+                        <td>${soluciono || '-'}</td>
                         <td class="text-center">${isClosed ? tResp : '-'}</td>
                         <td class="text-center">${isClosed ? tRep : '-'}</td>
                         <td class="${timeClass} text-center">${isClosed ? tTotal : '-'}</td>
@@ -724,7 +733,6 @@
             const avgResp = countClosed ? Math.round(sumResp / countClosed) : 0;
             const avgRep = countClosed ? Math.round(sumRep / countClosed) : 0;
             
-            // Cálculo de eficiencia general: tickets solucionados (tienen r.mecanico) / tickets asignados
             const efficiency = ticketsAsignados > 0 ? ((ticketsSolucionados / ticketsAsignados) * 100).toFixed(1) : 0;
 
             document.getElementById('kpi-count').textContent = totalTickets; 
