@@ -8,19 +8,26 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* (Tus estilos CSS van aquí - sin cambios) */
-        .maintenance-tool { max-width: 600px; margin: 0 auto; padding: 25px; background-color: var(--surface-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-md); }
+        /* Estilos base */
+        .maintenance-tool { max-width: 600px; margin: 0 auto; padding: 25px; background-color: var(--surface-bg, #fff); border-radius: var(--border-radius, 8px); box-shadow: var(--shadow-md, 0 4px 6px rgba(0,0,0,0.1)); }
+        
+        /* Pantalla Andon (Bloqueo) */
         #andon-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; display: none; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; transition: background-color 0.3s ease; }
-        #andon-screen.andon-red { background-color: rgba(220, 53, 69, 0.9); }
-        #andon-screen.andon-yellow { background-color: rgba(255, 193, 7, 0.9); }
-        #andon-screen #andon-icon { font-size: 6em; color: var(--text-primary); margin-bottom: 20px; }
-        #andon-screen h2 { font-size: 3.5em; color: var(--text-primary); margin-bottom: 20px; animation: pulse-text 1.5s infinite; }
-        #andon-screen p { font-size: 1.5em; color: var(--text-secondary); line-height: 1.4; }
-        #andon-folio { font-size: 1.8em; color: var(--text-primary); font-weight: bold; margin-top: 10px; }
-        #solucion-form { display: none; margin-top: 30px; background: var(--surface-bg); padding: 20px; border-radius: var(--border-radius); box-shadow: var(--shadow-lg); width: 100%; max-width: 500px; }
+        #andon-screen.andon-red { background-color: rgba(220, 53, 69, 0.95); }
+        #andon-screen.andon-yellow { background-color: rgba(255, 193, 7, 0.95); }
+        #andon-screen #andon-icon { font-size: 6em; color: var(--text-primary, #fff); margin-bottom: 20px; }
+        #andon-screen h2 { font-size: 3.5em; color: var(--text-primary, #fff); margin-bottom: 20px; animation: pulse-text 1.5s infinite; }
+        #andon-screen p { font-size: 1.5em; color: var(--text-secondary, #f8f9fa); line-height: 1.4; }
+        #andon-folio { font-size: 1.8em; color: var(--text-primary, #fff); font-weight: bold; margin-top: 10px; }
+        
+        /* Formulario de Solución (Dentro de Andon) */
+        #solucion-form { display: none; margin-top: 30px; background: var(--surface-bg, #fff); padding: 20px; border-radius: var(--border-radius, 8px); box-shadow: var(--shadow-lg, 0 10px 15px rgba(0,0,0,0.1)); width: 100%; max-width: 500px; }
+        
+        /* Animaciones */
         @keyframes pulse-text { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        .loading-spinner { display: none; width: 50px; height: 50px; border: 5px solid var(--light-bg); border-top: 5px solid var(--azor-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
+        .loading-spinner { display: none; width: 50px; height: 50px; border: 5px solid var(--light-bg, #f4f7f6); border-top: 5px solid var(--azor-blue, #005f9e); border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
         select:disabled { background-color: #e9ecef; cursor: not-allowed; }
     </style>
 </head>
@@ -38,10 +45,10 @@
                 <i class="fas fa-running"></i> Registrar Llegada de Mecánico
             </button>
             <div id="loading-spinner-llegada" class="loading-spinner"></div>
-            <button id="falla-atendida-btn" class="button primary-action" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: var(--success-color); border-color: var(--success-color); width: 100%;">
+            <button id="falla-atendida-btn" class="button primary-action" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: var(--success-color, #28a745); border-color: var(--success-color, #28a745); width: 100%;">
                 <i class="fas fa-user-cog"></i> Registrar Solución
             </button>
-            <button id="escalar-paro-btn" class="button primary-action" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: var(--danger-color); border-color: var(--danger-color); width: 100%;">
+            <button id="escalar-paro-btn" class="button primary-action" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: var(--danger-color, #dc3545); border-color: var(--danger-color, #dc3545); width: 100%;">
                 <i class="fas fa-exclamation-triangle"></i> ¡ESCALAR! MÁQUINA SE DETUVO
             </button>
             <div id="loading-spinner-escalar" class="loading-spinner"></div>
@@ -62,7 +69,7 @@
                     <option value="" disabled selected>-- Cargando mecánicos... --</option>
                 </select>
             </div>
-            <button type="submit" id="finalizar-paro-btn" class="button primary-action" style="background-color: var(--success-color); border-color: var(--success-color);">
+            <button type="submit" id="finalizar-paro-btn" class="button primary-action" style="background-color: var(--success-color, #28a745); border-color: var(--success-color, #28a745);">
                 <i class="fas fa-check-circle"></i> Finalizar Paro
             </button>
             <div id="loading-spinner-solucion" class="loading-spinner"></div>
@@ -129,11 +136,19 @@
                             <input type="text" id="workorder-input" class="form-control" placeholder="Ej: 1234567">
                         </div>
                         <div id="loading-spinner-paro" class="loading-spinner"></div>
-                        <button type="submit" id="generar-paro-btn" class="button primary-action" style="background-color: var(--danger-color); border-color: var(--danger-color); margin-top: 20px; padding: 12px; font-size: 1.1em;">
+                        <button type="submit" id="generar-paro-btn" class="button primary-action" style="background-color: var(--danger-color, #dc3545); border-color: var(--danger-color, #dc3545); margin-top: 20px; padding: 12px; font-size: 1.1em;">
                             <i class="fas fa-play-circle"></i> Generar Paro
                         </button>
                     </form>
-                    <div id="error-message" style="color: var(--danger-color); margin-top: 15px; text-align: center; display: none;"></div>
+                    
+                    <div id="kiosk-success-message" style="display: none; text-align: center; margin-top: 20px; padding: 20px; background-color: #d4edda; color: #155724; border-radius: 8px; border: 1px solid #c3e6cb;">
+                        <i class="fas fa-check-circle" style="font-size: 2em; margin-bottom: 10px;"></i>
+                        <h3>¡Reporte Generado Correctamente!</h3>
+                        <p>El equipo de mantenimiento ha sido notificado.</p>
+                        <p>Esta pantalla se reiniciará en breves momentos...</p>
+                    </div>
+
+                    <div id="error-message" style="color: var(--danger-color, #dc3545); margin-top: 15px; text-align: center; display: none;"></div>
                 </div>
             </section>
         </main>
@@ -173,17 +188,34 @@
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         
         let configData = {};
+        let maquinaConfig = {}; // Guardará si la máquina tiene PC o NO
         let statusCheckInterval = null;
 
         // --- Lógica de Menús Desplegables ---
         
-        async function cargarDatosDeConfiguracion(){try{const response=await fetch('/.netlify/functions/leer-listas-mantenimiento');if(!response.ok)throw new Error('Error de red al cargar la configuración.');const data=await response.json();configData=data.data||{};cargarAreas(Object.keys(configData));cargarSoluciones(data.soluciones||[])}catch(error){console.error("Error al cargar datos:",error);areaSelect.innerHTML='<option value="">Error al cargar</option>';solucionSelect.innerHTML='<option value="">Error al cargar</option>'}}
+        async function cargarDatosDeConfiguracion(){
+            try{
+                const response=await fetch('/.netlify/functions/leer-listas-mantenimiento');
+                if(!response.ok)throw new Error('Error de red al cargar la configuración.');
+                const data=await response.json();
+                
+                configData = data.data || {};
+                maquinaConfig = data.maquinaConfig || {}; // Guardamos configuración de PC
+                
+                cargarAreas(Object.keys(configData));
+                cargarSoluciones(data.soluciones||[])
+            } catch(error){
+                console.error("Error al cargar datos:",error);
+                areaSelect.innerHTML='<option value="">Error al cargar</option>';
+                solucionSelect.innerHTML='<option value="">Error al cargar</option>'
+            }
+        }
+
         function cargarAreas(areas){areaSelect.innerHTML='<option value="" disabled selected>-- Seleccione un área --</option>';areas.sort().forEach(area=>{areaSelect.add(new Option(area,area))});areaSelect.disabled=false}
         function cargarMaquinas(areaSeleccionada){const maquinas=Object.keys(configData[areaSeleccionada]||{});maquinaSelect.innerHTML='<option value="" disabled selected>-- Seleccione una máquina --</option>';estacionSelect.innerHTML='<option value="" disabled selected>-- Primero seleccione una máquina --</option>';estacionSelect.disabled=true;maquinas.sort().forEach(maquina=>{maquinaSelect.add(new Option(maquina,maquina))});maquinaSelect.disabled=false}
         function cargarEstaciones(areaSeleccionada,maquinaSeleccionada){const estaciones=configData[areaSeleccionada]?.[maquinaSeleccionada]||[];estacionSelect.innerHTML='<option value="" disabled selected>-- Seleccione una estación --</option>';estaciones.sort().forEach(estacion=>{estacionSelect.add(new Option(estacion,estacion))});estacionSelect.disabled=false}
         function cargarSoluciones(soluciones){solucionSelect.innerHTML='<option value="" disabled selected>-- Seleccione una solución --</option>';soluciones.sort().forEach(solucion=>{solucionSelect.add(new Option(solucion,solucion))})}
         
-        // --- ¡FUNCIÓN RESTAURADA! ---
         async function cargarMecanicosActivos() {
             try {
                 const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -212,7 +244,6 @@
         // --- Lógica de Polling (Sondeo) ---
         function stopStatusCheck(){if(statusCheckInterval){clearInterval(statusCheckInterval);statusCheckInterval=null;console.log("Sondeo de status detenido.")}}
         
-        // --- ¡FUNCIÓN MEJORADA! (Anti-flash) ---
         async function checkParoStatus(rowToCheck){
             if(!rowToCheck){stopStatusCheck();return}
             
@@ -220,23 +251,18 @@
             try{
                 const response=await fetch('/.netlify/functions/escribir-mantenimiento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check_status',row:rowToCheck}),});
                 if(!response.ok)return;
-                const result=await response.json(); // {mecanico, status, statusMaquina}
+                const result=await response.json(); 
                 
                 const folio = localStorage.getItem('paroFolio');
-                
-                // Actualizamos el status de la máquina en caso de que haya cambiado (escalado)
                 localStorage.setItem('paroStatusMaquina', result.statusMaquina);
 
-                // Volvemos a construir la pantalla con los nuevos datos, sin recargar
                 buildAndonScreen(result.status, result.mecanico, folio, result.statusMaquina);
 
             }catch(error){
                 console.error("Error al revisar status:",error);
-                // Si falla (ej. paro cerrado), sí recargamos
                 window.location.reload();
             }
         }
-        // --- FIN DE MEJORA ---
 
         // --- Lógica de UI ---
         function mostrarError(mensaje) {
@@ -317,7 +343,7 @@
                 });
                 if (!response.ok) throw new Error('No se pudo recuperar el estado del paro.');
                 
-                const data = await response.json(); // {mecanico, status, statusMaquina}
+                const data = await response.json(); 
                 
                 if (data.status === 'Cerrado') {
                     console.log("El paro guardado ya estaba cerrado. Limpiando...");
@@ -329,7 +355,6 @@
                 }
                 
                 const folio = localStorage.getItem('paroFolio');
-                // Guardamos el statusMaquina por si el usuario recarga
                 localStorage.setItem('paroStatusMaquina', data.statusMaquina); 
                 
                 buildAndonScreen(data.status, data.mecanico, folio, data.statusMaquina);
@@ -348,12 +373,13 @@
 
         // --- Event Listeners (Formularios) ---
 
-        // 1. GENERAR PARO
+        // 1. GENERAR PARO (Actualizado con lógica Kiosco/Andon)
         paroForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             mostrarError('');
             generarParoBtn.disabled = true;
             loadingParo.style.display = 'block';
+            
             const area = areaSelect.value;
             const maquina = maquinaSelect.value;
             const estacion = estacionSelect.value;
@@ -361,7 +387,9 @@
             const statusMaquina = document.getElementById('status-maquina-select').value;
             const workOrder = document.getElementById('workorder-input').value || 'N/A';
             const fechaApertura = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
+            
             stopStatusCheck();
+            
             try {
                 const response = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
@@ -371,6 +399,7 @@
                         data: [fechaApertura, area, maquina, estacion, operador, statusMaquina, workOrder]
                     }),
                 });
+                
                 if (response.status === 409) {
                      const errData = await response.json();
                      throw new Error(errData.error || 'Ya existe un paro activo para esta máquina.');
@@ -379,18 +408,54 @@
                      const errData = await response.json();
                      throw new Error(errData.error || 'Error del servidor al crear el reporte.');
                 }
+                
                 const result = await response.json();
                 if (!result.row || !result.folio) throw new Error('No se recibió fila o folio del servidor.');
-                localStorage.setItem('paroRow', result.row);
-                localStorage.setItem('paroFolio', result.folio);
-                localStorage.setItem('paroStatusMaquina', statusMaquina); 
-                paroForm.style.display = 'none';
-                buildAndonScreen(result.status, result.mecanico, result.folio, statusMaquina);
+
+                // --- LÓGICA NUEVA (KIOSCO VS ANDON) ---
+                // Verificamos si la máquina tiene computadora (por defecto SI si no está definida)
+                const tienePC = maquinaConfig[maquina] || 'SI';
+
+                if (tienePC === 'NO') {
+                    // --- MODO KIOSCO (Resetear y permitir nuevo reporte) ---
+                    console.log("Modo Kiosco activado para: " + maquina);
+                    loadingParo.style.display = 'none';
+                    
+                    // Resetear formulario
+                    paroForm.reset();
+                    maquinaSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione un área --</option>';
+                    maquinaSelect.disabled = true;
+                    estacionSelect.innerHTML = '<option value="" disabled selected>-- Primero seleccione una máquina --</option>';
+                    estacionSelect.disabled = true;
+                    
+                    // Mostrar mensaje de éxito temporalmente
+                    paroForm.style.display = 'none';
+                    const successMsg = document.getElementById('kiosk-success-message');
+                    successMsg.style.display = 'block';
+                    
+                    // Restaurar después de 4 segundos
+                    setTimeout(() => {
+                        successMsg.style.display = 'none';
+                        paroForm.style.display = 'block';
+                        generarParoBtn.disabled = false;
+                    }, 4000);
+
+                } else {
+                    // --- MODO ANDON (Bloquear pantalla) ---
+                    localStorage.setItem('paroRow', result.row);
+                    localStorage.setItem('paroFolio', result.folio);
+                    localStorage.setItem('paroStatusMaquina', statusMaquina); 
+                    
+                    paroForm.style.display = 'none';
+                    loadingParo.style.display = 'none';
+                    
+                    buildAndonScreen(result.status, result.mecanico, result.folio, statusMaquina);
+                }
+
             } catch (error) {
                 console.error('Error al generar paro:', error);
                 mostrarError(error.message); 
                 generarParoBtn.disabled = false;
-            } finally {
                 loadingParo.style.display = 'none';
             }
         });
@@ -420,7 +485,6 @@
                 });
                 if (!response.ok) throw new Error('Error del servidor al registrar la llegada.');
                 
-                // Actualización discreta (sin recargar)
                 llegadaMecanicoBtn.style.display = 'none';
                 escalarParoBtn.style.display = 'none';
                 fallaAtendidaBtn.style.display = 'block';
@@ -441,7 +505,6 @@
             stopStatusCheck();
             solucionForm.style.display = 'block';
             fallaAtendidaBtn.style.display = 'none';
-            // --- ¡CAMBIO! Cargamos los mecánicos para el <select>
             cargarMecanicosActivos();
         });
 
@@ -454,7 +517,6 @@
             loadingSolucion.style.display = 'block';
             
             const solucion = solucionSelect.value;
-            // --- ¡CAMBIO! Leemos del <select>
             const mecanico = mecanicoSelect.value; 
             
             const fechaCierre = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', hour12: false });
@@ -516,10 +578,8 @@
                 });
                 if (!response.ok) throw new Error('Error al escalar el paro.');
                 
-                // Actualización discreta (sin recargar)
                 localStorage.setItem('paroStatusMaquina', 'detenida');
                 
-                // Volvemos a dibujar la pantalla en modo "rojo"
                 const folio = localStorage.getItem('paroFolio');
                 const status = andonStatusMessage.innerHTML.includes('En camino') ? 'Asignado' : 'En Cola';
                 const mecanico = andonStatusMessage.querySelector('strong') ? andonStatusMessage.querySelector('strong').textContent : 'En Espera';
@@ -530,7 +590,6 @@
                 console.error('Error al escalar:', error);
                 mostrarError('No se pudo escalar el paro. Intente de nuevo.');
             } finally {
-                // Siempre re-habilitamos los botones
                 escalarParoBtn.disabled = false;
                 llegadaMecanicoBtn.disabled = false;
                 loadingEscalar.style.display = 'none';
