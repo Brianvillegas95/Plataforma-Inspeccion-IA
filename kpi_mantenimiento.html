@@ -17,7 +17,7 @@
         /* HEADER PRO */
         .app-header { background-color: #ffffff; border-bottom: 1px solid #e1e4e8; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .logo-container { display: flex; align-items: center; gap: 15px; }
-        .logo { height: 45px; width: auto; } /* El logo ya tiene fondo blanco o transparente, se verá bien en fondo blanco */
+        .logo { height: 45px; width: auto; }
         .app-title { font-size: 1.4em; font-weight: 700; color: #005f9e; margin: 0; }
         
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
@@ -85,16 +85,21 @@
             </div>
             <div class="filter-grid">
                 <div class="filter-group">
-                    <label>Rango de Fechas (Día Específico)</label>
-                    <input type="date" id="filter-date" class="filter-control">
+                    <label>Fecha Inicio</label>
+                    <input type="date" id="filter-start-date" class="filter-control">
+                </div>
+                <div class="filter-group">
+                    <label>Fecha Fin</label>
+                    <input type="date" id="filter-end-date" class="filter-control">
                 </div>
                 <div class="filter-group">
                     <label>Área</label>
                     <select id="filter-area" class="filter-control"><option value="TODAS">Todas las Áreas</option></select>
                 </div>
                 <div class="filter-group">
-                    <label>Máquina</label>
-                    <select id="filter-machine" class="filter-control"><option value="TODAS">Todas las Máquinas</option></select>
+                    <label>Máquina (Búsqueda o Filtro)</label>
+                    <input type="text" id="filter-machine-search" placeholder="Escriba o seleccione..." class="filter-control" style="margin-bottom: 5px;">
+                    <select id="filter-machine-select" class="filter-control" style="display: none;"><option value="TODAS">Todas las Máquinas</option></select>
                 </div>
                 <div class="filter-group">
                     <label>Mecánico</label>
@@ -130,13 +135,18 @@
         </section>
 
         <div class="charts-grid">
-            <div class="dashboard-panel charts-full">
-                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Top 10 Máquinas con más Fallas (Pareto)</h2>
+            <div class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Top 10 Máquinas con más Fallas</h2>
                 <div class="chart-box"><canvas id="chartMachines"></canvas></div>
             </div>
             
             <div class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-chart-pie"></i> Fallas por Área</h2>
+                <h2 class="panel-title"><i class="fas fa-microchip"></i> Fallas por Estación (Pareto)</h2>
+                <div class="chart-box"><canvas id="chartStations"></canvas></div>
+            </div>
+
+            <div class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-chart-pie"></i> Distribución por Área</h2>
                 <div class="chart-box"><canvas id="chartAreas"></canvas></div>
             </div>
 
@@ -156,6 +166,7 @@
                             <th>Fecha</th>
                             <th>Área</th>
                             <th>Máquina</th>
+                            <th>Estación</th>
                             <th>Falla</th>
                             <th>Solución</th>
                             <th>Mecánico</th>
@@ -165,7 +176,7 @@
                         </tr>
                     </thead>
                     <tbody id="table-body">
-                        <tr><td colspan="10" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
+                        <tr><td colspan="11" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -176,40 +187,39 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         
-        // --- CONFIGURACIÓN ---
+        // --- CONFIGURACIÓN INICIAL ---
         Chart.register(ChartDataLabels);
         let rawData = [];
         let charts = {};
+        let allMachines = {}; // Mapa de máquinas para búsqueda global
 
-        // --- CARGA INICIAL ---
-        async function loadData() {
-            try {
-                const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'get_kpi_data' })
-                });
-                const json = await res.json();
-                rawData = json.data || [];
-                
-                initFilters();
-                processData(); 
-            } catch(e) { 
-                console.error(e); 
-                alert("Error cargando datos del servidor."); 
-            }
-        }
+        // --- DOM REFERENCES ---
+        const elArea = document.getElementById('filter-area');
+        const elMachineSelect = document.getElementById('filter-machine-select');
+        const elMachineSearch = document.getElementById('filter-machine-search');
+        const elMec = document.getElementById('filter-mec');
+        const elStartDate = document.getElementById('filter-start-date');
+        const elEndDate = document.getElementById('filter-end-date');
 
-        // --- PARSERS DE FECHA ROBUSTOS ---
+        // --- PARSERS ROBUSTOS ---
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
-            // Intenta parsear "DD/MM/YYYY, HH:MM:SS"
             try {
                 const [dPart, tPart] = dateStr.split(', ');
-                if(!dPart || !tPart) return null;
+                if(!dPart) return new Date(dateStr); 
+                
                 const [day, month, year] = dPart.split('/').map(Number);
                 const [hour, min, sec] = tPart.split(':').map(Number);
                 return new Date(year, month - 1, day, hour, min, sec);
             } catch (e) { return null; }
+        }
+
+        function dateToDayOnly(dateObj) {
+            if (!dateObj) return null;
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return new Date(`${year}-${month}-${day}T00:00:00`); 
         }
 
         function getDiffMinutes(dStart, dEnd) {
@@ -217,50 +227,131 @@
             return Math.round((dEnd - dStart) / 1000 / 60);
         }
 
-        // --- LÓGICA DE FILTROS ---
-        const elArea = document.getElementById('filter-area');
-        const elMachine = document.getElementById('filter-machine');
-        const elMec = document.getElementById('filter-mec');
-        const elDate = document.getElementById('filter-date');
+        // --- CARGA DE DATOS Y FILTROS ---
+        async function loadData() {
+            try {
+                const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                    method: 'POST', body: JSON.stringify({ action: 'get_kpi_data' })
+                });
+                const json = await res.json();
+                rawData = json.data || [];
+                
+                initFilters();
+                processData();
+            } catch(e) { console.error(e); alert("Error cargando datos. Revisa la consola."); }
+        }
 
         function initFilters() {
             const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
             const machines = [...new Set(rawData.map(r => r.maquina).filter(Boolean))].sort();
             const mecs = [...new Set(rawData.map(r => r.mecanico).filter(Boolean))].sort();
-
-            elArea.innerHTML = '<option value="TODAS">Todas las Áreas</option>';
-            elMachine.innerHTML = '<option value="TODAS">Todas las Máquinas</option>';
-            elMec.innerHTML = '<option value="TODOS">Todos los Mecánicos</option>';
-
+            
             areas.forEach(x => elArea.add(new Option(x, x)));
-            machines.forEach(x => elMachine.add(new Option(x, x)));
+            machines.forEach(x => { 
+                elMachineSelect.add(new Option(x, x));
+                allMachines[x] = rawData.filter(r => r.maquina === x).map(r => r.area)[0] || 'TODAS'; // Mapa global de máquina -> área
+            });
             mecs.forEach(x => elMec.add(new Option(x, x)));
         }
 
-        document.getElementById('btn-apply').addEventListener('click', processData);
-        document.getElementById('btn-reset').addEventListener('click', () => {
-            elArea.value = 'TODAS'; elMachine.value = 'TODAS'; elMec.value = 'TODOS'; elDate.value = '';
+        // Lógica de dependencia Área -> Máquina
+        elArea.addEventListener('change', () => {
+            const selectedArea = elArea.value;
+            // Limpiar y resetear filtro de máquina
+            elMachineSelect.innerHTML = '<option value="TODAS">Todas las Máquinas</option>';
+            elMachineSearch.value = '';
+            elMachineSelect.style.display = 'none'; // Ocultar hasta que se busque o filtre
+
+            const filteredMachines = Object.keys(allMachines)
+                .filter(m => selectedArea === 'TODAS' || allMachines[m] === selectedArea)
+                .sort();
+            
+            filteredMachines.forEach(x => elMachineSelect.add(new Option(x, x)));
+            
+            // Forzar reprocesamiento si se cambia el área
             processData();
         });
 
-        // --- PROCESAMIENTO CENTRAL ---
+        // Lógica de búsqueda manual
+        elMachineSearch.addEventListener('input', () => {
+            const searchTerm = elMachineSearch.value.toLowerCase();
+            const selectedArea = elArea.value;
+
+            // Mostrar el SELECT para sugerencias
+            elMachineSelect.style.display = 'block';
+            elMachineSelect.innerHTML = '<option value="TODAS">Todas las Máquinas</option>';
+            
+            const options = Object.keys(allMachines)
+                .filter(m => {
+                    const matchesArea = selectedArea === 'TODAS' || allMachines[m] === selectedArea;
+                    const matchesSearch = searchTerm.length === 0 || m.toLowerCase().includes(searchTerm);
+                    return matchesArea && matchesSearch;
+                })
+                .sort();
+            
+            options.forEach(x => elMachineSelect.add(new Option(x, x)));
+            
+            // Si hay un valor en el campo de texto, el filtro se basa en él, no en el select
+            if (searchTerm.length > 0) {
+                 elMachineSelect.add(new Option(searchTerm, searchTerm, true, true));
+            }
+
+            processData(); // Filtrar en tiempo real por la búsqueda
+        });
+        
+        elMachineSelect.addEventListener('change', () => {
+            if (elMachineSelect.value !== 'TODAS') {
+                elMachineSearch.value = elMachineSelect.value;
+            } else {
+                elMachineSearch.value = '';
+            }
+            // Procede a filtrar
+            processData();
+        });
+
+
+        document.getElementById('btn-apply').addEventListener('click', processData);
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            elArea.value = 'TODAS'; 
+            elMachineSearch.value = ''; 
+            elMec.value = 'TODOS'; 
+            elStartDate.value = '';
+            elEndDate.value = '';
+            elMachineSelect.style.display = 'none';
+            // Resetear lista de máquinas a global
+            elMachineSelect.innerHTML = '<option value="TODAS">Todas las Máquinas</option>';
+            Object.keys(allMachines).forEach(x => elMachineSelect.add(new Option(x, x)));
+            processData();
+        });
+
+
+        // --- PROCESAMIENTO Y RENDERIZADO ---
         function processData() {
             const fArea = elArea.value;
-            const fMach = elMachine.value;
+            const fMach = elMachineSearch.value; // Usamos el campo de texto para el filtro
             const fMec = elMec.value;
-            const fDate = elDate.value; // YYYY-MM-DD
+            const fStartDate = elStartDate.value;
+            const fEndDate = elEndDate.value;
 
             const data = rawData.filter(r => {
-                if (!r.cierre) return false; // Solo cerrados para estadísticas
+                if (!r.cierre) return false; 
                 if (fArea !== 'TODAS' && r.area !== fArea) return false;
-                if (fMach !== 'TODAS' && r.maquina !== fMach) return false;
                 if (fMec !== 'TODOS' && r.mecanico !== fMec) return false;
                 
-                if (fDate) {
-                    const rDateObj = parseCustomDate(r.apertura);
-                    if(rDateObj) {
-                        const rIsoDate = rDateObj.toISOString().split('T')[0];
-                        if (rIsoDate !== fDate) return false;
+                // Filtro de máquina: si se buscó algo, debe coincidir
+                if (fMach && fMach !== 'TODAS' && r.maquina !== fMach) return false;
+                
+                // Lógica de RANGO DE FECHAS
+                if (fStartDate) {
+                    const tOpenDate = dateToDayOnly(parseCustomDate(r.apertura));
+                    const startDateObj = dateToDayOnly(new Date(fStartDate));
+                    const endDateObj = fEndDate ? dateToDayOnly(new Date(fEndDate)) : startDateObj; 
+
+                    if (!tOpenDate || !startDateObj || !endDateObj) return false;
+                    
+                    // Comprueba si la fecha de apertura está dentro del rango [inicio, fin]
+                    if (tOpenDate < startDateObj || tOpenDate > endDateObj) {
+                        return false;
                     }
                 }
                 return true;
@@ -274,6 +365,8 @@
             const countsMachine = {};
             const countsArea = {};
             const countsSol = {};
+            const countsStation = {}; 
+
             let tableHtml = '';
 
             data.forEach(r => {
@@ -296,8 +389,9 @@
                 const maq = r.maquina || 'N/A'; countsMachine[maq] = (countsMachine[maq] || 0) + 1;
                 const area = r.area || 'N/A'; countsArea[area] = (countsArea[area] || 0) + 1;
                 const sol = r.solucion || 'Sin Clasificar'; countsSol[sol] = (countsSol[sol] || 0) + 1;
+                const station = r.estacion || r.falla || 'Sin Estación'; countsStation[station] = (countsStation[station] || 0) + 1; 
 
-                // Estilo para tiempos altos (> 30 min rojo, > 15 amarillo)
+                // Estilo para tiempos altos
                 const timeClass = tTotal > 30 ? 'text-danger' : '';
 
                 tableHtml += `
@@ -306,7 +400,7 @@
                         <td>${r.apertura.split(',')[0]}</td>
                         <td>${r.area}</td>
                         <td><b>${r.maquina}</b></td>
-                        <td>${r.falla}</td>
+                        <td>${station}</td> <td>${r.falla}</td>
                         <td>${r.solucion || '-'}</td>
                         <td>${r.mecanico}</td>
                         <td>${tResp}</td>
@@ -316,27 +410,31 @@
                 `;
             });
 
+            // MTTA and MTTR calculations
+            const avgResp = count ? Math.round(sumResp / count) : 0;
+            const avgRep = count ? Math.round(sumRep / count) : 0;
+
             // Render KPIs
             document.getElementById('kpi-count').textContent = count;
-            document.getElementById('kpi-mttr').textContent = count ? Math.round(sumRep / count) + " min" : "0";
-            document.getElementById('kpi-mtta').textContent = count ? Math.round(sumResp / count) + " min" : "0";
+            document.getElementById('kpi-mttr').textContent = avgRep + " min";
+            document.getElementById('kpi-mtta').textContent = avgResp + " min";
             document.getElementById('kpi-total-downtime').textContent = sumTot + " min";
             
-            // Render Table
-            document.getElementById('table-body').innerHTML = tableHtml || '<tr><td colspan="10" style="text-align:center; padding:20px;">No se encontraron datos.</td></tr>';
+            // Render Table - Colspan 11
+            document.getElementById('table-body').innerHTML = tableHtml || '<tr><td colspan="11" style="text-align:center; padding:20px;">No se encontraron datos.</td></tr>';
 
             // Render Charts
-            updateChart('chartMachines', 'bar', countsMachine, 'Fallas');
-            updateChart('chartAreas', 'doughnut', countsArea, 'Distribución');
-            updateChart('chartSolutions', 'pie', countsSol, 'Soluciones');
+            updateChart('chartMachines', 'bar', countsMachine, 'Fallas por Máquina');
+            updateChart('chartStations', 'bar', countsStation, 'Fallas por Estación'); 
+            updateChart('chartAreas', 'doughnut', countsArea, 'Distribución por Área');
+            updateChart('chartSolutions', 'pie', countsSol, 'Tipos de Solución');
         }
 
         function updateChart(id, type, dataObj, label) {
             const ctx = document.getElementById(id).getContext('2d');
             
-            // Ordenar y Limitar (Top 10 para barras)
-            let entries = Object.entries(dataObj).sort((a,b) => b[1] - a[1]);
-            if (type === 'bar') entries = entries.slice(0, 10);
+            let entries = Object.entries(dataObj).filter(e => e[1] > 0).sort((a,b) => b[1] - a[1]);
+            if (type === 'bar') entries = entries.slice(0, 10); 
 
             const labels = entries.map(e => e[0]);
             const values = entries.map(e => e[1]);
@@ -355,21 +453,8 @@
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: type !== 'bar', position: 'right' },
-                        datalabels: {
-                            color: '#fff',
-                            display: (ctx) => {
-                                // Solo mostrar labels si el segmento es grande > 5%
-                                const val = ctx.dataset.data[ctx.dataIndex];
-                                const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-                                return (val/total) > 0.05; 
-                            },
-                            font: { weight: 'bold' }
-                        }
-                    }
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: type !== 'bar', position: 'right' } }
                 }
             });
         }
