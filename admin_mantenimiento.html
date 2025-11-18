@@ -7,78 +7,106 @@
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    
     <style>
-        body { background-color: #f4f6f9; }
-        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; }
+        body { background-color: #f4f7fa; font-family: 'Arial', sans-serif; }
+        
+        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.98); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        
+        .app-header { background-color: #343a40; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; max-width: 1400px; margin: 0 auto; }
         @media(max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
         
-        .panel { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; }
-        .panel-header { background: var(--azor-blue, #005f9e); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-        .panel-body { padding: 15px; max-height: 80vh; overflow-y: auto; }
+        .panel { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; height: 80vh; display: flex; flex-direction: column; }
+        .panel-header { background: #005f9e; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .panel-header h3 { margin: 0; font-size: 1.1em; }
+        .panel-body { padding: 15px; overflow-y: auto; flex: 1; }
 
-        .job-card, .mec-card { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
-        .job-card { border-left: 4px solid #ffc107; display: flex; justify-content: space-between; align-items: center; }
-        .job-card.detenida { border-left-color: #dc3545; }
+        /* Tarjetas de Trabajos */
+        .job-card { background: #fff; border: 1px solid #e0e0e0; padding: 15px; margin-bottom: 12px; border-radius: 8px; border-left: 5px solid #ffc107; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: transform 0.2s; }
+        .job-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+        .job-card.detenida { border-left-color: #dc3545; background-color: #fff5f5; }
         
-        .mec-card { display: flex; justify-content: space-between; align-items: center; }
-        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .dot-green { background: #28a745; }
-        .dot-red { background: #dc3545; }
-        .dot-grey { background: #6c757d; }
+        /* Tarjetas de Mecánicos */
+        .mec-card { background: #fff; border: 1px solid #eee; padding: 12px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; color: white; }
+        .bg-green { background-color: #28a745; }
+        .bg-red { background-color: #dc3545; }
+        .bg-grey { background-color: #6c757d; }
 
-        .action-btn { font-size: 0.8em; padding: 5px 10px; cursor: pointer; background: #fff; border: 1px solid #ccc; border-radius: 4px; }
-        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .action-btn { background: white; border: 1px solid #ccc; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em; color: #333; }
+        .action-btn:hover { background: #f0f0f0; }
     </style>
 </head>
 <body>
 
     <div id="login-overlay" class="login-overlay">
-        <h2>Panel Administrativo</h2>
-        <p>Acceso restringido a Jefatura.</p>
-        <button onclick="netlifyIdentity.open()" class="button primary-action">Iniciar Sesión</button>
+        <img src="imagenes/Logo azor.png" style="height: 50px; margin-bottom: 20px;">
+        <h2 style="color: #333;">Centro de Comando</h2>
+        <p>Acceso exclusivo Jefatura de Mantenimiento</p>
+        <button onclick="netlifyIdentity.open()" class="button primary-action" style="padding: 12px 30px; font-size: 1.1em; background-color: #005f9e; color: white; border: none; border-radius: 5px; cursor: pointer;">Iniciar Sesión</button>
     </div>
 
     <header class="app-header">
-        <div class="logo-container">
-            <img src="imagenes/Logo azor.png" alt="Logo" class="logo">
-            <h1>Panel de Control Mantenimiento</h1>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-user-shield fa-lg"></i>
+            <h1>Panel Administrativo</h1>
         </div>
-        <button onclick="netlifyIdentity.logout()" class="button" style="background:rgba(255,255,255,0.2); color:white; border:none;">Salir</button>
+        <div>
+            <button onclick="window.location.href='kpi_mantenimiento.html'" style="background: transparent; color: #ddd; border: 1px solid #ddd; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 10px;">Ver KPIs</button>
+            <button onclick="netlifyIdentity.logout()" style="background: #dc3545; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Salir</button>
+        </div>
     </header>
 
     <main class="dashboard-grid">
+        
         <div class="panel">
             <div class="panel-header">
-                <h3><i class="fas fa-tasks"></i> Tickets Activos</h3>
-                <button onclick="loadDashboard()" class="action-btn"><i class="fas fa-sync"></i></button>
+                <h3><i class="fas fa-clipboard-list"></i> Tickets en Curso</h3>
+                <button onclick="loadDashboard()" class="action-btn" title="Recargar"><i class="fas fa-sync"></i></button>
             </div>
             <div class="panel-body" id="active-jobs-list">
-                <p>Cargando...</p>
+                <p style="text-align: center; color: #888; margin-top: 20px;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>
             </div>
         </div>
 
         <div class="panel">
             <div class="panel-header">
-                <h3><i class="fas fa-users-cog"></i> Fuerza de Trabajo</h3>
+                <h3><i class="fas fa-users"></i> Estatus Mecánicos</h3>
+                <span style="font-size: 0.8em; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 10px;">En tiempo real</span>
             </div>
             <div class="panel-body" id="mechanics-list">
-                <p>Cargando...</p>
+                <p style="text-align: center; color: #888; margin-top: 20px;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>
             </div>
         </div>
+
     </main>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // 1. Inicializar Identity
             netlifyIdentity.init();
-            const user = netlifyIdentity.currentUser();
-            if(user) {
-                document.getElementById('login-overlay').style.display = 'none';
-                loadDashboard();
-                setInterval(loadDashboard, 15000);
-            }
+
+            // 2. Verificar usuario
+            const checkUser = () => {
+                const user = netlifyIdentity.currentUser();
+                if(user) {
+                    document.getElementById('login-overlay').style.display = 'none';
+                    loadDashboard();
+                    // Auto-refresh cada 10 segundos para ver cambios en vivo
+                    setInterval(loadDashboard, 10000);
+                } else {
+                    document.getElementById('login-overlay').style.display = 'flex';
+                }
+            };
+
+            // Listeners de Netlify
+            netlifyIdentity.on('login', () => checkUser());
+            netlifyIdentity.on('logout', () => checkUser());
             
-            netlifyIdentity.on('login', () => { document.getElementById('login-overlay').style.display = 'none'; loadDashboard(); });
-            netlifyIdentity.on('logout', () => { document.getElementById('login-overlay').style.display = 'flex'; });
+            // Ejecutar al inicio
+            checkUser();
         });
 
         async function loadDashboard() {
@@ -91,25 +119,42 @@
                 
                 renderMechanics(data.mecanicos || []);
                 renderJobs(data.jobs || []);
-            } catch (e) { console.error(e); }
+            } catch (e) { 
+                console.error(e);
+            }
         }
 
         function renderMechanics(mecanicos) {
             const container = document.getElementById('mechanics-list');
-            if(mecanicos.length === 0) { container.innerHTML = '<p>No hay datos.</p>'; return; }
+            if(mecanicos.length === 0) { container.innerHTML = '<p style="text-align:center; color:#999;">No hay datos.</p>'; return; }
             
             let html = '';
             mecanicos.forEach(m => {
-                let dot = 'dot-grey';
-                if(m.active === 'Disponible') dot = (m.status === 'Libre') ? 'dot-green' : 'dot-red';
+                let badgeClass = 'bg-grey';
+                let statusText = 'Ausente';
+
+                if(m.active === 'Disponible') {
+                    if(m.status === 'Libre') {
+                        badgeClass = 'bg-green';
+                        statusText = 'Libre';
+                    } else {
+                        badgeClass = 'bg-red';
+                        statusText = 'Ocupado';
+                    }
+                }
                 
                 html += `
                 <div class="mec-card">
-                    <div>
-                        <span class="status-dot ${dot}"></span>
-                        <strong>${m.name}</strong> <small>(${m.area})</small>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="background:#f0f2f5; width:35px; height:35px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#555;">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:bold; color:#333;">${m.name}</div>
+                            <div style="font-size:0.8em; color:#777;">${m.area}</div>
+                        </div>
                     </div>
-                    <span style="font-size:0.8em; color:#666;">${m.active === 'Disponible' ? m.status : 'Ausente'}</span>
+                    <span class="status-badge ${badgeClass}">${statusText}</span>
                 </div>`;
             });
             container.innerHTML = html;
@@ -117,37 +162,51 @@
 
         function renderJobs(jobs) {
             const container = document.getElementById('active-jobs-list');
-            if(jobs.length === 0) { container.innerHTML = '<p style="text-align:center">Planta operando normal. Sin paros.</p>'; return; }
+            if(jobs.length === 0) { container.innerHTML = '<div style="text-align:center; margin-top:50px; color:#28a745;"><i class="fas fa-check-circle fa-3x"></i><p>Sin incidencias activas.</p></div>'; return; }
             
             let html = '';
             jobs.forEach(j => {
                 const isStopped = j.status === 'detenida';
+                const icon = isStopped ? '<i class="fas fa-exclamation-triangle" style="color:#dc3545"></i>' : '<i class="fas fa-tools" style="color:#ffc107"></i>';
+                
                 html += `
                 <div class="job-card ${isStopped ? 'detenida' : ''}">
-                    <div>
-                        <div style="font-weight:bold; color:var(--azor-blue)">${j.maquina}</div>
-                        <div style="font-size:0.85em">${j.folio} | ${j.area}</div>
-                        <div style="font-size:0.85em; color:#555;">Mec: <strong>${j.mecanico}</strong> (${j.estado})</div>
+                    <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:10px;">
+                        <div>
+                            <div style="font-weight:bold; font-size:1.1em; color:#333;">${icon} ${j.maquina}</div>
+                            <div style="font-size:0.85em; color:#666;">${j.area} | ${j.folio}</div>
+                        </div>
+                        <span style="font-size:0.8em; background:#eee; padding:2px 6px; border-radius:4px;">${j.estado}</span>
                     </div>
-                    <button onclick="promptReassign(${j.row}, '${j.mecanico}')" class="action-btn">Reasignar</button>
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#f9f9f9; padding:8px; border-radius:6px;">
+                        <div style="font-size:0.9em;">
+                            <i class="fas fa-hard-hat"></i> <strong>${j.mecanico}</strong>
+                        </div>
+                        <button onclick="promptReassign(${j.row}, '${j.mecanico}')" class="action-btn">
+                            <i class="fas fa-exchange-alt"></i> Reasignar
+                        </button>
+                    </div>
                 </div>`;
             });
             container.innerHTML = html;
         }
 
         async function promptReassign(row, currentMec) {
-            const newMec = prompt(`Reasignar trabajo (Fila ${row}).\nActual: ${currentMec}\n\nEscribe el nombre EXACTO del nuevo mecánico:`);
+            const newMec = prompt(`REASIGNACIÓN FORZADA\n\nTicket Fila: ${row}\nMecánico Actual: ${currentMec}\n\nEscribe el nombre EXACTO del nuevo mecánico:`);
             
-            if(newMec && newMec !== currentMec) {
-                if(confirm(`¿Confirmar cambio de ${currentMec} a ${newMec}?`)) {
+            if(newMec && newMec.trim() !== "" && newMec !== currentMec) {
+                if(confirm(`¿Estás seguro de quitar a ${currentMec} y asignar a ${newMec}?`)) {
                     try {
                         await fetch('/.netlify/functions/escribir-mantenimiento', {
                             method: 'POST',
-                            body: JSON.stringify({ action: 'admin_reassign', row: row, newMechanic: newMec })
+                            body: JSON.stringify({ action: 'admin_reassign', row: row, newMechanic: newMec.trim() })
                         });
-                        alert("Reasignado.");
+                        alert("✅ Mecánico reasignado correctamente.");
                         loadDashboard();
-                    } catch(e) { alert("Error al reasignar"); }
+                    } catch(e) { 
+                        alert("❌ Error al conectar con el servidor."); 
+                    }
                 }
             }
         }
