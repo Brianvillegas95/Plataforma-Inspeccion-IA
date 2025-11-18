@@ -17,75 +17,82 @@ function getSheetsAPI(auth) {
 
 // --- Handler Principal ---
 exports.handler = async function (event) {
-  
   if (event.httpMethod !== 'GET') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
-    // Usamos una variable nueva para el ID de la hoja de Configuración
     const spreadsheetId = process.env.CONFIGURACIONMAN_SHEET_ID;
-    
-    if (!spreadsheetId) {
-      // Mensaje de error actualizado
-      throw new Error('El ID de la hoja de Configuración no está configurado.');
-    }
+    if (!spreadsheetId) throw new Error('El ID de la hoja de Configuración no está configurado.');
 
     const auth = getAuth();
     const sheets = getSheetsAPI(auth);
 
-    // 1. Definimos los rangos que queremos leer
-    const ranges = [
-      'Hoja 1!A2:C', // Relaciones Area -> Maquina -> Estacion
-      'Hoja 1!D2:D'  // Soluciones
-    ];
+    // 1. Leemos todo el bloque desde A hasta E
+    // A:Area, B:Maquina, C:Estacion, D:TieneComputadora, E:Soluciones
+    const ranges = ['Hoja 1!A2:E'];
 
     const response = await sheets.spreadsheets.values.batchGet({
-      spreadsheetId: spreadsheetId, // Usamos la variable correcta
+      spreadsheetId: spreadsheetId,
       ranges: ranges,
     });
 
     const valueRanges = response.data.valueRanges || [];
-
-    // 2. Procesar Relaciones (A, B, C)
-    const dataRelaciones = valueRanges[0]?.values || [];
+    const rawData = valueRanges[0]?.values || [];
+    
     const structuredData = {};
+    const maquinaConfig = {}; 
+    const solucionesSet = new Set(); // Usamos un Set para evitar duplicados de soluciones
 
-    for (const [area, maquina, estacion] of dataRelaciones) {
-      // Asegurarse de que las tres celdas tengan datos
-      if (!area || !maquina || !estacion) continue; 
-      
-      // Crear el objeto de Area si no existe
-      if (!structuredData[area]) {
-        structuredData[area] = {};
-      }
-      // Crear el objeto de Maquina (dentro de Area) si no existe
-      if (!structuredData[area][maquina]) {
-        structuredData[area][maquina] = [];
-      }
-      // Añadir la estacion a la maquina (evitando duplicados si los hay)
-      if (!structuredData[area][maquina].includes(estacion)) {
-        structuredData[area][maquina].push(estacion);
-      }
+    // 2. Procesamos fila por fila
+    for (const row of rawData) {
+        const area = row[0] ? row[0].trim() : null;
+        const maquina = row[1] ? row[1].trim() : null;
+        const estacion = row[2] ? row[2].trim() : null;
+        
+        // --- CAMBIOS AQUÍ POR TU NUEVA ESTRUCTURA ---
+        // Columna D (Índice 3) es TieneComputadora
+        const tienePC = row[3] ? row[3].trim().toUpperCase() : 'SI'; 
+        
+        // Columna E (Índice 4) es Soluciones
+        const solucion = row[4] ? row[4].trim() : null;
+
+        // Guardamos Solución si existe en esta fila (independiente de la máquina)
+        if (solucion) {
+            solucionesSet.add(solucion);
+        }
+
+        if (!area || !maquina) continue;
+
+        // A. Estructura de Árbol
+        if (estacion) {
+            if (!structuredData[area]) structuredData[area] = {};
+            if (!structuredData[area][maquina]) structuredData[area][maquina] = [];
+            if (!structuredData[area][maquina].includes(estacion)) {
+                structuredData[area][maquina].push(estacion);
+            }
+        }
+
+        // B. Mapa de Configuración (Maquina -> TienePC)
+        if (!maquinaConfig[maquina]) {
+            maquinaConfig[maquina] = tienePC;
+        }
     }
 
-    // 3. Procesar Soluciones (Columna D)
-    const soluciones = valueRanges[1]?.values?.flat().filter(Boolean) || [];
+    // Convertimos el Set de soluciones a Array y lo ordenamos
+    const solucionesOrdenadas = Array.from(solucionesSet).sort();
 
-    // 4. Devolvemos todo como un solo objeto JSON
     return {
       statusCode: 200,
       body: JSON.stringify({
         data: structuredData,
-        soluciones: soluciones,
+        soluciones: solucionesOrdenadas,
+        maquinaConfig: maquinaConfig 
       }),
     };
 
   } catch (error) {
-    console.error('Error al leer la hoja de configuración:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'No se pudo cargar la configuración.' }),
-    };
+    console.error('Error:', error);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Error al cargar configuración.' }) };
   }
 };
