@@ -328,13 +328,26 @@
         const btnStatusSelect = document.getElementById('btn-status-select');
         const statusDropdown = document.getElementById('status-dropdown');
 
-        // --- PARSERS ROBUSTOS ---
+        // --- PARSERS ROBUSTOS (AJUSTADO PARA FORMATO DD/MM/YYYY HH:MM:SS SIN COMA) ---
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
             try {
-                // El formato esperado es "DD/MM/YYYY, HH:MM:SS" (Columna B de tu hoja)
-                const parts = dateStr.split(', ');
-                const [dPart, tPart] = parts.length === 2 ? parts : [dateStr, '00:00:00'];
+                // El formato en la hoja parece ser "DD/MM/YYYY HH:MM:SS" (sin coma entre fecha y hora)
+                const parts = dateStr.split(/\s+/); // Separa por cualquier espacio
+                
+                if (parts.length < 2) {
+                     // Intenta el formato anterior por si acaso: DD/MM/YYYY, HH:MM:SS
+                    const commaParts = dateStr.split(', ');
+                    if (commaParts.length === 2) {
+                         parts[0] = commaParts[0];
+                         parts[1] = commaParts[1];
+                    } else {
+                        return null; // Formato no reconocido
+                    }
+                }
+                
+                const dPart = parts[0];
+                const tPart = parts[1] || '00:00:00'; // Asegura una hora si solo hay fecha
                 
                 const [day, month, year] = dPart.split('/').map(Number);
                 const [hour, min, sec] = tPart.split(':').map(Number);
@@ -342,7 +355,7 @@
                 // Nota: Los meses en JavaScript son 0-indexados (Enero es 0, Diciembre es 11)
                 return new Date(year, month - 1, day, hour, min, sec);
             } catch (e) { 
-                // console.error("Error parsing date:", dateStr, e); // Desactivado para evitar spam en consola
+                // console.error("Error parsing date:", dateStr, e); 
                 return null; 
             }
         }
@@ -359,7 +372,7 @@
             return Math.round((dEnd - dStart) / 1000 / 60);
         }
 
-        // --- LÓGICA DE MULTISELECT CON CHECKBOXES ---
+        // --- LÓGICA DE MULTISELECT CON CHECKBOXES (sin cambios) ---
         
         function toggleDropdown(button, dropdown) {
             const isVisible = dropdown.style.display === 'block';
@@ -426,7 +439,7 @@
             return selectedValues;
         }
         
-        // --- CARGA DE DATOS Y FILTROS ---
+        // --- CARGA DE DATOS Y FILTROS (sin cambios) ---
         async function loadData() {
             try {
                 // Asegúrate de que esta URL y action sean correctos para tu backend
@@ -521,7 +534,6 @@
 
         function initFilters() {
             const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
-            // Se incluyen ambos campos para asegurar que el filtro de mecánico tenga todas las opciones.
             const mecs = [...new Set(rawData.map(r => r.mecanico || r.mecanicoAsignado).filter(Boolean))].sort();
             const statuses = [...new Set(rawData.map(r => r.statusParo).filter(Boolean))].sort();
             
@@ -575,7 +587,6 @@
                 // 1. Filtros de Categoría
                 if (fArea !== 'TODAS' && r.area !== fArea) return false;
                 
-                // Se filtra por el Mecánico que Solucionó (r.mecanico) o el Asignado (r.mecanicoAsignado)
                 const filterMecValue = r.mecanico || r.mecanicoAsignado; 
                 if (fMec !== 'TODOS' && filterMecValue !== fMec) return false;
                 
@@ -583,26 +594,30 @@
                 
                 if (fStatuses.length > 0 && fStatuses.includes(r.statusParo) === false) return false;
 
-                // 2. Lógica de RANGO DE FECHAS - CORRECCIÓN CRÍTICA
+                // 2. Lógica de RANGO DE FECHAS - CORRECCIÓN DEFINITIVA
                 if (fStartDate) {
                     const rOpenDate = parseCustomDate(r.apertura); 
                     
+                    // Si no se puede parsear la fecha de apertura, lo descartamos
                     if (!rOpenDate) return false; 
 
-                    // Obtiene la fecha de apertura SIN la hora (medianoche de ese día)
+                    // Obtenemos la fecha de apertura sólo con el día (medianoche)
                     const rOpenDayOnly = dateToDayOnly(rOpenDate); 
 
+                    // 1. Convertimos la Fecha Inicio del filtro a medianoche.
                     const startDateFilter = new Date(fStartDate);
                     const startDateObj = dateToDayOnly(startDateFilter); 
                     
-                    const endDateToUse = fEndDate || fStartDate; // Usa el inicio si el fin está vacío
+                    // 2. Determinamos la Fecha Fin a usar (si está vacía, usamos la de inicio)
+                    const endDateToUse = fEndDate || fStartDate; 
                     const endDateFilter = new Date(endDateToUse);
                     
-                    // Calculamos la medianoche del día siguiente al final del rango.
-                    const endDayNext = dateToDayOnly(new Date(endDateFilter.getFullYear(), endDateFilter.getMonth(), endDateFilter.getDate() + 1)); 
+                    // 3. Calculamos la medianoche del DÍA SIGUIENTE al final del rango.
+                    // Esto asegura que se incluyan todos los tickets abiertos hasta las 23:59:59 del día final.
+                    const endDayNext = new Date(endDateFilter.getFullYear(), endDateFilter.getMonth(), endDateFilter.getDate() + 1); 
 
-                    // La fecha de apertura (solo día) debe ser >= inicio Y < al día siguiente del fin.
-                    if (rOpenDayOnly < startDateObj || rOpenDayOnly >= endDayNext) {
+                    // La fecha de apertura (sólo día) debe ser >= inicio Y < al día siguiente del fin.
+                    if (rOpenDayOnly.getTime() < startDateObj.getTime() || rOpenDayOnly.getTime() >= endDayNext.getTime()) {
                         return false;
                     }
                 }
@@ -616,18 +631,18 @@
         function calculateMetrics(data) {
             let sumResp = 0, sumRep = 0, sumTot = 0, countClosed = 0; 
             let ticketsAsignados = 0; 
-            let ticketsSolucionados = 0; 
+            let ticketsSolucionados = 0; // Tickets que tienen 'r.mecanico' (MecánicoTrabajo)
             
             const countsMachine = {};
             const countsArea = {};
             const countsSol = {};
             const countsStation = {}; 
             const mecEfficiency = {}; 
-            const mecAreaSolution = {}; // Nuevo objeto para Tickets Solucionados por Área y Mecánico
+            const mecAreaSolution = {}; 
             
             let tableHtml = '';
             let totalTickets = data.length; 
-            let allAreas = new Set(); // Para la cabecera de la nueva tabla
+            let allAreas = new Set(); 
 
             data.forEach(r => {
                 const tOpen = parseCustomDate(r.apertura);
@@ -637,8 +652,8 @@
                 let tResp = 0, tRep = 0, tTotal = 0;
                 let isClosed = false;
                 
-                const asignado = r.mecanicoAsignado;
-                const soluciono = r.mecanico;
+                const asignado = r.mecanicoAsignado; // Mecánico Asignado (Columna I)
+                const soluciono = r.mecanico; // Mecánico Trabajo (Columna H)
                 const area = r.area || 'N/A';
                 
                 // 1. Lógica para KPI de Eficiencia General y por Mecánico Asignado
@@ -685,10 +700,14 @@
                 // 4. Lógica para Tabla Detallada
                 const timeClass = tTotal > 30 ? 'text-danger' : '';
 
+                // El formato de la columna Fecha debe ser el día solamente
+                const displayDate = tOpen ? tOpen.toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: 'numeric'}) : (r.apertura || '-').split(/\s+/)[0];
+
+
                 tableHtml += `
                     <tr>
                         <td><span class="badge badge-blue">${r.folio}</span></td>
-                        <td>${r.apertura.split(',')[0]}</td>
+                        <td>${displayDate}</td>
                         <td>${r.area}</td>
                         <td><b>${r.maquina}</b></td>
                         <td>${station}</td> <td>${r.falla}</td>
@@ -705,6 +724,7 @@
             const avgResp = countClosed ? Math.round(sumResp / countClosed) : 0;
             const avgRep = countClosed ? Math.round(sumRep / countClosed) : 0;
             
+            // Cálculo de eficiencia general: tickets solucionados (tienen r.mecanico) / tickets asignados
             const efficiency = ticketsAsignados > 0 ? ((ticketsSolucionados / ticketsAsignados) * 100).toFixed(1) : 0;
 
             document.getElementById('kpi-count').textContent = totalTickets; 
@@ -744,7 +764,7 @@
             const sortedAreas = Array.from(allAreas).sort();
             
             // Construir cabecera: Mecánico + Áreas + Total
-            let areaHeaderHtml = '<th>Mecánico</th>' + sortedAreas.map(area => `<th>${area}</th>`).join('') + '<th class="text-center">Total</th>';
+            let areaHeaderHtml = '<th>Mecánico</th>' + sortedAreas.map(area => `<th class="text-center">${area}</th>`).join('') + '<th class="text-center">Total</th>';
             document.getElementById('table-area-mec-header').innerHTML = areaHeaderHtml;
             
             let areaBodyHtml = '';
