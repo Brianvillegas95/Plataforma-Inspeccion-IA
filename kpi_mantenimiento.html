@@ -14,11 +14,19 @@
     <style>
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
         
-        /* HEADER PRO */
-        .app-header { background-color: #ffffff; border-bottom: 1px solid #e1e4e8; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        /* HEADER PRO - CAMBIO DE COLOR */
+        .app-header { 
+            background-color: #005f9e; /* Azul Institucional */
+            border-bottom: 1px solid #004a7c; 
+            padding: 15px 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
         .logo-container { display: flex; align-items: center; gap: 15px; }
-        .logo { height: 45px; width: auto; }
-        .app-title { font-size: 1.4em; font-weight: 700; color: #005f9e; margin: 0; }
+        .logo { height: 45px; width: auto; filter: brightness(0) invert(1); /* Logo en blanco */ }
+        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; /* Letras en blanco */ margin: 0; }
         
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
 
@@ -41,9 +49,45 @@
         .filter-control { padding: 10px 15px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; color: #495057; font-size: 0.95em; transition: border-color 0.2s; }
         .filter-control:focus { border-color: #005f9e; outline: none; background: #fff; }
         
-        .btn-primary { background: #005f9e; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        /* ESTILO PARA AGRUPAR BUSQUEDA DE MÁQUINA */
+        .machine-filter-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 150px;
+            position: relative; /* Para posicionar el select */
+        }
+        
+        #filter-machine-select {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            z-index: 10;
+            margin-top: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* BOTONES PRO */
+        .btn-primary { 
+            background: #005f9e; color: white; border: none; padding: 10px 25px; border-radius: 6px; 
+            font-weight: 600; cursor: pointer; transition: background 0.2s; 
+        }
         .btn-primary:hover { background: #004a7c; }
-        .btn-secondary { background: #6c757d; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        .btn-secondary { 
+            background: #6c757d; color: white; border: none; padding: 10px 25px; border-radius: 6px; 
+            font-weight: 600; cursor: pointer; 
+        }
+        .btn-header-nav { /* Estilo para el botón de navegación del header */
+            background: #ffffff; color: #005f9e; border: 1px solid #ffffff; 
+            padding: 8px 15px; border-radius: 6px; font-weight: 600; 
+            cursor: pointer; transition: background 0.2s, color 0.2s;
+        }
+        .btn-header-nav:hover { background: #e0e0e0; color: #005f9e; border-color: #e0e0e0; }
 
         /* GRÁFICAS */
         .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; margin-bottom: 30px; }
@@ -72,7 +116,7 @@
             <h1 class="app-title">Dashboard de Mantenimiento</h1>
         </div>
         <div>
-             <button onclick="window.location.href='admin_mantenimiento.html'" class="btn-secondary" style="background: #fff; color: #555; border: 1px solid #ddd;">Ir a Admin</button>
+             <button onclick="window.location.href='admin_mantenimiento.html'" class="btn-header-nav">Ir a Admin</button>
         </div>
     </header>
 
@@ -96,10 +140,10 @@
                     <label>Área</label>
                     <select id="filter-area" class="filter-control"><option value="TODAS">Todas las Áreas</option></select>
                 </div>
-                <div class="filter-group">
+                <div class="machine-filter-group"> 
                     <label>Máquina (Búsqueda o Filtro)</label>
-                    <input type="text" id="filter-machine-search" placeholder="Escriba o seleccione..." class="filter-control" style="margin-bottom: 5px;">
-                    <select id="filter-machine-select" class="filter-control" style="display: none;"><option value="TODAS">Todas las Máquinas</option></select>
+                    <input type="text" id="filter-machine-search" placeholder="Escriba o seleccione..." class="filter-control">
+                    <select id="filter-machine-select" class="filter-control" size="5" style="display: none; position: absolute; top: 100%; left: 0; width: 100%; z-index: 10; margin-top: 5px;"><option value="TODAS">Todas las Máquinas</option></select>
                 </div>
                 <div class="filter-group">
                     <label>Mecánico</label>
@@ -182,6 +226,7 @@
             </div>
         </section>
 
+
     </main>
 
     <script>
@@ -205,21 +250,22 @@
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
             try {
-                const [dPart, tPart] = dateStr.split(', ');
-                if(!dPart) return new Date(dateStr); 
+                const parts = dateStr.split(', ');
+                const [dPart, tPart] = parts.length === 2 ? parts : [dateStr, '00:00:00'];
                 
                 const [day, month, year] = dPart.split('/').map(Number);
                 const [hour, min, sec] = tPart.split(':').map(Number);
+                
+                // Nota: Month - 1 porque JS usa 0-11 para meses
                 return new Date(year, month - 1, day, hour, min, sec);
             } catch (e) { return null; }
         }
 
         function dateToDayOnly(dateObj) {
             if (!dateObj) return null;
-            const year = dateObj.getFullYear();
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            return new Date(`${year}-${month}-${day}T00:00:00`); 
+            const d = new Date(dateObj);
+            // Crea una nueva fecha a medianoche para solo comparar días
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate());
         }
 
         function getDiffMinutes(dStart, dEnd) {
@@ -260,7 +306,7 @@
             // Limpiar y resetear filtro de máquina
             elMachineSelect.innerHTML = '<option value="TODAS">Todas las Máquinas</option>';
             elMachineSearch.value = '';
-            elMachineSelect.style.display = 'none'; // Ocultar hasta que se busque o filtre
+            elMachineSelect.style.display = 'none'; 
 
             const filteredMachines = Object.keys(allMachines)
                 .filter(m => selectedArea === 'TODAS' || allMachines[m] === selectedArea)
@@ -268,7 +314,6 @@
             
             filteredMachines.forEach(x => elMachineSelect.add(new Option(x, x)));
             
-            // Forzar reprocesamiento si se cambia el área
             processData();
         });
 
@@ -277,40 +322,49 @@
             const searchTerm = elMachineSearch.value.toLowerCase();
             const selectedArea = elArea.value;
 
-            // Mostrar el SELECT para sugerencias
-            elMachineSelect.style.display = 'block';
+            // Mostrar el SELECT para sugerencias SOLO si hay texto o el select no está vacío.
+            elMachineSelect.style.display = (searchTerm.length > 0) ? 'block' : 'none';
+            
             elMachineSelect.innerHTML = '<option value="TODAS">Todas las Máquinas</option>';
             
             const options = Object.keys(allMachines)
                 .filter(m => {
                     const matchesArea = selectedArea === 'TODAS' || allMachines[m] === selectedArea;
-                    const matchesSearch = searchTerm.length === 0 || m.toLowerCase().includes(searchTerm);
+                    const matchesSearch = m.toLowerCase().includes(searchTerm);
                     return matchesArea && matchesSearch;
                 })
                 .sort();
             
             options.forEach(x => elMachineSelect.add(new Option(x, x)));
             
-            // Si hay un valor en el campo de texto, el filtro se basa en él, no en el select
-            if (searchTerm.length > 0) {
-                 elMachineSelect.add(new Option(searchTerm, searchTerm, true, true));
+            // Si el término de búsqueda coincide con una opción, seleccionarla
+            if (options.includes(elMachineSearch.value)) {
+                 elMachineSelect.value = elMachineSearch.value;
+            } else {
+                 elMachineSelect.value = 'TODAS';
             }
-
+            
             processData(); // Filtrar en tiempo real por la búsqueda
         });
         
+        // Al seleccionar de la lista de sugerencias, actualizar el campo de texto y filtrar
         elMachineSelect.addEventListener('change', () => {
             if (elMachineSelect.value !== 'TODAS') {
                 elMachineSearch.value = elMachineSelect.value;
+                elMachineSelect.style.display = 'none'; // Ocultar después de seleccionar
             } else {
                 elMachineSearch.value = '';
+                elMachineSelect.style.display = 'none';
             }
-            // Procede a filtrar
             processData();
         });
 
 
-        document.getElementById('btn-apply').addEventListener('click', processData);
+        document.getElementById('btn-apply').addEventListener('click', () => {
+             // Esconder el select al aplicar filtro
+             elMachineSelect.style.display = 'none';
+             processData();
+        });
         document.getElementById('btn-reset').addEventListener('click', () => {
             elArea.value = 'TODAS'; 
             elMachineSearch.value = ''; 
@@ -328,32 +382,43 @@
         // --- PROCESAMIENTO Y RENDERIZADO ---
         function processData() {
             const fArea = elArea.value;
-            const fMach = elMachineSearch.value; // Usamos el campo de texto para el filtro
+            const fMach = elMachineSearch.value; 
             const fMec = elMec.value;
             const fStartDate = elStartDate.value;
             const fEndDate = elEndDate.value;
 
             const data = rawData.filter(r => {
+                // Filtro para tickets cerrados (Requisito para KPIs de tiempo)
                 if (!r.cierre) return false; 
+                
+                // Filtros de Texto
                 if (fArea !== 'TODAS' && r.area !== fArea) return false;
                 if (fMec !== 'TODOS' && r.mecanico !== fMec) return false;
-                
-                // Filtro de máquina: si se buscó algo, debe coincidir
                 if (fMach && fMach !== 'TODAS' && r.maquina !== fMach) return false;
                 
-                // Lógica de RANGO DE FECHAS
+                // Lógica de RANGO DE FECHAS - CORRECCIÓN CRÍTICA
                 if (fStartDate) {
+                    // Usamos la Fecha y Hora de Apertura para filtrar (como solicitaste)
                     const tOpenDate = dateToDayOnly(parseCustomDate(r.apertura));
                     const startDateObj = dateToDayOnly(new Date(fStartDate));
-                    const endDateObj = fEndDate ? dateToDayOnly(new Date(fEndDate)) : startDateObj; 
-
-                    if (!tOpenDate || !startDateObj || !endDateObj) return false;
                     
-                    // Comprueba si la fecha de apertura está dentro del rango [inicio, fin]
-                    if (tOpenDate < startDateObj || tOpenDate > endDateObj) {
-                        return false;
-                    }
+                    // Si hay fecha final, la ajustamos al final del día.
+                    let endDateObj = fEndDate ? dateToDayOnly(new Date(fEndDate)) : startDateObj; 
+                    
+                    if (!tOpenDate || !startDateObj || !endDateObj) return false;
+
+                    // Si solo se eligió una fecha (fEndDate es vacío o igual a fStartDate), 
+                    // el rango debe incluir todo el día de inicio.
+                    // Si se eligió un rango, debe incluir desde la medianoche del inicio
+                    // hasta la medianoche del fin.
+                    
+                    // Si la fecha de apertura es anterior a la fecha de inicio, no pasa el filtro.
+                    if (tOpenDate < startDateObj) return false;
+
+                    // Si la fecha de apertura es posterior a la fecha de fin (al final del día), no pasa.
+                    if (tOpenDate > endDateObj) return false;
                 }
+                
                 return true;
             });
 
