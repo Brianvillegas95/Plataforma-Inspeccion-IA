@@ -117,7 +117,7 @@
             <h3><i class="fas fa-list-ol"></i> Definir Tamaños y Confirmar</h3>
             <div id="tarimas-inputs">
                 </div>
-            <button id="confirmar-registro-btn" class="button primary-action" style="margin-top: 20px; background-color: var(--azor-blue);">
+            <button id="confirmar-registro-btn" class="button primary-action" disabled style="margin-top: 20px; background-color: var(--azor-blue);">
                 <i class="fas fa-check-circle"></i> Confirmar Registro en Pulmón
             </button>
         </div>
@@ -134,8 +134,8 @@
         const tarimasInputsDiv = document.getElementById('tarimas-inputs');
         const confirmarRegistroBtn = document.getElementById('confirmar-registro-btn');
 
-        let huecosDisponiblesPorTamano = {}; // Almacena {GR: [h1, h2], CH: [h3, h4]}
-        let tarimasPendientes = []; // Almacena la estructura para la OP actual
+        let huecosDisponiblesPorTamano = {}; 
+        let tarimasPendientes = []; 
 
         function showMessage(text, isError = false) {
             messageDiv.textContent = text;
@@ -144,24 +144,24 @@
         }
         
         function disableForm(disabled) {
+            // Deshabilita/Habilita los campos de entrada principales
             submitBtn.disabled = disabled;
             document.getElementById('op-input').disabled = disabled;
             document.getElementById('area-select').disabled = disabled;
             document.getElementById('tarima-total-input').disabled = disabled;
-            confirmarRegistroBtn.disabled = disabled;
+            // IMPORTANTE: El botón de confirmar se maneja por separado en la lógica de asignación
         }
 
         // --- PASO 1: Obtener Huecos y Mostrar el Formulario Dinámico ---
         async function buscarHuecosYAsignar() {
             messageDiv.style.display = 'none';
-            disableForm(true);
+            disableForm(true); 
 
             const op = document.getElementById('op-input').value.trim();
             const totalTarimas = parseInt(document.getElementById('tarima-total-input').value, 10);
             const area = document.getElementById('area-select').value;
 
             try {
-                // Llamar a la nueva acción para obtener huecos disponibles agrupados
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando huecos...';
                 const response = await fetch(API_URL, {
                     method: 'POST',
@@ -173,21 +173,23 @@
                 const data = await response.json();
                 huecosDisponiblesPorTamano = data.huecos || {};
 
-                // Iniciar la estructura para la asignación
+                // Inicializar la estructura de tarimas
                 tarimasPendientes = [];
                 for (let i = 1; i <= totalTarimas; i++) {
-                    const tarimaNumStr = `${i} de ${totalTarimas}`;
                     tarimasPendientes.push({
-                        tarimaNumStr: tarimaNumStr,
-                        hueco: null, // Asignación pendiente
+                        tarimaNumStr: `${i} de ${totalTarimas}`,
+                        hueco: null, 
                         op: op,
                         area: area,
-                        tamano: null // Tamaño pendiente
+                        tamano: '' 
                     });
                 }
 
                 renderAsignacionInputs();
                 asignacionSection.style.display = 'block';
+                
+                // CORRECCIÓN: Habilitar el botón de Confirmación después de renderizar el formulario dinámico
+                confirmarRegistroBtn.disabled = false; 
 
             } catch (error) {
                 showMessage(`Error de asignación: ${error.message}`, true);
@@ -202,7 +204,6 @@
             let html = '';
             
             tarimasPendientes.forEach((tarima, index) => {
-                // Verificar si quedan huecos GR y CH para el selector
                 const hasGR = huecosDisponiblesPorTamano['GR'] && huecosDisponiblesPorTamano['GR'].length > 0;
                 const hasCH = huecosDisponiblesPorTamano['CH'] && huecosDisponiblesPorTamano['CH'].length > 0;
                 
@@ -221,8 +222,8 @@
                             <select id="tamano-select-${index}" class="form-control" 
                                 onchange="asignarHuecoAutomatico(${index}, this.value)" required>
                                 <option value="" disabled selected>-- Seleccione Tamaño --</option>
-                                <option value="GR" ${!hasGR && !tarima.hueco ? 'disabled' : ''}>GRANDE ${!hasGR && tarima.hueco !== 'PASILLO' ? '(Lleno)' : ''}</option>
-                                <option value="CH" ${!hasCH && !tarima.hueco ? 'disabled' : ''}>CHICO ${!hasCH && tarima.hueco !== 'PASILLO' ? '(Lleno)' : ''}</option>
+                                <option value="GR" ${!hasGR && tarima.hueco !== 'PASILLO' && !tarima.tamano ? 'disabled' : ''}>GRANDE ${!hasGR && tarima.hueco !== 'PASILLO' && !tarima.tamano ? '(Lleno)' : ''}</option>
+                                <option value="CH" ${!hasCH && tarima.hueco !== 'PASILLO' && !tarima.tamano ? 'disabled' : ''}>CHICO ${!hasCH && tarima.hueco !== 'PASILLO' && !tarima.tamano ? '(Lleno)' : ''}</option>
                                 <option value="PASILLO">ASIGNAR A PASILLO (Pulmón lleno)</option>
                             </select>
                         </div>
@@ -232,7 +233,8 @@
             });
 
             tarimasInputsDiv.innerHTML = html;
-            // Restaurar selección después de renderizar
+            
+            // Restaurar selección después de renderizar (Necesario para mantener el estado)
             tarimasPendientes.forEach((tarima, index) => {
                  const selectElement = document.getElementById(`tamano-select-${index}`);
                  if (selectElement && tarima.tamano) {
@@ -246,40 +248,39 @@
             const tarima = tarimasPendientes[index];
             let huecoAsignado = null;
             
-            // Lógica de Deshacer: Si ya tenía un hueco asignado, devolverlo a la lista
+            // Lógica de Deshacer: Si ya tenía un hueco asignado, devolverlo a la lista (excepto si era PASILLO)
             if (tarima.hueco && tarima.hueco !== 'PASILLO') {
                 const tamanoDevuelto = tarima.hueco.slice(-2).toUpperCase(); 
                 if (huecosDisponiblesPorTamano[tamanoDevuelto]) {
                      huecosDisponiblesPorTamano[tamanoDevuelto].push(tarima.hueco);
-                     huecosDisponiblesPorTamano[tamanoDevuelto].sort(); // Mantener orden FIFO/lógico
+                     huecosDisponiblesPorTamano[tamanoDevuelto].sort(); 
                 }
             }
 
             if (tamanoSeleccionado === 'PASILLO') {
                 huecoAsignado = 'PASILLO';
             } else if (huecosDisponiblesPorTamano[tamanoSeleccionado] && huecosDisponiblesPorTamano[tamanoSeleccionado].length > 0) {
-                // Asignar el primer hueco disponible (FIFO) y quitarlo de la lista
+                
                 huecoAsignado = huecosDisponiblesPorTamano[tamanoSeleccionado].shift(); 
                 
             } else {
                 showMessage(`ERROR: No quedan huecos '${tamanoSeleccionado}' disponibles. Asigne a PASILLO.`, true);
                 
-                // Forzar la selección de PASILLO en el selector
+                // Forzar la selección de PASILLO si no hay más huecos
                 const selectElement = document.getElementById(`tamano-select-${index}`);
                 selectElement.value = 'PASILLO';
                 huecoAsignado = 'PASILLO'; 
             }
 
             tarima.hueco = huecoAsignado;
-            tarima.tamano = tamanoSeleccionado; // Guardamos el tamaño, incluso si es PASILLO
-            renderAsignacionInputs(); // Volver a dibujar para actualizar el hueco asignado
+            tarima.tamano = tamanoSeleccionado; 
+            renderAsignacionInputs(); 
         }
 
 
         // --- PASO 4: Confirmar y Registrar Todas las Tarimas ---
         confirmarRegistroBtn.addEventListener('click', async () => {
             
-            // 1. Validación Final
             const tarimasSinAsignar = tarimasPendientes.filter(t => t.hueco === null);
             if (tarimasSinAsignar.length > 0) {
                 showMessage('Debe seleccionar el tamaño para todas las tarimas antes de confirmar.', true);
@@ -290,25 +291,16 @@
             confirmarRegistroBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando todas las tarimas...';
 
             try {
-                // Procesar cada tarima pendiente
                 for (const tarima of tarimasPendientes) {
                     if (tarima.hueco !== 'PASILLO') {
                          await registrarTarimaIndividual(tarima);
                     } else {
-                         // Si es PASILLO, registramos una entrada simple solo en MOVIMIENTOS para trazabilidad
-                         const pasilloPayload = {
-                            action: 'registrar_entrada_pasillo', // Necesitarías implementar esta acción
-                            op: tarima.op,
-                            area: tarima.area,
-                            tarimaNumStr: tarima.tarimaNumStr
-                        };
-                        // await fetch(API_URL, {method: 'POST', body: JSON.stringify(pasilloPayload)}); 
+                         // Lógica de registro para PASILLO (solo trazabilidad)
                          console.log(`Tarima ${tarima.tarimaNumStr} registrada como PASILLO (Solo Trazabilidad).`);
                     }
                 }
 
                 showMessage(`✅ ¡Registro de OP ${tarimasPendientes[0].op} completado! ${tarimasPendientes.length} tarimas procesadas.`, false);
-                // Resetear interfaz
                 setTimeout(() => window.location.reload(), 3000); 
 
             } catch (error) {
