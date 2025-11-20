@@ -17,6 +17,13 @@ function getSheetsAPI(auth) {
   return google.sheets({ version: 'v4', auth });
 }
 
+function getRowFromRange(range) {
+    if (!range) return null;
+    const match = range.match(/!([A-Z]+)(\d+)/);
+    if (match && match[2]) return parseInt(match[2], 10);
+    return null;
+}
+
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
@@ -35,8 +42,7 @@ exports.handler = async function (event) {
       
       case 'get_inventario': {
         const response = await sheets.spreadsheets.values.get({
-          spreadsheetId: inventarioSheetId,
-          range: 'Hoja 1!A2:G', 
+          spreadsheetId: inventarioSheetId, range: 'Hoja 1!A2:G', 
         });
         const rows = response.data.values || [];
         
@@ -55,8 +61,7 @@ exports.handler = async function (event) {
       
       case 'buscar_huecos_disponibles_por_tamano': {
         const response = await sheets.spreadsheets.values.get({
-          spreadsheetId: inventarioSheetId,
-          range: 'Hoja 1!A2:C', 
+          spreadsheetId: inventarioSheetId, range: 'Hoja 1!A2:C', 
         });
         const rows = response.data.values || [];
         
@@ -81,14 +86,20 @@ exports.handler = async function (event) {
       case 'registrar_entrada': {
         if (!hueco || !op || !area || !tarimaNumStr) return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos.' }) };
         
+        let huecoFinal = hueco; // Variable para guardar el ID real (sea fijo o dinámico)
+
         // 1. Actualizar INVENTARIO
         if (hueco === 'PASILLO') {
-            const idPasillo = `PASILLO-${Math.floor(Math.random() * 10000)}`;
+            // Generar ID único para Pasillo
+            const idPasillo = `PASILLO-${op}-${Math.floor(Math.random() * 1000)}`;
+            huecoFinal = idPasillo; // Actualizamos la variable para usarla en Movimientos
+
             await sheets.spreadsheets.values.append({
                 spreadsheetId: inventarioSheetId, range: 'Hoja 1!A1', valueInputOption: 'USER_ENTERED',
                 resource: { values: [[idPasillo, 'GR', 'OCUPADO', area, op, tarimaNumStr, now]] },
             });
         } else {
+            // Hueco Fijo
             const resInv = await sheets.spreadsheets.values.get({ spreadsheetId: inventarioSheetId, range: 'Hoja 1!A:A' });
             const rowIndex = (resInv.data.values || []).findIndex(row => row[0] === hueco);
             if (rowIndex === -1) return { statusCode: 404, body: JSON.stringify({ error: `Hueco no encontrado.` }) };
@@ -109,10 +120,10 @@ exports.handler = async function (event) {
             });
         }
         
-        // 2. Registrar en MOVIMIENTOS (Nueva Fila de Entrada)
-        // Cols: Folio, OP, Area, Hueco, Tarima_Num, Fecha_Entrada, Fecha_Salida(vacio)
+        // 2. Registrar en MOVIMIENTOS (Trazabilidad en 1 línea)
+        // Usamos 'huecoFinal' que contiene el ID real (ej: A01CH o PASILLO-12345...)
         const folio = `MOV-${Date.now()}`;
-        const movimientoData = [folio, op, area, hueco, tarimaNumStr, now, ""]; 
+        const movimientoData = [folio, op, area, huecoFinal, tarimaNumStr, now, ""]; 
         
         await sheets.spreadsheets.values.append({
           spreadsheetId: movimientosSheetId,
@@ -122,7 +133,7 @@ exports.handler = async function (event) {
           resource: { values: [movimientoData] },
         });
 
-        return { statusCode: 200, body: JSON.stringify({ message: `Registrado correctamente.` }) };
+        return { statusCode: 200, body: JSON.stringify({ message: `Registrado correctamente en ${huecoFinal}.` }) };
       }
         
       case 'consultar_op': {
@@ -142,24 +153,22 @@ exports.handler = async function (event) {
       case 'solicitar_retiro': {
         if (!row || !op || !hueco) return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos.' }) };
         
-        // 1. BUSCAR Y CERRAR CICLO EN MOVIMIENTOS
-        // Buscamos en MOVIMIENTOS la fila que tenga esta OP, este Hueco y Fecha_Salida vacía.
+        // 1. CERRAR CICLO EN MOVIMIENTOS (Buscar fila vacía y poner fecha salida)
         const movRes = await sheets.spreadsheets.values.get({ spreadsheetId: movimientosSheetId, range: 'Hoja 1!A2:G' });
         const movRows = movRes.data.values || [];
         let targetMovRow = -1;
 
-        // Recorremos de atrás hacia adelante para encontrar el más reciente
+        // Buscar coincidencia exacta de OP y HUECO donde Fecha Salida (Col G) esté vacía
         for (let i = movRows.length - 1; i >= 0; i--) {
             const r = movRows[i];
-            // r[1]=OP, r[3]=Hueco, r[6]=Fecha_Salida
+            // r[1]=OP, r[3]=Hueco
             if (r[1] === op && r[3] === hueco && (!r[6] || r[6] === "")) {
-                targetMovRow = i + 2; // +2 por el header y el índice 0
+                targetMovRow = i + 2; // +2 por header e index 0
                 break;
             }
         }
 
         if (targetMovRow !== -1) {
-            // Escribimos la fecha de salida en la columna G (índice 7 en notación A1 es G)
             await sheets.spreadsheets.values.update({
                 spreadsheetId: movimientosSheetId,
                 range: `Hoja 1!G${targetMovRow}`,
@@ -170,7 +179,7 @@ exports.handler = async function (event) {
 
         // 2. LIBERAR EN INVENTARIO
         if (hueco.includes('PASILLO')) {
-             // Limpiar fila de pasillo para que no salga en búsquedas
+             // Para Pasillo, LIMPIAMOS la fila para que desaparezca visualmente
              await sheets.spreadsheets.values.batchUpdate({
                 spreadsheetId: inventarioSheetId,
                 resource: {
@@ -182,7 +191,7 @@ exports.handler = async function (event) {
                 }
             });
         } else {
-            // Liberar hueco fijo
+            // Para Rack Fijo, marcamos DISPONIBLE
             await sheets.spreadsheets.values.batchUpdate({
               spreadsheetId: inventarioSheetId,
               resource: {
@@ -195,7 +204,7 @@ exports.handler = async function (event) {
             });
         }
 
-        return { statusCode: 200, body: JSON.stringify({ message: `Retirado y cerrado en historial.` }) };
+        return { statusCode: 200, body: JSON.stringify({ message: `Retirado.` }) };
       }
       
       default:
