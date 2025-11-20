@@ -52,19 +52,18 @@ exports.handler = async function (event) {
     switch (action) {
       
       case 'get_inventario': {
-        // Lee la hoja de INVENTARIO (A:G) para construir el Rack Virtual y la lista de disponibles.
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: inventarioSheetId,
           range: 'Hoja 1!A2:G', 
         });
         const rows = response.data.values || [];
         
-        // CORRECCIÓN CRUCIAL: Mapeo robusto a 7 columnas (A-G)
+        // CORRECCIÓN Y ROBUSTEZ: Mapeo robusto a 7 columnas (A-G)
         const inventario = rows.map(row => ({
             ID_Hueco: row[0] || null,
             Tamano_Hueco: row[1] || null,
             // Aseguramos que el estado esté en mayúsculas para la comparación en el frontend
-            Estatus_Hueco: (row[2] && row[2].toUpperCase()) || 'DISPONIBLE', 
+            Estatus_Hueco: (row[2] || '').toUpperCase(), 
             Area_Destino: row[3] || null,
             OP_Tarima: row[4] || null,
             Tarima_Num: row[5] || null,
@@ -72,6 +71,36 @@ exports.handler = async function (event) {
         }));
             
         return { statusCode: 200, body: JSON.stringify({ inventario }) };
+      }
+      
+      case 'buscar_huecos_disponibles_por_tamano': {
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId: inventarioSheetId,
+          range: 'Hoja 1!A2:C', // Solo necesitamos ID_Hueco, Tamano_Hueco, Estatus_Hueco
+        });
+        const rows = response.data.values || [];
+        
+        const disponibles = rows
+            .map(row => ({
+                ID_Hueco: row[0] || null,
+                Tamano_Hueco: row[1] || 'CH', 
+                Estatus_Hueco: (row[2] || '').toUpperCase(),
+            }))
+            // Filtra solo los disponibles y ordena por ID_Hueco (para FIFO/orden lógico)
+            .filter(h => h.Estatus_Hueco === 'DISPONIBLE' && h.ID_Hueco)
+            .sort((a, b) => a.ID_Hueco.localeCompare(b.ID_Hueco));
+            
+        // Agrupa por tamaño
+        const huecosAgrupados = disponibles.reduce((acc, hueco) => {
+            const tamano = hueco.Tamano_Hueco.toUpperCase();
+            if (!acc[tamano]) {
+                acc[tamano] = [];
+            }
+            acc[tamano].push(hueco.ID_Hueco);
+            return acc;
+        }, {});
+            
+        return { statusCode: 200, body: JSON.stringify({ huecos: huecosAgrupados }) };
       }
 
       case 'registrar_entrada': {
@@ -123,7 +152,6 @@ exports.handler = async function (event) {
       case 'consultar_op': {
         if (!opBusqueda || !areaBusqueda) return { statusCode: 400, body: JSON.stringify({ error: 'Falta la OP o el Área de búsqueda.' }) };
         
-        // Buscar en INVENTARIO (el rack virtual) todas las tarimas de la OP/Área.
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: inventarioSheetId,
           range: 'Hoja 1!A2:G', 
