@@ -82,8 +82,8 @@
     <div class="container">
         <form id="search-form">
             <input type="text" id="search-op-input" required maxlength="7" pattern="\d{7}" placeholder="Ingrese OP de 7 dígitos">
-            <select id="search-area-select" required>
-                <option value="" disabled selected>-- Seleccione su Área --</option>
+            <select id="search-area-select">
+                <option value="" disabled selected>-- Seleccione su Área (Opcional) --</option>
                 <option value="Empaque">Empaque</option>
                 <option value="Ensamble">Ensamble</option>
                 <option value="Kinera">Kinera</option>
@@ -120,7 +120,6 @@
         const ALPHABETICAL_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'Ñ', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
         const CARRIEL_INDEX_MAP = ALPHABETICAL_ORDER.reduce((acc, char, index) => { acc[char] = index; return acc; }, {});
         
-        // Función robusta de ordenamiento
         function sortCarriles(a, b) { 
             const idxA = CARRIEL_INDEX_MAP[a.trim()] !== undefined ? CARRIEL_INDEX_MAP[a.trim()] : 999;
             const idxB = CARRIEL_INDEX_MAP[b.trim()] !== undefined ? CARRIEL_INDEX_MAP[b.trim()] : 999;
@@ -147,10 +146,8 @@
             const rackItems = [];
             const pasilloItems = [];
 
-            // Clasificar items
             inventarioData.forEach(item => {
                 if (!item.ID_Hueco) return;
-                // IMPORTANTE: Excluir items 'RETIRADO' del inventario visible
                 if (item.Estatus_Hueco === 'RETIRADO') return;
 
                 if (item.ID_Hueco.includes('PASILLO')) {
@@ -160,7 +157,6 @@
                 }
             });
 
-            // 1. RENDER PASILLO
             if (pasilloItems.length > 0) {
                 pasilloZone.style.display = 'block';
                 pasilloItems.forEach(p => {
@@ -178,7 +174,6 @@
                 pasilloZone.style.display = 'none';
             }
 
-            // 2. RENDER RACK PRINCIPAL
             let max_nivel = 0;
             const carriles = {};
 
@@ -200,7 +195,6 @@
 
             carrilesOrdenados.forEach((carrilKey, index) => {
                 const colIndex = index + 1;
-                
                 const titleDiv = document.createElement('div');
                 titleDiv.className = 'carril-title';
                 titleDiv.style.gridColumn = colIndex;
@@ -210,7 +204,6 @@
 
                 const carrilData = carriles[carrilKey];
                 
-                // Llenar niveles
                 for(let i = 1; i <= max_nivel; i++) {
                     const huecoData = carrilData.find(h => h.nivel === i);
                     const box = document.createElement('div');
@@ -222,21 +215,18 @@
                         if (huecoData.Estatus_Hueco !== 'DISPONIBLE') {
                             if (huecoData.OP_Tarima === opEncontrada) clase = 'propia';
                             else clase = 'ocupado';
-                            
                             contenido += `<span class="txt-op">${huecoData.OP_Tarima}</span>`;
                             contenido += `<span class="txt-meta">${huecoData.Area_Destino}</span>`;
-                            contenido += `<span class="txt-meta">${huecoData.Tarima_Num}</span>`;
+                            contenido += `<span class="txt-meta">Tarima ${huecoData.Tarima_Num}</span>`;
                         } else {
                             contenido += `<br><span class="txt-meta">LIBRE</span>`;
                         }
-                        
                         box.className = `hueco-nivel ${clase}`;
                         box.innerHTML = contenido;
                     } else {
                         box.className = `hueco-nivel`;
-                        box.style.background = '#e2e6ea'; // Slot vacío
+                        box.style.background = '#e2e6ea'; 
                     }
-
                     box.style.gridColumn = colIndex;
                     box.style.gridRow = (totalFilas + 1) - i;
                     rackWrapperDiv.appendChild(box);
@@ -256,12 +246,12 @@
                 const result = await res.json();
 
                 if (res.status === 404) {
-                    searchResultsDiv.innerHTML = `<p style="color:gray;">${result.message}</p>`;
-                    await loadRack(); // Recarga normal
+                    searchResultsDiv.innerHTML = `<p style="color:#666;">${result.message}</p>`;
                 } else {
-                    renderResults(result.resultados, op, area);
-                    await loadRack(op); // Recarga resaltando la OP
+                    // AQUÍ ESTÁ LA CORRECCIÓN: Pasamos 'result.resultados' que contiene la info real de la DB
+                    renderResults(result.resultados);
                 }
+                await loadRack(op); 
             } catch (e) {
                 showMessage(`Error: ${e.message}`, true);
             } finally {
@@ -269,7 +259,8 @@
             }
         }
 
-        function renderResults(resultados, op, area) {
+        // CORRECCIÓN: La función ahora no depende del argumento 'area' del formulario, sino de los datos reales (r.areaDestino)
+        function renderResults(resultados) {
             let html = `<div style="background:#e6f7ff; padding:10px; border:1px solid #005f9e; border-radius:5px; margin-bottom:15px;">
                         <strong>${resultados.length}</strong> tarimas encontradas.</div>`;
             
@@ -277,10 +268,11 @@
                 html += `
                     <div class="result-item">
                         <div>
-                            <h3 style="margin:0;">OP ${op}</h3>
-                            <p style="margin:0; font-size:0.9em;">${r.idHueco} (${area}) - ${r.tarimaNum}</p>
+                            <h3 style="margin:0;">OP ${r.opTarima} - Tarima ${r.tarimaNum}</h3>
+                            <p style="margin:0; font-size:0.9em;">Ubicación: <strong>${r.idHueco}</strong> (${r.areaDestino})</p>
+                            <small>Entrada: ${r.fechaEntrada}</small>
                         </div>
-                        <button onclick="retirar(${r.row}, '${r.idHueco}', '${op}', '${r.tarimaNum}', '${area}', this)" 
+                        <button onclick="solicitarRetiro(${r.row}, '${r.idHueco}', '${r.opTarima}', '${r.tarimaNum}', '${r.areaDestino}', this)" 
                                 style="background:#dc3545; color:white; padding:8px 15px; border:none; border-radius:4px; cursor:pointer;">
                             Retirar
                         </button>
@@ -289,8 +281,8 @@
             searchResultsDiv.innerHTML = html;
         }
 
-        window.retirar = async function(row, hueco, op, tarimaNum, area, btn) {
-            if (!confirm(`¿Confirmar retiro?`)) return;
+        window.solicitarRetiro = async function(row, hueco, op, tarimaNum, area, btn) {
+            if (!confirm(`¿Confirmar retiro de Tarima ${tarimaNum} del hueco ${hueco}?`)) return;
             btn.disabled = true; btn.innerHTML = '...';
             
             try {
@@ -298,21 +290,25 @@
                     method: 'POST',
                     body: JSON.stringify({ action: 'solicitar_retiro', row, op, hueco, tarimaNumStr: tarimaNum, area })
                 });
-                showMessage('✅ Retirado correctamente.', false);
+                showMessage('✅ Retiro registrado correctamente. Historial actualizado.', false);
                 searchResultsDiv.innerHTML = '';
-                loadRack();
-            } catch(e) { showMessage('Error al retirar.', true); btn.disabled = false; }
+                document.getElementById('search-op-input').value = '';
+                await loadRack();
+            } catch(e) {
+                showMessage('Error al retirar.', true);
+                btn.disabled = false;
+            }
         };
 
         document.getElementById('search-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const op = document.getElementById('search-op-input').value.trim();
             const area = document.getElementById('search-area-select').value;
-            if (op.length !== 7) { showMessage('OP 7 dígitos requerida', true); return; }
+            if (op.length !== 7) { showMessage('OP debe ser de 7 dígitos', true); return; }
             buscarOP(op, area);
         });
 
-        loadRack();
+        document.addEventListener('DOMContentLoaded', () => loadRack());
     </script>
 </body>
 </html>
