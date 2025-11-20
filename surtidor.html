@@ -136,8 +136,10 @@
                 if (!response.ok) throw new Error('Error al cargar inventario.');
                 
                 const data = await response.json();
+                
+                // CORRECCIÓN CRUCIAL: Usar .toUpperCase() para coincidir con 'DISPONIBLE' de la hoja
                 const huecosDisponibles = data.inventario
-                    .filter(h => h.Estatus_Hueco === 'Disponible')
+                    .filter(h => h.Estatus_Hueco === 'DISPONIBLE')
                     .map(h => `${h.ID_Hueco} (${h.Tamano_Hueco})`)
                     .sort();
 
@@ -147,6 +149,13 @@
                     huecoSelect.add(new Option(hueco, idHueco));
                 });
                 
+                // Si se cargan huecos, ocultar mensaje de error
+                if (huecosDisponibles.length > 0) {
+                    messageDiv.style.display = 'none';
+                } else {
+                    showMessage("No hay huecos disponibles actualmente o la conexión falló.", true);
+                }
+
             } catch (error) {
                 console.error("Error cargando huecos:", error);
                 showMessage("Error al cargar huecos disponibles. Revise la consola.", true);

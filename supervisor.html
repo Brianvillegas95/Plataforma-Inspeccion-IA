@@ -192,10 +192,10 @@
             inventario.sort((a, b) => a.ID_Hueco.localeCompare(b.ID_Hueco)); 
             
             inventario.forEach(h => {
-                let clase = h.Estatus_Hueco === 'Disponible' ? 'disponible' : 'ocupado';
+                let clase = h.Estatus_Hueco === 'DISPONIBLE' ? 'disponible' : 'ocupado';
                 let texto = h.ID_Hueco;
                 
-                if (h.Estatus_Hueco === 'Ocupado') {
+                if (h.Estatus_Hueco !== 'DISPONIBLE') {
                     texto += `<br>${h.OP_Tarima}<br>(${h.Tarima_Num})`;
                     if (h.OP_Tarima === opEncontrada) {
                         clase = 'propia';
@@ -222,7 +222,7 @@
                 const data = await response.json();
                 renderRack(data.inventario, op);
             } catch (error) {
-                rackVirtualDiv.innerHTML = `<p style="color: red;">Error cargando rack: ${error.message}</p>`;
+                rackVirtualDiv.innerHTML = `<p style="color: var(--danger-color);">Error cargando rack: ${error.message}</p>`;
             }
         }
 
