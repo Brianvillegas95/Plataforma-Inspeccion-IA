@@ -2,97 +2,74 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Surtidor - Registro de Pulmón</title>
+    <title>Surtidor - Pulmón | Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* Estilos específicos que usan las clases del CSS base */
+        /* HEADER COPIADO DE KPI */
+        .app-header { 
+            background-color: #005f9e; 
+            border-bottom: 1px solid #004a7c; 
+            padding: 15px 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            color: white;
+        }
+        .logo-container { display: flex; align-items: center; gap: 15px; }
+        .logo { height: 45px; width: auto; filter: brightness(0) invert(1); } /* Logo blanco */
+        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
+
+        /* CONTENIDO */
         .container { 
             max-width: 600px; 
-            margin: 30px auto; 
-            background: var(--surface-bg); 
+            margin: 40px auto; 
+            background: var(--surface-bg, #fff); 
             padding: 30px; 
-            border-radius: var(--border-radius); 
-            box-shadow: var(--shadow-lg); 
-            border: 1px solid var(--border-color);
+            border-radius: 8px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+            border: 1px solid #dee2e6;
         }
-        h2 { 
-            color: var(--azor-blue); 
-            text-align: center; 
-            margin-bottom: 25px;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-        }
+        h2 { color: #005f9e; text-align: center; margin-bottom: 25px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         
-        /* Uso de clases de botones primarios y grupos de formulario */
         .button.primary-action-green { 
-            background-color: var(--success-color); 
-            border-color: var(--success-color);
-            box-shadow: var(--shadow-md);
-            width: 100%;
-            padding: 15px 20px;
-            font-size: 1.1em;
-            font-weight: bold;
+            background-color: #28a745; border-color: #28a745; color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; padding: 15px 20px;
+            font-size: 1.1em; font-weight: bold; border-radius: 6px; cursor: pointer; border:none;
         }
-        .button.primary-action-green:hover { 
-            background-color: #218838; /* Tono más oscuro de éxito */
-        }
+        .button.primary-action-green:hover { background-color: #218838; }
 
-        /* Mensajes de feedback */
-        #message { 
-            margin-top: 25px; 
-            padding: 15px; 
-            border-radius: var(--border-radius); 
-            text-align: center; 
-            display: none; 
-            font-weight: bold;
-        }
-        .error { 
-            background-color: #f8d7da; 
-            color: var(--danger-color); 
-            border: 1px solid #f5c6cb; 
-        }
-        .success { 
-            background-color: #d4edda; 
-            color: var(--success-color); 
-            border: 1px solid #c3e6cb; 
-        }
-        
-        /* Asegurar que los inputs usen los estilos del CSS general */
-        .form-group input, .form-group select {
-            background-color: #f8f9fa; /* Fondo claro para input */
-        }
-        
-        /* Estilo para las tarjetas de asignación dinámica */
-        .panel-card {
-            background-color: var(--surface-bg);
-            padding: 15px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .panel-card h4 {
-            font-size: 1em;
-            color: var(--text-primary);
-        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 5px; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
 
+        .panel-card { background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; border-left: 5px solid #005f9e; margin-bottom: 10px; }
+        
+        #message { margin-top: 25px; padding: 15px; border-radius: 6px; text-align: center; display: none; font-weight: bold; }
+        .error { background-color: #f8d7da; color: #dc3545; border: 1px solid #f5c6cb; }
+        .success { background-color: #d4edda; color: #28a745; border: 1px solid #c3e6cb; }
     </style>
 </head>
 <body>
+
+    <header class="app-header">
+        <div class="logo-container">
+            <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
+            <h1 class="app-title">Surtidor Pulmón</h1>
+        </div>
+    </header>
+
     <div class="container">
-        <h2><i class="fas fa-pallet"></i> Registro de Tarima a Pulmón</h2>
+        <h2><i class="fas fa-pallet"></i> Registro de Entrada</h2>
         <form id="registro-form">
             <div class="form-group">
-                <label for="op-input">Orden de Producción (OP) (7 dígitos):</label>
-                <input type="text" id="op-input" required maxlength="7" pattern="\d{7}" title="Debe ser un número de 7 dígitos" placeholder="Ej: 1234567">
+                <label>Orden de Producción (OP) (7 dígitos):</label>
+                <input type="text" id="op-input" required maxlength="7" pattern="\d{7}" placeholder="Ej: 1234567">
             </div>
-            
             <div class="form-group">
-                <label for="area-select">Área de Destino:</label>
+                <label>Área de Destino:</label>
                 <select id="area-select" required>
                     <option value="" disabled selected>-- Seleccione el área --</option>
                     <option value="Empaque">Empaque</option>
@@ -102,12 +79,10 @@
                     <option value="Boligrafo">Bolígrafo</option>
                 </select>
             </div>
-            
             <div class="form-group">
-                <label for="tarima-total-input">Cantidad Total de Tarimas para esta OP:</label>
+                <label>Cantidad Total de Tarimas:</label>
                 <input type="number" id="tarima-total-input" min="1" required value="1">
             </div>
-
             <button type="submit" id="submit-btn" class="button primary-action-green">
                 <i class="fas fa-map-marker-alt"></i> Asignar Huecos
             </button>
@@ -115,13 +90,11 @@
         
         <div id="asignacion-section" style="display:none; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
             <h3><i class="fas fa-list-ol"></i> Definir Tamaños y Confirmar</h3>
-            <div id="tarimas-inputs">
-                </div>
-            <button id="confirmar-registro-btn" class="button primary-action" disabled style="margin-top: 20px; background-color: var(--azor-blue);">
-                <i class="fas fa-check-circle"></i> Confirmar Registro en Pulmón
+            <div id="tarimas-inputs"></div>
+            <button id="confirmar-registro-btn" class="button primary-action-green" style="margin-top: 20px; background-color: #005f9e;">
+                <i class="fas fa-check-circle"></i> Confirmar Registro
             </button>
         </div>
-        
         <div id="message"></div>
     </div>
     
@@ -144,15 +117,12 @@
         }
         
         function disableForm(disabled) {
-            // Deshabilita/Habilita los campos de entrada principales
             submitBtn.disabled = disabled;
             document.getElementById('op-input').disabled = disabled;
             document.getElementById('area-select').disabled = disabled;
             document.getElementById('tarima-total-input').disabled = disabled;
-            // IMPORTANTE: El botón de confirmar se maneja por separado en la lógica de asignación
         }
 
-        // --- PASO 1: Obtener Huecos y Mostrar el Formulario Dinámico ---
         async function buscarHuecosYAsignar() {
             messageDiv.style.display = 'none';
             disableForm(true); 
@@ -162,195 +132,123 @@
             const area = document.getElementById('area-select').value;
 
             try {
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando huecos...';
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'buscar_huecos_disponibles_por_tamano' }),
                 });
                 
-                if (!response.ok) throw new Error('Error al consultar inventario de huecos.');
+                if (!response.ok) throw new Error('Error conexión.');
                 const data = await response.json();
                 huecosDisponiblesPorTamano = data.huecos || {};
 
-                // Inicializar la estructura de tarimas
                 tarimasPendientes = [];
                 for (let i = 1; i <= totalTarimas; i++) {
                     tarimasPendientes.push({
                         tarimaNumStr: `${i} de ${totalTarimas}`,
-                        hueco: null, 
-                        op: op,
-                        area: area,
-                        tamano: '' 
+                        hueco: null, op: op, area: area, tamano: '' 
                     });
                 }
 
                 renderAsignacionInputs();
                 asignacionSection.style.display = 'block';
-                
-                // CORRECCIÓN: Habilitar el botón de Confirmación después de renderizar el formulario dinámico
                 confirmarRegistroBtn.disabled = false; 
 
             } catch (error) {
-                showMessage(`Error de asignación: ${error.message}`, true);
+                showMessage(`Error: ${error.message}`, true);
                 disableForm(false);
             } finally {
                 submitBtn.innerHTML = '<i class="fas fa-map-marker-alt"></i> Asignar Huecos';
             }
         }
         
-        // --- PASO 2: Renderizar Inputs de Tamaño de Tarima ---
         function renderAsignacionInputs() {
             let html = '';
-            
             tarimasPendientes.forEach((tarima, index) => {
                 const hasGR = huecosDisponiblesPorTamano['GR'] && huecosDisponiblesPorTamano['GR'].length > 0;
                 const hasCH = huecosDisponiblesPorTamano['CH'] && huecosDisponiblesPorTamano['CH'].length > 0;
                 
-                let huecoAsignadoDisplay = tarima.hueco ? 
-                    (tarima.hueco === 'PASILLO' ? 
-                        `<span style="color:var(--danger-color); font-weight:bold;">PASILLO (Rack Lleno)</span>` :
-                        `<span style="color:var(--success-color); font-weight:bold;">${tarima.hueco} (${tarima.tamano})</span>`) 
-                    : `<span style="color:var(--text-secondary);">PENDIENTE</span>`;
+                let huecoDisplay = tarima.hueco ? (tarima.hueco === 'PASILLO' ? 
+                    '<span style="color:#dc3545; font-weight:bold;">PASILLO</span>' : 
+                    `<span style="color:#28a745; font-weight:bold;">${tarima.hueco}</span>`) : 
+                    '<span style="color:#777;">PENDIENTE</span>';
 
                 html += `
-                    <div class="panel-card" style="margin-bottom: 15px; border-left: 5px solid var(--azor-blue);">
-                        <h4 style="margin:0; color:var(--text-primary);">Tarima ${tarima.tarimaNumStr}</h4>
-                        
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>Tamaño de Tarima:</label>
-                            <select id="tamano-select-${index}" class="form-control" 
-                                onchange="asignarHuecoAutomatico(${index}, this.value)" required>
-                                <option value="" disabled selected>-- Seleccione Tamaño --</option>
-                                <option value="GR" ${!hasGR && tarima.hueco !== 'PASILLO' && !tarima.tamano ? 'disabled' : ''}>GRANDE ${!hasGR && tarima.hueco !== 'PASILLO' && !tarima.tamano ? '(Lleno)' : ''}</option>
-                                <option value="CH" ${!hasCH && tarima.hueco !== 'PASILLO' && !tarima.tamano ? 'disabled' : ''}>CHICO ${!hasCH && tarima.hueco !== 'PASILLO' && !tarima.tamano ? '(Lleno)' : ''}</option>
-                                <option value="PASILLO">ASIGNAR A PASILLO (Pulmón lleno)</option>
+                    <div class="panel-card">
+                        <h4 style="margin:0 0 10px 0;">Tarima ${tarima.tarimaNumStr}</h4>
+                        <div class="form-group" style="margin-bottom: 5px;">
+                            <select id="tamano-select-${index}" onchange="asignarHueco(${index}, this.value)" required>
+                                <option value="" disabled selected>-- Tamaño --</option>
+                                <option value="GR" ${!hasGR && tarima.hueco !== 'PASILLO' && !tarima.tamano ? 'disabled' : ''}>GRANDE ${!hasGR ? '(Lleno)' : ''}</option>
+                                <option value="CH" ${!hasCH && tarima.hueco !== 'PASILLO' && !tarima.tamano ? 'disabled' : ''}>CHICO ${!hasCH ? '(Lleno)' : ''}</option>
+                                <option value="PASILLO">PASILLO (Ilimitado)</option>
                             </select>
                         </div>
-                        <p style="margin: 0; font-size: 0.9em;">Hueco Asignado: ${huecoAsignadoDisplay}</p>
-                    </div>
-                `;
+                        <p style="margin:0; font-size:0.9em;">Asignado: ${huecoDisplay}</p>
+                    </div>`;
             });
-
             tarimasInputsDiv.innerHTML = html;
             
-            // Restaurar selección después de renderizar (Necesario para mantener el estado)
-            tarimasPendientes.forEach((tarima, index) => {
-                 const selectElement = document.getElementById(`tamano-select-${index}`);
-                 if (selectElement && tarima.tamano) {
-                    selectElement.value = tarima.tamano;
-                 }
+            tarimasPendientes.forEach((t, i) => {
+                 const sel = document.getElementById(`tamano-select-${i}`);
+                 if (sel && t.tamano) sel.value = t.tamano;
             });
         }
 
-        // --- PASO 3: Asignar Hueco de Manera Automática ---
-        window.asignarHuecoAutomatico = function(index, tamanoSeleccionado) {
+        window.asignarHueco = function(index, tamano) {
             const tarima = tarimasPendientes[index];
-            let huecoAsignado = null;
             
-            // Lógica de Deshacer: Si ya tenía un hueco asignado, devolverlo a la lista (excepto si era PASILLO)
+            // Deshacer asignación previa si era de rack
             if (tarima.hueco && tarima.hueco !== 'PASILLO') {
-                const tamanoDevuelto = tarima.hueco.slice(-2).toUpperCase(); 
-                if (huecosDisponiblesPorTamano[tamanoDevuelto]) {
-                     huecosDisponiblesPorTamano[tamanoDevuelto].push(tarima.hueco);
-                     huecosDisponiblesPorTamano[tamanoDevuelto].sort(); 
+                const tipoPrev = tarima.hueco.slice(-2).toUpperCase();
+                if (huecosDisponiblesPorTamano[tipoPrev]) {
+                     huecosDisponiblesPorTamano[tipoPrev].push(tarima.hueco);
+                     huecosDisponiblesPorTamano[tipoPrev].sort();
                 }
             }
 
-            if (tamanoSeleccionado === 'PASILLO') {
-                huecoAsignado = 'PASILLO';
-            } else if (huecosDisponiblesPorTamano[tamanoSeleccionado] && huecosDisponiblesPorTamano[tamanoSeleccionado].length > 0) {
-                
-                huecoAsignado = huecosDisponiblesPorTamano[tamanoSeleccionado].shift(); 
-                
+            if (tamano === 'PASILLO') {
+                tarima.hueco = 'PASILLO';
+            } else if (huecosDisponiblesPorTamano[tamano] && huecosDisponiblesPorTamano[tamano].length > 0) {
+                tarima.hueco = huecosDisponiblesPorTamano[tamano].shift();
             } else {
-                showMessage(`ERROR: No quedan huecos '${tamanoSeleccionado}' disponibles. Asigne a PASILLO.`, true);
-                
-                // Forzar la selección de PASILLO si no hay más huecos
-                const selectElement = document.getElementById(`tamano-select-${index}`);
-                selectElement.value = 'PASILLO';
-                huecoAsignado = 'PASILLO'; 
-            }
-
-            tarima.hueco = huecoAsignado;
-            tarima.tamano = tamanoSeleccionado; 
-            renderAsignacionInputs(); 
-        }
-
-
-        // --- PASO 4: Confirmar y Registrar Todas las Tarimas ---
-        confirmarRegistroBtn.addEventListener('click', async () => {
-            
-            const tarimasSinAsignar = tarimasPendientes.filter(t => t.hueco === null);
-            if (tarimasSinAsignar.length > 0) {
-                showMessage('Debe seleccionar el tamaño para todas las tarimas antes de confirmar.', true);
+                alert("No hay huecos disponibles de ese tamaño. Seleccione Pasillo.");
+                tarima.hueco = null;
+                tarima.tamano = '';
+                renderAsignacionInputs();
                 return;
             }
-            
+            tarima.tamano = tamano;
+            renderAsignacionInputs();
+        }
+
+        confirmarRegistroBtn.addEventListener('click', async () => {
+            if (tarimasPendientes.some(t => !t.hueco)) {
+                alert('Asigne tamaño a todas las tarimas.'); return;
+            }
             confirmarRegistroBtn.disabled = true;
-            confirmarRegistroBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando todas las tarimas...';
+            confirmarRegistroBtn.innerHTML = '...';
 
             try {
-                for (const tarima of tarimasPendientes) {
-                    if (tarima.hueco !== 'PASILLO') {
-                         await registrarTarimaIndividual(tarima);
-                    } else {
-                         // Lógica de registro para PASILLO (solo trazabilidad)
-                         console.log(`Tarima ${tarima.tarimaNumStr} registrada como PASILLO (Solo Trazabilidad).`);
-                    }
+                for (const t of tarimasPendientes) {
+                    await fetch(API_URL, {
+                        method: 'POST', headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({
+                            action: 'registrar_entrada',
+                            hueco: t.hueco, op: t.op, area: t.area, tarimaNumStr: t.tarimaNumStr
+                        })
+                    });
                 }
-
-                showMessage(`✅ ¡Registro de OP ${tarimasPendientes[0].op} completado! ${tarimasPendientes.length} tarimas procesadas.`, false);
-                setTimeout(() => window.location.reload(), 3000); 
-
-            } catch (error) {
-                showMessage(`Error crítico en el registro batch: ${error.message}. Revise los huecos que sí se registraron.`, true);
-            } finally {
-                confirmarRegistroBtn.disabled = false;
-                confirmarRegistroBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirmar Registro en Pulmón';
-            }
+                showMessage(`✅ Registro completado.`, false);
+                setTimeout(() => window.location.reload(), 2500);
+            } catch (e) { showMessage(`Error: ${e.message}`, true); }
         });
-        
-        // --- FUNCIÓN DE REGISTRO INDIVIDUAL (HUECO) ---
-        async function registrarTarimaIndividual(tarima) {
-             const payload = {
-                action: 'registrar_entrada',
-                hueco: tarima.hueco,
-                op: tarima.op,
-                area: tarima.area,
-                tarimaNumStr: tarima.tarimaNumStr
-            };
-            
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || `Falla al registrar tarima ${tarima.tarimaNumStr} en hueco ${tarima.hueco}.`);
-            }
-            return response.json();
-        }
 
-
-        // --- INICIALIZACIÓN y Evento Principal ---
         registroForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            const op = document.getElementById('op-input').value.trim();
-            const totalTarimas = parseInt(document.getElementById('tarima-total-input').value, 10);
-
-            if (op.length !== 7 || isNaN(op)) {
-                showMessage('La Orden de Producción debe ser un número de 7 dígitos.', true);
-                return;
-            }
-            if (totalTarimas < 1) {
-                showMessage('La cantidad total de tarimas debe ser al menos 1.', true);
-                return;
-            }
-            
+            const op = document.getElementById('op-input').value;
+            if (op.length !== 7 || isNaN(op)) { showMessage('OP inválida.', true); return; }
             buscarHuecosYAsignar();
         });
     </script>

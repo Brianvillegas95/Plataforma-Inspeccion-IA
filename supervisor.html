@@ -2,384 +2,282 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Supervisor - Solicitud de Tarimas</title>
+    <title>Supervisor | Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* Estilos específicos que usan las clases del CSS base */
-        .container { 
-            max-width: 1400px; /* Ancho amplio para ver todos los carriles */
-            margin: 30px auto; 
-            background: var(--surface-bg); 
-            padding: 30px; 
-            border-radius: var(--border-radius); 
-            box-shadow: var(--shadow-lg); 
-            border: 1px solid var(--border-color);
+        /* HEADER COPIADO */
+        .app-header { 
+            background-color: #005f9e; border-bottom: 1px solid #004a7c; 
+            padding: 15px 30px; display: flex; justify-content: space-between; 
+            align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white;
         }
-        h2 { 
-            color: var(--azor-blue); 
-            text-align: center; 
-            margin-bottom: 25px;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-        }
-        h3 {
-            color: var(--text-primary);
-            margin-top: 30px;
-            font-size: 1.2em;
-        }
+        .logo-container { display: flex; align-items: center; gap: 15px; }
+        .logo { height: 45px; width: auto; filter: brightness(0) invert(1); }
+        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
 
-        /* Formulario de búsqueda (se mantiene igual) */
-        #search-form { 
-            display: flex; gap: 15px; margin-bottom: 25px; align-items: stretch;
-        }
-        #search-form input, #search-form select { 
-            flex: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--border-radius); font-size: 1em; box-sizing: border-box; 
-        }
-        #search-form button { 
-            flex-basis: 150px; background-color: var(--primary-action, var(--azor-blue)); color: white; padding: 12px; border: none; border-radius: var(--border-radius); cursor: pointer; font-weight: bold; transition: background-color 0.3s;
-        }
-        #search-form button:hover:not(:disabled) { background-color: var(--azor-blue-dark); }
+        .container { max-width: 1400px; margin: 30px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        #search-form { display: flex; gap: 15px; margin-bottom: 20px; }
+        #search-form input, #search-form select { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        #search-form button { background-color: #005f9e; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
 
-        /* Resultados */
-        .result-item { 
-            border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: var(--border-radius); display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; box-shadow: var(--shadow-sm); 
-        }
-        .result-item h3 { color: var(--text-primary); margin: 0 0 5px 0; font-size: 1.05em; }
-        .result-item button { background-color: var(--danger-color); color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; font-weight: bold; }
-
-        /* --- RACK VIRTUAL: ESTILO MATRIZ UNIFORME --- */
-        #rack-wrapper { 
-            display: grid; 
-            /* Se definirá dinámicamente en JS, pero base: columnas iguales */
-            grid-auto-columns: 1fr; 
-            gap: 4px; /* Espacio pequeño entre carriles */
-            margin-top: 25px; 
+        /* RACK VIRTUAL */
+        #rack-container { 
+            display: flex; 
+            overflow-x: auto; 
+            gap: 5px; 
             padding: 15px; 
             background: #e9ecef; 
-            border-radius: var(--border-radius); 
-            overflow-x: auto; 
+            border-radius: 8px;
+            align-items: flex-end; /* Alinear columnas al fondo */
+            min-height: 400px;
         }
 
-        /* Título del carril (A, B, C...) */
-        .carril-title {
-            background-color: var(--azor-blue-dark);
-            color: white;
-            padding: 8px 0;
-            font-weight: 800;
-            text-align: center;
-            font-size: 1em;
-            border-radius: 4px;
-            margin-bottom: 5px;
-            grid-row: 1; /* Siempre arriba */
+        .carril-column {
+            display: flex;
+            flex-direction: column-reverse; /* Nivel 1 abajo */
+            min-width: 70px; /* Ancho fijo para todos */
+            flex: 1;
         }
 
-        /* Estilos del hueco individual */
-        .hueco-nivel { 
-            padding: 8px 2px; 
-            font-size: 0.7em; 
-            line-height: 1.2;
+        .carril-header {
+            text-align: center; background: #004a7c; color: white; 
+            font-weight: bold; padding: 5px 0; border-radius: 4px 4px 0 0;
+            margin-bottom: 2px;
+        }
+
+        .hueco-box {
+            border: 1px solid white;
             text-align: center;
-            font-weight: 600;
-            cursor: default;
-            transition: transform 0.1s;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            overflow: hidden;
+            padding: 5px 2px;
+            font-size: 0.7em;
+            min-height: 45px; /* Altura uniforme */
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-height: 50px; /* Altura mínima para uniformidad */
-            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: 3px;
+            color: #333;
+            font-weight: 600;
         }
         
-        .hueco-nivel:hover { transform: scale(1.05); z-index: 10; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-        
-        /* Colores de estado */
-        .disponible { background-color: #d4edda; color: var(--success-color); border: 1px solid #c3e6cb; }
-        .ocupado { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-        
-        /* Estilo para tarima propia (resultado de búsqueda) */
-        .propia { 
-            background-color: var(--azor-blue); 
-            color: white; 
-            border: 2px solid #003d80;
-            transform: scale(1.05);
-            z-index: 5;
+        .hueco-box.vacio { background: #e2e6ea; } /* Placeholder para niveles inexistentes en un carril */
+        .hueco-box.disponible { background: #d4edda; color: #155724; }
+        .hueco-box.ocupado { background: #fff3cd; color: #856404; }
+        .hueco-box.propia { background: #005f9e; color: white; border: 2px solid #003d80; transform: scale(1.05); z-index: 5; }
+
+        .info-op { font-size: 1.1em; display: block; }
+        .info-tarima { font-size: 0.9em; font-weight: normal; }
+
+        /* ZONA PASILLO */
+        #pasillo-zone {
+            margin-top: 20px; padding: 15px; background: #fff3cd; 
+            border: 2px dashed #ffc107; border-radius: 8px;
         }
-
-        .texto-hueco { font-size: 1.1em; font-weight: 800; margin-bottom: 2px; display: block;}
-        .texto-info { font-size: 0.9em; font-weight: normal; word-break: break-word; line-height: 1;}
-        .badge-tamano {
-            display: inline-block; font-size: 0.8em; padding: 1px 4px; border-radius: 3px;
-            margin-top: 2px; background: rgba(0,0,0,0.1); color: inherit;
+        .pasillo-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .pasillo-item {
+            background: white; padding: 10px; border: 1px solid #ccc; 
+            border-radius: 5px; min-width: 120px; text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-
-        /* Spinners y mensajes */
-        .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--azor-blue); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; margin-right: 5px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .error { background-color: #f8d7da; color: var(--danger-color); border: 1px solid #f5c6cb; }
-        .success { background-color: #d4edda; color: var(--success-color); border: 1px solid #c3e6cb; }
-
     </style>
 </head>
 <body>
+    <header class="app-header">
+        <div class="logo-container">
+            <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
+            <h1 class="app-title">Supervisor de Inventario</h1>
+        </div>
+    </header>
+
     <div class="container">
-        <h2><i class="fas fa-search"></i> Consulta y Solicitud de Tarimas</h2>
-        
         <form id="search-form">
-            <input type="text" id="search-op-input" required maxlength="7" pattern="\d{7}" placeholder="Ingrese OP de 7 dígitos">
-            <select id="search-area-select" required>
-                <option value="" disabled selected>-- Seleccione su Área --</option>
+            <input type="text" id="search-op" placeholder="Buscar OP (7 dígitos)">
+            <select id="search-area">
+                <option value="" disabled selected>-- Área --</option>
                 <option value="Empaque">Empaque</option>
                 <option value="Ensamble">Ensamble</option>
                 <option value="Kinera">Kinera</option>
                 <option value="Moldeo">Moldeo</option>
                 <option value="Boligrafo">Bolígrafo</option>
             </select>
-            <button type="submit" id="search-btn"><i class="fas fa-search"></i> Buscar Tarimas</button>
+            <button type="submit" id="btn-search">Buscar</button>
         </form>
-        
-        <div id="message-supervisor" style="margin-top: 20px;"></div>
-        
-        <h3>Tarimas Encontradas:</h3>
-        <div id="search-results">
-            <p>Ingrese una OP y un Área para buscar.</p>
-        </div>
 
-        <h3>Rack Virtual (Visualización de Carriles y Niveles):</h3>
-        <div id="rack-wrapper">
-            <p style="grid-column: 1 / -1;"><span class="loading-spinner"></span> Cargando estado del Pulmón...</p>
+        <div id="results-msg" style="margin-bottom: 15px; font-weight: bold; color: #005f9e;"></div>
+
+        <h3>Rack Virtual</h3>
+        <div id="rack-container">Cargando...</div>
+
+        <div id="pasillo-zone" style="display:none;">
+            <h3><i class="fas fa-truck-loading"></i> Zona Pasillo (Desbordamiento)</h3>
+            <div id="pasillo-grid" class="pasillo-grid"></div>
         </div>
     </div>
-    
+
     <script>
         const API_URL = '/.netlify/functions/gestion-pulmon';
-        const searchForm = document.getElementById('search-form');
-        const searchResultsDiv = document.getElementById('search-results');
-        const messageDiv = document.getElementById('message-supervisor');
-        const rackWrapperDiv = document.getElementById('rack-wrapper');
-        const searchBtn = document.getElementById('search-btn');
+        let inventarioData = [];
+        let opBuscada = null;
 
-        let tarimasEncontradas = []; 
-
-        function showMessage(text, isError = false) {
-            messageDiv.innerHTML = `<div style="padding: 10px; border-radius: 5px; text-align: center;" class="${isError ? 'error' : 'success'}">${text}</div>`;
-        }
+        // Mapeo para ordenar letras correctamente
+        const LETTERS = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ'.split('');
         
-        // --- ORDENAMIENTO PERSONALIZADO (Incluye Ñ) ---
-        const ALPHABETICAL_ORDER = [
-            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'Ñ', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
-        ];
-        const CARRIEL_INDEX_MAP = ALPHABETICAL_ORDER.reduce((acc, char, index) => {
-            acc[char] = index; return acc;
-        }, {});
-        
-        function sortCarriles(a, b) {
-            const indexA = CARRIEL_INDEX_MAP[a] !== undefined ? CARRIEL_INDEX_MAP[a] : 999;
-            const indexB = CARRIEL_INDEX_MAP[b] !== undefined ? CARRIEL_INDEX_MAP[b] : 999;
-            return indexA - indexB;
-        }
-
-        function renderRack(inventario, opEncontrada = null) {
-            rackWrapperDiv.innerHTML = '';
-            
-            if (!inventario || inventario.length === 0) {
-                rackWrapperDiv.innerHTML = `<p style="grid-column: 1 / -1;">No se pudo cargar el inventario o está vacío.</p>`;
-                return;
-            }
-
-            // 1. Agrupar y Encontrar Máximo Nivel
-            let max_nivel = 0;
-            const carriles = inventario.reduce((acc, h) => {
-                const id = h.ID_Hueco || 'Z';
-                const carril = id.charAt(0); // Primera letra es el carril
-                const nivelNum = parseInt(id.substring(1, 3), 10); // Dígitos 2 y 3 son el nivel
-                
-                if (nivelNum > max_nivel) max_nivel = nivelNum;
-
-                if (!acc[carril]) acc[carril] = [];
-                acc[carril].push({ ...h, nivel: nivelNum });
-                return acc;
-            }, {});
-            
-            if (max_nivel === 0) max_nivel = 5; // Fallback por seguridad
-
-            // 2. Configurar Grid: Columnas iguales según cantidad de carriles encontrados
-            const carrilesOrdenados = Object.keys(carriles).sort(sortCarriles);
-            const totalCarriles = carrilesOrdenados.length;
-            const totalFilas = max_nivel + 1; // +1 para el título
-
-            // ESTILOS CLAVE PARA UNIFORMIDAD
-            rackWrapperDiv.style.gridTemplateColumns = `repeat(${totalCarriles}, 1fr)`; // Columnas EXACTAMENTE IGUALES
-            rackWrapperDiv.style.gridTemplateRows = `repeat(${totalFilas}, minmax(50px, 1fr))`; // Filas uniformes
-            rackWrapperDiv.style.alignItems = 'stretch'; // Estirar para llenar
-
-            // 3. Renderizar Carriles
-            carrilesOrdenados.forEach((carrilKey, index) => {
-                if (carrilKey === 'Z') return; // Saltar datos sucios
-
-                const colIndex = index + 1; // Grid empieza en 1
-
-                // A. Título del Carril (Fila 1)
-                const titleDiv = document.createElement('div');
-                titleDiv.className = 'carril-title';
-                titleDiv.style.gridColumn = colIndex;
-                titleDiv.style.gridRow = 1;
-                titleDiv.innerHTML = carrilKey;
-                rackWrapperDiv.appendChild(titleDiv);
-
-                const carrilData = carriles[carrilKey];
-                
-                // B. Huecos del Carril
-                carrilData.forEach(h => {
-                    let clase = h.Estatus_Hueco === 'DISPONIBLE' ? 'disponible' : 'ocupado';
-                    
-                    // Contenido visual
-                    let contenido = `<span class="texto-hueco">${h.ID_Hueco}</span>`;
-                    
-                    if (h.Estatus_Hueco !== 'DISPONIBLE') {
-                        contenido += `<div class="texto-info">${h.OP_Tarima}</div>`;
-                        contenido += `<div class="texto-info" style="font-size:0.8em">(${h.Tarima_Num})</div>`;
-                        if (h.OP_Tarima === opEncontrada) {
-                            clase = 'propia';
-                        }
-                    } else {
-                        contenido += `<div class="texto-info" style="opacity:0.7">LIBRE</div>`;
-                    }
-
-                    const huecoDiv = document.createElement('div');
-                    huecoDiv.className = `hueco-nivel ${clase}`;
-                    
-                    // POSICIONAMIENTO:
-                    // Columna: Fija para todo el carril.
-                    // Fila: Se calcula invirtiendo el nivel. Nivel 1 va abajo.
-                    // Formula: (TotalFilas + 1) - Nivel. 
-                    // Ejemplo: Si hay 10 filas + 1 titulo = 11 filas grid.
-                    // Nivel 1 -> Row 11. Nivel 10 -> Row 2.
-                    const gridRow = (totalFilas + 1) - h.nivel; 
-
-                    huecoDiv.style.gridColumn = colIndex;
-                    huecoDiv.style.gridRow = gridRow;
-                    huecoDiv.innerHTML = contenido;
-                    
-                    rackWrapperDiv.appendChild(huecoDiv);
-                });
-            });
-        }
-
-        async function cargarInventarioCompleto(op = null) {
-            rackWrapperDiv.innerHTML = `<p style="grid-column: 1 / -1;"><span class="loading-spinner"></span> Cargando estado del Pulmón...</p>`;
+        async function loadRack() {
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'get_inventario' }),
+                const res = await fetch(API_URL, {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ action: 'get_inventario' })
                 });
-                if (!response.ok) throw new Error('Error al cargar inventario.');
-                const data = await response.json();
-                renderRack(data.inventario, op);
-            } catch (error) {
-                rackWrapperDiv.innerHTML = `<p style="grid-column: 1 / -1; color: var(--danger-color);">Error: ${error.message}</p>`;
-            }
+                const data = await res.json();
+                inventarioData = data.inventario || [];
+                renderRack();
+            } catch(e) { console.error(e); document.getElementById('rack-container').innerText = 'Error al cargar.'; }
         }
 
-        async function buscarOP(op, area) {
-            searchBtn.disabled = true;
-            searchResultsDiv.innerHTML = '<p><span class="loading-spinner"></span> Buscando...</p>';
-            messageDiv.innerHTML = '';
+        function renderRack() {
+            const container = document.getElementById('rack-container');
+            const pasilloContainer = document.getElementById('pasillo-grid');
+            const pasilloZone = document.getElementById('pasillo-zone');
             
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'consultar_op', opBusqueda: op, areaBusqueda: area }),
-                });
-                const result = await response.json();
-
-                if (response.status === 404) {
-                    searchResultsDiv.innerHTML = `<p style="color: var(--text-secondary);">${result.message}</p>`;
-                    tarimasEncontradas = [];
-                } else if (!response.ok) {
-                    throw new Error(result.error || 'Error al buscar.');
+            container.innerHTML = '';
+            pasilloContainer.innerHTML = '';
+            
+            // 1. Separar Datos Rack vs Pasillo
+            const rackItems = [];
+            const pasilloItems = [];
+            
+            inventarioData.forEach(item => {
+                if (!item.ID_Hueco) return;
+                if (item.ID_Hueco.includes('PASILLO')) {
+                    pasilloItems.push(item);
                 } else {
-                    tarimasEncontradas = result.resultados;
-                    renderResults(op, area);
+                    rackItems.push(item);
                 }
-                await cargarInventarioCompleto(op); 
-            } catch (error) {
-                showMessage(`Error búsqueda: ${error.message}`, true);
-                tarimasEncontradas = [];
-            } finally {
-                searchBtn.disabled = false;
-            }
-        }
-
-        function renderResults(op, area) {
-            if (tarimasEncontradas.length === 0) {
-                searchResultsDiv.innerHTML = `<p>No se encontraron tarimas.</p>`;
-                return;
-            }
-            let html = `<div style="background:#e6f7ff; padding:10px; border:1px solid #91d5ff; border-radius:4px; margin-bottom:15px;">
-                        <strong>${tarimasEncontradas.length}</strong> tarimas encontradas para OP <strong>${op}</strong>.</div>`;
-            
-            tarimasEncontradas.forEach((tarima, index) => {
-                html += `
-                    <div class="result-item">
-                        <div>
-                            <h3><i class="fas fa-pallet"></i> Tarima ${tarima.tarimaNum}</h3>
-                            <p style="margin:0;">Hueco: <strong>${tarima.idHueco}</strong></p>
-                            <p style="margin:0; font-size:0.85em; color:#666;">${tarima.fechaEntrada}</p>
-                        </div>
-                        <button onclick="solicitarRetiro(${index}, this)"><i class="fas fa-times-circle"></i> Retirar</button>
-                    </div>`;
             });
-            searchResultsDiv.innerHTML = html;
+
+            // 2. Renderizar Pasillo
+            if (pasilloItems.length > 0) {
+                pasilloZone.style.display = 'block';
+                pasilloItems.forEach(p => {
+                    const isMatch = (p.OP_Tarima == opBuscada);
+                    const btnStyle = isMatch ? 'background:#005f9e; color:white;' : '';
+                    const div = document.createElement('div');
+                    div.className = 'pasillo-item';
+                    if (isMatch) div.style.border = '2px solid #005f9e';
+                    
+                    div.innerHTML = `
+                        <strong>${p.OP_Tarima || 'N/A'}</strong><br>
+                        <small>${p.Tarima_Num || ''}</small><br>
+                        <button onclick="retirar(${p.row}, '${p.ID_Hueco}', '${p.OP_Tarima}', '${p.Area_Destino}', '${p.Tarima_Num}')" 
+                            style="margin-top:5px; cursor:pointer; ${btnStyle}">Retirar</button>
+                    `;
+                    pasilloContainer.appendChild(div);
+                });
+            } else {
+                pasilloZone.style.display = 'none';
+            }
+
+            // 3. Procesar Rack (Agrupar por Carril)
+            const carriles = {};
+            let maxNivel = 0;
+
+            rackItems.forEach(h => {
+                const letra = h.ID_Hueco.charAt(0);
+                const nivel = parseInt(h.ID_Hueco.substring(1,3));
+                if (nivel > maxNivel) maxNivel = nivel;
+                
+                if (!carriles[letra]) carriles[letra] = [];
+                carriles[letra].push({ ...h, nivel });
+            });
+
+            // Ordenar Carriles (A, B, ... Ñ ... Q)
+            const sortedKeys = Object.keys(carriles).sort((a,b) => {
+                return LETTERS.indexOf(a) - LETTERS.indexOf(b);
+            });
+
+            // 4. Renderizar Columnas
+            sortedKeys.forEach(letra => {
+                const col = document.createElement('div');
+                col.className = 'carril-column';
+                
+                // Header inverso (porque usamos column-reverse)
+                // Pero visualmente queremos la letra arriba. 
+                // Truco: Poner el header al final del HTML dentro del flex-reverse
+                
+                // Llenar huecos
+                const huecos = carriles[letra];
+                
+                // Crear slots del 1 al MaxNivel
+                for (let i = 1; i <= maxNivel; i++) {
+                    const huecoData = huecos.find(h => h.nivel === i);
+                    const box = document.createElement('div');
+                    
+                    if (huecoData) {
+                        const op = huecoData.OP_Tarima || ''; // Quitar null
+                        const num = huecoData.Tarima_Num || '';
+                        const isMatch = (op == opBuscada);
+                        
+                        let clase = 'disponible';
+                        let content = 'LIBRE';
+                        
+                        if (huecoData.Estatus_Hueco !== 'DISPONIBLE') {
+                            clase = isMatch ? 'propia' : 'ocupado';
+                            content = `<span class="info-op">${op}</span><span class="info-tarima">${num}</span>`;
+                            // Botón retiro pequeño si ocupado
+                            content += `<i class="fas fa-times-circle" style="cursor:pointer; margin-top:2px;" 
+                                onclick="retirar(${huecoData.row}, '${huecoData.ID_Hueco}', '${op}', '${huecoData.Area_Destino}', '${num}')"></i>`;
+                        } else {
+                            // Mostrar nombre hueco si libre
+                            content = `<span style="opacity:0.5; font-size:0.8em;">${huecoData.ID_Hueco}</span><br>LIBRE`;
+                        }
+
+                        box.className = `hueco-box ${clase}`;
+                        box.innerHTML = content;
+                    } else {
+                        box.className = 'hueco-box vacio'; // Espacio vacío si no existe el nivel en este carril
+                    }
+                    col.appendChild(box);
+                }
+
+                // Header (agregado al final para que quede arriba con flex-reverse)
+                const header = document.createElement('div');
+                header.className = 'carril-header';
+                header.textContent = letra;
+                // Insertar header visualmente arriba (en DOM es el ultimo hijo si es column normal, pero aqui es reverse)
+                // Corrección: flex-direction: column-reverse pone el ultimo hijo arriba? No, pone el primero abajo.
+                // Si col es column-reverse:
+                // Child 1 (Nivel 1) -> Bottom
+                // Child N (Header) -> Top
+                col.appendChild(header); 
+
+                container.appendChild(col);
+            });
         }
 
-        window.solicitarRetiro = async function(index, buttonElement) {
-            const tarima = tarimasEncontradas[index];
-            const op = document.getElementById('search-op-input').value.trim();
-            const area = document.getElementById('search-area-select').value;
-            
-            if (!confirm(`¿Retirar Tarima ${tarima.tarimaNum} del hueco ${tarima.idHueco}?`)) return;
-
-            buttonElement.disabled = true;
-            buttonElement.innerHTML = '<span class="loading-spinner"></span> ...';
-
+        window.retirar = async (row, hueco, op, area, num) => {
+            if (!confirm("¿Retirar tarima?")) return;
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                await fetch(API_URL, {
+                    method:'POST', headers:{'Content-Type':'application/json'},
                     body: JSON.stringify({
-                        action: 'solicitar_retiro',
-                        row: tarima.row, op: op, hueco: tarima.idHueco,
-                        tarimaNumStr: tarima.tarimaNum, area: area
-                    }),
+                        action:'solicitar_retiro', row, op, hueco, tarimaNumStr: num, area
+                    })
                 });
-                if (!response.ok) throw new Error('Error al solicitar retiro.');
-                showMessage(`¡Éxito! Retiro solicitado.`, false);
-                tarimasEncontradas.splice(index, 1);
-                renderResults(op, area);
-                await cargarInventarioCompleto(op); 
-            } catch (error) {
-                showMessage(`Error: ${error.message}`, true);
-                buttonElement.disabled = false;
-                buttonElement.innerHTML = '<i class="fas fa-times-circle"></i> Retirar';
-            }
+                alert("Retirado.");
+                loadRack();
+            } catch(e) { alert("Error network"); }
         };
 
-        searchForm.addEventListener('submit', (e) => {
+        document.getElementById('search-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            const op = document.getElementById('search-op-input').value.trim();
-            const area = document.getElementById('search-area-select').value;
-            if (op.length !== 7 || isNaN(op)) { showMessage('La OP debe ser de 7 dígitos.', true); return; }
-            if (!area) { showMessage('Seleccione un Área.', true); return; }
-            buscarOP(op, area);
+            opBuscada = document.getElementById('search-op').value;
+            loadRack(); // Recargar y resaltar
+            document.getElementById('results-msg').textContent = `Resaltando OP: ${opBuscada}`;
         });
 
-        document.addEventListener('DOMContentLoaded', () => cargarInventarioCompleto());
+        loadRack();
     </script>
 </body>
 </html>
