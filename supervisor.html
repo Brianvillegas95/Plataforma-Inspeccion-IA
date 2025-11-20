@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Supervisor - Solicitud de Tarimas</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        /* Estilos específicos que usan las clases del CSS base */
+        .container { 
+            max-width: 900px; 
+            margin: 30px auto; 
+            background: var(--surface-bg); 
+            padding: 30px; 
+            border-radius: var(--border-radius); 
+            box-shadow: var(--shadow-lg); 
+            border: 1px solid var(--border-color);
+        }
+        h2 { 
+            color: var(--azor-blue); 
+            text-align: center; 
+            margin-bottom: 25px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        h3 {
+            color: var(--text-primary);
+            margin-top: 30px;
+            font-size: 1.2em;
+        }
+
+        /* Formulario de búsqueda */
+        #search-form { 
+            display: flex; 
+            gap: 15px; 
+            margin-bottom: 25px; 
+            align-items: stretch;
+        }
+        #search-form input, #search-form select { 
+            flex: 1; 
+            padding: 12px; 
+            border: 1px solid var(--border-color); 
+            border-radius: var(--border-radius); 
+            font-size: 1em;
+            box-sizing: border-box; 
+        }
+        #search-form button { 
+            flex-basis: 150px; 
+            background-color: var(--primary-action, var(--azor-blue)); 
+            color: white; 
+            padding: 12px; 
+            border: none; 
+            border-radius: var(--border-radius); 
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        #search-form button:hover:not(:disabled) { 
+            background-color: var(--azor-blue-dark); 
+        }
+
+        /* Resultados */
+        .result-item { 
+            border: 1px solid #ddd; 
+            padding: 15px; 
+            margin-bottom: 10px; 
+            border-radius: var(--border-radius); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: #f9f9f9;
+            box-shadow: var(--shadow-sm); 
+        }
+        .result-item h3 { 
+            color: var(--text-primary); 
+            margin: 0 0 5px 0; 
+            font-size: 1.05em;
+        }
+        .result-item button { 
+            background-color: var(--danger-color); 
+            color: white; 
+            padding: 10px 15px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            transition: background-color 0.3s; 
+            font-weight: bold;
+        }
+        .result-item button:hover:not(:disabled) { 
+            background-color: #c82333; 
+        }
+
+        /* Visualización de Rack Virtual */
+        #rack-virtual { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
+            gap: 8px; 
+            margin-top: 25px; 
+            padding: 15px; 
+            background: #e9ecef; 
+            border-radius: var(--border-radius); 
+        }
+        .hueco { 
+            padding: 10px 5px; 
+            border-radius: 3px; 
+            font-size: 0.75em; 
+            text-align: center; 
+            cursor: default; 
+            font-weight: bold;
+            line-height: 1.2;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        /* Clases que usan las variables */
+        .disponible { 
+            background-color: #d4edda; 
+            color: var(--success-color); 
+            border-color: var(--success-color); 
+        }
+        .ocupado { 
+            background-color: #fff3cd; 
+            color: var(--warning-color); 
+            border-color: var(--warning-color); 
+        }
+        .propia { 
+            background-color: var(--azor-blue); 
+            color: white; 
+            border-color: var(--azor-blue-dark); 
+            box-shadow: var(--shadow-md);
+        }
+        .error { background-color: #f8d7da; color: var(--danger-color); border: 1px solid #f5c6cb; }
+        .success { background-color: #d4edda; color: var(--success-color); border: 1px solid #c3e6cb; }
+        .loading-spinner {
+            border: 4px solid #f3f3f3; 
+            border-top: 4px solid var(--azor-blue); 
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2><i class="fas fa-search"></i> Consulta y Solicitud de Tarimas</h2>
+        
+        <form id="search-form">
+            <input type="text" id="search-op-input" required maxlength="7" pattern="\d{7}" placeholder="Ingrese OP de 7 dígitos">
+            <select id="search-area-select" required>
+                <option value="" disabled selected>-- Seleccione su Área --</option>
+                <option value="Empaque">Empaque</option>
+                <option value="Ensamble">Ensamble</option>
+                <option value="Kinera">Kinera</option>
+                <option value="Moldeo">Moldeo</option>
+                <option value="Boligrafo">Bolígrafo</option>
+            </select>
+            <button type="submit" id="search-btn"><i class="fas fa-search"></i> Buscar Tarimas</button>
+        </form>
+        
+        <div id="message-supervisor" style="margin-top: 20px;"></div>
+        
+        <h3>Tarimas Encontradas:</h3>
+        <div id="search-results">
+            <p>Ingrese una OP y un Área para buscar.</p>
+        </div>
+
+        <h3>Rack Virtual (Resumen de Huecos):</h3>
+        <div id="rack-virtual">
+            <p style="grid-column: 1 / -1;"><span class="loading-spinner"></span> Cargando estado del Pulmón...</p>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = '/.netlify/functions/gestion-pulmon';
+        const searchForm = document.getElementById('search-form');
+        const searchResultsDiv = document.getElementById('search-results');
+        const messageDiv = document.getElementById('message-supervisor');
+        const rackVirtualDiv = document.getElementById('rack-virtual');
+        const searchBtn = document.getElementById('search-btn');
+
+        let tarimasEncontradas = []; 
+
+        function showMessage(text, isError = false) {
+            messageDiv.innerHTML = `<div style="padding: 10px; border-radius: 5px; text-align: center;" class="${isError ? 'error' : 'success'}">${text}</div>`;
+        }
+
+        function renderRack(inventario, opEncontrada = null) {
+            rackVirtualDiv.innerHTML = '';
+            inventario.sort((a, b) => a.ID_Hueco.localeCompare(b.ID_Hueco)); 
+            
+            inventario.forEach(h => {
+                let clase = h.Estatus_Hueco === 'Disponible' ? 'disponible' : 'ocupado';
+                let texto = h.ID_Hueco;
+                
+                if (h.Estatus_Hueco === 'Ocupado') {
+                    texto += `<br>${h.OP_Tarima}<br>(${h.Tarima_Num})`;
+                    if (h.OP_Tarima === opEncontrada) {
+                        clase = 'propia';
+                    }
+                } else {
+                    texto += `<br>LIBRE`;
+                }
+
+                const huecoDiv = document.createElement('div');
+                huecoDiv.className = `hueco ${clase}`;
+                huecoDiv.innerHTML = texto;
+                rackVirtualDiv.appendChild(huecoDiv);
+            });
+        }
+
+        async function cargarInventarioCompleto(op = null) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'get_inventario' }),
+                });
+                if (!response.ok) throw new Error('Error al cargar inventario completo.');
+                const data = await response.json();
+                renderRack(data.inventario, op);
+            } catch (error) {
+                rackVirtualDiv.innerHTML = `<p style="color: red;">Error cargando rack: ${error.message}</p>`;
+            }
+        }
+
+        async function buscarOP(op, area) {
+            searchBtn.disabled = true;
+            searchResultsDiv.innerHTML = '<p><span class="loading-spinner"></span> Buscando...</p>';
+            messageDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'consultar_op', opBusqueda: op, areaBusqueda: area }),
+                });
+                
+                const result = await response.json();
+
+                if (response.status === 404) {
+                    searchResultsDiv.innerHTML = `<p style="color: var(--text-secondary);">${result.message}</p>`;
+                    tarimasEncontradas = [];
+                } else if (!response.ok) {
+                    throw new Error(result.error || 'Error al buscar.');
+                } else {
+                    tarimasEncontradas = result.resultados;
+                    renderResults(op, area);
+                }
+                
+                await cargarInventarioCompleto(op); 
+                
+            } catch (error) {
+                showMessage(`Error en la búsqueda: ${error.message}`, true);
+                searchResultsDiv.innerHTML = `<p style="color: var(--danger-color);">Error al consultar: ${error.message}</p>`;
+                tarimasEncontradas = [];
+            } finally {
+                searchBtn.disabled = false;
+            }
+        }
+
+        function renderResults(op, area) {
+            if (tarimasEncontradas.length === 0) {
+                searchResultsDiv.innerHTML = `<p style="color: var(--text-secondary);">No se encontraron tarimas activas para OP ${op}.</p>`;
+                return;
+            }
+
+            let html = `
+                <div style="background: #e6f7ff; padding: 10px; border: 1px solid #91d5ff; border-radius: 4px; margin-bottom: 15px; font-weight: bold;">
+                    <p style="margin: 0;">Se encontraron **${tarimasEncontradas.length}** tarimas para la OP **${op}** (${area}).</p>
+                </div>
+            `;
+
+            tarimasEncontradas.forEach((tarima, index) => {
+                html += `
+                    <div class="result-item">
+                        <div>
+                            <h3><i class="fas fa-pallet"></i> Tarima ${tarima.tarimaNum}</h3>
+                            <p style="margin: 0;"><strong>Hueco:</strong> ${tarima.idHueco}</p>
+                            <p style="margin: 0; font-size: 0.9em; color: var(--text-secondary);">Registrada: ${tarima.fechaEntrada}</p>
+                        </div>
+                        <button onclick="solicitarRetiro(${index}, this)">
+                            <i class="fas fa-times-circle"></i> Solicitar Retiro
+                        </button>
+                    </div>
+                `;
+            });
+
+            searchResultsDiv.innerHTML = html;
+        }
+
+        window.solicitarRetiro = async function(index, buttonElement) {
+            const tarima = tarimasEncontradas[index];
+            const op = document.getElementById('search-op-input').value.trim();
+            const area = document.getElementById('search-area-select').value;
+            
+            if (!confirm(`¿Está seguro de solicitar el retiro de la Tarima ${tarima.tarimaNum} del hueco ${tarima.idHueco}?`)) {
+                return;
+            }
+
+            buttonElement.disabled = true;
+            buttonElement.innerHTML = '<span class="loading-spinner"></span> Procesando...';
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'solicitar_retiro',
+                        row: tarima.row, 
+                        op: op, 
+                        hueco: tarima.idHueco,
+                        tarimaNumStr: tarima.tarimaNum,
+                        area: area
+                    }),
+                });
+                
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Error al solicitar retiro.');
+                }
+
+                showMessage(`¡Éxito! ${result.message}`, false);
+                
+                // Remover la tarima liberada y actualizar la vista
+                tarimasEncontradas.splice(index, 1);
+                renderResults(op, area);
+                await cargarInventarioCompleto(op); 
+
+            } catch (error) {
+                showMessage(`Error al liberar hueco: ${error.message}`, true);
+            } finally {
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = '<i class="fas fa-times-circle"></i> Solicitar Retiro';
+            }
+        };
+
+
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const op = document.getElementById('search-op-input').value.trim();
+            const area = document.getElementById('search-area-select').value;
+            if (op.length !== 7 || isNaN(op)) {
+                showMessage('La OP debe ser un número de 7 dígitos.', true);
+                return;
+            }
+            if (!area) {
+                showMessage('Debe seleccionar su Área.', true);
+                return;
+            }
+            buscarOP(op, area);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => cargarInventarioCompleto());
+    </script>
+</body>
+</html>

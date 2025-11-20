@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Surtidor - Registro de Pulmón</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        /* Estilos específicos que usan las clases del CSS base */
+        .container { 
+            max-width: 600px; 
+            margin: 30px auto; 
+            background: var(--surface-bg); 
+            padding: 30px; 
+            border-radius: var(--border-radius); 
+            box-shadow: var(--shadow-lg); 
+            border: 1px solid var(--border-color);
+        }
+        h2 { 
+            color: var(--azor-blue); 
+            text-align: center; 
+            margin-bottom: 25px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        /* Uso de clases de botones primarios y grupos de formulario */
+        .button.primary-action-green { 
+            background-color: var(--success-color); 
+            border-color: var(--success-color);
+            box-shadow: var(--shadow-md);
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        .button.primary-action-green:hover { 
+            background-color: #218838; /* Tono más oscuro de éxito */
+        }
+
+        /* Mensajes de feedback */
+        #message { 
+            margin-top: 25px; 
+            padding: 15px; 
+            border-radius: var(--border-radius); 
+            text-align: center; 
+            display: none; 
+            font-weight: bold;
+        }
+        .error { 
+            background-color: #f8d7da; 
+            color: var(--danger-color); 
+            border: 1px solid #f5c6cb; 
+        }
+        .success { 
+            background-color: #d4edda; 
+            color: var(--success-color); 
+            border: 1px solid #c3e6cb; 
+        }
+        
+        /* Asegurar que los inputs usen los estilos del CSS general */
+        .form-group input, .form-group select {
+            background-color: #f8f9fa; /* Fondo claro para input */
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2><i class="fas fa-pallet"></i> Registro de Tarima a Pulmón</h2>
+        <form id="registro-form">
+            <div class="form-group">
+                <label for="op-input">Orden de Producción (OP) (7 dígitos):</label>
+                <input type="text" id="op-input" required maxlength="7" pattern="\d{7}" title="Debe ser un número de 7 dígitos" placeholder="Ej: 1234567">
+            </div>
+            
+            <div class="form-group">
+                <label for="area-select">Área de Destino:</label>
+                <select id="area-select" required>
+                    <option value="" disabled selected>-- Seleccione el área --</option>
+                    <option value="Empaque">Empaque</option>
+                    <option value="Ensamble">Ensamble</option>
+                    <option value="Kinera">Kinera</option>
+                    <option value="Moldeo">Moldeo</option>
+                    <option value="Boligrafo">Bolígrafo</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="tarima-total-input">Cantidad Total de Tarimas para esta OP:</label>
+                <input type="number" id="tarima-total-input" min="1" required value="1">
+            </div>
+
+            <div class="form-group">
+                <label for="tarima-actual-input">Número de Tarima que se va a colocar (1, 2, 3...):</label>
+                <input type="number" id="tarima-actual-input" min="1" required value="1">
+            </div>
+            
+            <div class="form-group">
+                <label for="hueco-select">Hueco de Rack (Disponible):</label>
+                <select id="hueco-select" required>
+                    <option value="" disabled selected>-- Cargando huecos... --</option>
+                </select>
+            </div>
+            
+            <button type="submit" id="submit-btn" class="button primary-action-green">
+                <i class="fas fa-box-open"></i> Registrar Tarima
+            </button>
+        </form>
+        <div id="message"></div>
+    </div>
+    
+    <script>
+        const API_URL = '/.netlify/functions/gestion-pulmon'; 
+        const huecoSelect = document.getElementById('hueco-select');
+        const registroForm = document.getElementById('registro-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const messageDiv = document.getElementById('message');
+
+        function showMessage(text, isError = false) {
+            messageDiv.textContent = text;
+            messageDiv.className = isError ? 'error' : 'success';
+            messageDiv.style.display = 'block';
+            submitBtn.disabled = isError ? false : true; 
+            if (!isError) registroForm.reset();
+        }
+
+        async function cargarHuecosDisponibles() {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'get_inventario' }),
+                });
+                if (!response.ok) throw new Error('Error al cargar inventario.');
+                
+                const data = await response.json();
+                const huecosDisponibles = data.inventario
+                    .filter(h => h.Estatus_Hueco === 'Disponible')
+                    .map(h => `${h.ID_Hueco} (${h.Tamano_Hueco})`)
+                    .sort();
+
+                huecoSelect.innerHTML = '<option value="" disabled selected>-- Seleccione un hueco --</option>';
+                huecosDisponibles.forEach(hueco => {
+                    const idHueco = hueco.split(' ')[0]; 
+                    huecoSelect.add(new Option(hueco, idHueco));
+                });
+                
+            } catch (error) {
+                console.error("Error cargando huecos:", error);
+                showMessage("Error al cargar huecos disponibles. Revise la consola.", true);
+            }
+        }
+
+        registroForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitBtn.disabled = true;
+            messageDiv.style.display = 'none';
+
+            const op = document.getElementById('op-input').value.trim();
+            const totalTarimas = parseInt(document.getElementById('tarima-total-input').value, 10);
+            const tarimaActual = parseInt(document.getElementById('tarima-actual-input').value, 10);
+            const hueco = huecoSelect.value;
+            const area = document.getElementById('area-select').value;
+            
+            // Validaciones
+            if (op.length !== 7 || isNaN(op)) {
+                showMessage('La Orden de Producción debe ser un número de 7 dígitos.', true);
+                submitBtn.disabled = false;
+                return;
+            }
+            if (tarimaActual > totalTarimas || tarimaActual <= 0) {
+                showMessage(`El número de tarima actual (${tarimaActual}) no es válido respecto al total (${totalTarimas}).`, true);
+                submitBtn.disabled = false;
+                return;
+            }
+            
+            const tarimaNumStr = `${tarimaActual} de ${totalTarimas}`;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'registrar_entrada',
+                        hueco: hueco,
+                        op: op,
+                        area: area,
+                        tarimaNumStr: tarimaNumStr
+                    }),
+                });
+                
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Error desconocido al registrar.');
+                }
+
+                showMessage(`¡Éxito! Tarima ${tarimaNumStr} de OP ${op} (${area}) registrada en ${hueco}.`);
+                await cargarHuecosDisponibles(); 
+                submitBtn.disabled = false;
+                
+            } catch (error) {
+                showMessage(`Error al registrar: ${error.message}`, true);
+                submitBtn.disabled = false;
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', cargarHuecosDisponibles);
+    </script>
+</body>
+</html>
