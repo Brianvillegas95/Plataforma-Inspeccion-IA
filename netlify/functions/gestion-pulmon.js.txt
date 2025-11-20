@@ -36,7 +36,6 @@ exports.handler = async function (event) {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
   try {
-    // Parámetros esperados en el cuerpo de la petición
     const { action, hueco, op, area, tarimaNumStr, row, opBusqueda, areaBusqueda } = JSON.parse(event.body);
 
     if (!process.env.SUP_INVENTARIO_SHEET_ID || !process.env.SUP_MOVIMIENTOS_SHEET_ID) {
@@ -53,20 +52,23 @@ exports.handler = async function (event) {
     switch (action) {
       
       case 'get_inventario': {
-        // Usado por ambas interfaces para obtener el estado completo del rack.
+        // Lee la hoja de INVENTARIO (A:G) para construir el Rack Virtual y la lista de disponibles.
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: inventarioSheetId,
           range: 'Hoja 1!A2:G', 
         });
         const rows = response.data.values || [];
+        
+        // CORRECCIÓN CRUCIAL: Mapeo robusto a 7 columnas (A-G)
         const inventario = rows.map(row => ({
-            ID_Hueco: row[0],
-            Tamano_Hueco: row[1],
-            Estatus_Hueco: row[2],
-            Area_Destino: row[3],
-            OP_Tarima: row[4],
-            Tarima_Num: row[5],
-            Fecha_Entrada: row[6],
+            ID_Hueco: row[0] || null,
+            Tamano_Hueco: row[1] || null,
+            // Aseguramos que el estado esté en mayúsculas para la comparación en el frontend
+            Estatus_Hueco: (row[2] && row[2].toUpperCase()) || 'DISPONIBLE', 
+            Area_Destino: row[3] || null,
+            OP_Tarima: row[4] || null,
+            Tarima_Num: row[5] || null,
+            Fecha_Entrada: row[6] || null,
         }));
             
         return { statusCode: 200, body: JSON.stringify({ inventario }) };
@@ -75,7 +77,7 @@ exports.handler = async function (event) {
       case 'registrar_entrada': {
         if (!hueco || !op || !area || !tarimaNumStr) return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos de registro.' }) };
         
-        // 1. Encontrar la fila del hueco en INVENTARIO (asume que los huecos están precargados).
+        // 1. Encontrar la fila del hueco en INVENTARIO (Columna A).
         const resInv = await sheets.spreadsheets.values.get({ spreadsheetId: inventarioSheetId, range: 'Hoja 1!A:A' });
         const rowIndex = (resInv.data.values || []).findIndex(row => row[0] === hueco);
         if (rowIndex === -1) return { statusCode: 404, body: JSON.stringify({ error: `Hueco ${hueco} no encontrado en INVENTARIO DB.` }) };
@@ -87,7 +89,7 @@ exports.handler = async function (event) {
           resource: {
             valueInputOption: 'USER_ENTERED',
             data: [
-              { range: `Hoja 1!C${invRow}`, values: [['Ocupado']] }, // Estatus_Hueco
+              { range: `Hoja 1!C${invRow}`, values: [['OCUPADO']] }, // Estatus_Hueco (En mayúsculas)
               { range: `Hoja 1!D${invRow}`, values: [[area]] }, // Area_Destino
               { range: `Hoja 1!E${invRow}`, values: [[op]] }, // OP_Tarima
               { range: `Hoja 1!F${invRow}`, values: [[tarimaNumStr]] }, // Tarima_Num
@@ -107,7 +109,7 @@ exports.handler = async function (event) {
         });
         const movRow = getRowFromRange(resMov.data.updates.updatedRange);
         
-        // Asignar Folio_Mov 
+        // Asignar Folio_Mov (Columna A)
         await sheets.spreadsheets.values.update({
              spreadsheetId: movimientosSheetId,
              range: `Hoja 1!A${movRow}`,
@@ -132,7 +134,10 @@ exports.handler = async function (event) {
         for (let i = 0; i < rows.length; i++) {
             const [idHueco, , estatusHueco, areaDestino, opTarima, tarimaNum, fechaEntrada] = rows[i];
             
-            if (opTarima === opBusqueda && areaDestino === areaBusqueda && estatusHueco === 'Ocupado') {
+            // Usamos .toUpperCase() para la comparación y evitar errores de capitalización
+            const normalizedEstatus = (estatusHueco || '').toUpperCase();
+            
+            if (opTarima === opBusqueda && areaDestino === areaBusqueda && normalizedEstatus === 'OCUPADO') {
                 resultados.push({
                     row: i + 2, // Fila real en la hoja de INVENTARIO
                     idHueco,
@@ -150,8 +155,6 @@ exports.handler = async function (event) {
       }
         
       case 'solicitar_retiro': {
-        // Recibe la lista de tarimas a liberar del Supervisor.
-        // row: fila de INVENTARIO, op, hueco, tarimaNumStr
         if (!row || !op || !hueco || !tarimaNumStr || !area) return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos para la solicitud.' }) };
         
         // 1. Registrar MOVIMIENTO de Solicitud (Trazabilidad)
@@ -180,7 +183,7 @@ exports.handler = async function (event) {
           resource: {
             valueInputOption: 'USER_ENTERED',
             data: [
-              { range: `Hoja 1!C${row}`, values: [['Disponible']] }, // Estatus_Hueco (Liberado)
+              { range: `Hoja 1!C${row}`, values: [['DISPONIBLE']] }, // Estatus_Hueco (En mayúsculas)
               // Limpiar Area_Destino, OP_Tarima, Tarima_Num, Fecha_Entrada
               { range: `Hoja 1!D${row}:G${row}`, values: [['', '', '', '']] } 
             ]
