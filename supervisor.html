@@ -9,7 +9,7 @@
     <style>
         /* Estilos específicos que usan las clases del CSS base */
         .container { 
-            max-width: 1200px; /* Aumentamos el ancho para que quepa mejor el rack */
+            max-width: 1300px; /* Ancho máximo para que quepan 18 columnas */
             margin: 30px auto; 
             background: var(--surface-bg); 
             padding: 30px; 
@@ -30,7 +30,7 @@
             font-size: 1.2em;
         }
 
-        /* Formulario de búsqueda */
+        /* Formulario de búsqueda (se mantiene) */
         #search-form { 
             display: flex; 
             gap: 15px; 
@@ -60,7 +60,7 @@
             background-color: var(--azor-blue-dark); 
         }
 
-        /* Resultados */
+        /* Resultados (se mantienen) */
         .result-item { 
             border: 1px solid #ddd; 
             padding: 15px; 
@@ -72,11 +72,6 @@
             background: #f9f9f9;
             box-shadow: var(--shadow-sm); 
         }
-        .result-item h3 { 
-            color: var(--text-primary); 
-            margin: 0 0 5px 0; 
-            font-size: 1.05em;
-        }
         .result-item button { 
             background-color: var(--danger-color); 
             color: white; 
@@ -87,58 +82,60 @@
             transition: background-color 0.3s; 
             font-weight: bold;
         }
-        .result-item button:hover:not(:disabled) { 
-            background-color: #c82333; 
-        }
 
-        /* Estructura del Rack Virtual CORREGIDA */
+
+        /* Estructura del Rack Virtual COMPACTA */
         #rack-wrapper { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 20px; /* Espacio entre pasillos */
+            /* Se establece una grilla para 18 columnas pequeñas */
+            display: grid; 
+            grid-auto-columns: minmax(70px, 1fr); /* Ancho base más pequeño */
+            grid-auto-flow: column; /* Rellena columnas primero */
+            gap: 5px; /* Espacio mínimo entre carriles */
             margin-top: 25px; 
-            padding: 15px; 
+            padding: 10px 5px; 
             background: #e9ecef; 
             border-radius: var(--border-radius); 
+            overflow-x: auto; /* Permite scroll horizontal si no caben */
+            align-items: end; /* Asegura que los huecos se apilen desde abajo */
         }
 
-        .pasillo-container {
-            /* Cada pasillo toma el ancho que necesita */
-            flex-grow: 1; 
-            flex-basis: 150px; 
-            min-width: 150px;
+        .carril-container {
             display: flex;
-            flex-direction: column-reverse; /* Hace que el Nivel 01 esté ABAJO */
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius);
+            flex-direction: column-reverse; /* Nivel 01 ABAJO, niveles superiores ARRIBA */
+            min-width: 70px;
+            background: #fcfcfc;
+            border-radius: 4px;
             overflow: hidden;
-            background: var(--surface-bg);
             box-shadow: var(--shadow-sm);
         }
 
-        .pasillo-title {
-            background-color: var(--azor-blue-dark);
+        .carril-title {
+            background-color: var(--azor-blue);
             color: white;
-            padding: 5px;
-            font-weight: bold;
+            padding: 5px 0;
+            font-weight: 700;
             text-align: center;
-            font-size: 1em;
+            font-size: 0.85em;
+            letter-spacing: 1px;
             flex-shrink: 0;
         }
 
         .hueco-nivel { 
-            padding: 10px 5px; 
-            font-size: 0.75em; 
-            text-align: center; 
-            font-weight: bold;
-            line-height: 1.2;
-            border-bottom: 1px dashed #ccc; /* Separador entre niveles */
+            /* Estilo del bloque individual de hueco */
+            padding: 6px 3px; 
+            font-size: 0.65em; /* Fuente más pequeña para compactar */
+            line-height: 1.1;
+            text-align: center;
+            font-weight: 600;
+            cursor: default;
+            transition: transform 0.1s;
         }
-        .hueco-nivel:last-child {
-            border-bottom: none;
+        .hueco-nivel:hover {
+            transform: scale(1.03);
+            z-index: 10;
         }
         
-        /* Clases de estado (usando las variables del estilos.css) */
+        /* Clases de estado */
         .disponible { 
             background-color: #d4edda; 
             color: var(--success-color); 
@@ -150,12 +147,18 @@
         .propia { 
             background-color: var(--azor-blue); 
             color: white; 
+            font-weight: 700;
         }
         .libre {
             color: var(--text-secondary);
+            font-weight: 500;
             font-style: italic;
-            font-weight: normal;
         }
+        .hueco-text-secondary {
+            font-size: 0.9em;
+        }
+
+        /* Elementos de carga */
         .loading-spinner {
             border: 4px solid #f3f3f3; 
             border-top: 4px solid var(--azor-blue); 
@@ -167,7 +170,6 @@
             margin-right: 5px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* Mensajes */
         .error { background-color: #f8d7da; color: var(--danger-color); border: 1px solid #f5c6cb; }
         .success { background-color: #d4edda; color: var(--success-color); border: 1px solid #c3e6cb; }
 
@@ -197,7 +199,7 @@
             <p>Ingrese una OP y un Área para buscar.</p>
         </div>
 
-        <h3>Rack Virtual (Visualización de Pasillos y Niveles):</h3>
+        <h3>Rack Virtual (Visualización de Carriles y Niveles):</h3>
         <div id="rack-wrapper">
             <p style="grid-column: 1 / -1;"><span class="loading-spinner"></span> Cargando estado del Pulmón...</p>
         </div>
@@ -208,7 +210,7 @@
         const searchForm = document.getElementById('search-form');
         const searchResultsDiv = document.getElementById('search-results');
         const messageDiv = document.getElementById('message-supervisor');
-        const rackWrapperDiv = document.getElementById('rack-wrapper'); // Cambio de ID
+        const rackWrapperDiv = document.getElementById('rack-wrapper');
         const searchBtn = document.getElementById('search-btn');
 
         let tarimasEncontradas = []; 
@@ -225,43 +227,44 @@
                 return;
             }
 
-            // 1. Agrupar por Pasillo (primera letra) y luego por Nivel (segunda y tercera letra)
-            const pasillos = inventario.reduce((acc, h) => {
-                const id = h.ID_Hueco || 'Z'; // Usar 'Z' si el hueco es nulo para ordenarlo al final
-                const pasillo = id.charAt(0);
-                const nivelNum = parseInt(id.substring(1, 3), 10); // Extrae '01', '02', etc. y lo convierte a número
+            // 1. Agrupar por Carril (letra inicial) y luego por Nivel (número)
+            const carriles = inventario.reduce((acc, h) => {
+                const id = h.ID_Hueco || 'Z'; 
+                const carril = id.charAt(0);
+                const nivelNum = parseInt(id.substring(1, 3), 10); 
 
-                if (!acc[pasillo]) {
-                    acc[pasillo] = [];
+                if (!acc[carril]) {
+                    acc[carril] = [];
                 }
                 
-                acc[pasillo].push({
+                acc[carril].push({
                     ...h,
-                    nivel: nivelNum // Añadir el número de nivel para ordenar
+                    nivel: nivelNum 
                 });
                 return acc;
             }, {});
 
-            // 2. Ordenar las letras de los pasillos (A, B, C...)
-            const pasillosOrdenados = Object.keys(pasillos).sort();
+            // 2. Ordenar las letras de los carriles (A, B, C...)
+            const carrilesOrdenados = Object.keys(carriles).sort();
 
-            // 3. Renderizar cada pasillo
-            pasillosOrdenados.forEach(pasilloKey => {
-                const pasilloData = pasillos[pasilloKey];
-                if (pasilloKey === 'Z') return; // Omitir huecos nulos
+            // 3. Renderizar cada carril
+            carrilesOrdenados.forEach(carrilKey => {
+                const carrilData = carriles[carrilKey];
+                if (carrilKey === 'Z') return; 
 
-                // Ordenar los huecos DENTRO del pasillo por Nivel ascendente (1, 2, 3...)
-                pasilloData.sort((a, b) => a.nivel - b.nivel); 
+                // Ordenar los huecos DENTRO del carril por Nivel ascendente (1, 2, 3...)
+                // Esto es crucial porque el CSS usa column-reverse para apilar desde abajo
+                carrilData.sort((a, b) => a.nivel - b.nivel); 
 
-                let pasilloHtml = `<div class="pasillo-title">Pasillo ${pasilloKey}</div>`;
+                let carrilHtml = `<div class="carril-title">${carrilKey}</div>`;
 
-                pasilloData.forEach(h => {
+                carrilData.forEach(h => {
                     let clase = h.Estatus_Hueco === 'DISPONIBLE' ? 'disponible' : 'ocupado';
-                    let textoPrincipal = `${h.ID_Hueco} (${h.Tamano_Hueco})`;
+                    let textoPrincipal = `${h.ID_Hueco.substring(1, 3)}${h.ID_Hueco.substring(3)}<br>`; // Muestra solo Nivel + Tamaño
                     let textoSecundario;
                     
                     if (h.Estatus_Hueco !== 'DISPONIBLE') {
-                        textoSecundario = `${h.OP_Tarima}<br>(${h.Tarima_Num})`;
+                        textoSecundario = `<span class="hueco-text-secondary">${h.OP_Tarima}</span><br><span class="hueco-text-secondary">(${h.Tarima_Num})</span>`;
                         if (h.OP_Tarima === opEncontrada) {
                             clase = 'propia';
                         }
@@ -269,17 +272,17 @@
                         textoSecundario = `<span class="libre">LIBRE</span>`;
                     }
 
-                    pasilloHtml += `
+                    carrilHtml += `
                         <div class="hueco-nivel ${clase}">
-                            ${textoPrincipal}<br>${textoSecundario}
+                            ${textoPrincipal}${textoSecundario}
                         </div>
                     `;
                 });
 
-                const pasilloContainer = document.createElement('div');
-                pasilloContainer.className = 'pasillo-container';
-                pasilloContainer.innerHTML = pasilloHtml;
-                rackWrapperDiv.appendChild(pasilloContainer);
+                const carrilContainer = document.createElement('div');
+                carrilContainer.className = 'carril-container';
+                carrilContainer.innerHTML = carrilHtml;
+                rackWrapperDiv.appendChild(carrilContainer);
             });
         }
 
