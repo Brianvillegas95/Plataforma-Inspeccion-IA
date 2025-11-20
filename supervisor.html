@@ -9,7 +9,7 @@
     <style>
         /* Estilos específicos que usan las clases del CSS base */
         .container { 
-            max-width: 1300px; /* Ancho máximo para que quepan 18 columnas */
+            max-width: 1300px; 
             margin: 30px auto; 
             background: var(--surface-bg); 
             padding: 30px; 
@@ -84,51 +84,49 @@
         }
 
 
-        /* Estructura del Rack Virtual COMPACTA */
+        /* Estructura del Rack Virtual UNIFORME */
         #rack-wrapper { 
-            /* Se establece una grilla para 18 columnas pequeñas */
+            /* Grid principal: define el número de carriles y niveles */
             display: grid; 
-            grid-auto-columns: minmax(70px, 1fr); /* Ancho base más pequeño */
-            grid-auto-flow: column; /* Rellena columnas primero */
-            gap: 5px; /* Espacio mínimo entre carriles */
+            /* Crea 18 columnas de tamaño igual y compacto */
+            grid-template-columns: repeat(18, minmax(65px, 1fr)); 
+            /* Define 10 filas explícitas para simular los 10 niveles del rack */
+            grid-template-rows: repeat(10, minmax(40px, 1fr)); 
+            gap: 2px; /* Espacio mínimo entre huecos */
             margin-top: 25px; 
             padding: 10px 5px; 
             background: #e9ecef; 
             border-radius: var(--border-radius); 
-            overflow-x: auto; /* Permite scroll horizontal si no caben */
-            align-items: end; /* Asegura que los huecos se apilen desde abajo */
-        }
-
-        .carril-container {
-            display: flex;
-            flex-direction: column-reverse; /* Nivel 01 ABAJO, niveles superiores ARRIBA */
-            min-width: 70px;
-            background: #fcfcfc;
-            border-radius: 4px;
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
+            overflow-x: auto; /* Permite scroll horizontal si se necesitan más de 18 */
+            overflow-y: hidden; /* Oculta scroll vertical innecesario */
+            height: 500px; /* Altura fija para la estética */
         }
 
         .carril-title {
-            background-color: var(--azor-blue);
+            /* Encabezado de la columna (letra del carril) */
+            background-color: var(--azor-blue-dark);
             color: white;
             padding: 5px 0;
             font-weight: 700;
             text-align: center;
             font-size: 0.85em;
             letter-spacing: 1px;
-            flex-shrink: 0;
+            /* Se coloca en la primera fila (row 1) */
+            grid-row: 1; 
+            align-self: start; 
         }
 
         .hueco-nivel { 
             /* Estilo del bloque individual de hueco */
-            padding: 6px 3px; 
-            font-size: 0.65em; /* Fuente más pequeña para compactar */
+            padding: 4px 2px; /* Aún más compacto */
+            font-size: 0.6em; /* Fuente más pequeña para mostrar más texto */
             line-height: 1.1;
             text-align: center;
             font-weight: 600;
             cursor: default;
             transition: transform 0.1s;
+            border-radius: 2px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
         .hueco-nivel:hover {
             transform: scale(1.03);
@@ -154,8 +152,10 @@
             font-weight: 500;
             font-style: italic;
         }
+        /* El texto secundario ahora es la OP y Tarima */
         .hueco-text-secondary {
-            font-size: 0.9em;
+            font-size: 1em; /* Mismo tamaño que el principal */
+            font-weight: normal;
         }
 
         /* Elementos de carga */
@@ -218,6 +218,11 @@
         function showMessage(text, isError = false) {
             messageDiv.innerHTML = `<div style="padding: 10px; border-radius: 5px; text-align: center;" class="${isError ? 'error' : 'success'}">${text}</div>`;
         }
+        
+        // Función auxiliar para obtener la columna (letra) por índice
+        function getColumnIndex(carrilKey) {
+            return carrilKey.charCodeAt(0) - 'A'.charCodeAt(0) + 1;
+        }
 
         function renderRack(inventario, opEncontrada = null) {
             rackWrapperDiv.innerHTML = '';
@@ -227,7 +232,7 @@
                 return;
             }
 
-            // 1. Agrupar por Carril (letra inicial) y luego por Nivel (número)
+            // 1. Agrupar por Carril (letra inicial) y Nivel (número)
             const carriles = inventario.reduce((acc, h) => {
                 const id = h.ID_Hueco || 'Z'; 
                 const carril = id.charAt(0);
@@ -236,7 +241,6 @@
                 if (!acc[carril]) {
                     acc[carril] = [];
                 }
-                
                 acc[carril].push({
                     ...h,
                     nivel: nivelNum 
@@ -246,24 +250,33 @@
 
             // 2. Ordenar las letras de los carriles (A, B, C...)
             const carrilesOrdenados = Object.keys(carriles).sort();
-
-            // 3. Renderizar cada carril
+            
+            // 3. Crear los encabezados de carril (columna 1)
             carrilesOrdenados.forEach(carrilKey => {
-                const carrilData = carriles[carrilKey];
-                if (carrilKey === 'Z') return; 
+                if (carrilKey === 'Z') return;
+                
+                const col = getColumnIndex(carrilKey);
+                
+                // Añadir el encabezado (Letra)
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'carril-title';
+                titleDiv.style.gridColumn = col;
+                titleDiv.innerHTML = carrilKey;
+                rackWrapperDiv.appendChild(titleDiv);
 
+                const carrilData = carriles[carrilKey];
+                
                 // Ordenar los huecos DENTRO del carril por Nivel ascendente (1, 2, 3...)
-                // Esto es crucial porque el CSS usa column-reverse para apilar desde abajo
                 carrilData.sort((a, b) => a.nivel - b.nivel); 
 
-                let carrilHtml = `<div class="carril-title">${carrilKey}</div>`;
-
+                // Añadir los huecos (comienzan en la fila 2 para dejar espacio al título)
                 carrilData.forEach(h => {
                     let clase = h.Estatus_Hueco === 'DISPONIBLE' ? 'disponible' : 'ocupado';
-                    let textoPrincipal = `${h.ID_Hueco.substring(1, 3)}${h.ID_Hueco.substring(3)}<br>`; // Muestra solo Nivel + Tamaño
+                    let textoPrincipal = h.ID_Hueco; // Nombre completo (A01CH)
                     let textoSecundario;
                     
                     if (h.Estatus_Hueco !== 'DISPONIBLE') {
+                        // Muestra la OP y el N° de Tarima
                         textoSecundario = `<span class="hueco-text-secondary">${h.OP_Tarima}</span><br><span class="hueco-text-secondary">(${h.Tarima_Num})</span>`;
                         if (h.OP_Tarima === opEncontrada) {
                             clase = 'propia';
@@ -272,17 +285,15 @@
                         textoSecundario = `<span class="libre">LIBRE</span>`;
                     }
 
-                    carrilHtml += `
-                        <div class="hueco-nivel ${clase}">
-                            ${textoPrincipal}${textoSecundario}
-                        </div>
-                    `;
+                    const huecoDiv = document.createElement('div');
+                    huecoDiv.className = `hueco-nivel ${clase}`;
+                    huecoDiv.style.gridColumn = col;
+                    // Se posiciona el hueco según su nivel (Nivel 1 está en la fila 10, Nivel 10 está en la fila 1)
+                    // Usamos 11 - nivel, asumiendo 10 niveles y que la fila 1 es el título.
+                    huecoDiv.style.gridRow = 11 - h.nivel; 
+                    huecoDiv.innerHTML = `${textoPrincipal}<br>${textoSecundario}`;
+                    rackWrapperDiv.appendChild(huecoDiv);
                 });
-
-                const carrilContainer = document.createElement('div');
-                carrilContainer.className = 'carril-container';
-                carrilContainer.innerHTML = carrilHtml;
-                rackWrapperDiv.appendChild(carrilContainer);
             });
         }
 
