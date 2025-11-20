@@ -2,282 +2,254 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Supervisor | Grupo Azor</title>
+    <title>Supervisor - Solicitud de Tarimas</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* HEADER COPIADO */
-        .app-header { 
-            background-color: #005f9e; border-bottom: 1px solid #004a7c; 
-            padding: 15px 30px; display: flex; justify-content: space-between; 
-            align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white;
+        .container { 
+            max-width: 1400px; margin: 30px auto; background: var(--surface-bg); padding: 30px; 
+            border-radius: var(--border-radius); box-shadow: var(--shadow-lg); border: 1px solid var(--border-color);
         }
-        .logo-container { display: flex; align-items: center; gap: 15px; }
+        /* HEADER AZUL */
+        .app-header { 
+            background-color: #005f9e; border-bottom: 1px solid #004a7c; padding: 15px 30px; 
+            display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white;
+        }
         .logo { height: 45px; width: auto; filter: brightness(0) invert(1); }
-        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
+        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; margin-left: 15px;}
 
-        .container { max-width: 1400px; margin: 30px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        
-        #search-form { display: flex; gap: 15px; margin-bottom: 20px; }
-        #search-form input, #search-form select { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
-        #search-form button { background-color: #005f9e; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        #search-form { display: flex; gap: 15px; margin-bottom: 25px; align-items: stretch; }
+        #search-form input, #search-form select { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        #search-form button { flex-basis: 150px; background-color: #005f9e; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
 
         /* RACK VIRTUAL */
-        #rack-container { 
-            display: flex; 
-            overflow-x: auto; 
-            gap: 5px; 
-            padding: 15px; 
-            background: #e9ecef; 
-            border-radius: 8px;
-            align-items: flex-end; /* Alinear columnas al fondo */
-            min-height: 400px;
+        #rack-wrapper { 
+            display: grid; grid-auto-columns: 1fr; gap: 4px; margin-top: 25px; padding: 15px; 
+            background: #e9ecef; border-radius: 8px; overflow-x: auto; 
         }
-
-        .carril-column {
-            display: flex;
-            flex-direction: column-reverse; /* Nivel 1 abajo */
-            min-width: 70px; /* Ancho fijo para todos */
-            flex: 1;
+        .carril-title {
+            background-color: #004a7c; color: white; padding: 8px 0; font-weight: 800; 
+            text-align: center; font-size: 1em; border-radius: 4px; margin-bottom: 5px; grid-row: 1;
         }
-
-        .carril-header {
-            text-align: center; background: #004a7c; color: white; 
-            font-weight: bold; padding: 5px 0; border-radius: 4px 4px 0 0;
-            margin-bottom: 2px;
-        }
-
-        .hueco-box {
-            border: 1px solid white;
-            text-align: center;
-            padding: 5px 2px;
-            font-size: 0.7em;
-            min-height: 45px; /* Altura uniforme */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            border-radius: 3px;
-            color: #333;
-            font-weight: 600;
+        .hueco-nivel { 
+            padding: 4px 2px; font-size: 0.7em; line-height: 1.1; text-align: center; font-weight: 600; 
+            cursor: default; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            overflow: hidden; display: flex; flex-direction: column; justify-content: center; 
+            min-height: 60px; /* Un poco más alto para que quepan los datos */
+            border: 1px solid rgba(0,0,0,0.05);
         }
         
-        .hueco-box.vacio { background: #e2e6ea; } /* Placeholder para niveles inexistentes en un carril */
-        .hueco-box.disponible { background: #d4edda; color: #155724; }
-        .hueco-box.ocupado { background: #fff3cd; color: #856404; }
-        .hueco-box.propia { background: #005f9e; color: white; border: 2px solid #003d80; transform: scale(1.05); z-index: 5; }
+        .disponible { background-color: #d4edda; color: #155724; }
+        .ocupado { background-color: #fff3cd; color: #856404; }
+        .propia { background-color: #005f9e; color: white; border: 2px solid #003d80; transform: scale(1.05); z-index: 5; }
 
-        .info-op { font-size: 1.1em; display: block; }
-        .info-tarima { font-size: 0.9em; font-weight: normal; }
+        /* Textos dentro del hueco */
+        .txt-hueco { font-size: 0.9em; font-weight: 800; opacity: 0.7; }
+        .txt-op { font-size: 1.1em; font-weight: bold; margin: 2px 0; display: block;}
+        .txt-meta { font-size: 0.8em; font-weight: normal; display: block; line-height: 1;}
 
-        /* ZONA PASILLO */
-        #pasillo-zone {
-            margin-top: 20px; padding: 15px; background: #fff3cd; 
-            border: 2px dashed #ffc107; border-radius: 8px;
-        }
-        .pasillo-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-        .pasillo-item {
-            background: white; padding: 10px; border: 1px solid #ccc; 
-            border-radius: 5px; min-width: 120px; text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
+        .result-item { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; }
+        .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #005f9e; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <header class="app-header">
-        <div class="logo-container">
-            <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
-            <h1 class="app-title">Supervisor de Inventario</h1>
+        <div style="display:flex; align-items:center;">
+            <img src="imagenes/Logo azor.png" alt="Azor" class="logo">
+            <h1 class="app-title">Supervisor de Almacén</h1>
         </div>
     </header>
 
     <div class="container">
         <form id="search-form">
-            <input type="text" id="search-op" placeholder="Buscar OP (7 dígitos)">
-            <select id="search-area">
-                <option value="" disabled selected>-- Área --</option>
+            <input type="text" id="search-op-input" required maxlength="7" pattern="\d{7}" placeholder="Ingrese OP de 7 dígitos">
+            <select id="search-area-select" required>
+                <option value="" disabled selected>-- Seleccione su Área --</option>
                 <option value="Empaque">Empaque</option>
                 <option value="Ensamble">Ensamble</option>
                 <option value="Kinera">Kinera</option>
                 <option value="Moldeo">Moldeo</option>
                 <option value="Boligrafo">Bolígrafo</option>
             </select>
-            <button type="submit" id="btn-search">Buscar</button>
+            <button type="submit" id="search-btn"><i class="fas fa-search"></i> Buscar y Gestionar</button>
         </form>
-
-        <div id="results-msg" style="margin-bottom: 15px; font-weight: bold; color: #005f9e;"></div>
+        
+        <div id="message-supervisor" style="margin-top: 20px;"></div>
+        
+        <div id="search-results"></div>
 
         <h3>Rack Virtual</h3>
-        <div id="rack-container">Cargando...</div>
-
-        <div id="pasillo-zone" style="display:none;">
-            <h3><i class="fas fa-truck-loading"></i> Zona Pasillo (Desbordamiento)</h3>
-            <div id="pasillo-grid" class="pasillo-grid"></div>
+        <div id="rack-wrapper">
+            <p style="grid-column: 1 / -1;"><span class="loading-spinner"></span> Cargando...</p>
         </div>
     </div>
-
+    
     <script>
         const API_URL = '/.netlify/functions/gestion-pulmon';
-        let inventarioData = [];
-        let opBuscada = null;
+        const searchForm = document.getElementById('search-form');
+        const searchResultsDiv = document.getElementById('search-results');
+        const messageDiv = document.getElementById('message-supervisor');
+        const rackWrapperDiv = document.getElementById('rack-wrapper');
+        const searchBtn = document.getElementById('search-btn');
 
-        // Mapeo para ordenar letras correctamente
-        const LETTERS = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ'.split('');
-        
-        async function loadRack() {
-            try {
-                const res = await fetch(API_URL, {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ action: 'get_inventario' })
-                });
-                const data = await res.json();
-                inventarioData = data.inventario || [];
-                renderRack();
-            } catch(e) { console.error(e); document.getElementById('rack-container').innerText = 'Error al cargar.'; }
+        const ALPHABETICAL_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'Ñ', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+        const CARRIEL_INDEX_MAP = ALPHABETICAL_ORDER.reduce((acc, char, index) => { acc[char] = index; return acc; }, {});
+        function sortCarriles(a, b) { return (CARRIEL_INDEX_MAP[a] || 999) - (CARRIEL_INDEX_MAP[b] || 999); }
+
+        function showMessage(text, isError = false) {
+            messageDiv.innerHTML = `<div style="padding:10px; border-radius:5px; text-align:center; background:${isError?'#f8d7da':'#d4edda'}; color:${isError?'#721c24':'#155724'};">${text}</div>`;
         }
 
-        function renderRack() {
-            const container = document.getElementById('rack-container');
-            const pasilloContainer = document.getElementById('pasillo-grid');
-            const pasilloZone = document.getElementById('pasillo-zone');
-            
-            container.innerHTML = '';
-            pasilloContainer.innerHTML = '';
-            
-            // 1. Separar Datos Rack vs Pasillo
-            const rackItems = [];
-            const pasilloItems = [];
-            
-            inventarioData.forEach(item => {
-                if (!item.ID_Hueco) return;
-                if (item.ID_Hueco.includes('PASILLO')) {
-                    pasilloItems.push(item);
-                } else {
-                    rackItems.push(item);
-                }
-            });
+        function renderRack(inventario, opEncontrada = null) {
+            rackWrapperDiv.innerHTML = '';
+            if (!inventario || inventario.length === 0) return;
 
-            // 2. Renderizar Pasillo
-            if (pasilloItems.length > 0) {
-                pasilloZone.style.display = 'block';
-                pasilloItems.forEach(p => {
-                    const isMatch = (p.OP_Tarima == opBuscada);
-                    const btnStyle = isMatch ? 'background:#005f9e; color:white;' : '';
-                    const div = document.createElement('div');
-                    div.className = 'pasillo-item';
-                    if (isMatch) div.style.border = '2px solid #005f9e';
+            let max_nivel = 0;
+            const carriles = inventario.reduce((acc, h) => {
+                if (!h.ID_Hueco || h.ID_Hueco.includes('PASILLO')) return acc; // Ignorar pasillo en rack visual
+                const carril = h.ID_Hueco.charAt(0);
+                const nivelNum = parseInt(h.ID_Hueco.substring(1, 3), 10);
+                if (nivelNum > max_nivel) max_nivel = nivelNum;
+                if (!acc[carril]) acc[carril] = [];
+                acc[carril].push({ ...h, nivel: nivelNum });
+                return acc;
+            }, {});
+            
+            if (max_nivel === 0) max_nivel = 5;
+            const totalFilas = max_nivel + 1; 
+            rackWrapperDiv.style.gridTemplateRows = `repeat(${totalFilas}, minmax(50px, 1fr))`;
+            rackWrapperDiv.style.alignItems = 'stretch';
+
+            const carrilesOrdenados = Object.keys(carriles).sort(sortCarriles);
+            
+            // Matriz simple: 1 columna por carril
+            rackWrapperDiv.style.gridTemplateColumns = `repeat(${carrilesOrdenados.length}, 1fr)`;
+
+            carrilesOrdenados.forEach((carrilKey, index) => {
+                const colIndex = index + 1;
+                
+                // Header
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'carril-title';
+                titleDiv.style.gridColumn = colIndex;
+                titleDiv.style.gridRow = 1;
+                titleDiv.innerHTML = carrilKey;
+                rackWrapperDiv.appendChild(titleDiv);
+
+                const carrilData = carriles[carrilKey];
+                
+                carrilData.forEach(h => {
+                    let clase = h.Estatus_Hueco === 'DISPONIBLE' ? 'disponible' : 'ocupado';
+                    let contenido = `<span class="txt-hueco">${h.ID_Hueco}</span>`;
                     
-                    div.innerHTML = `
-                        <strong>${p.OP_Tarima || 'N/A'}</strong><br>
-                        <small>${p.Tarima_Num || ''}</small><br>
-                        <button onclick="retirar(${p.row}, '${p.ID_Hueco}', '${p.OP_Tarima}', '${p.Area_Destino}', '${p.Tarima_Num}')" 
-                            style="margin-top:5px; cursor:pointer; ${btnStyle}">Retirar</button>
-                    `;
-                    pasilloContainer.appendChild(div);
-                });
-            } else {
-                pasilloZone.style.display = 'none';
-            }
-
-            // 3. Procesar Rack (Agrupar por Carril)
-            const carriles = {};
-            let maxNivel = 0;
-
-            rackItems.forEach(h => {
-                const letra = h.ID_Hueco.charAt(0);
-                const nivel = parseInt(h.ID_Hueco.substring(1,3));
-                if (nivel > maxNivel) maxNivel = nivel;
-                
-                if (!carriles[letra]) carriles[letra] = [];
-                carriles[letra].push({ ...h, nivel });
-            });
-
-            // Ordenar Carriles (A, B, ... Ñ ... Q)
-            const sortedKeys = Object.keys(carriles).sort((a,b) => {
-                return LETTERS.indexOf(a) - LETTERS.indexOf(b);
-            });
-
-            // 4. Renderizar Columnas
-            sortedKeys.forEach(letra => {
-                const col = document.createElement('div');
-                col.className = 'carril-column';
-                
-                // Header inverso (porque usamos column-reverse)
-                // Pero visualmente queremos la letra arriba. 
-                // Truco: Poner el header al final del HTML dentro del flex-reverse
-                
-                // Llenar huecos
-                const huecos = carriles[letra];
-                
-                // Crear slots del 1 al MaxNivel
-                for (let i = 1; i <= maxNivel; i++) {
-                    const huecoData = huecos.find(h => h.nivel === i);
-                    const box = document.createElement('div');
-                    
-                    if (huecoData) {
-                        const op = huecoData.OP_Tarima || ''; // Quitar null
-                        const num = huecoData.Tarima_Num || '';
-                        const isMatch = (op == opBuscada);
-                        
-                        let clase = 'disponible';
-                        let content = 'LIBRE';
-                        
-                        if (huecoData.Estatus_Hueco !== 'DISPONIBLE') {
-                            clase = isMatch ? 'propia' : 'ocupado';
-                            content = `<span class="info-op">${op}</span><span class="info-tarima">${num}</span>`;
-                            // Botón retiro pequeño si ocupado
-                            content += `<i class="fas fa-times-circle" style="cursor:pointer; margin-top:2px;" 
-                                onclick="retirar(${huecoData.row}, '${huecoData.ID_Hueco}', '${op}', '${huecoData.Area_Destino}', '${num}')"></i>`;
-                        } else {
-                            // Mostrar nombre hueco si libre
-                            content = `<span style="opacity:0.5; font-size:0.8em;">${huecoData.ID_Hueco}</span><br>LIBRE`;
-                        }
-
-                        box.className = `hueco-box ${clase}`;
-                        box.innerHTML = content;
+                    if (h.Estatus_Hueco !== 'DISPONIBLE') {
+                        if (h.OP_Tarima === opEncontrada) clase = 'propia';
+                        // AQUI SE AGREGAN EL AREA Y LA TARIMA
+                        contenido += `<span class="txt-op">${h.OP_Tarima}</span>`;
+                        contenido += `<span class="txt-meta">${h.Area_Destino}</span>`;
+                        contenido += `<span class="txt-meta">Tarima ${h.Tarima_Num}</span>`;
+                        // NOTA: No se agrega boton de borrar aquí.
                     } else {
-                        box.className = 'hueco-box vacio'; // Espacio vacío si no existe el nivel en este carril
+                        contenido += `<br><span class="txt-meta">LIBRE</span>`;
                     }
-                    col.appendChild(box);
-                }
 
-                // Header (agregado al final para que quede arriba con flex-reverse)
-                const header = document.createElement('div');
-                header.className = 'carril-header';
-                header.textContent = letra;
-                // Insertar header visualmente arriba (en DOM es el ultimo hijo si es column normal, pero aqui es reverse)
-                // Corrección: flex-direction: column-reverse pone el ultimo hijo arriba? No, pone el primero abajo.
-                // Si col es column-reverse:
-                // Child 1 (Nivel 1) -> Bottom
-                // Child N (Header) -> Top
-                col.appendChild(header); 
-
-                container.appendChild(col);
+                    const huecoDiv = document.createElement('div');
+                    huecoDiv.className = `hueco-nivel ${clase}`;
+                    const gridRow = (totalFilas + 1) - h.nivel; 
+                    huecoDiv.style.gridColumn = colIndex;
+                    huecoDiv.style.gridRow = gridRow;
+                    huecoDiv.innerHTML = contenido;
+                    rackWrapperDiv.appendChild(huecoDiv);
+                });
             });
         }
 
-        window.retirar = async (row, hueco, op, area, num) => {
-            if (!confirm("¿Retirar tarima?")) return;
+        async function cargarInventarioCompleto(op = null) {
+            try {
+                const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_inventario' }) });
+                const data = await response.json();
+                renderRack(data.inventario, op);
+            } catch (e) { console.error(e); }
+        }
+
+        async function buscarOP(op, area) {
+            searchBtn.disabled = true;
+            searchResultsDiv.innerHTML = '<p><span class="loading-spinner"></span> Buscando...</p>';
+            messageDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'consultar_op', opBusqueda: op, areaBusqueda: area }),
+                });
+                const result = await response.json();
+
+                if (response.status === 404) {
+                    searchResultsDiv.innerHTML = `<p style="color:#666;">${result.message}</p>`;
+                } else {
+                    renderResults(result.resultados, op, area);
+                }
+                await cargarInventarioCompleto(op); 
+            } catch (error) {
+                showMessage(`Error: ${error.message}`, true);
+            } finally {
+                searchBtn.disabled = false;
+            }
+        }
+
+        function renderResults(resultados, op, area) {
+            let html = `<div style="background:#e6f7ff; padding:10px; border:1px solid #91d5ff; border-radius:4px; margin-bottom:15px;">
+                        <strong>${resultados.length}</strong> tarimas encontradas. Puede retirarlas aquí:</div>`;
+            
+            resultados.forEach((r) => {
+                html += `
+                    <div class="result-item">
+                        <div>
+                            <h3 style="margin:0;">OP ${op} - Tarima ${r.tarimaNum}</h3>
+                            <p style="margin:0; font-size:0.9em;">Ubicación: <strong>${r.idHueco}</strong> (${area})</p>
+                            <small>Entrada: ${r.fechaEntrada}</small>
+                        </div>
+                        <button onclick="solicitarRetiro(${r.row}, '${r.idHueco}', '${op}', '${r.tarimaNum}', '${area}', this)" 
+                                style="background:#dc3545; color:white; padding:8px 15px; border:none; border-radius:4px; cursor:pointer;">
+                            <i class="fas fa-sign-out-alt"></i> Retirar
+                        </button>
+                    </div>`;
+            });
+            searchResultsDiv.innerHTML = html;
+        }
+
+        window.solicitarRetiro = async function(row, hueco, op, tarimaNum, area, btn) {
+            if (!confirm(`¿Confirmar retiro de Tarima ${tarimaNum} del hueco ${hueco}?`)) return;
+            btn.disabled = true;
+            btn.innerHTML = '...';
+            
             try {
                 await fetch(API_URL, {
-                    method:'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                        action:'solicitar_retiro', row, op, hueco, tarimaNumStr: num, area
-                    })
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'solicitar_retiro', row, op, hueco, tarimaNumStr: tarimaNum, area })
                 });
-                alert("Retirado.");
-                loadRack();
-            } catch(e) { alert("Error network"); }
+                showMessage('✅ Retiro registrado correctamente. Historial actualizado.', false);
+                // Limpiar resultados y recargar
+                searchResultsDiv.innerHTML = '';
+                document.getElementById('search-op-input').value = '';
+                await cargarInventarioCompleto();
+            } catch(e) {
+                showMessage('Error al retirar.', true);
+                btn.disabled = false;
+            }
         };
 
-        document.getElementById('search-form').addEventListener('submit', (e) => {
+        searchForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            opBuscada = document.getElementById('search-op').value;
-            loadRack(); // Recargar y resaltar
-            document.getElementById('results-msg').textContent = `Resaltando OP: ${opBuscada}`;
+            const op = document.getElementById('search-op-input').value.trim();
+            const area = document.getElementById('search-area-select').value;
+            if (op.length !== 7) { showMessage('OP debe ser de 7 dígitos', true); return; }
+            buscarOP(op, area);
         });
 
-        loadRack();
+        document.addEventListener('DOMContentLoaded', () => cargarInventarioCompleto());
     </script>
 </body>
 </html>
