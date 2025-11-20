@@ -58,11 +58,10 @@ exports.handler = async function (event) {
         });
         const rows = response.data.values || [];
         
-        // CORRECCIÓN Y ROBUSTEZ: Mapeo robusto a 7 columnas (A-G)
+        // CORRECCIÓN Y ROBUSTEZ
         const inventario = rows.map(row => ({
             ID_Hueco: row[0] || null,
             Tamano_Hueco: row[1] || null,
-            // Aseguramos que el estado esté en mayúsculas para la comparación en el frontend
             Estatus_Hueco: (row[2] || '').toUpperCase(), 
             Area_Destino: row[3] || null,
             OP_Tarima: row[4] || null,
@@ -76,7 +75,7 @@ exports.handler = async function (event) {
       case 'buscar_huecos_disponibles_por_tamano': {
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: inventarioSheetId,
-          range: 'Hoja 1!A2:C', // Solo necesitamos ID_Hueco, Tamano_Hueco, Estatus_Hueco
+          range: 'Hoja 1!A2:C', 
         });
         const rows = response.data.values || [];
         
@@ -86,11 +85,9 @@ exports.handler = async function (event) {
                 Tamano_Hueco: row[1] || 'CH', 
                 Estatus_Hueco: (row[2] || '').toUpperCase(),
             }))
-            // Filtra solo los disponibles y ordena por ID_Hueco (para FIFO/orden lógico)
             .filter(h => h.Estatus_Hueco === 'DISPONIBLE' && h.ID_Hueco)
             .sort((a, b) => a.ID_Hueco.localeCompare(b.ID_Hueco));
             
-        // Agrupa por tamaño
         const huecosAgrupados = disponibles.reduce((acc, hueco) => {
             const tamano = hueco.Tamano_Hueco.toUpperCase();
             if (!acc[tamano]) {
@@ -106,19 +103,18 @@ exports.handler = async function (event) {
       case 'registrar_entrada': {
         if (!hueco || !op || !area || !tarimaNumStr) return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos de registro.' }) };
         
-        // 1. Encontrar la fila del hueco en INVENTARIO (Columna A).
         const resInv = await sheets.spreadsheets.values.get({ spreadsheetId: inventarioSheetId, range: 'Hoja 1!A:A' });
         const rowIndex = (resInv.data.values || []).findIndex(row => row[0] === hueco);
         if (rowIndex === -1) return { statusCode: 404, body: JSON.stringify({ error: `Hueco ${hueco} no encontrado en INVENTARIO DB.` }) };
         const invRow = rowIndex + 1; 
 
-        // 2. Actualizar las columnas de registro en INVENTARIO (Rack Virtual)
+        // 2. Actualizar INVENTARIO (Rack Virtual)
         await sheets.spreadsheets.values.batchUpdate({
           spreadsheetId: inventarioSheetId,
           resource: {
             valueInputOption: 'USER_ENTERED',
             data: [
-              { range: `Hoja 1!C${invRow}`, values: [['OCUPADO']] }, // Estatus_Hueco (En mayúsculas)
+              { range: `Hoja 1!C${invRow}`, values: [['OCUPADO']] }, // Estatus_Hueco
               { range: `Hoja 1!D${invRow}`, values: [[area]] }, // Area_Destino
               { range: `Hoja 1!E${invRow}`, values: [[op]] }, // OP_Tarima
               { range: `Hoja 1!F${invRow}`, values: [[tarimaNumStr]] }, // Tarima_Num
@@ -138,7 +134,7 @@ exports.handler = async function (event) {
         });
         const movRow = getRowFromRange(resMov.data.updates.updatedRange);
         
-        // Asignar Folio_Mov (Columna A)
+        // Asignar Folio_Mov 
         await sheets.spreadsheets.values.update({
              spreadsheetId: movimientosSheetId,
              range: `Hoja 1!A${movRow}`,
@@ -162,12 +158,11 @@ exports.handler = async function (event) {
         for (let i = 0; i < rows.length; i++) {
             const [idHueco, , estatusHueco, areaDestino, opTarima, tarimaNum, fechaEntrada] = rows[i];
             
-            // Usamos .toUpperCase() para la comparación y evitar errores de capitalización
             const normalizedEstatus = (estatusHueco || '').toUpperCase();
             
             if (opTarima === opBusqueda && areaDestino === areaBusqueda && normalizedEstatus === 'OCUPADO') {
                 resultados.push({
-                    row: i + 2, // Fila real en la hoja de INVENTARIO
+                    row: i + 2, 
                     idHueco,
                     tarimaNum,
                     fechaEntrada
@@ -211,8 +206,7 @@ exports.handler = async function (event) {
           resource: {
             valueInputOption: 'USER_ENTERED',
             data: [
-              { range: `Hoja 1!C${row}`, values: [['DISPONIBLE']] }, // Estatus_Hueco (En mayúsculas)
-              // Limpiar Area_Destino, OP_Tarima, Tarima_Num, Fecha_Entrada
+              { range: `Hoja 1!C${row}`, values: [['DISPONIBLE']] }, // Estatus_Hueco
               { range: `Hoja 1!D${row}:G${row}`, values: [['', '', '', '']] } 
             ]
           }
