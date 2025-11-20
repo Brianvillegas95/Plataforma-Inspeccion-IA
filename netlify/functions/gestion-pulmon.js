@@ -86,20 +86,18 @@ exports.handler = async function (event) {
       case 'registrar_entrada': {
         if (!hueco || !op || !area || !tarimaNumStr) return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos.' }) };
         
-        let huecoFinal = hueco; // Variable para guardar el ID real (sea fijo o dinámico)
+        let huecoFinal = hueco; 
 
         // 1. Actualizar INVENTARIO
         if (hueco === 'PASILLO') {
-            // Generar ID único para Pasillo
             const idPasillo = `PASILLO-${op}-${Math.floor(Math.random() * 1000)}`;
-            huecoFinal = idPasillo; // Actualizamos la variable para usarla en Movimientos
+            huecoFinal = idPasillo;
 
             await sheets.spreadsheets.values.append({
                 spreadsheetId: inventarioSheetId, range: 'Hoja 1!A1', valueInputOption: 'USER_ENTERED',
                 resource: { values: [[idPasillo, 'GR', 'OCUPADO', area, op, tarimaNumStr, now]] },
             });
         } else {
-            // Hueco Fijo
             const resInv = await sheets.spreadsheets.values.get({ spreadsheetId: inventarioSheetId, range: 'Hoja 1!A:A' });
             const rowIndex = (resInv.data.values || []).findIndex(row => row[0] === hueco);
             if (rowIndex === -1) return { statusCode: 404, body: JSON.stringify({ error: `Hueco no encontrado.` }) };
@@ -120,20 +118,16 @@ exports.handler = async function (event) {
             });
         }
         
-        // 2. Registrar en MOVIMIENTOS (Trazabilidad en 1 línea)
-        // Usamos 'huecoFinal' que contiene el ID real (ej: A01CH o PASILLO-12345...)
+        // 2. Registrar en MOVIMIENTOS
         const folio = `MOV-${Date.now()}`;
         const movimientoData = [folio, op, area, huecoFinal, tarimaNumStr, now, ""]; 
         
         await sheets.spreadsheets.values.append({
-          spreadsheetId: movimientosSheetId,
-          range: 'Hoja 1!A1',
-          valueInputOption: 'USER_ENTERED',
-          insertDataOption: 'INSERT_ROWS',
-          resource: { values: [movimientoData] },
+          spreadsheetId: movimientosSheetId, range: 'Hoja 1!A1', valueInputOption: 'USER_ENTERED',
+          insertDataOption: 'INSERT_ROWS', resource: { values: [movimientoData] },
         });
 
-        return { statusCode: 200, body: JSON.stringify({ message: `Registrado correctamente en ${huecoFinal}.` }) };
+        return { statusCode: 200, body: JSON.stringify({ message: `Registrado correctamente.` }) };
       }
         
       case 'consultar_op': {
@@ -143,7 +137,9 @@ exports.handler = async function (event) {
         
         for (let i = 0; i < rows.length; i++) {
             const [idHueco, , estatusHueco, areaDestino, opTarima, tarimaNum, fechaEntrada] = rows[i];
-            if (opTarima === opBusqueda && (areaDestino === areaBusqueda) && (estatusHueco || '').toUpperCase() === 'OCUPADO') {
+            
+            // CORRECCIÓN: Buscamos solo por OP y OCUPADO. Ignoramos el areaBusqueda para ser más flexibles.
+            if (opTarima === opBusqueda && (estatusHueco || '').toUpperCase() === 'OCUPADO') {
                 resultados.push({ row: i + 2, idHueco, tarimaNum, fechaEntrada, areaDestino, opTarima });
             }
         }
@@ -153,33 +149,28 @@ exports.handler = async function (event) {
       case 'solicitar_retiro': {
         if (!row || !op || !hueco) return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos.' }) };
         
-        // 1. CERRAR CICLO EN MOVIMIENTOS (Buscar fila vacía y poner fecha salida)
+        // 1. CERRAR CICLO EN MOVIMIENTOS
         const movRes = await sheets.spreadsheets.values.get({ spreadsheetId: movimientosSheetId, range: 'Hoja 1!A2:G' });
         const movRows = movRes.data.values || [];
         let targetMovRow = -1;
 
-        // Buscar coincidencia exacta de OP y HUECO donde Fecha Salida (Col G) esté vacía
         for (let i = movRows.length - 1; i >= 0; i--) {
             const r = movRows[i];
-            // r[1]=OP, r[3]=Hueco
             if (r[1] === op && r[3] === hueco && (!r[6] || r[6] === "")) {
-                targetMovRow = i + 2; // +2 por header e index 0
+                targetMovRow = i + 2; 
                 break;
             }
         }
 
         if (targetMovRow !== -1) {
             await sheets.spreadsheets.values.update({
-                spreadsheetId: movimientosSheetId,
-                range: `Hoja 1!G${targetMovRow}`,
-                valueInputOption: 'USER_ENTERED',
-                resource: { values: [[now]] }
+                spreadsheetId: movimientosSheetId, range: `Hoja 1!G${targetMovRow}`,
+                valueInputOption: 'USER_ENTERED', resource: { values: [[now]] }
             });
         }
 
         // 2. LIBERAR EN INVENTARIO
         if (hueco.includes('PASILLO')) {
-             // Para Pasillo, LIMPIAMOS la fila para que desaparezca visualmente
              await sheets.spreadsheets.values.batchUpdate({
                 spreadsheetId: inventarioSheetId,
                 resource: {
@@ -191,7 +182,6 @@ exports.handler = async function (event) {
                 }
             });
         } else {
-            // Para Rack Fijo, marcamos DISPONIBLE
             await sheets.spreadsheets.values.batchUpdate({
               spreadsheetId: inventarioSheetId,
               resource: {
