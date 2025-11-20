@@ -85,9 +85,9 @@
 
         /* Estructura del Rack Virtual UNIFORME Y ESCALADA */
         #rack-wrapper { 
-            /* Creamos un número grande de columnas pequeñas para usar span (50 * 2 = 100) */
+            /* Base: 50 columnas para permitir spans de 2 y altura uniforme */
             display: grid; 
-            grid-template-columns: repeat(50, minmax(32px, 1fr)); /* 32px es el ancho base de CH */
+            grid-template-columns: repeat(50, minmax(32px, 1fr)); 
             grid-template-rows: repeat(10, minmax(40px, 1fr)); /* 10 filas de altura uniforme */
             gap: 2px; 
             margin-top: 25px; 
@@ -124,7 +124,7 @@
             transition: transform 0.1s;
             border-radius: 2px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-            overflow: hidden; /* Asegura que el texto no se salga */
+            overflow: hidden; 
         }
         
         /* ESCALADO: Un hueco grande ocupa 2 columnas, uno chico 1 columna */
@@ -235,22 +235,11 @@
             const indexB = CARRIEL_INDEX_MAP[b] !== undefined ? CARRIEL_INDEX_MAP[b] : 999;
             return indexA - indexB;
         }
-
-        // --- FUNCIÓN PARA OBTENER EL ANCHO EN LA CUADRÍCULA (Columna) ---
-        function getCarrilWidth(carrilKey) {
-            // Asumiendo que el ancho de la columna de la hoja de cálculo para cada carril 
-            // está definido por el tamaño predominante de los huecos en ese carril.
-            // Para simplificar la visualización uniforme, asignamos:
-            // CH = 1 columna, GR = 2 columnas (para mantener la escala)
-            // DEBES VERIFICAR SI TU HOJA DE INVENTARIO TIENE UNA COLUMNA DE ANCHO PREDOMINANTE.
-            // Por ahora, solo devolveremos el índice para el posicionamiento (columna de inicio).
-            const index = CARRIEL_INDEX_MAP[carrilKey];
-            return index !== undefined ? index * 2 + 1 : 1; // Usamos un índice de columna * 2 + 1
-        }
         
         // --- FUNCIÓN PARA OBTENER EL SPAN (Ancho de Celda) ---
         function getHuecoSpan(idHueco) {
-            return idHueco.endsWith('GR') ? 2 : 1; // GR ocupa 2 columnas, CH ocupa 1
+            // GR ocupa 2 columnas, CH ocupa 1
+            return idHueco.endsWith('GR') ? 2 : 1; 
         }
 
 
@@ -262,11 +251,16 @@
                 return;
             }
 
-            // 1. Agrupar por Carril (letra inicial) y Nivel (número)
+            // 1. Encontrar el nivel numérico más alto en todo el inventario (Ej: Nivel 10)
+            let max_nivel = 0;
             const carriles = inventario.reduce((acc, h) => {
-                const id = h.ID_Hueco || 'Z'; 
+                const id = h.ID_Hueco || 'Z';
                 const carril = id.charAt(0);
-                const nivelNum = parseInt(id.substring(1, 3), 10); 
+                const nivelNum = parseInt(id.substring(1, 3), 10);
+                
+                if (nivelNum > max_nivel) {
+                    max_nivel = nivelNum;
+                }
 
                 if (!acc[carril]) {
                     acc[carril] = [];
@@ -277,34 +271,42 @@
                 });
                 return acc;
             }, {});
+            
+            // Si el nivel más alto es 0 (no hay datos), usar un mínimo.
+            if (max_nivel === 0) max_nivel = 10; 
 
-            // 2. Ordenar las letras de los carriles (A, B, C... Ñ, O...)
+            // 2. Aplicar la estructura de filas uniforme (totalGridRows)
+            const totalGridRows = max_nivel + 1; // +1 para la fila del título
+            
+            // Establecer el número de filas de la cuadrícula, forzando la altura uniforme
+            rackWrapperDiv.style.gridTemplateRows = `repeat(${totalGridRows}, minmax(40px, 1fr))`;
+
+            // 3. Ordenar las letras de los carriles (A, B, C... Ñ, O...)
             const carrilesOrdenados = Object.keys(carriles).sort(sortCarriles);
+            let currentGridColumn = 1; 
 
-            // 3. Renderizar cada carril
-            let currentGridColumn = 1; // Índice de columna inicial para la cuadrícula
-
+            // 4. Renderizar cada carril
             carrilesOrdenados.forEach(carrilKey => {
                 if (carrilKey === 'Z') return; 
 
                 const carrilData = carriles[carrilKey];
                 
-                // Determinar el ancho máximo del carril (para el título)
-                // Si el carril tiene un GR, su ancho es 2. Si solo tiene CH, su ancho es 1.
+                // Determinar el ancho del carril (GR = 2, CH = 1)
                 const hasGR = carrilData.some(h => h.ID_Hueco && h.ID_Hueco.endsWith('GR'));
                 const carrilSpan = hasGR ? 2 : 1; 
+                const colStart = currentGridColumn;
 
-                // Añadir el encabezado (Letra)
+                // --- RENDERIZADO DEL TÍTULO (A, B, C...) ---
                 const titleDiv = document.createElement('div');
                 titleDiv.className = 'carril-title';
-                titleDiv.style.gridColumn = `${currentGridColumn} / span ${carrilSpan}`;
+                titleDiv.style.gridColumn = `${colStart} / span ${carrilSpan}`;
+                titleDiv.style.gridRow = 1; // El título va siempre en la Fila 1
                 titleDiv.innerHTML = carrilKey;
                 rackWrapperDiv.appendChild(titleDiv);
 
-                // Ordenar los huecos DENTRO del carril por Nivel ascendente (1, 2, 3...)
                 carrilData.sort((a, b) => a.nivel - b.nivel); 
 
-                // Añadir los huecos
+                // --- RENDERIZADO DE LOS HUECOS ---
                 carrilData.forEach(h => {
                     const huecoSpan = getHuecoSpan(h.ID_Hueco);
                     let clase = h.Estatus_Hueco === 'DISPONIBLE' ? 'disponible' : 'ocupado';
@@ -312,7 +314,6 @@
                     let textoSecundario;
                     
                     if (h.Estatus_Hueco !== 'DISPONIBLE') {
-                        // Muestra la OP y el N° de Tarima
                         textoSecundario = `<span class="hueco-text-secondary">${h.OP_Tarima}</span><br><span class="hueco-text-secondary">(${h.Tarima_Num})</span>`;
                         if (h.OP_Tarima === opEncontrada) {
                             clase = 'propia';
@@ -324,17 +325,19 @@
                     const huecoDiv = document.createElement('div');
                     huecoDiv.className = `hueco-nivel ${clase} grid-span-${huecoSpan}`;
                     
-                    // Posicionamiento
-                    huecoDiv.style.gridColumn = `${currentGridColumn} / span ${huecoSpan}`;
-                    // Nivel 1 está en la Fila 10, Nivel 10 está en la Fila 1 (La Fila 1 es el título)
-                    huecoDiv.style.gridRow = 11 - h.nivel; 
+                    // POSICIONAMIENTO CLAVE: Alineamos los huecos por su nivel, 
+                    // usando la altura máxima del grid (totalGridRows).
+                    // Esto asegura que el Nivel 1 esté en la parte inferior, sin importar la altura de otros carriles.
+                    const gridRowStart = totalGridRows - h.nivel; 
+
+                    huecoDiv.style.gridColumn = `${colStart} / span ${huecoSpan}`;
+                    huecoDiv.style.gridRow = gridRowStart; 
                     
                     huecoDiv.innerHTML = `${textoPrincipal}<br>${textoSecundario}`;
                     rackWrapperDiv.appendChild(huecoDiv);
                 });
                 
                 // Avanzar el índice de columna para el siguiente carril. 
-                // Avanza por el ancho del carril (si tiene GR, avanza 2; si solo tiene CH, avanza 1)
                 currentGridColumn += carrilSpan; 
             });
         }
