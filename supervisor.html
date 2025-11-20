@@ -2,16 +2,16 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Supervisor - Solicitud de Tarimas</title>
+    <title>Supervisor | Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
         .container { 
-            max-width: 1400px; margin: 30px auto; background: var(--surface-bg); padding: 30px; 
+            max-width: 1500px; margin: 30px auto; background: var(--surface-bg); padding: 30px; 
             border-radius: var(--border-radius); box-shadow: var(--shadow-lg); border: 1px solid var(--border-color);
         }
-        /* HEADER AZUL */
+        /* HEADER */
         .app-header { 
             background-color: #005f9e; border-bottom: 1px solid #004a7c; padding: 15px 30px; 
             display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white;
@@ -25,7 +25,9 @@
 
         /* RACK VIRTUAL */
         #rack-wrapper { 
-            display: grid; grid-auto-columns: 1fr; gap: 4px; margin-top: 25px; padding: 15px; 
+            display: grid; 
+            grid-auto-columns: 1fr; /* Columnas iguales */
+            gap: 4px; margin-top: 25px; padding: 15px; 
             background: #e9ecef; border-radius: 8px; overflow-x: auto; 
         }
         .carril-title {
@@ -36,7 +38,7 @@
             padding: 4px 2px; font-size: 0.7em; line-height: 1.1; text-align: center; font-weight: 600; 
             cursor: default; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
             overflow: hidden; display: flex; flex-direction: column; justify-content: center; 
-            min-height: 60px; /* Un poco más alto para que quepan los datos */
+            min-height: 65px; /* Altura para que quepa info */
             border: 1px solid rgba(0,0,0,0.05);
         }
         
@@ -44,10 +46,25 @@
         .ocupado { background-color: #fff3cd; color: #856404; }
         .propia { background-color: #005f9e; color: white; border: 2px solid #003d80; transform: scale(1.05); z-index: 5; }
 
-        /* Textos dentro del hueco */
+        /* Textos */
         .txt-hueco { font-size: 0.9em; font-weight: 800; opacity: 0.7; }
-        .txt-op { font-size: 1.1em; font-weight: bold; margin: 2px 0; display: block;}
-        .txt-meta { font-size: 0.8em; font-weight: normal; display: block; line-height: 1;}
+        .txt-op { font-size: 1.1em; font-weight: bold; margin: 1px 0; display: block; color: #000;}
+        .txt-meta { font-size: 0.8em; font-weight: normal; display: block; line-height: 1; color: #555;}
+        .propia .txt-op, .propia .txt-meta { color: white; }
+
+        /* ZONA PASILLO */
+        #pasillo-zone {
+            margin-top: 30px; padding: 20px; background: #fff8e1; 
+            border: 2px dashed #ffc107; border-radius: 8px;
+        }
+        .pasillo-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 15px;
+        }
+        .pasillo-card {
+            background: white; padding: 10px; border-radius: 5px; border: 1px solid #ddd;
+            text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .pasillo-card.propia { background: #005f9e; color: white; }
 
         .result-item { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; }
         .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #005f9e; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
@@ -77,60 +94,113 @@
         </form>
         
         <div id="message-supervisor" style="margin-top: 20px;"></div>
-        
         <div id="search-results"></div>
 
         <h3>Rack Virtual</h3>
         <div id="rack-wrapper">
             <p style="grid-column: 1 / -1;"><span class="loading-spinner"></span> Cargando...</p>
         </div>
+
+        <div id="pasillo-zone" style="display:none;">
+            <h3 style="margin:0; color:#d39e00;"><i class="fas fa-truck-loading"></i> ZONA PASILLO (Desbordamiento)</h3>
+            <div id="pasillo-grid" class="pasillo-grid"></div>
+        </div>
     </div>
     
     <script>
         const API_URL = '/.netlify/functions/gestion-pulmon';
-        const searchForm = document.getElementById('search-form');
+        const rackWrapperDiv = document.getElementById('rack-wrapper');
+        const pasilloZone = document.getElementById('pasillo-zone');
+        const pasilloGrid = document.getElementById('pasillo-grid');
         const searchResultsDiv = document.getElementById('search-results');
         const messageDiv = document.getElementById('message-supervisor');
-        const rackWrapperDiv = document.getElementById('rack-wrapper');
-        const searchBtn = document.getElementById('search-btn');
+        
+        let inventarioData = [];
 
         const ALPHABETICAL_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'Ñ', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
         const CARRIEL_INDEX_MAP = ALPHABETICAL_ORDER.reduce((acc, char, index) => { acc[char] = index; return acc; }, {});
-        function sortCarriles(a, b) { return (CARRIEL_INDEX_MAP[a] || 999) - (CARRIEL_INDEX_MAP[b] || 999); }
+        
+        // Función robusta de ordenamiento
+        function sortCarriles(a, b) { 
+            const idxA = CARRIEL_INDEX_MAP[a.trim()] !== undefined ? CARRIEL_INDEX_MAP[a.trim()] : 999;
+            const idxB = CARRIEL_INDEX_MAP[b.trim()] !== undefined ? CARRIEL_INDEX_MAP[b.trim()] : 999;
+            return idxA - idxB; 
+        }
 
         function showMessage(text, isError = false) {
             messageDiv.innerHTML = `<div style="padding:10px; border-radius:5px; text-align:center; background:${isError?'#f8d7da':'#d4edda'}; color:${isError?'#721c24':'#155724'};">${text}</div>`;
         }
 
-        function renderRack(inventario, opEncontrada = null) {
+        async function loadRack(opEncontrada = null) {
+            try {
+                const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_inventario' }) });
+                const data = await res.json();
+                inventarioData = data.inventario || [];
+                renderAll(opEncontrada);
+            } catch(e) { console.error(e); rackWrapperDiv.innerHTML = 'Error al cargar.'; }
+        }
+
+        function renderAll(opEncontrada) {
             rackWrapperDiv.innerHTML = '';
-            if (!inventario || inventario.length === 0) return;
+            pasilloGrid.innerHTML = '';
+            
+            const rackItems = [];
+            const pasilloItems = [];
 
+            // Clasificar items
+            inventarioData.forEach(item => {
+                if (!item.ID_Hueco) return;
+                // IMPORTANTE: Excluir items 'RETIRADO' del inventario visible
+                if (item.Estatus_Hueco === 'RETIRADO') return;
+
+                if (item.ID_Hueco.includes('PASILLO')) {
+                    pasilloItems.push(item);
+                } else {
+                    rackItems.push(item);
+                }
+            });
+
+            // 1. RENDER PASILLO
+            if (pasilloItems.length > 0) {
+                pasilloZone.style.display = 'block';
+                pasilloItems.forEach(p => {
+                    const isMatch = (p.OP_Tarima == opEncontrada);
+                    const card = document.createElement('div');
+                    card.className = isMatch ? 'pasillo-card propia' : 'pasillo-card';
+                    card.innerHTML = `
+                        <strong>${p.OP_Tarima}</strong><br>
+                        <span style="font-size:0.8em">${p.Area_Destino}</span><br>
+                        <small>Tarima ${p.Tarima_Num}</small>
+                    `;
+                    pasilloGrid.appendChild(card);
+                });
+            } else {
+                pasilloZone.style.display = 'none';
+            }
+
+            // 2. RENDER RACK PRINCIPAL
             let max_nivel = 0;
-            const carriles = inventario.reduce((acc, h) => {
-                if (!h.ID_Hueco || h.ID_Hueco.includes('PASILLO')) return acc; // Ignorar pasillo en rack visual
-                const carril = h.ID_Hueco.charAt(0);
-                const nivelNum = parseInt(h.ID_Hueco.substring(1, 3), 10);
-                if (nivelNum > max_nivel) max_nivel = nivelNum;
-                if (!acc[carril]) acc[carril] = [];
-                acc[carril].push({ ...h, nivel: nivelNum });
-                return acc;
-            }, {});
-            
-            if (max_nivel === 0) max_nivel = 5;
-            const totalFilas = max_nivel + 1; 
-            rackWrapperDiv.style.gridTemplateRows = `repeat(${totalFilas}, minmax(50px, 1fr))`;
-            rackWrapperDiv.style.alignItems = 'stretch';
+            const carriles = {};
 
-            const carrilesOrdenados = Object.keys(carriles).sort(sortCarriles);
+            rackItems.forEach(h => {
+                const idLimpio = h.ID_Hueco.trim();
+                const carril = idLimpio.charAt(0);
+                const nivel = parseInt(idLimpio.substring(1, 3), 10);
+                if (nivel > max_nivel) max_nivel = nivel;
+                if (!carriles[carril]) carriles[carril] = [];
+                carriles[carril].push({ ...h, nivel, idLimpio });
+            });
+
+            if (max_nivel === 0) max_nivel = 5;
+            const totalFilas = max_nivel + 1;
+            rackWrapperDiv.style.gridTemplateRows = `repeat(${totalFilas}, minmax(65px, 1fr))`;
             
-            // Matriz simple: 1 columna por carril
+            const carrilesOrdenados = Object.keys(carriles).sort(sortCarriles);
             rackWrapperDiv.style.gridTemplateColumns = `repeat(${carrilesOrdenados.length}, 1fr)`;
 
             carrilesOrdenados.forEach((carrilKey, index) => {
                 const colIndex = index + 1;
                 
-                // Header
                 const titleDiv = document.createElement('div');
                 titleDiv.className = 'carril-title';
                 titleDiv.style.gridColumn = colIndex;
@@ -140,116 +210,109 @@
 
                 const carrilData = carriles[carrilKey];
                 
-                carrilData.forEach(h => {
-                    let clase = h.Estatus_Hueco === 'DISPONIBLE' ? 'disponible' : 'ocupado';
-                    let contenido = `<span class="txt-hueco">${h.ID_Hueco}</span>`;
+                // Llenar niveles
+                for(let i = 1; i <= max_nivel; i++) {
+                    const huecoData = carrilData.find(h => h.nivel === i);
+                    const box = document.createElement('div');
                     
-                    if (h.Estatus_Hueco !== 'DISPONIBLE') {
-                        if (h.OP_Tarima === opEncontrada) clase = 'propia';
-                        // AQUI SE AGREGAN EL AREA Y LA TARIMA
-                        contenido += `<span class="txt-op">${h.OP_Tarima}</span>`;
-                        contenido += `<span class="txt-meta">${h.Area_Destino}</span>`;
-                        contenido += `<span class="txt-meta">Tarima ${h.Tarima_Num}</span>`;
-                        // NOTA: No se agrega boton de borrar aquí.
+                    if (huecoData) {
+                        let clase = 'disponible';
+                        let contenido = `<span class="txt-hueco">${huecoData.idLimpio}</span>`;
+                        
+                        if (huecoData.Estatus_Hueco !== 'DISPONIBLE') {
+                            if (huecoData.OP_Tarima === opEncontrada) clase = 'propia';
+                            else clase = 'ocupado';
+                            
+                            contenido += `<span class="txt-op">${huecoData.OP_Tarima}</span>`;
+                            contenido += `<span class="txt-meta">${huecoData.Area_Destino}</span>`;
+                            contenido += `<span class="txt-meta">${huecoData.Tarima_Num}</span>`;
+                        } else {
+                            contenido += `<br><span class="txt-meta">LIBRE</span>`;
+                        }
+                        
+                        box.className = `hueco-nivel ${clase}`;
+                        box.innerHTML = contenido;
                     } else {
-                        contenido += `<br><span class="txt-meta">LIBRE</span>`;
+                        box.className = `hueco-nivel`;
+                        box.style.background = '#e2e6ea'; // Slot vacío
                     }
 
-                    const huecoDiv = document.createElement('div');
-                    huecoDiv.className = `hueco-nivel ${clase}`;
-                    const gridRow = (totalFilas + 1) - h.nivel; 
-                    huecoDiv.style.gridColumn = colIndex;
-                    huecoDiv.style.gridRow = gridRow;
-                    huecoDiv.innerHTML = contenido;
-                    rackWrapperDiv.appendChild(huecoDiv);
-                });
+                    box.style.gridColumn = colIndex;
+                    box.style.gridRow = (totalFilas + 1) - i;
+                    rackWrapperDiv.appendChild(box);
+                }
             });
         }
 
-        async function cargarInventarioCompleto(op = null) {
-            try {
-                const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_inventario' }) });
-                const data = await response.json();
-                renderRack(data.inventario, op);
-            } catch (e) { console.error(e); }
-        }
-
         async function buscarOP(op, area) {
-            searchBtn.disabled = true;
-            searchResultsDiv.innerHTML = '<p><span class="loading-spinner"></span> Buscando...</p>';
-            messageDiv.innerHTML = '';
+            document.getElementById('search-btn').disabled = true;
+            searchResultsDiv.innerHTML = 'Buscando...';
             
             try {
-                const response = await fetch(API_URL, {
+                const res = await fetch(API_URL, {
                     method: 'POST',
                     body: JSON.stringify({ action: 'consultar_op', opBusqueda: op, areaBusqueda: area }),
                 });
-                const result = await response.json();
+                const result = await res.json();
 
-                if (response.status === 404) {
-                    searchResultsDiv.innerHTML = `<p style="color:#666;">${result.message}</p>`;
+                if (res.status === 404) {
+                    searchResultsDiv.innerHTML = `<p style="color:gray;">${result.message}</p>`;
+                    await loadRack(); // Recarga normal
                 } else {
                     renderResults(result.resultados, op, area);
+                    await loadRack(op); // Recarga resaltando la OP
                 }
-                await cargarInventarioCompleto(op); 
-            } catch (error) {
-                showMessage(`Error: ${error.message}`, true);
+            } catch (e) {
+                showMessage(`Error: ${e.message}`, true);
             } finally {
-                searchBtn.disabled = false;
+                document.getElementById('search-btn').disabled = false;
             }
         }
 
         function renderResults(resultados, op, area) {
-            let html = `<div style="background:#e6f7ff; padding:10px; border:1px solid #91d5ff; border-radius:4px; margin-bottom:15px;">
-                        <strong>${resultados.length}</strong> tarimas encontradas. Puede retirarlas aquí:</div>`;
+            let html = `<div style="background:#e6f7ff; padding:10px; border:1px solid #005f9e; border-radius:5px; margin-bottom:15px;">
+                        <strong>${resultados.length}</strong> tarimas encontradas.</div>`;
             
             resultados.forEach((r) => {
                 html += `
                     <div class="result-item">
                         <div>
-                            <h3 style="margin:0;">OP ${op} - Tarima ${r.tarimaNum}</h3>
-                            <p style="margin:0; font-size:0.9em;">Ubicación: <strong>${r.idHueco}</strong> (${area})</p>
-                            <small>Entrada: ${r.fechaEntrada}</small>
+                            <h3 style="margin:0;">OP ${op}</h3>
+                            <p style="margin:0; font-size:0.9em;">${r.idHueco} (${area}) - ${r.tarimaNum}</p>
                         </div>
-                        <button onclick="solicitarRetiro(${r.row}, '${r.idHueco}', '${op}', '${r.tarimaNum}', '${area}', this)" 
+                        <button onclick="retirar(${r.row}, '${r.idHueco}', '${op}', '${r.tarimaNum}', '${area}', this)" 
                                 style="background:#dc3545; color:white; padding:8px 15px; border:none; border-radius:4px; cursor:pointer;">
-                            <i class="fas fa-sign-out-alt"></i> Retirar
+                            Retirar
                         </button>
                     </div>`;
             });
             searchResultsDiv.innerHTML = html;
         }
 
-        window.solicitarRetiro = async function(row, hueco, op, tarimaNum, area, btn) {
-            if (!confirm(`¿Confirmar retiro de Tarima ${tarimaNum} del hueco ${hueco}?`)) return;
-            btn.disabled = true;
-            btn.innerHTML = '...';
+        window.retirar = async function(row, hueco, op, tarimaNum, area, btn) {
+            if (!confirm(`¿Confirmar retiro?`)) return;
+            btn.disabled = true; btn.innerHTML = '...';
             
             try {
                 await fetch(API_URL, {
                     method: 'POST',
                     body: JSON.stringify({ action: 'solicitar_retiro', row, op, hueco, tarimaNumStr: tarimaNum, area })
                 });
-                showMessage('✅ Retiro registrado correctamente. Historial actualizado.', false);
-                // Limpiar resultados y recargar
+                showMessage('✅ Retirado correctamente.', false);
                 searchResultsDiv.innerHTML = '';
-                document.getElementById('search-op-input').value = '';
-                await cargarInventarioCompleto();
-            } catch(e) {
-                showMessage('Error al retirar.', true);
-                btn.disabled = false;
-            }
+                loadRack();
+            } catch(e) { showMessage('Error al retirar.', true); btn.disabled = false; }
         };
 
-        searchForm.addEventListener('submit', (e) => {
+        document.getElementById('search-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const op = document.getElementById('search-op-input').value.trim();
             const area = document.getElementById('search-area-select').value;
-            if (op.length !== 7) { showMessage('OP debe ser de 7 dígitos', true); return; }
+            if (op.length !== 7) { showMessage('OP 7 dígitos requerida', true); return; }
             buscarOP(op, area);
         });
 
-        document.addEventListener('DOMContentLoaded', () => cargarInventarioCompleto());
+        loadRack();
     </script>
 </body>
 </html>
