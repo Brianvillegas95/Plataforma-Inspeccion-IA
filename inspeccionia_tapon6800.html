@@ -543,6 +543,7 @@
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 3;
                 ctx.strokeRect(display_x1, display_y1, display_w, display_h);
+                /* CÓDIGO COMENTADO: ELIMINA EL TEXTO Y SU FONDO
                 const label = `${det.label} (${(det.score * 100).toFixed(0)}%)`;
                 ctx.font = 'bold 16px sans-serif';
                 const textMetrics = ctx.measureText(label);
@@ -553,6 +554,7 @@
                 ctx.fillRect(display_x1 - 1, textY - textHeight - 3, textMetrics.width + 6, textHeight + 6);
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillText(label, display_x1 + 2, textY);
+                */
             });
             updateSummary(detections);
         }
@@ -694,3 +696,4 @@
 </body>
 
 </html>
+
