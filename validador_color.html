@@ -386,7 +386,14 @@
                         }
                     };
 
-                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    //Fix: Si la cámara predeterminada no funciona, se intenta usar la cámara externa
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    } catch (err) {
+                        console.warn("Camara predeterminada no disponible: ", err);
+                        stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
+                    }
+
                     videoElement.srcObject = stream;
                     videoTrack = stream.getVideoTracks()[0];
                     cameraCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
