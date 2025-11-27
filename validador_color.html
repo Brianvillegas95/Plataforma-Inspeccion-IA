@@ -436,10 +436,10 @@
                 console.log("Aplicando ajustes de cámara fijos...");
                 if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 90); }
                 if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 128); }
-                if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 128); }
+                if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 138); }
                 if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
                 if (cameraCapabilities.whiteBalanceMode) { await applyCameraSetting('whiteBalanceMode', 'manual'); }
-                if (cameraCapabilities.colorTemperature) { await applyCameraSetting('colorTemperature', 6000); }
+                if (cameraCapabilities.colorTemperature) { await applyCameraSetting('colorTemperature', 6100); }
 
                 if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
                     await applyCameraSetting('exposureMode', 'manual');
@@ -588,6 +588,7 @@
 </body>
 
 </html>
+
 
 
 
