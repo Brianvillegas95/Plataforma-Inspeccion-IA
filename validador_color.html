@@ -438,6 +438,7 @@
                 if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 143); }
                 if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
                 if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
+                if (cameraCapabilities.colorTemperature) { await applyCameraSetting('colorTemperature', 6130); }
 
                 if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
                     await applyCameraSetting('exposureMode', 'manual');
@@ -586,5 +587,6 @@
 </body>
 
 </html>
+
 
 
