@@ -437,9 +437,9 @@
                 if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 100); }
                 if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 120); }
                 if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 128); }
-                if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 120); }
+                if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 128); }
                 if (cameraCapabilities.whiteBalanceMode) { await applyCameraSetting('whiteBalanceMode', 'manual'); }
-                if (cameraCapabilities.colorTemperature) { await applyCameraSetting('colorTemperature', 5500); }
+                if (cameraCapabilities.colorTemperature) { await applyCameraSetting('colorTemperature', 6500); }
 
                 if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
                     await applyCameraSetting('exposureMode', 'manual');
@@ -588,5 +588,6 @@
 </body>
 
 </html>
+
 
 
