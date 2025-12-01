@@ -434,7 +434,7 @@
             // MODIFICACIÓN INICIA: Función de ajustes de cámara actualizada
             async function applyFixedCameraSettings() {
                 console.log("Aplicando ajustes de cámara fijos...");
-                if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 10); }
+                if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 150); }
                 if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 128); }
                 if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 128); }
                 if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 128); }
@@ -445,7 +445,7 @@
                     await applyCameraSetting('exposureMode', 'manual');
                     if (cameraCapabilities.exposureTime) {
                         // El valor 78.125 corresponde a un tiempo de exposición de 1/12.8s
-                        await applyCameraSetting('exposureTime', 39.0625); 
+                        await applyCameraSetting('exposureTime', 19.53125); 
                         console.log("Modo de exposición manual aplicado.");
                     } else { console.warn("La cámara no soporta el control de exposureTime."); }
                 } else { console.warn("La cámara no soporta el modo de exposición manual. Los ajustes de tiempo de exposición pueden no aplicarse."); }
@@ -589,6 +589,7 @@
 </body>
 
 </html>
+
 
 
 
