@@ -441,6 +441,16 @@
                 if (cameraCapabilities.whiteBalanceMode) { await applyCameraSetting('whiteBalanceMode', 'manual'); }
                 if (cameraCapabilities.colorTemperature) { await applyCameraSetting('colorTemperature', 5500); }
 
+                 if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
+                    await applyCameraSetting('exposureMode', 'manual');
+                    if (cameraCapabilities.exposureTime) {
+                        // El valor 78.125 corresponde a un tiempo de exposición de 1/12.8s
+                        await applyCameraSetting('exposureTime', 19.53125); 
+                        console.log("Modo de exposición manual aplicado.");
+                    } else { console.warn("La cámara no soporta el control de exposureTime."); }
+                } else { console.warn("La cámara no soporta el modo de exposición manual. Los ajustes de tiempo de exposición pueden no aplicarse."); }
+                console.log("Ajustes fijos completados.");
+
             }
             // MODIFICACIÓN TERMINA
             
@@ -579,4 +589,5 @@
 </body>
 
 </html>
+
 
