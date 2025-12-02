@@ -434,12 +434,12 @@
             // MODIFICACIÓN INICIA: Función de ajustes de cámara actualizada
             async function applyFixedCameraSettings() {
                 console.log("Aplicando ajustes de cámara fijos...");
-                if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 50); }
+                if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 30); }
                 if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 150); }
                 if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 110); }
                 if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
                 if (cameraCapabilities.whiteBalanceMode) { await applyCameraSetting('whiteBalanceMode', 'manual'); }
-                if (cameraCapabilities.colorTemperature) { await applyCameraSetting('colorTemperature', 5500); }
+                if (cameraCapabilities.colorTemperature) { await applyCameraSetting('colorTemperature', 5000); }
 
                  if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
                     await applyCameraSetting('exposureMode', 'manual');
@@ -589,6 +589,7 @@
 </body>
 
 </html>
+
 
 
 
