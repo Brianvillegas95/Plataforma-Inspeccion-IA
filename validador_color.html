@@ -513,7 +513,7 @@
                 if (selectedKey && coloresEstandarAzor[selectedKey]) {
                     currentStandardColorData = coloresEstandarAzor[selectedKey];
                     standardColorDisplay.style.backgroundColor = currentStandardColorData.hex;
-                    standardColorValuesEl.textContent = `LAB: ${currentStandardColorData.lab.L.toFixed(1)}, ${currentStandardColorData.lab.a.toFixed(1)}, ${currentStandardColorData.lab.b.toFixed(1)}`;
+                    standardColorValuesEl.textContent = `HEX: ${currentStandardColorData.hex.toUpperCase()} | LAB: ${currentStandardColorData.lab.L.toFixed(1)}, ${currentStandardColorData.lab.a.toFixed(1)}, ${currentStandardColorData.lab.b.toFixed(1)}`;
                 } else {
                     currentStandardColorData = null;
                     standardColorDisplay.style.backgroundColor = 'transparent';
@@ -543,11 +543,13 @@
                 const avgR = Math.round(sumR / pixelCount);
                 const avgG = Math.round(sumG / pixelCount);
                 const avgB = Math.round(sumB / pixelCount);
+
+                const hexSample = chroma(avgR, avgG, avgB).hex();
                 
                 capturedColorDisplay.style.backgroundColor = `rgb(${avgR}, ${avgG}, ${avgB})`;
                 
                 const labSample = { L: chroma(avgR, avgG, avgB).lab()[0], A: chroma(avgR, avgG, avgB).lab()[1], B: chroma(avgR, avgG, avgB).lab()[2] };
-                capturedColorValuesEl.textContent = `LAB: ${labSample.L.toFixed(1)}, ${labSample.A.toFixed(1)}, ${labSample.B.toFixed(1)}`;
+                capturedColorValuesEl.textContent = `HEX: ${hexSample.toUpperCase()} | LAB: ${labSample.L.toFixed(1)}, ${labSample.A.toFixed(1)}, ${labSample.B.toFixed(1)}`;
                 
                 const labStandard = { L: currentStandardColorData.lab.L, A: currentStandardColorData.lab.a, B: currentStandardColorData.lab.b };
                 const deltaE = window.DeltaE.getDeltaE00(labSample, labStandard);
@@ -587,3 +589,4 @@
 </body>
 
 </html>
+
