@@ -1,4 +1,4 @@
-{
+[
 { "id": "3001N", "nombre": "114.3001 BLANCO EN NYLON", "hex": "#EBE5E1", "lab": { "L": 91.3, "a":  1.3, "b":  2.7 } },
 { "id": "3001P", "nombre": "114.3001 BLANCO EN POLIPRO", "hex": "#EBE8E9", "lab": { "L": 92.2, "a":  1.2, "b":  -0.1 } },
 { "id": "3002", "nombre": "114.3002 GRIS CLARO", "hex": "#727980", "lab": { "L": 50.5, "a":  -1.1, "b":  -4.7 } },
@@ -92,4 +92,4 @@
 { "id": "3143", "nombre": "114.3143 CAFE PASTEL", "hex": "#906F57", "lab": { "L": 49.5, "a":  9.6, "b":  18.4 } },
 { "id": "3144", "nombre": "114.3144 VERDE PASTEL (SAN)", "hex": "#A2D2BD", "lab": { "L": 80.4, "a":  -19.9, "b":  5.3 } },
 { "id": "3146", "nombre": "114.3146 COBRIZO", "hex": "#A54423", "lab": { "L": 41.6, "a":  38.2, "b":  38.9 } }
-}
+]
