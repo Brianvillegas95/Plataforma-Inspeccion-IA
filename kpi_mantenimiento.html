@@ -726,15 +726,6 @@
                     }
                 }
                 
-                // 3. Lógica para Gráficas (esto debe continuar fuera del IF de tiempos)
-                const maq = r.maquina || 'N/A'; countsMachine[maq] = (countsMachine[maq] || 0) + 1;
-                countsArea[area] = (countsArea[area] || 0) + 1;
-                const sol = r.solucion || 'Sin Clasificar'; countsSol[sol] = (countsSol[sol] || 0) + 1;
-                const station = r.estacion || r.falla || 'Sin Estación'; countsStation[station] = (countsStation[station] || 0) + 1; 
-
-                // 4. Lógica para Tabla Detallada
-                // ... (el resto de tu código de tabla)
-                
                 // 3. Lógica para Gráficas
                 const maq = r.maquina || 'N/A'; countsMachine[maq] = (countsMachine[maq] || 0) + 1;
                 countsArea[area] = (countsArea[area] || 0) + 1;
