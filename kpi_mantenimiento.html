@@ -140,7 +140,8 @@
             <h1 class="app-title">Dashboard de Mantenimiento</h1>
         </div>
         <div>
-             <button onclick="window.location.href='admin_mantenimiento.html'" class="btn-header-nav">Ir a Admin</button>
+            <button onclick="window.location.href='/'" class="btn-header-nav" style="margin-right: 10px;">Inicio</button>
+            <button onclick="window.location.href='admin_mantenimiento.html'" class="btn-header-nav">Ir a Admin</button>
         </div>
     </header>
 
@@ -368,6 +369,25 @@
             if(!dStart || !dEnd || isNaN(dStart.getTime()) || isNaN(dEnd.getTime())) return 0;
             return Math.round((dEnd - dStart) / 1000 / 60);
         }
+
+        // --- INICIO: CAMBIO 1: UTILIDAD DE TIEMPO (MINUTOS A HORAS) ---
+        function formatMinutesToHours(minutes) {
+            if (minutes < 60) return `${minutes} min`;
+            const hours = Math.floor(minutes / 60);
+            const remainingMinutes = minutes % 60;
+            if (remainingMinutes === 0) {
+                return `${hours} hr`;
+            }
+            return `${hours} hr ${remainingMinutes} min`;
+        }
+        
+        function getHoursHtml(minutes) {
+             const hoursText = formatMinutesToHours(minutes);
+             // Aplicamos un estilo para reducir el tamaño de fuente.
+             return `<span style="font-size: 0.5em; color: #6c757d; font-weight: 500; display: block; margin-top: 5px;">(${hoursText})</span>`;
+        }
+        // --- FIN: CAMBIO 1 ---
+
 
         // --- LÓGICA DE MULTISELECT CON CHECKBOXES (sin cambios) ---
         
@@ -760,9 +780,13 @@
             const efficiency = ticketsAsignados > 0 ? ((ticketsSolucionados / ticketsAsignados) * 100).toFixed(1) : 0;
 
             document.getElementById('kpi-count').textContent = totalTickets; 
-            document.getElementById('kpi-mttr').textContent = avgRep + " min";
-            document.getElementById('kpi-mtta').textContent = avgResp + " min";
-            document.getElementById('kpi-total-downtime').textContent = sumTot + " min";
+            
+            // INICIO: CAMBIO 1: RENDERIZADO CON HORAS
+            document.getElementById('kpi-mttr').innerHTML = avgRep + " min" + getHoursHtml(avgRep);
+            document.getElementById('kpi-mtta').innerHTML = avgResp + " min" + getHoursHtml(avgResp);
+            document.getElementById('kpi-total-downtime').innerHTML = sumTot + " min" + getHoursHtml(sumTot);
+            // FIN: CAMBIO 1
+
             document.getElementById('kpi-efficiency').textContent = efficiency + "%";
             document.getElementById('kpi-efficiency-sub').textContent = `${ticketsSolucionados} de ${ticketsAsignados} Asignados`;
             
@@ -858,7 +882,25 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: type !== 'bar', position: 'right' } }
+                    plugins: { 
+                        legend: { 
+                            display: type !== 'bar', 
+                            position: 'right' 
+                        },
+                        // INICIO: CAMBIO 2: DATALABELS para gráficas circulares
+                        datalabels: {
+                            display: type !== 'bar', // Solo para circulares (Area y Solucion)
+                            formatter: (value, context) => {
+                                const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${value} \n (${percentage}%)`; // Muestra valor y porcentaje
+                            },
+                            color: '#fff',
+                            textAlign: 'center',
+                            font: { weight: 'bold', size: 14 }
+                        }
+                        // FIN: CAMBIO 2
+                    }
                 }
             });
         }
