@@ -677,6 +677,23 @@
                 const asignado = r.mecanicoAsignado; 
                 const soluciono = r.mecanico; 
                 const area = r.area || 'N/A';
+
+                // 🛑 NUEVO FILTRO PARA EXCLUIR CERRADO MANUAL DE TIEMPOS/KPIs 🛑
+                if (r.statusParo === 'Cerrado Manual') {
+                    // No contamos este ticket para tiempos, pero SÍ para el conteo total
+                    // y otras gráficas (como Máquinas con más fallas), si aplica.
+                    // Si r.statusParo es "Cerrado Manual", simplemente saltamos la lógica de tiempos
+                } else if (tOpen && tClose) {
+                    // Solo calcula tiempos si las fechas son válidas (no NaN)
+                    if (!isNaN(tOpen.getTime()) && !isNaN(tClose.getTime())) {
+                        isClosed = true;
+                        const validArrive = tArrive && !isNaN(tArrive.getTime()) ? tArrive : tOpen; 
+                        tResp = getDiffMinutes(tOpen, validArrive);
+                        tRep = getDiffMinutes(validArrive, tClose);
+                        tTotal = getDiffMinutes(tOpen, tClose);
+                        
+                        sumResp += tResp; sumRep += tRep; sumTot += tTotal; countClosed++;
+                    }
                 
                 // Agregamos al Mecánico que SOLUCIONÓ (Trabajo) a la lista global.
                 if (soluciono) {
@@ -693,7 +710,7 @@
                     mecEfficiency[asignado].asignados++;
                 }
 
-                if (tOpen && tClose) {
+                if (tOpen && tClose && r.statusParo !== 'Cerrado Manual') {
                     // Solo calcula tiempos si las fechas son válidas (no NaN)
                     if (!isNaN(tOpen.getTime()) && !isNaN(tClose.getTime())) {
                         isClosed = true;
