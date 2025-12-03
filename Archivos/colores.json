@@ -1,6 +1,6 @@
 [
-{ "id": "3001N", "nombre": "114.3001 BLANCO EN NYLON", "hex": "#EBE5E1", "lab": { "L": 91.3, "a":  1.3, "b":  2.7 } },
-{ "id": "3001P", "nombre": "114.3001 BLANCO EN POLIPRO", "hex": "#EBE8E9", "lab": { "L": 92.2, "a":  1.2, "b":  -0.1 } },
+{ "id": "3001N", "nombre": "114.3001 BLANCO (NYLON)", "hex": "#EBE5E1", "lab": { "L": 91.3, "a":  1.3, "b":  2.7 } },
+{ "id": "3001P", "nombre": "114.3001 BLANCO (POLIPRO)", "hex": "#EBE8E9", "lab": { "L": 92.2, "a":  1.2, "b":  -0.1 } },
 { "id": "3002", "nombre": "114.3002 GRIS CLARO", "hex": "#727980", "lab": { "L": 50.5, "a":  -1.1, "b":  -4.7 } },
 { "id": "3003", "nombre": "114.3003 PLATA", "hex": "#8E8C8B", "lab": { "L": 58.4, "a":  0.5, "b":  0.8 } },
 { "id": "3005", "nombre": "114.3005 AMARILLO CANARIO", "hex": "#FABB16", "lab": { "L": 79.6, "a":  10.5, "b":  79.2 } },
@@ -28,7 +28,7 @@
 { "id": "3047", "nombre": "114.3047 VERDE AQUA OHP", "hex": "#BEDFDD", "lab": { "L": 86.5, "a":  -11.2, "b":  -2.7 } },
 { "id": "3050N", "nombre": "114.3050 VERDE OBCURO (NYLON)", "hex": "#0B3536", "lab": { "L": 19.6, "a":  -13.5, "b":  -4.8 } },
 { "id": "3050P", "nombre": "114.3050 VERDE OBCURO (POLIPRO)", "hex": "#085D3B", "lab": { "L": 34.4, "a":  -32.3, "b":  13.1 } },
-{ "id": "3052", "nombre": "114.3052 AMARILLO FLUORESCENTE (PARA TPE)", "hex": "#C9CF2D", "lab": { "L": 80.3, "a":  -20.1, "b":  72.7 } },
+{ "id": "3052", "nombre": "114.3052 AMARILLO FLUORESCENTE (TPE)", "hex": "#CED62E", "lab": { "L": 82.6, "a": -21.4, "b": 75.4 } },
 { "id": "3053N", "nombre": "114.3053 AMARILLO FLUORESCENTE (NYLON)", "hex": "#FEF62A", "lab": { "L": 94.8, "a": -17.1, "b": 87.5 } },
 { "id": "3053P", "nombre": "114.3053 AMARILLO FLUORESCENTE (POLIPRO)", "hex": "#F7FF55", "lab": { "L": 96.8, "a":  -22.6, "b":  76.5 } },
 { "id": "3055", "nombre": "114.3055 DORADO", "hex": "#9B733A", "lab": { "L": 51.3, "a":  9.3, "b":  37.1 } },
@@ -58,7 +58,7 @@
 { "id": "3093T", "nombre": "114.3093 ROSA FLUORESCENTE (TPE)", "hex": "#FF005D", "lab": { "L": 54.1, "a":  82.4, "b":  24.1 } },
 { "id": "3098", "nombre": "114.3098 ROSA FLUORESCENTE TRANSLUCIDO", "hex": "#FF0068", "lab": { "L": 54.3, "a":  83.0, "b":  17.7 } },
 { "id": "3100", "nombre": "114.3100 ROSA TRANSLUCIDO (SAN)", "hex": "#C60454", "lab": { "L": 42.4, "a":  68.5, "b":  11.8 } },
-{ "id": "3101", "nombre": "114.3101 ROSA TPE Y PP", "hex": "#FF359A", "lab": { "L": 58.2, "a":  79.4, "b":  -6.5 } },
+{ "id": "3101", "nombre": "114.3101 ROSA (TPE Y PP)", "hex": "#FF359A", "lab": { "L": 58.2, "a":  79.4, "b":  -6.5 } },
 { "id": "3109", "nombre": "114.3109 AMARILLO BOLIGRAFO", "hex": "#FB7602", "lab": { "L": 64.5, "a":  46.2, "b":  71.9 } },
 { "id": "3111", "nombre": "114.3111 VERDE MANZANA", "hex": "#5EA32D", "lab": { "L": 60.6, "a":  -41.9, "b":  51.6 } },
 { "id": "3114", "nombre": "114.3114 VERDE AQUA", "hex": "#10838B", "lab": { "L": 49.7, "a": -25.8, "b": -12.7 } },
@@ -91,6 +91,5 @@
 { "id": "3142", "nombre": "114.3142 AMARILLO PASTEL (SAN)", "hex": "#D9A550", "lab": { "L": 71.0, "a":  10.2, "b":  50.5 } },
 { "id": "3143", "nombre": "114.3143 CAFE PASTEL", "hex": "#906F57", "lab": { "L": 49.5, "a":  9.6, "b":  18.4 } },
 { "id": "3144", "nombre": "114.3144 VERDE PASTEL (SAN)", "hex": "#A2D2BD", "lab": { "L": 80.4, "a":  -19.9, "b":  5.3 } },
-{ "id": "3146", "nombre": "114.3146 COBRIZO", "hex": "#A54423", "lab": { "L": 41.6, "a":  38.2, "b":  38.9 } }
+{ "id": "3146", "nombre": "114.3146 COBRIZO", "hex": "#A54423", "lab": { "L": 41.6, "a":  38.2, "b":  38.9 } },
 ]
-
