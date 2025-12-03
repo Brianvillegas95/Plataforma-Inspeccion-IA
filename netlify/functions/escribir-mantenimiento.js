@@ -550,6 +550,36 @@ exports.handler = async function (event) {
           return { statusCode: 200, body: JSON.stringify({ message: 'Reasignado con éxito' }) };
       }
 
+      case 'admin_cerrar_manual': {
+    if (!row || !name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "row" o "name" (adminName).' }) };
+    
+    // 1. Obtener el mecánico asignado originalmente
+    const getResponse = await sheets.spreadsheets.values.get({ spreadsheetId: produccionSheetId, range: `Hoja 1!M${row}` });
+    const mecanicoAsignadoOriginal = getResponse.data.values ? getResponse.data.values[0][0] : null;
+
+    // 2. Actualizar la planilla de Mantenimiento (Columna J y Columna N)
+    await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: produccionSheetId,
+        resource: {
+            valueInputOption: 'USER_ENTERED',
+            data: [
+                // Columna J: Mecánico (se pone el nombre del Admin)
+                { range: `Hoja 1!J${row}`, values: [[ name ]] }, 
+                // Columna N: StatusParo
+                { range: `Hoja 1!N${row}`, values: [['Cerrado Manual']] } 
+            ]
+        }
+    });
+
+    // 3. Liberar al mecánico si estaba asignado
+    if (mecanicoAsignadoOriginal && mecanicoAsignadoOriginal !== 'En Espera') {
+        // Ejecuta la lógica de liberación y asignación del siguiente trabajo.
+        await findAndAssignNextJob(sheets, mecanicoAsignadoOriginal);
+    }
+
+    return { statusCode: 200, body: JSON.stringify({ message: 'Paro cerrado manualmente por administrador.' }) };
+}
+
       case 'get_kpi_data': {
           // *** CORRECCIÓN CRÍTICA DE RANGO Y MAPEADO ***
           // El rango ahora incluye hasta la columna N para obtener MecanicoAsignado y StatusParo.

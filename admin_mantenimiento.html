@@ -287,9 +287,14 @@
                             <div style="font-size:0.9em; color:#555;">
                                 Mecánico: <strong style="color:#333;">${j.mecanico}</strong>
                             </div>
-                            <button onclick="promptReassign(${j.row}, '${j.mecanico}', '${j.folio}')" class="action-btn">
-                                <i class="fas fa-exchange-alt"></i> Reasignar
-                            </button>
+                            <div>
+                                <button onclick="promptReassign(${j.row}, '${j.mecanico}', '${j.folio}')" class="action-btn" style="margin-right: 5px;">
+                                    <i class="fas fa-exchange-alt"></i> Reasignar
+                                </button>
+                                <button onclick="closeManual(${j.row}, '${j.folio}')" class="action-btn" style="background: #dc3545; color: white; border-color: #dc3545;">
+                                    <i class="fas fa-times-circle"></i> Cerrar
+                                </button>
+                            </div>
                         </div>
                     </div>`;
                 });
@@ -339,6 +344,41 @@
                     }
                 }
             });
+            
+            // --- LÓGICA DE CIERRE MANUAL ---
+            window.closeManual = async function(row, folio) {
+                const adminUser = netlifyIdentity.currentUser();
+                if (!adminUser) {
+                    alert("Debe iniciar sesión para realizar esta acción.");
+                    return;
+                }
+                const adminName = adminUser.user_metadata.full_name || 'Admin Desconocido'; 
+                
+                const confirmation = confirm(`⚠️ ¿Confirmar el CIERRE MANUAL del Folio ${folio} (Fila ${row})?\n\nEsta acción es irreversible y marcará el ticket como "Cerrado Manual" a nombre de ${adminName}.`);
+                
+                if (confirmation) {
+                    try {
+                        const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                            method: 'POST',
+                            body: JSON.stringify({ 
+                                action: 'admin_cerrar_manual', 
+                                row: row, 
+                                name: adminName // name usado para el nombre del admin
+                            })
+                        });
+                        
+                        if (res.ok) {
+                             alert(`✅ Folio ${folio} cerrado manualmente con éxito.`);
+                             loadDashboard();
+                        } else {
+                            const errorData = await res.json();
+                            throw new Error(errorData.error || "Error desconocido en el servidor.");
+                        }
+                    } catch(e) { 
+                        alert(`❌ Error al cerrar el ticket: ${e.message}`); 
+                    }
+                }
+            }
         });
     </script>
 </body>
