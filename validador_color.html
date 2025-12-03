@@ -271,9 +271,9 @@
             function populateStandardColors() {
                 if (!choices) return;
                 choices.clearStore();
-                const colorChoices = Object.keys(coloresEstandarAzor).map(key => ({
-                    value: key,
-                    label: coloresEstandarAzor[key].nombre
+                const colorChoices = coloresEstandarAzor.map(colorData => ({
+                    value: colorData.id,
+                    label: colorData.nombre
                 }));
                 choices.setChoices([{ value: '', label: '-- Elija un estándar --', selected: true, disabled: true }, ...colorChoices], 'value', 'label', false);
             }
@@ -510,8 +510,12 @@
             
             standardColorSelect.addEventListener('change', () => {
                 const selectedKey = choices.getValue(true);
-                if (selectedKey && coloresEstandarAzor[selectedKey]) {
-                    currentStandardColorData = coloresEstandarAzor[selectedKey];
+                let colorData = null; 
+                if (selectedKey) {
+                    colorData = coloresEstandarAzor.find(color => color.id === selectedKey);
+                }
+                if (colorData) {
+                    currentStandardColorData = colorData;
                     standardColorDisplay.style.backgroundColor = currentStandardColorData.hex;
                     standardColorValuesEl.textContent = `HEX: ${currentStandardColorData.hex.toUpperCase()} | LAB: ${currentStandardColorData.lab.L.toFixed(1)}, ${currentStandardColorData.lab.a.toFixed(1)}, ${currentStandardColorData.lab.b.toFixed(1)}`;
                 } else {
@@ -589,4 +593,5 @@
 </body>
 
 </html>
+
 
