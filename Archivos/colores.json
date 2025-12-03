@@ -29,7 +29,7 @@
 { "id": "3050N", "nombre": "114.3050 VERDE OBCURO (NYLON)", "hex": "#0B3536", "lab": { "L": 19.6, "a":  -13.5, "b":  -4.8 } },
 { "id": "3050P", "nombre": "114.3050 VERDE OBCURO (POLIPRO)", "hex": "#085D3B", "lab": { "L": 34.4, "a":  -32.3, "b":  13.1 } },
 { "id": "3052", "nombre": "114.3052 AMARILLO FLUORESCENTE (PARA TPE)", "hex": "#C9CF2D", "lab": { "L": 80.3, "a":  -20.1, "b":  72.7 } },
-{ "id": "3053N", "nombre": "114.3053 AMARILLO FLUORESCENTE (NYLON)", "hex": "#FEF62A", "lab": { "L": 94,8, "a": -17.1, "b": 87.5 } },
+{ "id": "3053N", "nombre": "114.3053 AMARILLO FLUORESCENTE (NYLON)", "hex": "#FEF62A", "lab": { "L": 94.8, "a": -17.1, "b": 87.5 } },
 { "id": "3053P", "nombre": "114.3053 AMARILLO FLUORESCENTE (POLIPRO)", "hex": "#F7FF55", "lab": { "L": 96.8, "a":  -22.6, "b":  76.5 } },
 { "id": "3055", "nombre": "114.3055 DORADO", "hex": "#9B733A", "lab": { "L": 51.3, "a":  9.3, "b":  37.1 } },
 { "id": "3057", "nombre": "114.3057 AMARILLO FLUORESCENTE TRANSLUCIDO", "hex": "#E9D846", "lab": { "L": 85.4, "a":  -10.1, "b":  70.3 } },
@@ -93,3 +93,4 @@
 { "id": "3144", "nombre": "114.3144 VERDE PASTEL (SAN)", "hex": "#A2D2BD", "lab": { "L": 80.4, "a":  -19.9, "b":  5.3 } },
 { "id": "3146", "nombre": "114.3146 COBRIZO", "hex": "#A54423", "lab": { "L": 41.6, "a":  38.2, "b":  38.9 } }
 ]
+
