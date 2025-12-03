@@ -516,7 +516,7 @@ exports.handler = async function (event) {
           const resJobs = await sheets.spreadsheets.values.get({ spreadsheetId: produccionSheetId, range: 'Hoja 1!A2:N' });
           const jobs = (resJobs.data.values || [])
              .map((j, i) => ({ row: i+2, folio: j[0], area: j[2], maquina: j[3], status: j[6], mecanico: j[12], estado: j[13] }))
-             .filter(j => j.estado && j.estado !== 'Cerrado');
+             .filter(j => j.estado && j.estado !== 'Cerrado' && j.estado !== 'Cerrado Manual');
              
           return { statusCode: 200, body: JSON.stringify({ mecanicos, jobs }) };
       }
