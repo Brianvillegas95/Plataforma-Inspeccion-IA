@@ -510,7 +510,7 @@
                 if (!response.ok) throw new Error('Error recuperando estado.');
                 const data = await response.json(); 
                 
-                if (data.status === 'Cerrado') {
+                if (data.status === 'Cerrado' || data.status === 'Cerrado Manual') {
                     localStorage.removeItem('paroRow');
                     localStorage.removeItem('paroFolio');
                     localStorage.removeItem('paroStatusMaquina');
