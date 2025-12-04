@@ -885,21 +885,44 @@
                     plugins: { 
                         legend: { 
                             display: type !== 'bar', 
-                            position: 'right' 
+                            position: 'right',
+                            // INICIO: CAMBIO 2B: AÑADIR PORCENTAJE A LA LEYENDA
+                            labels: {
+                                generateLabels: (chart) => {
+                                    const data = chart.data;
+                                    if (data.labels.length && data.datasets.length) {
+                                        const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                        return data.labels.map((label, i) => {
+                                            const value = data.datasets[0].data[i];
+                                            const percentage = total > 0 ? ` (${(value / total * 100).toFixed(1)}%)` : '';
+                                            
+                                            return {
+                                                text: label + percentage, // Aquí se añade el porcentaje a la etiqueta
+                                                fillStyle: data.datasets[0].backgroundColor[i],
+                                                strokeStyle: data.datasets[0].borderColor || 'transparent',
+                                                lineWidth: data.datasets[0].borderWidth || 0,
+                                                hidden: chart.getDatasetMeta(0).data[i].hidden,
+                                                index: i
+                                            };
+                                        });
+                                    }
+                                    return [];
+                                }
+                            }
+                            // FIN: CAMBIO 2B
                         },
-                        // INICIO: CAMBIO 2: DATALABELS para gráficas circulares
+                        // INICIO: CAMBIO 2A: DEJAR SOLO EL VALOR EN EL GRÁFICO
                         datalabels: {
-                            display: type !== 'bar', // Solo para circulares (Area y Solucion)
+                            display: type !== 'bar', 
                             formatter: (value, context) => {
-                                const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                return `${value} \n (${percentage}%)`; // Muestra valor y porcentaje
+                                // Muestra solo el valor (número de eventos)
+                                return value; 
                             },
                             color: '#fff',
                             textAlign: 'center',
                             font: { weight: 'bold', size: 14 }
                         }
-                        // FIN: CAMBIO 2
+                        // FIN: CAMBIO 2A
                     }
                 }
             });
