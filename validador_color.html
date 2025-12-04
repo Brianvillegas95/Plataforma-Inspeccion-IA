@@ -75,7 +75,7 @@
                 <h1>Inspección de Calidad <span class="ia-badge">IA</span></h1>
             </div>
             <nav class="main-nav">
-                 <ul>
+                <ul>
                     <li><a href="index.html">Inicio</a></li>
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle active">Herramientas IA <i class="fas fa-angle-down nav-arrow"></i></a>
@@ -89,7 +89,7 @@
         </header>
 
         <main id="login-container" class="main-content">
-             <div style="text-align: center; margin-bottom: 20px;">
+            <div style="text-align: center; margin-bottom: 20px;">
                 <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
                 <h2>Validador de Color</h2>
                 <p>Por favor, ingrese sus datos para comenzar.</p>
@@ -183,9 +183,9 @@
                                 </div>
                             </div>
                         </div>
-                         <p id="color-result-note" class="note" style="margin-top:10px;"></p>
-                         <button id="new-test-btn" class="button" style="width: 100%; display: none; margin-top: 10px;">
-                            <i class="fas fa-redo"></i> Nueva Prueba
+                        <p id="color-result-note" class="note" style="margin-top:10px;"></p>
+                        <button id="new-test-btn" class="button" style="width: 100%; display: none; margin-top: 10px;">
+                        <i class="fas fa-redo"></i> Nueva Prueba
                         </button>
                     </div>
                 </div> 
@@ -246,6 +246,27 @@
             let videoTrack = null; 
             let cameraCapabilities = {}; 
             
+            async function detectBrowser() { // Función para detectar el navegador
+                const ua = navigator.userAgent;
+                
+                // Check for Brave first
+                if (navigator.brave && await navigator.brave.isBrave()) {
+                    return 'Brave';
+                } else if (ua.includes('Firefox/')) {
+                    return 'Firefox';
+                } else if (ua.includes('Edg/')) {
+                    return 'Edge';
+                } else if (ua.includes('Chrome/')) {
+                    return 'Chrome';
+                } else if (ua.includes('Safari/') && !ua.includes('Chrome')) {
+                    return 'Safari';
+                } else if (ua.includes('OPR/') || ua.includes('Opera/')) {
+                    return 'Opera';
+                }
+                
+                return 'Unknown';
+            }
+
             function setAuditorState(state) {
                 if (!auditorSection) return;
                 auditorSection.className = 'auditor-section'; // Reset classes
@@ -253,19 +274,19 @@
             }
 
             async function escribirEnSheet(datos) {
-              try {
-                const datosCompletos = [...datos, operatorData.colaborador, operatorData.job];
-                const response = await fetch('/.netlify/functions/escribir-sheet', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ datos: datosCompletos }),
-                });
-                if (!response.ok) throw new Error('La respuesta del servidor no fue exitosa.');
-                console.log('Resultado guardado en el registro de calidad.');
-              } catch (error) {
-                console.error('Error al contactar el puente seguro:', error);
-                alert('Error: No se pudo guardar el resultado.');
-              }
+                try {
+                    const datosCompletos = [...datos, operatorData.colaborador, operatorData.job];
+                    const response = await fetch('/.netlify/functions/escribir-sheet', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ datos: datosCompletos }),
+                    });
+                    if (!response.ok) throw new Error('La respuesta del servidor no fue exitosa.');
+                    console.log('Resultado guardado en el registro de calidad.');
+                } catch (error) {
+                    console.error('Error al contactar el puente seguro:', error);
+                    alert('Error: No se pudo guardar el resultado.');
+                }
             }
             
             function populateStandardColors() {
@@ -431,26 +452,55 @@
                 catch (err) { console.error(`Error al aplicar ${settingName} = ${value}: `, err); return false; }
             }
 
-            // MODIFICACIÓN INICIA: Función de ajustes de cámara actualizada
-            async function applyFixedCameraSettings() {
-                console.log("Aplicando ajustes de cámara fijos...");
-                if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', 72); }
-                if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', 152); }
-                if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', 140); }
-                if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', 135); }
+            
+            async function applyFixedCameraSettings() { // Función para aplicar de ajustes de cámara
+                try {
+                    const browser = await detectBrowser();
+                    console.log(`Usando navegador: ${browser}`);
+                    let brightness, contrast, saturation, sharpness, exposureTime;
 
-                 if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
-                    await applyCameraSetting('exposureMode', 'manual');
-                    if (cameraCapabilities.exposureTime) {
-                        // El valor 78.125 corresponde a un tiempo de exposición de 1/12.8s
-                        await applyCameraSetting('exposureTime', 39.0625); 
-                        console.log("Modo de exposición manual aplicado.");
-                    } else { console.warn("La cámara no soporta el control de exposureTime."); }
-                } else { console.warn("La cámara no soporta el modo de exposición manual. Los ajustes de tiempo de exposición pueden no aplicarse."); }
-                console.log("Ajustes fijos completados.");
-
+                    if (browser === 'Chrome') {
+                        brightness = 120;
+                        contrast = 143;
+                        saturation = 140;
+                        sharpness = 135;
+                        exposureTime = 78.125;
+                    } else if (browser === 'Brave') {
+                        brightness = 72;
+                        contrast = 152;
+                        saturation = 140;
+                        sharpness = 135;
+                        exposureTime = 39.0625;
+                    } else { // Valores por defecto para otros navegadores
+                        console.warn('Navegador no reconocido, usando valores por defecto');
+                        brightness = 100;
+                        contrast = 100;
+                        saturation = 100;
+                        sharpness = 100;
+                        exposureTime = 50;
+                    }
+                    console.log("Aplicando ajustes de cámara fijos...");
+                    if (cameraCapabilities.brightness) { await applyCameraSetting('brightness', brightness); }
+                    if (cameraCapabilities.contrast) { await applyCameraSetting('contrast', contrast); }
+                    if (cameraCapabilities.saturation) { await applyCameraSetting('saturation', saturation); }
+                    if (cameraCapabilities.sharpness) { await applyCameraSetting('sharpness', sharpness); }
+                    if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('manual')) {
+                        await applyCameraSetting('exposureMode', 'manual');
+                        if (cameraCapabilities.exposureTime) {
+                            await applyCameraSetting('exposureTime', exposureTime);
+                            console.log("Modo de exposición manual aplicado.");
+                        } else {
+                            console.warn("La cámara no soporta el control de exposureTime.");
+                        }
+                    } else {
+                        console.warn("La cámara no soporta el modo de exposición manual.");
+                    }
+                    console.log("Ajustes fijos completados.");
+                    
+                } catch (error) {
+                    console.error("Error al aplicar ajustes de cámara:", error);
+                }
             }
-            // MODIFICACIÓN TERMINA
             
             function initializeFocusControl() {
                 // Esta función se mantiene igual, se activará si la cámara seleccionada lo permite.
