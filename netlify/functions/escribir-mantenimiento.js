@@ -69,12 +69,28 @@ async function findMechanicByName(sheets, name) {
     const dbName = mechanics[i][0] ? mechanics[i][0].trim() : '';
     const searchName = name ? name.trim() : '';
     if (dbName === searchName) {
-      return {
+      const mechanicInfo = {
         row: i + 2, name: mechanics[i][0], area: mechanics[i][1],
         availability: mechanics[i][2], 
         status: mechanics[i][3],
         TareaActual_RowID: mechanics[i][4]
       };
+
+      // *** INICIO: CORRECCIÓN DE SINCRONIZACIÓN (Póliza de seguro) ***
+      const activeJob = await findMechanicActiveJob(sheets, name); // Busca trabajo en MANTENIMIENTO-PRODUCCION
+      const expectedStatus = activeJob ? 'Ocupado' : 'Libre';
+      const expectedRowID = activeJob ? activeJob.row.toString() : '';
+
+      // Si el estado en la DB (MECANICOS_DB) no coincide con el estado real
+      if (mechanicInfo.status !== expectedStatus || mechanicInfo.TareaActual_RowID !== expectedRowID) {
+          console.log(`SINCRONIZACIÓN FORZADA para ${name}: DB=${mechanicInfo.status}, REAL=${expectedStatus}`);
+          await updateMechanicStatus(sheets, mechanicInfo.row, expectedStatus, expectedRowID);
+          mechanicInfo.status = expectedStatus;
+          mechanicInfo.TareaActual_RowID = expectedRowID;
+      }
+      // *** FIN: CORRECCIÓN DE SINCRONIZACIÓN ***
+
+      return mechanicInfo;
     }
   }
   return null;
@@ -433,6 +449,7 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ message: `Check-out OK.` }) };
       }
       
+      // INICIO: REEMPLAZO COMPLETO DEL CASE 'get_mecanico_tareas'
       case 'get_mecanico_tareas': {
         if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Falta "name".' }) };
         const mechanic = await findMechanicByName(sheets, name);
@@ -440,7 +457,9 @@ exports.handler = async function (event) {
         
         const normMechanicArea = mechanic.area ? mechanic.area.trim() : '';
         let tareaActual = null;
-        const tareasEnCola = [];
+        
+        const tareasEnColaArea = [];
+        const tareasEnColaOtrasAreas = [];
         
         const response = await sheets.spreadsheets.values.get({ spreadsheetId: produccionSheetId, range: 'Hoja 1!A2:N' });
         const jobs = response.data.values || [];
@@ -449,26 +468,58 @@ exports.handler = async function (event) {
             const row = i + 2; 
             const [folio, , area, maquina, estacion, , statusMaquina, , , , , , mecanicoAsignado, statusParo] = jobs[i];
             const jobArea = area ? area.trim() : '';
-            if (!mecanicoAsignado || !statusParo || statusParo === 'Cerrado') continue; 
+            // Excluimos Cerrado y Cerrado Manual
+            if (!mecanicoAsignado || !statusParo || statusParo === 'Cerrado' || statusParo === 'Cerrado Manual') continue; 
             
             const tarea = { row, folio, area, maquina, estacion, statusParo, statusMaquina };
             
+            // --- Lógica de Tarea ASIGNADA o EN PROCESO (Propia) ---
             if (mecanicoAsignado === name) {
-                if (statusParo === 'En Proceso') tareaActual = tarea;
+                // Siempre priorizar 'En Proceso' sobre 'Asignado'
+                if (statusParo === 'En Proceso') {
+                    if (!tareaActual || tareaActual.statusParo !== 'En Proceso') tareaActual = tarea;
+                }
                 else if (statusParo === 'Asignado') {
-                    if (!tareaActual) tareaActual = tarea; else tareasEnCola.push(tarea);
-                } else if (statusParo === 'En Cola') tareasEnCola.push(tarea);
-            } else if (jobArea === normMechanicArea && mecanicoAsignado === 'En Espera' && statusParo === 'En Cola') {
-                tareasEnCola.push(tarea); 
+                    if (!tareaActual) tareaActual = tarea;
+                    // Si ya hay una TareaActual, esta 'Asignado' pasa a la cola de su área o de otras
+                    else if (jobArea === normMechanicArea) tareasEnColaArea.push(tarea);
+                    else tareasEnColaOtrasAreas.push(tarea);
+                } 
+            } 
+            // --- Lógica de Tareas EN COLA (En Espera) ---
+            else if (mecanicoAsignado === 'En Espera' && statusParo === 'En Cola') {
+                if (jobArea === normMechanicArea) {
+                    tareasEnColaArea.push(tarea); 
+                } else {
+                    tareasEnColaOtrasAreas.push(tarea);
+                }
             }
         }
-        tareasEnCola.sort((a, b) => {
+        
+        // 1. Ordenar Tareas En Cola (Área Propia)
+        tareasEnColaArea.sort((a, b) => {
             if (a.statusMaquina === 'detenida' && b.statusMaquina !== 'detenida') return -1;
             if (a.statusMaquina !== 'detenida' && b.statusMaquina === 'detenida') return 1;
             return a.row - b.row;
         });
-        return { statusCode: 200, body: JSON.stringify({ tareaActual, tareasEnCola }) };
+        
+        // 2. Ordenar Tareas En Cola (Otras Áreas)
+        tareasEnColaOtrasAreas.sort((a, b) => {
+            if (a.statusMaquina === 'detenida' && b.statusMaquina !== 'detenida') return -1;
+            if (a.statusMaquina !== 'detenida' && b.statusMaquina === 'detenida') return 1;
+            return a.row - b.row;
+        });
+
+        return { 
+            statusCode: 200, 
+            body: JSON.stringify({ 
+                tareaActual, 
+                tareasEnColaArea,
+                tareasEnColaOtrasAreas 
+            }) 
+        };
       }
+      // FIN: REEMPLAZO COMPLETO DEL CASE 'get_mecanico_tareas'
       
       case 'get_mecanicos_activos': {
           const spreadsheetId = process.env.MECANICOS_SHEET_ID;

@@ -72,6 +72,53 @@
         
         .task-section{background-color:var(--surface-bg,#fff);border-radius:var(--border-radius,8px);margin-bottom:25px;box-shadow:var(--shadow-md,0 4px 6px rgba(0,0,0,.1));overflow:hidden}.task-header{background-color:var(--azor-blue,#005f9e);color:var(--text-primary,#fff);padding:15px 20px}.task-header.secondary{background-color:var(--medium-bg,#e0e0e0);color:var(--text-main,#333)}.task-header h2{margin:0;font-size:1.25em}.task-content{padding:20px}.task-content p{font-size:1.1em;line-height:1.6;margin:.5em 0;color:var(--text-secondary,#555)}.task-content strong{color:var(--text-main,#222);font-weight:600}.status-maquina{font-weight:700;padding:3px 8px;border-radius:4px;color:#fff;text-transform:uppercase}.status-maquina.detenida{background-color:var(--danger-color,#dc3545)}.status-maquina.trabajando{background-color:var(--warning-color,#ffc107);color:#333}.no-task{text-align:center;padding:40px 20px;font-size:1.2em;color:var(--text-secondary,#777);font-style:italic}.loading-spinner{display:none;width:40px;height:40px;border:4px solid var(--light-bg,#f4f7f6);border-top:4px solid var(--azor-blue,#005f9e);border-radius:50%;animation:spin 1s linear infinite;margin:20px auto}@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
         
+        /* Estilos específicos para la cola de tareas */
+        .job-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--light-bg, #eee); 
+            padding: 15px 0; 
+            margin-bottom: 0;
+        }
+        .job-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .job-meta {
+            font-size: 0.9em;
+            color: var(--text-secondary, #777);
+            display: flex;
+            gap: 15px;
+        }
+        .job-details p {
+            margin: 0;
+            font-size: 1em;
+            color: var(--text-main, #333);
+        }
+        .status-badge {
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            color: #fff;
+            background-color: #6c757d;
+        }
+        .detenida-badge {
+            background-color: var(--danger-color, #dc3545);
+        }
+        .action-button {
+            background-color: var(--success-color, #28a745);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .action-button:hover {
+            background-color: #1e7e34;
+        }
     </style>
 </head>
 <body class="color-validator-body">
@@ -88,15 +135,21 @@
         </header>
         <main class="main-content">
             <div id="loading-spinner-app" class="loading-spinner" style="display: block;"></div>
+            
             <section id="tarea-actual-section" class="task-section" style="display: none;">
                 <div class="task-header"><h2><i class="fas fa-wrench"></i> Tarea Actual</h2></div>
                 <div class="task-content" id="tarea-actual-content"></div>
             </section>
-            <section id="cola-section" class="task-section" style="display: none;">
-                <div class="task-header secondary"><h2><i class="fas fa-list-ol"></i> Tareas en Cola</h2></div>
-                <div class="task-content" id="cola-content"></div>
+            
+            <section id="cola-section-area" class="task-section" style="display: none;">
+                <div class="task-header secondary"><h2><i class="fas fa-list-ol"></i> Tareas en Cola (Tu Área)</h2></div>
+                <div class="task-content" id="tareas-en-cola-area"></div>
             </section>
-        </main>
+            <section id="cola-section-otras" class="task-section" style="display: none;">
+                <div class="task-header secondary" style="background-color: #ffc107; color: #333;"><h2><i class="fas fa-globe"></i> Tareas en Cola (Otras Áreas)</h2></div>
+                <div class="task-content" id="tareas-en-cola-otras-areas"></div>
+            </section>
+            </main>
     </div>
 
     <div id="login-container">
@@ -118,8 +171,13 @@
         const loadingSpinner = document.getElementById('loading-spinner-app');
         const tareaActualSection = document.getElementById('tarea-actual-section');
         const tareaActualContent = document.getElementById('tarea-actual-content');
-        const colaSection = document.getElementById('cola-section');
-        const colaContent = document.getElementById('cola-content');
+        
+        // INICIO: CAMBIO 1: REFERENCIAS A LOS NUEVOS CONTENEDORES
+        const colaSectionArea = document.getElementById('cola-section-area');
+        const colaAreaContent = document.getElementById('tareas-en-cola-area');
+        const colaSectionOtras = document.getElementById('cola-section-otras');
+        const colaOtrasContent = document.getElementById('tareas-en-cola-otras-areas');
+        // FIN: CAMBIO 1
         
         let taskCheckInterval = null;
         let currentUserName = null;
@@ -142,6 +200,34 @@
             }
         }
         
+        // --- LÓGICA PARA TOMAR TAREA (PULL) ---
+        window.executePullTask = async function(row, folio, currentStatus, isOtherArea) {
+            const confirmMsg = isOtherArea
+                ? `¿Confirmas que deseas tomar la tarea de OTRA ÁREA (Folio: ${folio})? Tu estado se cambiará a 'Ocupado'.`
+                : `¿Confirmas que deseas tomar la tarea (Folio: ${folio})? Tu estado se cambiará a 'Ocupado'.`;
+
+            if (!confirm(confirmMsg)) return;
+
+            loadingSpinner.style.display = 'block';
+
+            try {
+                // Usamos la acción 'admin_reassign' pero con el nombre del mecánico actual
+                await callApi('admin_reassign', currentUserName, { 
+                    row: row, 
+                    newMechanic: currentUserName, 
+                    oldMechanic: 'En Espera' // La tarea estaba en cola
+                });
+                
+                alert(`✅ Tarea ${folio} tomada correctamente.`);
+                getMisTareas(); // Recargar el dashboard para ver la tarea como Tarea Actual
+            } catch (e) {
+                alert(`❌ Error al tomar la tarea: ${e.message}`);
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        }
+
+
         // --- (Función getMisTareas) ---
         async function getMisTareas() {
             if (!currentUserName) return;
@@ -149,10 +235,20 @@
             const data = await callApi('get_mecanico_tareas', currentUserName);
             if (!data) return; 
             loadingSpinner.style.display = 'none';
+            
+            // INICIO: CAMBIO 2: DESESTRUCTURACIÓN Y LLAMADA A RENDER
+            const { tareaActual, tareasEnColaArea, tareasEnColaOtrasAreas } = data;
 
+            renderTareas(tareaActual, tareasEnColaArea, tareasEnColaOtrasAreas); 
+            // FIN: CAMBIO 2
+        }
+
+        // INICIO: CAMBIO 3: NUEVA FUNCIÓN RENDER TAREAS
+        function renderTareas(tareaActual, tareasEnColaArea, tareasEnColaOtrasAreas) {
+            
             // Renderizar Tarea Actual
-            if (data.tareaActual) {
-                const tarea = data.tareaActual;
+            if (tareaActual) {
+                const tarea = tareaActual;
                 const statusMaquinaClass = tarea.statusMaquina === 'detenida' ? 'status-maquina detenida' : 'status-maquina trabajando';
                 const statusMaquinaTexto = tarea.statusMaquina === 'detenida' ? 'MÁQUINA DETENIDA' : 'MÁQUINA TRABAJANDO';
                 
@@ -170,31 +266,46 @@
                 tareaActualContent.innerHTML = `<p class="no-task">No tienes una tarea activa.</p>`;
             }
 
-            // Renderizar Tareas en Cola
-            if (data.tareasEnCola && data.tareasEnCola.length > 0) {
-                let colaHtml = '';
-                data.tareasEnCola.forEach((tarea, index) => {
-                    const statusMaquinaClass = tarea.statusMaquina === 'detenida' ? 'status-maquina detenida' : 'status-maquina trabajando';
-                    const statusMaquinaTexto = tarea.statusMaquina === 'detenida' ? 'DETENIDA' : 'TRABAJANDO';
+            // Función auxiliar para renderizar colas
+            const renderCola = (container, section, tareas, isOtherArea = false) => {
+                if (tareas && tareas.length > 0) {
+                    let html = '';
+                    tareas.forEach(t => {
+                        const detenidaClass = t.statusMaquina === 'detenida' ? 'detenida-badge' : '';
+                        const estadoTexto = t.statusParo === 'En Espera' ? 'En Cola' : t.statusParo;
 
-                    colaHtml += `
-                        <div style="border-bottom: 1px solid var(--light-bg, #eee); padding-bottom: 15px; margin-bottom: 15px;">
-                            <p style="display: flex; justify-content: space-between; align-items: center;">
-                                <strong>${index + 1}. Folio: ${tarea.folio}</strong>
-                                <span class="${statusMaquinaClass}" style="font-size: 0.9em;">${statusMaquinaTexto}</span>
-                            </p>
-                            <p><strong>Area:</strong> ${tarea.area}</p>
-                            <p><strong>Máquina:</strong> ${tarea.maquina}</p>
-                        </div>
-                    `;
-                });
-                colaContent.innerHTML = colaHtml;
-                colaSection.style.display = 'block';
-            } else {
-                colaSection.style.display = 'block';
-                colaContent.innerHTML = `<p class="no-task">No hay tareas en cola.</p>`;
-            }
+                        html += `
+                            <div class="job-item">
+                                <div>
+                                    <div class="job-meta">
+                                        <span class="folio-text">Folio: ${t.folio}</span>
+                                        <span class="area-text">Area: <b>${t.area}</b></span>
+                                    </div>
+                                    <div class="job-details">
+                                        <p>Máquina: <b>${t.maquina}</b> | Estación: ${t.estacion}</p>
+                                        <span class="status-badge ${detenidaClass}">${t.statusMaquina === 'detenida' ? 'DETENIDA' : 'TRABAJANDO'}</span>
+                                        <span class="estado-text">Estado: ${estadoTexto}</span>
+                                    </div>
+                                </div>
+                                <button onclick="executePullTask(${t.row}, '${t.folio}', '${t.statusParo}', ${isOtherArea})" class="action-button">
+                                    <i class="fas fa-hand-pointer"></i> Tomar Tarea
+                                </button>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                    section.style.display = 'block';
+                } else {
+                    container.innerHTML = `<p class="no-task">No hay tareas en cola ${isOtherArea ? 'de otras áreas' : ''}.</p>`;
+                    section.style.display = 'block';
+                }
+            };
+
+            // Renderizar Colas
+            renderCola(colaAreaContent, colaSectionArea, tareasEnColaArea, false);
+            renderCola(colaOtrasContent, colaSectionOtras, tareasEnColaOtrasAreas, true);
         }
+        // FIN: CAMBIO 3
 
         // --- Lógica de Autenticación (Actualizada con Registro de Tiempos) ---
         async function showApp(user) {
