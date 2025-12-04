@@ -347,7 +347,9 @@
                 });
                 if (!response.ok) throw new Error('Error al cargar tickets.');
                 const data = await response.json();
-                allActiveTickets = data.activos || [];
+                allActiveTickets = (data.activos || []).filter(t => 
+                    t.statusParo !== 'Cerrado' && t.statusParo !== 'Cerrado Manual'
+                );
                 filterAndRenderTickets();
             } catch (error) {
                 ticketsContainer.innerHTML = '<p style="color: red; text-align: center;">Error al cargar la lista.</p>';
