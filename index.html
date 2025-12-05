@@ -79,7 +79,20 @@
 
             <div data-netlify-identity-menu class="identity-menu-container"></div>
         </header>
-
+        
+        <script type="text/javascript">
+            // Inicializa la identidad y adjunta el evento al botón de login inmediatamente.
+            netlifyIdentity.init();
+            document.addEventListener('DOMContentLoaded', () => {
+                 const btnLogin = document.getElementById('btn-login');
+                 if (btnLogin) {
+                     btnLogin.addEventListener('click', () => {
+                         netlifyIdentity.open('login');
+                     });
+                 }
+            });
+        </script>
+        
         <main class="main-content">
             <section class="hero-interactive-auditor">
 
@@ -274,7 +287,7 @@
                             initialWelcomeTyped = true;
                             setTimeout(() => {
                                 if (currentAuditorMessage === mensajesAuditor.bienvenida) { 
-                                   setAuditorSpeech(mensajeria.guia); 
+                                   setAuditorSpeech(mensajesAuditor.guia); 
                                 }
                             }, 4000); 
                         }
@@ -469,8 +482,6 @@
         
     <script> // AUTENTICACION
         document.addEventListener('DOMContentLoaded', () => {
-            // Inicialización de Netlify Identity
-            netlifyIdentity.init();
             
             const overlay = document.getElementById('login-overlay');
             const btnLogin = document.getElementById('btn-login');
@@ -479,13 +490,6 @@
 
             // Roles válidos que dan acceso a la plataforma.
             const VALID_ROLES = ['usuario', 'admin', 'admin_man', 'admin_des'];
-
-            // 🔑 Abrir el modal de login de Netlify
-            if (btnLogin) {
-                btnLogin.addEventListener('click', () => {
-                    netlifyIdentity.open('login');
-                });
-            }
 
             // Función para verificar si el usuario tiene ALGUNO de los roles permitidos
             const hasAnyValidRole = (roles) => {
