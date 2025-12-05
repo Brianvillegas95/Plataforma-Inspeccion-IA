@@ -17,7 +17,7 @@
     <h2 style="color: #333; margin-bottom: 10px;">Acceso Requerido</h2>
     <p style="color: #666; margin-bottom: 30px;">Por favor, inicie sesión para acceder a la Plataforma IA.</p>
     
-    <button id="btn-login-general" onclick="abrirModalLogin()" style="padding: 12px 40px; font-size: 1.1em; background-color: var(--azor-blue); color: white; border: none; border-radius: 6px; cursor: pointer;">
+    <button id="btn-login-general" style="padding: 12px 40px; font-size: 1.1em; background-color: var(--azor-blue); color: white; border: none; border-radius: 6px; cursor: pointer;">
         <i class="fas fa-lock"></i> Iniciar Sesión
     </button>
     
@@ -468,52 +468,57 @@
         </div>
 
 	<script>
-        // 1. DEFINICIÓN DE LA FUNCIÓN GLOBAL (LLAMADA DESDE EL BOTÓN HTML)
-        window.abrirModalLogin = function() {
-            // Usamos un simple chequeo para asegurar que Netlify Identity esté cargado
-            if (typeof netlifyIdentity !== 'undefined') {
-                 netlifyIdentity.open('login');
-            } else {
-                 alert('Error: El sistema de login no se ha cargado. Por favor, recargue la página.');
-            }
-        };
-
         document.addEventListener('DOMContentLoaded', function() {
             
             const overlayGeneral = document.getElementById('login-overlay-general');
-            
-            // 2. VERIFICACIÓN DE AUTENTICACIÓN
+            const btnLoginGeneral = document.getElementById('btn-login-general');
+
+            // 1. FUNCIÓN DE VERIFICACIÓN DE ROL
             const checkAuthGeneral = () => {
-                // Pequeño timeout para dar tiempo a que netlifyIdentity se inicialice
-                setTimeout(() => { 
-                    const user = netlifyIdentity.currentUser();
+                const user = netlifyIdentity.currentUser();
+                
+                if (user) {
+                    const roles = user.app_metadata.roles || [];
                     
-                    if (user) {
-                        const roles = user.app_metadata.roles || [];
-                        
-                        if (roles.includes('usuario')) {
-                            overlayGeneral.style.display = 'none'; // Acceso concedido
-                        } else {
-                            alert("⚠️ Acceso denegado: Su cuenta está registrada pero no tiene el permiso de 'usuario'. Contacte a su administrador.");
-                            netlifyIdentity.logout();
-                            overlayGeneral.style.display = 'flex'; 
-                        }
+                    if (roles.includes('usuario')) {
+                        overlayGeneral.style.display = 'none'; // Acceso concedido
                     } else {
-                        overlayGeneral.style.display = 'flex'; // Bloqueo visible
+                        alert("⚠️ Acceso denegado: Su cuenta está registrada pero no tiene el permiso de 'usuario'.");
+                        netlifyIdentity.logout();
+                        overlayGeneral.style.display = 'flex'; 
                     }
-                }, 100); 
+                } else {
+                    overlayGeneral.style.display = 'flex'; // Bloqueo visible
+                }
             };
-            
-            // 3. ADJUNTAR EVENTOS DE NETLIFY
-            netlifyIdentity.on('init', checkAuthGeneral);
-            netlifyIdentity.on('login', checkAuthGeneral); 
-            netlifyIdentity.on('logout', () => location.reload()); 
-            
-            // Si el widget ya cargó, verifica el estado.
-            if (typeof netlifyIdentity !== 'undefined') {
+
+            // 2. FUNCIÓN PARA ADJUNTAR EVENTOS
+            const attachEvents = () => {
+                // Adjuntamos el evento de click al botón DENTRO del overlay
+                btnLoginGeneral.addEventListener('click', () => {
+                    netlifyIdentity.open('login'); 
+                });
+                
+                // Adjuntamos los eventos de Netlify Identity (después de init)
+                netlifyIdentity.on('login', checkAuthGeneral); 
+                netlifyIdentity.on('logout', () => location.reload()); 
+            };
+
+
+            // 3. INICIALIZACIÓN: Esperamos el evento 'init' de Netlify Identity
+            netlifyIdentity.on('init', (user) => {
+                // Ejecutamos la verificación de rol
+                checkAuthGeneral();
+                
+                // Adjuntamos los eventos del botón SÓLO cuando Identity está listo
+                attachEvents();
+            });
+
+            // Si el widget ya cargó antes de nuestro código, ejecutamos inmediatamente la verificación
+            if (typeof netlifyIdentity !== 'undefined' && netlifyIdentity.currentUser()) {
                  checkAuthGeneral();
             } else {
-                 // Si no, forzamos el overlay hasta que 'init' se dispare
+                 // Si no está listo, solo aseguramos que el overlay se vea
                  overlayGeneral.style.display = 'flex'; 
             }
         });
@@ -522,12 +527,3 @@
 </body>
 
 </html>
-
-
-
-
-
-
-
-
-
