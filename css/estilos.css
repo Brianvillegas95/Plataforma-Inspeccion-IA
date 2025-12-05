@@ -1509,7 +1509,7 @@ body.color-validator-body .main-content {
 #login-overlay { 
     position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
     background: rgba(255,255,255,0.95); /* Fondo blanco semi-transparente */
-    z-index: 9999; /* Asegura que esté por encima de todo */
+    z-index: 50; /* Asegura que esté por encima de todo */
     display: none; /* El JS lo controlará */
     flex-direction: column; justify-content: center; align-items: center; 
     backdrop-filter: blur(5px);
@@ -1523,4 +1523,5 @@ body.color-validator-body .main-content {
     color: white; border: none; border-radius: 6px; cursor: pointer; 
     box-shadow: 0 4px 10px rgba(0,95,158,0.3);
     margin-top: 20px;
+
 }
