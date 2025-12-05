@@ -6,7 +6,6 @@
     <title>Plataforma de Inspección IA - Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
     <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     </head>
 <body>
@@ -79,19 +78,6 @@
 
             <div data-netlify-identity-menu class="identity-menu-container"></div>
         </header>
-        
-        <script type="text/javascript">
-            // Inicializa la identidad y adjunta el evento al botón de login inmediatamente.
-            netlifyIdentity.init();
-            document.addEventListener('DOMContentLoaded', () => {
-                 const btnLogin = document.getElementById('btn-login');
-                 if (btnLogin) {
-                     btnLogin.addEventListener('click', () => {
-                         netlifyIdentity.open('login');
-                     });
-                 }
-            });
-        </script>
         
         <main class="main-content">
             <section class="hero-interactive-auditor">
@@ -187,7 +173,7 @@
                             <select id="aql-value" name="aql-value">
                                 <option value="1.0" selected>1.0</option>
                                 <option value="2.5">2.5</option>
-                                <option value="4.0">4.0</Navegación</option>
+                                <option value="4.0">4.0</option>
                             </select>
                         </div>
                         <button id="calculate-aql-btn" class="button primary-action">
@@ -240,6 +226,7 @@
         </div>
     </div>
     <script>
+        // INICIO DEL PRIMER BLOQUE SCRIPT (Auditor/AQL)
         document.addEventListener('DOMContentLoaded', () => {
         // Script para el año en el footer
         document.getElementById('currentYear').textContent = new Date().getFullYear();
@@ -287,6 +274,7 @@
                             initialWelcomeTyped = true;
                             setTimeout(() => {
                                 if (currentAuditorMessage === mensajesAuditor.bienvenida) { 
+                                   // CORRECCIÓN: Usar mensajesAuditor.guia en lugar de mensajeria.guia
                                    setAuditorSpeech(mensajesAuditor.guia); 
                                 }
                             }, 4000); 
@@ -460,7 +448,7 @@
                 aqlResultsDiv.style.display = 'block';
             });
         }
-     });  
+     }); // Cierre del DOMContentLoaded para el código Auditor/AQL
     </script>
     
     <script src="Archivos/chatbot.js"></script>
@@ -480,16 +468,26 @@
         </div>
         </div>
         
-    <script> // AUTENTICACION
+    <script> 
+        // Inicialización global de Netlify Identity (SOLUCIÓN para el botón que no abre)
+        netlifyIdentity.init(); 
+
         document.addEventListener('DOMContentLoaded', () => {
             
             const overlay = document.getElementById('login-overlay');
             const btnLogin = document.getElementById('btn-login');
-            // 'app-container' es la clase que envuelve tu header y main, lo usaremos para ocultar todo.
+            // 'app-container' es la clase que envuelve tu header y main.
             const appContainer = document.querySelector('.app-container');
 
             // Roles válidos que dan acceso a la plataforma.
             const VALID_ROLES = ['usuario', 'admin', 'admin_man', 'admin_des'];
+
+            // 🔑 Restaurar la funcionalidad del botón de Login (SOLUCIÓN para el botón que no abre)
+            if (btnLogin) {
+                btnLogin.addEventListener('click', () => {
+                    netlifyIdentity.open('login');
+                });
+            }
 
             // Función para verificar si el usuario tiene ALGUNO de los roles permitidos
             const hasAnyValidRole = (roles) => {
@@ -561,11 +559,7 @@
             // Ejecutar al cargar la página
             checkAccessAndGateContent();
         });
-    </script> // FIN AUTENTICACION
-
+    </script>
 </body>
 
 </html>
-
-
-
