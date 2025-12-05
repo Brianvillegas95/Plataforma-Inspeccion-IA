@@ -1,31 +1,24 @@
 # =================================================================
-# CONFIGURACIÓN NETLIFY: REDIRECCIONES Y CONTROL DE ACCESO (TOML FORMAT)
-# Versión FINAL y Corregida - Azor Operaciones IA
+# CÓDIGO FINAL Y FUNCIONAL PARA BLOQUEO POR ROL
 # =================================================================
 
 # 0. REGLAS CRUCIALES: PERMITIR CARGAR ARCHIVOS ESTÁTICOS Y EL WIDGET
-# Estas reglas se ejecutan primero y NO tienen condición de rol (acceso público).
-
-# Permite que la API de Netlify Identity (el backend del login) funcione.
 [[redirects]]
   from = "/.netlify/identity/*"
   to = "/.netlify/identity/:splat"
   status = 200
   force = true 
 
-# Permite que el CSS se cargue (evita la página blanca)
 [[redirects]]
   from = "/css/*"
   to = "/css/:splat"
   status = 200
 
-# Permite que las imágenes se carguen (incluyendo el logo y el auditor)
 [[redirects]]
   from = "/imagenes/*"
   to = "/imagenes/:splat"
   status = 200
 
-# Permite que los scripts en la carpeta Archivos se carguen (como chatbot.js)
 [[redirects]]
   from = "/Archivos/*"
   to = "/Archivos/:splat"
@@ -33,7 +26,6 @@
 
 
 # 1. ACCESO RESTRINGIDO MÁXIMO (Jefes de Mantenimiento)
-# Requiere rol 'mantenimiento_jefe' para ver el panel de administración.
 [[redirects]]
   from = "/admin-mantenimiento.html"
   to = "/admin-mantenimiento.html"
@@ -42,7 +34,6 @@
 
 
 # 2. ACCESO A DATOS SENSIBLES (Supervisores/Admin)
-# Requiere rol 'admin' para ver los KPIs y Ajustes.
 [[redirects]]
   from = "/dashboard-ajustes.html"
   to = "/dashboard-ajustes.html"
@@ -57,19 +48,11 @@
 
 
 # 3. REGLA DE BLOQUEO GENERAL (Protege todo lo demás)
-# Esta es la regla que bloquea a usuarios sin rol. 
-# Si el usuario NO tiene el rol 'usuario', Netlify Identity lo intercepta y FUERZA el login.
+# Esta regla usa el código 302 (Found) para forzar la redirección
+# al login si el rol falla. Es la forma más efectiva de activar
+# la pantalla de autenticación de Netlify Identity.
 [[redirects]]
   from = "/*"
   to = "/index.html"
-  status = 200
+  status = 302 # Usamos 302 para forzar una redirección de login
   conditions = {Role = ["usuario"]}
-
-
-# 4. REGLA FINAL: MANEJO DE ERRORES 404
-# Esta regla garantiza que si Netlify no encuentra una página, siempre muestre el index.html.
-# Es una capa de seguridad para evitar la página 404 del servidor.
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 404
