@@ -1530,6 +1530,19 @@ body.color-validator-body .main-content {
 /* ESTILOS PARA MENÚ DE NETLIFY (Control Manual) */
 /* ======================================= */
 
+.app-header {
+    background-color: #005f9e; /* Color azul institucional */
+    color: white; 
+    padding: 15px 30px; 
+    
+    /* PROPIEDADES CLAVE PARA DISTRIBUCIÓN HORIZONTAL */
+    display: flex; 
+    align-items: center; /* Centra verticalmente todos los elementos */
+    gap: 20px; /* Espacio entre los bloques principales (Logo, Nav, Control) */
+    
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
 /* Contenedor que empuja el menú a la derecha del header */
 .identity-menu-container {
     margin-left: auto; /* Empuja a la derecha de la navegación */
