@@ -275,7 +275,7 @@
                             initialWelcomeTyped = true;
                             setTimeout(() => {
                                 if (currentAuditorMessage === mensajesAuditor.bienvenida) { 
-                                   setAuditorSpeech(mensajeria.guia); 
+                                   setAuditorSpeech(mensajesAuditor.guia); // ¡CORREGIDO!
                                 }
                             }, 4000); 
                         }
@@ -305,7 +305,7 @@
                     if (currentAuditorMessage !== mensajesAuditor.bienvenida) {
                         setTimeout(() => {
                             if (auditorImageEl && !auditorImageEl.classList.contains('interactive')) { 
-                                setAuditorSpeech(mensajesAuditor.guia);
+                                setAuditorSpeech(mensajesAuditor.guia); // ¡CORREGIDO!
                             }
                         }, 1000); 
                     }
@@ -513,6 +513,7 @@
 </body>
 
 </html>
+
 
 
 
