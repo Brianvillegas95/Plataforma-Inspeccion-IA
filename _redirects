@@ -1,3 +1,6 @@
+# PERMITE EL ACCESO PÚBLICO AL WIDGET DE NETLIFY IDENTITY
+/.netlify/identity/ /index.html 200!
+
 # REGLA 0: Acceso de Jefes (El rol más alto)
 # Si tienes una página de "Panel de Mantenimiento" (ej. panel_mantenimiento.html), va aquí.
 /admin_mantenimiento.html /admin_mantenimiento.html 200 Role=mantenimiento_admin
