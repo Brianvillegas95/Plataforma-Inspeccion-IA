@@ -76,7 +76,7 @@
                 </ul>
             </nav>
 
-            <div data-netlify-identity-menu class="identity-menu-container"></div>
+            <div id="netlify-menu-control" class="identity-menu-container"></div>
         </header>
         
         <main class="main-content">
@@ -488,6 +488,27 @@
                     netlifyIdentity.open('login');
                 });
             }
+
+            const menuControlEl = document.getElementById('netlify-menu-control'); 
+            
+            const renderIdentityMenu = (user) => {
+                if (!menuControlEl) return;
+                
+                if (user) {
+                   
+                    menuControlEl.innerHTML = `
+                        <div class="user-logged-in-info">
+                            <span><i class="fas fa-user-circle"></i> ${user.email.split('@')[0]}</span>
+                            <button onclick="netlifyIdentity.logout()" class="btn-logout-small">Cerrar Sesión</button>
+                        </div>
+                    `;
+                } else {
+                   
+                    menuControlEl.innerHTML = `
+                        <button onclick="netlifyIdentity.open('login')" class="btn-login-small">Iniciar Sesión</button>
+                    `;
+                }
+            };
 
             // Función para verificar si el usuario tiene ALGUNO de los roles permitidos
             const hasAnyValidRole = (roles) => {
