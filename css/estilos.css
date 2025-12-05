@@ -1501,3 +1501,26 @@ body.color-validator-body .main-content {
     box-shadow: var(--shadow-lg);
 
 }
+
+/* ========================================================= */
+/* === ESTILOS PARA EL OVERLAY LOGIN=== */
+/* ========================================================= */
+
+#login-overlay { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(255,255,255,0.95); /* Fondo blanco semi-transparente */
+    z-index: 9999; /* Asegura que esté por encima de todo */
+    display: none; /* El JS lo controlará */
+    flex-direction: column; justify-content: center; align-items: center; 
+    backdrop-filter: blur(5px);
+}
+.login-popup-content {
+    padding: 30px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    background: white; text-align: center;
+}
+.login-btn {
+    padding: 12px 40px; font-size: 1.1em; background-color: #005f9e; 
+    color: white; border: none; border-radius: 6px; cursor: pointer; 
+    box-shadow: 0 4px 10px rgba(0,95,158,0.3);
+    margin-top: 20px;
+}
