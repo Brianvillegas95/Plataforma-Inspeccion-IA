@@ -468,62 +468,85 @@
         </div>
 
 	<script>
-        document.addEventListener('DOMContentLoaded', function() {
-            
-            const overlayGeneral = document.getElementById('login-overlay-general');
-            const btnLoginGeneral = document.getElementById('btn-login-general');
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        const overlayGeneral = document.getElementById('login-overlay-general');
+        const btnLoginGeneral = document.getElementById('btn-login-general');
 
-            // 1. FUNCIÓN DE VERIFICACIÓN DE ROL
-            const checkAuthGeneral = () => {
-                const user = netlifyIdentity.currentUser();
-                
-                if (user) {
-                    const roles = user.app_metadata.roles || [];
-                    
-                    if (roles.includes('usuario')) {
-                        overlayGeneral.style.display = 'none'; // Acceso concedido
-                    } else {
-                        alert("⚠️ Acceso denegado: Su cuenta está registrada pero no tiene el permiso de 'usuario'.");
-                        netlifyIdentity.logout();
-                        overlayGeneral.style.display = 'flex'; 
-                    }
-                } else {
-                    overlayGeneral.style.display = 'flex'; // Bloqueo visible
-                }
-            };
-
-            // 2. FUNCIÓN PARA ADJUNTAR EVENTOS
-            const attachEvents = () => {
-                // Adjuntamos el evento de click al botón DENTRO del overlay
-                btnLoginGeneral.addEventListener('click', () => {
+        // 🌟 SOLUCIÓN: Vinculamos el evento de click de inmediato
+        if (btnLoginGeneral) {
+            btnLoginGeneral.addEventListener('click', () => {
+                // netlifyIdentity debe estar disponible en este punto
+                if (typeof netlifyIdentity !== 'undefined') {
                     netlifyIdentity.open('login'); 
-                });
-                
-                // Adjuntamos los eventos de Netlify Identity (después de init)
-                netlifyIdentity.on('login', checkAuthGeneral); 
-                netlifyIdentity.on('logout', () => location.reload()); 
-            };
-
-
-            // 3. INICIALIZACIÓN: Esperamos el evento 'init' de Netlify Identity
-            netlifyIdentity.on('init', (user) => {
-                // Ejecutamos la verificación de rol
-                checkAuthGeneral();
-                
-                // Adjuntamos los eventos del botón SÓLO cuando Identity está listo
-                attachEvents();
+                } else {
+                    console.error("Netlify Identity no está cargado.");
+                }
             });
+        }
+        // --------------------------------------------------------
 
-            // Si el widget ya cargó antes de nuestro código, ejecutamos inmediatamente la verificación
-            if (typeof netlifyIdentity !== 'undefined' && netlifyIdentity.currentUser()) {
-                 checkAuthGeneral();
+        // 1. FUNCIÓN DE VERIFICACIÓN DE ROL
+        const checkAuthGeneral = () => {
+            const user = netlifyIdentity.currentUser();
+            
+            if (user) {
+                const roles = user.app_metadata.roles || [];
+                
+                // NOTA: Para propósitos de esta verificación general de acceso, 
+                // estamos asumiendo que cualquier usuario válido (incluso si solo tiene el rol 'usuario')
+                // debe tener acceso a la página de inicio.
+                // Si deseas restringir, este es el lugar para ajustar la lógica de roles.
+                
+                // Ya que 'usuario' no está en tu lista de roles en _redirects.txt,
+                // verificaremos si el usuario existe y si tiene *algún* rol para el acceso general.
+                // Si no tiene roles o el rol es desconocido, se mantendrá el bloqueo por seguridad.
+                
+                // Revisamos si el usuario tiene al menos un rol. Podrías ajustarlo a: roles.length > 0
+                if (roles.includes('usuario') || roles.includes('admin') || roles.includes('mantenimiento_jefe')) {
+                    overlayGeneral.style.display = 'none'; // Acceso concedido
+                } else {
+                    // Si el usuario existe pero no tiene los roles esperados
+                    alert("⚠️ Acceso denegado: Su cuenta está registrada pero no tiene los permisos necesarios.");
+                    netlifyIdentity.logout();
+                    overlayGeneral.style.display = 'flex'; 
+                }
+
             } else {
-                 // Si no está listo, solo aseguramos que el overlay se vea
-                 overlayGeneral.style.display = 'flex'; 
+                overlayGeneral.style.display = 'flex'; // Bloqueo visible
             }
+        };
+
+        // 2. FUNCIÓN PARA ADJUNTAR EVENTOS DE IDENTITY (Logins/Logouts)
+        const attachIdentityEvents = () => {
+            netlifyIdentity.on('login', checkAuthGeneral); 
+            // Usamos location.reload() para un reinicio limpio después de cerrar sesión
+            netlifyIdentity.on('logout', () => location.reload()); 
+        };
+
+
+        // 3. INICIALIZACIÓN: Esperamos el evento 'init' de Netlify Identity
+        netlifyIdentity.on('init', (user) => {
+            // Ejecutamos la verificación de rol al iniciar
+            checkAuthGeneral();
+            
+            // Adjuntamos los eventos de Identity una vez que está listo
+            attachIdentityEvents();
         });
+
+        // Si el widget ya cargó (o si falla 'init'), ejecutamos inmediatamente la verificación
+        if (typeof netlifyIdentity !== 'undefined') {
+             // La verificación se ejecutará al cargar, luego el 'init' la correrá de nuevo.
+             // Esto es una capa de seguridad en caso de que 'init' no se dispare correctamente.
+             checkAuthGeneral();
+        } else {
+             // Si el script de identity falla, solo aseguramos que el overlay se vea
+             overlayGeneral.style.display = 'flex'; 
+        }
+    });
     </script> // TERMINA VERIFICACIÓN DE ROL
 
 </body>
 
 </html>
+
