@@ -469,123 +469,132 @@
         </div>
         
     <script> 
-        // Inicialización global de Netlify Identity (SOLUCIÓN para el botón que no abre)
-        netlifyIdentity.init(); 
+     // Inicialización global de Netlify Identity
+     netlifyIdentity.init(); 
 
-        document.addEventListener('DOMContentLoaded', () => {
+     document.addEventListener('DOMContentLoaded', () => {
+        
+        const overlay = document.getElementById('login-overlay');
+        const btnLogin = document.getElementById('btn-login');
+        const appContainer = document.querySelector('.app-container');
+
+        // Roles válidos que dan acceso a la plataforma.
+        const VALID_ROLES = ['usuario', 'admin', 'admin_man', 'admin_des'];
+
+        // 🔑 Restaurar la funcionalidad del botón de Login
+        if (btnLogin) {
+            btnLogin.addEventListener('click', () => {
+                netlifyIdentity.open('login');
+            });
+        }
+        
+        // ==========================================================
+        // === FUNCIÓN CLAVE AÑADIDA PARA DIBUJAR EL MENÚ ===
+        // ==========================================================
+        
+        const menuControlEl = document.getElementById('netlify-menu-control'); 
+        
+        const renderIdentityMenu = (user) => {
+            if (!menuControlEl) return;
             
-            const overlay = document.getElementById('login-overlay');
-            const btnLogin = document.getElementById('btn-login');
-            // 'app-container' es la clase que envuelve tu header y main.
-            const appContainer = document.querySelector('.app-container');
+            if (user) {
+                // Usuario logueado: Muestra el nombre y botón de cerrar sesión
+                menuControlEl.innerHTML = `
+                    <div class="user-logged-in-info">
+                        <span><i class="fas fa-user-circle"></i> ${user.email.split('@')[0]}</span>
+                        <button onclick="netlifyIdentity.logout()" class="btn-logout-small">Cerrar Sesión</button>
+                    </div>
+                `;
+            } else {
+                // No logueado: El botón de login se renderiza en el overlay, no en la cabecera.
+                menuControlEl.innerHTML = ``; // Deja el espacio vacío si no hay sesión.
+            }
+        };
+        // ==========================================================
+        
+        // Función para verificar si el usuario tiene ALGUNO de los roles permitidos
+        const hasAnyValidRole = (roles) => {
+            return roles.some(role => VALID_ROLES.includes(role));
+        };
 
-            // Roles válidos que dan acceso a la plataforma.
-            const VALID_ROLES = ['usuario', 'admin', 'admin_man', 'admin_des'];
+        // Función Principal de Verificación, Gating y Seguridad
+        const checkAccessAndGateContent = () => {
+            const user = netlifyIdentity.currentUser();
+            const roles = user ? (user.app_metadata.roles || []) : [];
+            
+            const userIsAuthorized = user && hasAnyValidRole(roles);
 
-            // 🔑 Restaurar la funcionalidad del botón de Login (SOLUCIÓN para el botón que no abre)
-            if (btnLogin) {
-                btnLogin.addEventListener('click', () => {
-                    netlifyIdentity.open('login');
-                });
+            // --- CONTROL DEL CANDADO (OVERLAY) ---
+            if (userIsAuthorized) {
+                overlay.style.display = 'none'; 
+                appContainer.style.display = 'flex'; 
+                
+                // LLAMADA CLAVE: Dibuja el menú de usuario logueado
+                renderIdentityMenu(user); 
+
+            } else {
+                // Caso: No logueado O Logueado sin rol válido
+                overlay.style.display = 'flex'; 
+                appContainer.style.display = 'none'; 
+                
+                // LLAMADA CLAVE: Limpia el menú de la cabecera
+                renderIdentityMenu(null); 
+                
+                // Si está logueado pero no tiene rol, cerramos sesión por seguridad
+                if (user && !userIsAuthorized) {
+                    alert("ACCESO RESTRINGIDO. Su cuenta debe tener un rol asignado por Jefatura. Su sesión ha sido cerrada.");
+                    netlifyIdentity.logout();
+                }
             }
 
-            const menuControlEl = document.getElementById('netlify-menu-control'); 
+            // --- GATING DE ENLACES ESPECÍFICOS ---
+            // ... (el resto del gating se mantiene igual) ...
             
-            const renderIdentityMenu = (user) => {
-                if (!menuControlEl) return;
-                
-                if (user) {
-                   
-                    menuControlEl.innerHTML = `
-                        <div class="user-logged-in-info">
-                            <span><i class="fas fa-user-circle"></i> ${user.email.split('@')[0]}</span>
-                            <button onclick="netlifyIdentity.logout()" class="btn-logout-small">Cerrar Sesión</button>
-                        </div>
-                    `;
-                } else {
-                   
-                    menuControlEl.innerHTML = `
-                        <button onclick="netlifyIdentity.open('login')" class="btn-login-small">Iniciar Sesión</button>
-                    `;
-                }
-            };
+            const kpiLinks = [
+                document.querySelector('a[href="dashboard-ajustes.html"]'),
+                document.querySelector('a[href="kpi_mantenimiento.html"]')
+            ];
 
-            // Función para verificar si el usuario tiene ALGUNO de los roles permitidos
-            const hasAnyValidRole = (roles) => {
-                return roles.some(role => VALID_ROLES.includes(role));
-            };
-
-            // Función Principal de Verificación, Gating y Seguridad
-            const checkAccessAndGateContent = () => {
-                const user = netlifyIdentity.currentUser();
-                const roles = user ? (user.app_metadata.roles || []) : [];
-                
-                const userIsAuthorized = user && hasAnyValidRole(roles);
-
-                // --- CONTROL DEL CANDADO (OVERLAY) ---
-                if (userIsAuthorized) {
-                    overlay.style.display = 'none'; 
-                    appContainer.style.display = 'flex'; // Muestra el contenido principal
-
-                } else {
-                    // Caso: No logueado O Logueado sin rol válido
-                    overlay.style.display = 'flex'; // Muestra el candado
-                    appContainer.style.display = 'none'; // Oculta todo el contenido principal
-                    
-                    // Si está logueado pero no tiene rol, cerramos sesión por seguridad
-                    if (user && !userIsAuthorized) {
-                        alert("ACCESO RESTRINGIDO. Su cuenta debe tener un rol asignado por Jefatura. Su sesión ha sido cerrada.");
-                        netlifyIdentity.logout();
-                    }
-                }
-
-                // --- GATING DE ENLACES ESPECÍFICOS ---
-                
-                const kpiLinks = [
-                    document.querySelector('a[href="dashboard-ajustes.html"]'),
-                    document.querySelector('a[href="kpi_mantenimiento.html"]')
-                ];
-
-                const isKPIsAllowed = roles.includes('admin') || roles.includes('admin_man') || roles.includes('admin_des');
-                
-                kpiLinks.forEach(link => {
-                    if (link) link.closest('li').style.display = (userIsAuthorized && isKPIsAllowed) ? 'list-item' : 'none';
-                });
-                
-                const adminManLink = document.querySelector('a[href="admin_mantenimiento.html"]'); 
-                const isAdminManAllowed = roles.includes('admin_man') || roles.includes('admin_des');
-                
-                if (adminManLink) {
-                    adminManLink.closest('li').style.display = (userIsAuthorized && isAdminManAllowed) ? 'list-item' : 'none';
-                }
-
-                const reportParoBtn = document.querySelector('.report-paro-btn-floating');
-                if(reportParoBtn) {
-                    reportParoBtn.style.display = userIsAuthorized ? 'flex' : 'none';
-                }
-
-                const chatbotWidget = document.getElementById('chatbot-widget');
-                if(chatbotWidget) {
-                    chatbotWidget.style.display = userIsAuthorized ? 'block' : 'none';
-                }
-
-                const mcDropdownAnchor = document.querySelector('a[data-area="Mejora Continua"]');
-                const mcDropdownList = mcDropdownAnchor ? mcDropdownAnchor.closest('li') : null;
-                const kpiVisible = kpiLinks.some(link => link && link.closest('li').style.display !== 'none');
-                
-                if (mcDropdownList) {
-                    mcDropdownList.style.display = (userIsAuthorized && kpiVisible) ? 'list-item' : 'none';
-                }
-            };
-
-            // 4. Manejadores de Eventos de Netlify
-            netlifyIdentity.on('login', checkAccessAndGateContent);
-            netlifyIdentity.on('logout', () => window.location.reload()); 
+            const isKPIsAllowed = roles.includes('admin') || roles.includes('admin_man') || roles.includes('admin_des');
             
-            // Ejecutar al cargar la página
-            checkAccessAndGateContent();
-        });
-    </script>
+            kpiLinks.forEach(link => {
+                if (link) link.closest('li').style.display = (userIsAuthorized && isKPIsAllowed) ? 'list-item' : 'none';
+            });
+            
+            const adminManLink = document.querySelector('a[href="admin_mantenimiento.html"]'); 
+            const isAdminManAllowed = roles.includes('admin_man') || roles.includes('admin_des');
+            
+            if (adminManLink) {
+                adminManLink.closest('li').style.display = (userIsAuthorized && isAdminManAllowed) ? 'list-item' : 'none';
+            }
+
+            const reportParoBtn = document.querySelector('.report-paro-btn-floating');
+            if(reportParoBtn) {
+                reportParoBtn.style.display = userIsAuthorized ? 'flex' : 'none';
+            }
+
+            const chatbotWidget = document.getElementById('chatbot-widget');
+            if(chatbotWidget) {
+                chatbotWidget.style.display = userIsAuthorized ? 'block' : 'none';
+            }
+
+            const mcDropdownAnchor = document.querySelector('a[data-area="Mejora Continua"]');
+            const mcDropdownList = mcDropdownAnchor ? mcDropdownAnchor.closest('li') : null;
+            const kpiVisible = kpiLinks.some(link => link && link.closest('li').style.display !== 'none');
+            
+            if (mcDropdownList) {
+                mcDropdownList.style.display = (userIsAuthorized && kpiVisible) ? 'list-item' : 'none';
+            }
+        };
+
+        // 4. Manejadores de Eventos de Netlify
+        netlifyIdentity.on('login', checkAccessAndGateContent);
+        netlifyIdentity.on('logout', () => window.location.reload()); 
+        
+        // Ejecutar al cargar la página
+        checkAccessAndGateContent();
+     });
+     </script>
 </body>
 
 </html>
