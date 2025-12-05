@@ -495,7 +495,14 @@
 
         // Eventos para manejar la autenticación
         btnLoginGeneral.addEventListener('click', () => {
-            netlifyIdentity.open('login'); // Abre el modal de login
+          // Usamos setTimeout para asegurar que el objeto netlifyIdentity esté completamente disponible
+          setTimeout(() => { 
+            if (typeof netlifyIdentity !== 'undefined') {
+               netlifyIdentity.open('login');
+            } else {
+               alert('Error: El sistema de login no se ha cargado. Por favor, recargue la página.');
+            }
+          }, 50); // Un pequeño retraso de 50ms
         });
         
         netlifyIdentity.on('init', checkAuthGeneral); // Verifica al cargar el widget
@@ -506,6 +513,7 @@
 </body>
 
 </html>
+
 
 
 
