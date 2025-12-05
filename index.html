@@ -473,75 +473,68 @@
         const overlayGeneral = document.getElementById('login-overlay-general');
         const btnLoginGeneral = document.getElementById('btn-login-general');
 
-        // 🌟 SOLUCIÓN: Vinculamos el evento de click de inmediato
-        if (btnLoginGeneral) {
-            btnLoginGeneral.addEventListener('click', () => {
-                // netlifyIdentity debe estar disponible en este punto
-                if (typeof netlifyIdentity !== 'undefined') {
-                    netlifyIdentity.open('login'); 
-                } else {
-                    console.error("Netlify Identity no está cargado.");
-                }
-            });
-        }
-        // --------------------------------------------------------
-
         // 1. FUNCIÓN DE VERIFICACIÓN DE ROL
         const checkAuthGeneral = () => {
+            if (typeof netlifyIdentity === 'undefined') {
+                console.error("Netlify Identity no está disponible.");
+                overlayGeneral.style.display = 'flex'; 
+                return;
+            }
+            
             const user = netlifyIdentity.currentUser();
             
             if (user) {
                 const roles = user.app_metadata.roles || [];
                 
-                // NOTA: Para propósitos de esta verificación general de acceso, 
-                // estamos asumiendo que cualquier usuario válido (incluso si solo tiene el rol 'usuario')
-                // debe tener acceso a la página de inicio.
-                // Si deseas restringir, este es el lugar para ajustar la lógica de roles.
-                
-                // Ya que 'usuario' no está en tu lista de roles en _redirects.txt,
-                // verificaremos si el usuario existe y si tiene *algún* rol para el acceso general.
-                // Si no tiene roles o el rol es desconocido, se mantendrá el bloqueo por seguridad.
-                
-                // Revisamos si el usuario tiene al menos un rol. Podrías ajustarlo a: roles.length > 0
+                // Si el usuario tiene CUALQUIERA de los roles definidos en _redirects.txt, le damos acceso.
                 if (roles.includes('usuario') || roles.includes('admin') || roles.includes('mantenimiento_jefe')) {
                     overlayGeneral.style.display = 'none'; // Acceso concedido
                 } else {
-                    // Si el usuario existe pero no tiene los roles esperados
-                    alert("⚠️ Acceso denegado: Su cuenta está registrada pero no tiene los permisos necesarios.");
+                    // El usuario inició sesión pero no tiene el rol de acceso general ('usuario') o roles específicos.
+                    alert("⚠️ Acceso denegado: Su cuenta está activa pero no tiene los permisos necesarios.");
                     netlifyIdentity.logout();
                     overlayGeneral.style.display = 'flex'; 
                 }
-
             } else {
                 overlayGeneral.style.display = 'flex'; // Bloqueo visible
             }
         };
 
-        // 2. FUNCIÓN PARA ADJUNTAR EVENTOS DE IDENTITY (Logins/Logouts)
-        const attachIdentityEvents = () => {
-            netlifyIdentity.on('login', checkAuthGeneral); 
-            // Usamos location.reload() para un reinicio limpio después de cerrar sesión
-            netlifyIdentity.on('logout', () => location.reload()); 
+        // 2. FUNCIÓN PARA ABRIR EL WIDGET
+        const openLoginWidget = () => {
+            if (typeof netlifyIdentity !== 'undefined') {
+                try {
+                    netlifyIdentity.open('login'); 
+                } catch (e) {
+                    console.error("Error al intentar abrir el widget de Netlify Identity:", e);
+                    alert("No se pudo iniciar sesión. Por favor, asegúrese que Netlify Identity esté habilitado y recargue la página.");
+                }
+            } else {
+                console.error("La librería netlifyIdentity no se ha cargado.");
+                alert("La funcionalidad de inicio de sesión no está disponible. Verifique su conexión.");
+            }
         };
 
+        // 3. VINCULAR EL BOTÓN (INMEDIATO)
+        if (btnLoginGeneral) {
+            btnLoginGeneral.addEventListener('click', openLoginWidget);
+        }
 
-        // 3. INICIALIZACIÓN: Esperamos el evento 'init' de Netlify Identity
-        netlifyIdentity.on('init', (user) => {
-            // Ejecutamos la verificación de rol al iniciar
-            checkAuthGeneral();
-            
-            // Adjuntamos los eventos de Identity una vez que está listo
-            attachIdentityEvents();
-        });
-
-        // Si el widget ya cargó (o si falla 'init'), ejecutamos inmediatamente la verificación
+        // 4. CONFIGURAR LISTENERS Y CHECK INICIAL
         if (typeof netlifyIdentity !== 'undefined') {
-             // La verificación se ejecutará al cargar, luego el 'init' la correrá de nuevo.
-             // Esto es una capa de seguridad en caso de que 'init' no se dispare correctamente.
-             checkAuthGeneral();
+            // Adjuntamos los eventos de Netlify Identity
+            netlifyIdentity.on('init', checkAuthGeneral); 
+            netlifyIdentity.on('login', checkAuthGeneral); 
+            netlifyIdentity.on('logout', () => location.reload()); 
+
+            // Fallback para checkear inmediatamente si ya hay sesión abierta.
+            if (netlifyIdentity.currentUser()) {
+                 checkAuthGeneral();
+            }
         } else {
-             // Si el script de identity falla, solo aseguramos que el overlay se vea
+             // Si netlifyIdentity no existe, el overlay debe verse siempre.
              overlayGeneral.style.display = 'flex'; 
+             console.error("¡ALERTA! El script netlify-identity-widget.js no se cargó correctamente.");
         }
     });
     </script> // TERMINA VERIFICACIÓN DE ROL
@@ -549,4 +542,5 @@
 </body>
 
 </html>
+
 
