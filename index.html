@@ -543,6 +543,11 @@
                     reportParoBtn.style.display = userIsAuthorized ? 'flex' : 'none';
                 }
 
+                const chatbotWidget = document.getElementById('chatbot-widget');
+                if(chatbotWidget) {
+                    chatbotWidget.style.display = userIsAuthorized ? 'block' : 'none';
+                }
+
                 const mcDropdownAnchor = document.querySelector('a[data-area="Mejora Continua"]');
                 const mcDropdownList = mcDropdownAnchor ? mcDropdownAnchor.closest('li') : null;
                 const kpiVisible = kpiLinks.some(link => link && link.closest('li').style.display !== 'none');
