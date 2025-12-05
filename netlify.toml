@@ -8,13 +8,12 @@
   from = "/.netlify/identity/*"
   to = "/.netlify/identity/:splat"
   status = 200
-  force = true # Obliga a que esta regla se aplique siempre
+  force = true 
 
 [[redirects]]
   from = "/css/*"
   to = "/css/:splat"
   status = 200
-  # No se requiere condición de rol: cualquiera puede cargar el CSS
 
 [[redirects]]
   from = "/imagenes/*"
@@ -28,8 +27,8 @@
 
 # 1. ACCESO RESTRINGIDO MÁXIMO (Solo Jefes de Mantenimiento)
 [[redirects]]
-  from = "/admin_mantenimiento.html"
-  to = "/admin_mantenimiento.html"
+  from = "/admin-mantenimiento.html"
+  to = "/admin-mantenimiento.html"
   status = 200
   conditions = {Role = ["mantenimiento_jefe"]}
 
@@ -46,10 +45,17 @@
   status = 200
   conditions = {Role = ["admin"]}
 
-# 3. REGLA FINAL: PROTECCIÓN GENERAL DEL SITIO
-# Aplicamos la restricción de rol a la página principal y a CUALQUIER otra página HTML.
+# 3. REGLA DE BLOQUEO GENERAL (Protege todo lo demás)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   conditions = {Role = ["usuario"]}
+
+# 4. REGLA FINAL: MANEJO DE ERRORES 404 (Muestra la interfaz de login)
+# Esto garantiza que, si alguna regla de rol falla (resultando en 404),
+# la página de inicio (con el widget de login) se muestre correctamente.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 404
