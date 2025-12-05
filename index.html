@@ -468,16 +468,20 @@
         </div>
 
 	<script>
-        // netlifyIdentity.init() se ejecuta automáticamente
-        
-        // Esperamos a que todo el HTML esté cargado antes de buscar los botones
+        // CRÍTICO: Esperamos a que todo el HTML esté cargado antes de buscar los botones
         document.addEventListener('DOMContentLoaded', function() {
             
             const overlayGeneral = document.getElementById('login-overlay-general');
             const btnLoginGeneral = document.getElementById('btn-login-general');
 
+            if (!btnLoginGeneral || !overlayGeneral) {
+                 console.error("Error FATAL: No se encontraron los elementos del overlay. Verifique IDs.");
+                 return; // Detiene el script si no encuentra los elementos
+            }
+            
+            // Función para verificar la autenticación
             const checkAuthGeneral = () => {
-                // Usamos un pequeño retraso solo para eventos de Identity, no para el DOMContentLoaded
+                // Pequeño timeout para dar tiempo a que netlifyIdentity se inicialice
                 setTimeout(() => { 
                     const user = netlifyIdentity.currentUser();
                     
@@ -485,34 +489,34 @@
                         const roles = user.app_metadata.roles || [];
                         
                         if (roles.includes('usuario')) {
-                            overlayGeneral.style.display = 'none'; 
+                            overlayGeneral.style.display = 'none'; // Acceso concedido
                         } else {
                             alert("⚠️ Acceso denegado: Su cuenta está registrada pero no tiene el permiso de 'usuario'.");
                             netlifyIdentity.logout();
                             overlayGeneral.style.display = 'flex'; 
                         }
                     } else {
-                        overlayGeneral.style.display = 'flex'; 
+                        overlayGeneral.style.display = 'flex'; // Bloqueo visible
                     }
                 }, 100); 
             };
 
-            // CRÍTICO: Adjuntamos el evento de click al botón DENTRO del overlay
+            // CRÍTICO: Adjuntamos el evento de click DENTRO del DOMContentLoaded
             btnLoginGeneral.addEventListener('click', () => {
-                // Abrir el modal de login (ya no necesitamos el timeout aquí)
+                // Aquí ya no necesitamos el timeout, porque el evento init de Netlify lo maneja
                 netlifyIdentity.open('login'); 
             });
             
-            // Ejecutamos la verificación en los eventos clave de Netlify Identity
+            // Adjuntamos los eventos de Netlify Identity
             netlifyIdentity.on('init', checkAuthGeneral);
             netlifyIdentity.on('login', checkAuthGeneral); 
             netlifyIdentity.on('logout', () => location.reload()); 
             
-            // Si el widget ya está listo al cargar, ejecutamos la verificación inicial
+            // Ejecución inicial: Si el widget ya cargó, verifica el estado.
             if (typeof netlifyIdentity !== 'undefined') {
                  checkAuthGeneral();
             } else {
-                 // Si no hay usuario y no se ha inicializado, aseguramos que se vea el overlay
+                 // Si no, forzamos el overlay hasta que 'init' se dispare
                  overlayGeneral.style.display = 'flex'; 
             }
         });
@@ -521,6 +525,7 @@
 </body>
 
 </html>
+
 
 
 
