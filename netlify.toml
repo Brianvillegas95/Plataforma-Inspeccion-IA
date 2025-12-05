@@ -1,0 +1,60 @@
+# =================================================================
+# CONFIGURACIÓN PRINCIPAL DE NETLIFY Y REDIRECCIONES (TOML FORMAT)
+# =================================================================
+
+# 0. REGLA CRUCIAL: HABILITAR NETLIFY IDENTITY Y REDIRECCIONES DE WIDGET
+# Permite que los archivos y la API de Netlify Identity sean accesibles sin iniciar sesión.
+[[redirects]]
+  from = "/.netlify/identity/*"
+  to = "/.netlify/identity/:splat"
+  status = 200
+  force = true # Asegura que esta regla prevalezca
+
+# 1. ACCESO RESTRINGIDO MÁXIMO (Solo Jefes de Mantenimiento)
+# Requiere rol 'mantenimiento_jefe' para ver el panel de administración.
+[[redirects]]
+  from = "/admin-mantenimiento.html"
+  to = "/admin-mantenimiento.html"
+  status = 200
+  conditions = {Role = ["mantenimiento_jefe"]}
+
+# 2. ACCESO A DATOS SENSIBLES (Supervisores/Admin)
+# Requiere rol 'admin' para ver los KPIs y Ajustes.
+[[redirects]]
+  from = "/dashboard-ajustes.html"
+  to = "/dashboard-ajustes.html"
+  status = 200
+  conditions = {Role = ["admin"]}
+
+[[redirects]]
+  from = "/kpi_mantenimiento.html"
+  to = "/kpi_mantenimiento.html"
+  status = 200
+  conditions = {Role = ["admin"]}
+
+# 3. PERMITIR CARGAR ARCHIVOS ESTÁTICOS (CSS, JS, Imágenes) SIN ROL
+# Esto asegura que la página de login y el diseño se carguen, incluso si el usuario no tiene rol.
+# Esto previene el error 404 que estás viendo.
+[[redirects]]
+  from = "/css/*"
+  to = "/css/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/imagenes/*"
+  to = "/imagenes/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/Archivos/*"
+  to = "/Archivos/:splat"
+  status = 200
+
+# 4. REGLA FINAL: PROTECCIÓN GENERAL DEL SITIO (Bloquea a usuarios externos)
+# Aplica a CUALQUIER otra ruta que quede (principalmente páginas .html). 
+# Si el usuario no tiene el rol 'usuario', el acceso es denegado (y fuerza el login).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Role = ["usuario"]}
