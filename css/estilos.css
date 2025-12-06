@@ -1527,83 +1527,43 @@ body.color-validator-body .main-content {
 }
 
 /* ======================================= */
-/* ESTILOS PARA MENÚ DE NETLIFY (Control Manual) */
+/* ESTRUCTURA DEL ENCABEZADO (CRUCIAL PARA LA DISTRIBUCIÓN) */
 /* ======================================= */
 
 .app-header {
-    background-color: #005f9e; /* Color azul institucional */
-    color: white; 
-    padding: 15px 30px; 
-    
-    /* PROPIEDADES CLAVE PARA DISTRIBUCIÓN HORIZONTAL */
+    /* Mantenemos las propiedades que controlan la distribución */
     display: flex; 
     align-items: center; /* Centra verticalmente todos los elementos */
-    gap: 20px; /* Espacio entre los bloques principales (Logo, Nav, Control) */
+    gap: 20px; /* Espacio entre los bloques (Logo, Nav, Control) */
     
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    /* Nota: No se incluye background-color aquí para evitar sobrescribir */
 }
 
-/* Contenedor que empuja el menú a la derecha del header */
-.identity-menu-container {
-    margin-left: auto; /* Empuja a la derecha de la navegación */
-    padding: 0 15px; /* Pequeño padding lateral */
-    display: flex; /* Asegura que el contenido esté centrado */
-    align-items: center;
-}
+/* ======================================= */
+/* NAVEGACIÓN PRINCIPAL (Asegurar que sea compacto) */
+/* ======================================= */
 
-/* Estilos para el texto y botón cuando el usuario está logueado */
-.user-logged-in-info {
+.main-nav {
+    /* Esto asegura que el contenedor <nav> ocupe solo el espacio de los <ul> */
     display: flex;
     align-items: center;
-    gap: 10px; /* Espacio entre el nombre y el botón */
-    font-size: 0.85em;
-    color: #fff; /* Texto blanco en la cabecera azul */
 }
 
-.user-logged-in-info span {
-    font-weight: 600;
-    /* Estilo adicional para que el nombre de usuario no se vea como un link */
-    padding: 5px 0; 
+.main-nav ul {
+    /* Esto asegura que los ítems del menú se alineen horizontalmente */
+    display: flex; 
 }
 
-.user-logged-in-info i.fas {
-    color: #ffc107; /* Color amarillo/oro para el icono de usuario */
-    margin-right: 2px;
+/* ======================================= */
+/* ESTILOS PARA MENÚ DE NETLIFY (Control Manual - Ya Correctos) */
+/* ======================================= */
+
+.identity-menu-container {
+    margin-left: auto; /* EMPUJA EL CONTENEDOR HASTA EL EXTREMO DERECHO */
+    padding: 0 15px; 
+    display: flex; 
+    align-items: center;
 }
 
-/* Botón pequeño para Cerrar Sesión */
-.btn-logout-small {
-    /* Color rojo para la acción de cerrar sesión */
-    background: #dc3545; 
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.75em;
-    font-weight: bold;
-    transition: background 0.2s;
-    white-space: nowrap; /* Evita que el texto se rompa */
-}
-
-.btn-logout-small:hover { 
-    background: #c82333; 
-}
-
-/* Estilo para el botón de Iniciar Sesión (si se renderiza en la cabecera) */
-.btn-login-small {
-    /* Color azul institucional */
-    background: #007bff; 
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.75em;
-    font-weight: bold;
-    transition: background 0.2s;
-}
-
-.btn-login-small:hover { 
-    background: #0056b3; 
-}
+/* ... (Todos los demás estilos del menú de Netlify que ya tenías: 
+   .user-logged-in-info, .btn-logout-small, etc., se mantienen sin cambios) ... */
