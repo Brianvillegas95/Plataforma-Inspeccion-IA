@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Iniciando Sesión...</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            padding-top: 50px;
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔒 Redireccionando a Inicio de Sesión...</h1>
+    <p>Si no es redirigido automáticamente, haga clic en el botón de abajo.</p>
+    <button id="login-btn" style="padding: 10px 20px; font-size: 16px;">Iniciar Sesión</button>
+
+    <script src="https://cdn.auth0.com/js/auth0/9.19.0/auth0.min.js"></script>
+
+    <script>
+        // ⚠️ REEMPLAZA ESTOS DOS VALORES con tus credenciales de Auth0
+        const auth0_domain = 'dev-8nfvmq7g3rifqdu4.us.auth0.com'; // Ejemplo: 'dev-8nfvmq7g3rifqdu4.auth0.com'
+        const auth0_client_id = 't15UKfkVM0DacmpDIm0OsLSne9X5KoRH'; // Ejemplo: 'tf5UKRvMODacmpDimOdLSne9iSKoRH'
+        
+        // La URL a la que Auth0 debe regresar después del login.
+        // Debe coincidir con la URL de callback que tienes configurada en Auth0.
+        const auth0_callback_url = window.location.origin;
+
+        // --- Inicialización y Función de Login ---
+        
+        // 1. Inicializar el cliente de Auth0
+        const webAuth = new auth0.WebAuth({
+            domain: auth0_domain,
+            clientID: auth0_client_id,
+            responseType: 'token id_token', // Necesitas el id_token para el RBAC de Netlify
+            redirectUri: auth0_callback_url,
+            scope: 'openid profile email' // Solicitar datos básicos del usuario
+        });
+
+        function login() {
+            webAuth.authorize();
+        }
+
+        // 2. Iniciar el login automáticamente
+        window.onload = login;
+
+        // 3. Conectar la función al botón por si falla la redirección automática
+        document.getElementById('login-btn').addEventListener('click', login);
+    </script>
+</body>
+</html>
