@@ -7,6 +7,204 @@
 
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
 
+    <script>
+        // ==========================================================
+        // === 1. CONFIGURACIÓN Y CREDENCIALES DE AUTH0 ===
+        // ==========================================================
+        
+        const AUTH0_DOMAIN = 'dev-8nfvmq7g3rifqdu4.us.auth0.com'; 
+        const AUTH0_CLIENT_ID = 't15UKfkVM0DacmpDIm0OsLSne9X5KoRH'; 
+        
+        let auth0Client = null; 
+        
+        // ==========================================================
+        // === 2. FUNCIONES GLOBALES DE AUTHENTICACIÓN ===
+        // ==========================================================
+
+        // Iniciar Sesión (Función GLOBAL)
+        const auth0Login = async () => {
+            if (!auth0Client) {
+                console.error("Auth0 Client aún no está listo. Intenta de nuevo.");
+                return;
+            }
+            await auth0Client.loginWithRedirect({
+                authorizationParams: {
+                    redirect_uri: window.location.origin
+                }
+            });
+        };
+
+        // Cerrar Sesión (Función GLOBAL)
+        const auth0Logout = async () => {
+            if (!auth0Client) {
+                console.error("Auth0 Client no inicializado. No se puede cerrar sesión.");
+                return;
+            }
+            await auth0Client.logout({
+                logoutParams: {
+                    returnTo: window.location.origin
+                }
+            });
+        };
+
+        // ==========================================================
+        // === 3. INICIALIZACIÓN DEL CLIENTE Y GATING ===
+        // ==========================================================
+        
+        // Función para inicializar el cliente de Auth0
+        // Se llama en configureAuth0 (que ahora se llama en DOMContentLoaded)
+        const configureAuth0 = async () => {
+            
+            try { 
+                 auth0Client = await createAuth0Client({
+                    domain: AUTH0_DOMAIN,
+                    clientId: AUTH0_CLIENT_ID,
+                    authorizationParams: {
+                        redirect_uri: window.location.origin,
+                    }
+                });
+            } catch(e) {
+                console.error("Error al inicializar Auth0: ", e);
+                return; 
+            }
+            
+            // Manejar la redirección de vuelta (Auth0 callback)
+            const query = window.location.search;
+            if (query.includes("code=") && query.includes("state=")) {
+                try {
+                    await auth0Client.handleRedirectCallback();
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (err) {
+                    console.error("Error al manejar el callback de Auth0:", err);
+                }
+            }
+            
+            // Ejecutar la verificación de acceso inicial
+            checkAccessAndGateContent();
+        };
+
+        // Obtener información del usuario autenticado
+        const getAuth0User = async () => {
+            if (!auth0Client) return null;
+            
+            const isAuthenticated = await auth0Client.isAuthenticated();
+            if (!isAuthenticated) return null;
+            
+            const user = await auth0Client.getUser();
+            
+            // Asignación de roles por defecto para pruebas
+            user.roles = user.roles || ['usuario']; 
+            
+            return user;
+        };
+        
+        // ==========================================================
+        // === 4. LÓGICA DE GATING Y RENDERIZADO ===
+        // ==========================================================
+
+        const VALID_ROLES = ['usuario', 'admin', 'admin_man', 'admin_des'];
+        const hasAnyValidRole = (roles) => roles.some(role => VALID_ROLES.includes(role));
+        
+        const renderIdentityMenu = (user) => {
+            const menuControlEl = document.getElementById('auth0-menu-control'); 
+            if (!menuControlEl) return;
+            
+            if (user) {
+                const userNamePart = user.email ? user.email.split('@')[0] : 'Usuario';
+                menuControlEl.innerHTML = `
+                    <div class="user-logged-in-info">
+                        <span><i class="fas fa-user-circle"></i> ${userNamePart}</span>
+                        <button onclick="auth0Logout()" class="btn-logout-small">Cerrar Sesión</button>
+                    </div>
+                `;
+            } else {
+                menuControlEl.innerHTML = `
+                    <button onclick="auth0Login()" class="btn-login-small">Iniciar Sesión</button>
+                `; 
+            }
+        };
+        
+        // Función Principal de Verificación, Gating y Seguridad
+        const checkAccessAndGateContent = async () => {
+            const user = await getAuth0User();
+            const roles = user ? user.roles : []; 
+            
+            const userIsAuthorized = user && hasAnyValidRole(roles);
+            
+            const overlay = document.getElementById('login-overlay');
+            const appContainer = document.querySelector('.app-container');
+            const loginButton = document.getElementById('btn-login-auth0'); 
+
+            // --- CONTROL DEL ACCESO (CANDADO) ---
+            if (userIsAuthorized) {
+                // Solo si el DOM está cargado, podemos interactuar con los elementos
+                if (overlay) overlay.style.display = 'none'; 
+                if (appContainer) appContainer.style.display = 'flex'; 
+                renderIdentityMenu(user); 
+
+            } else {
+                // Solo si el DOM está cargado, podemos interactuar con los elementos
+                if (overlay) overlay.style.display = 'flex'; 
+                if (appContainer) appContainer.style.display = 'none'; 
+                renderIdentityMenu(null); 
+                
+                // Habilitar el botón de login y restaurar su texto
+                if (loginButton) {
+                    loginButton.disabled = false;
+                    loginButton.innerHTML = '<i class="fas fa-lock"></i> Iniciar Sesión';
+                }
+                
+                if (user && !userIsAuthorized) {
+                    alert("ACCESO RESTRINGIDO. Su cuenta debe tener un rol asignado por Jefatura.");
+                    auth0Logout(); 
+                    return;
+                }
+            }
+
+            // --- GATING DE ENLACES ESPECÍFICOS ---
+            
+            const kpiLinks = [
+                document.querySelector('a[href="dashboard-ajustes.html"]'),
+                document.querySelector('a[href="kpi_mantenimiento.html"]')
+            ];
+
+            const isKPIsAllowed = roles.includes('admin') || roles.includes('admin_man') || roles.includes('admin_des');
+            
+            kpiLinks.forEach(link => {
+                if (link) link.closest('li').style.display = (userIsAuthorized && isKPIsAllowed) ? 'list-item' : 'none';
+            });
+            
+            const adminManLink = document.querySelector('a[href="admin_mantenimiento.html"]'); 
+            const isAdminManAllowed = roles.includes('admin_man') || roles.includes('admin_des');
+            
+            if (adminManLink) {
+                adminManLink.closest('li').style.display = (userIsAuthorized && isAdminManAllowed) ? 'list-item' : 'none';
+            }
+
+            const reportParoBtn = document.querySelector('.report-paro-btn-floating');
+            if(reportParoBtn) {
+                reportParoBtn.style.display = userIsAuthorized ? 'flex' : 'none';
+            }
+
+            const chatbotWidget = document.getElementById('chatbot-widget');
+            if(chatbotWidget) {
+                chatbotWidget.style.display = userIsAuthorized ? 'block' : 'none';
+            }
+
+            const mcDropdownAnchor = document.querySelector('a[data-area="Mejora Continua"]');
+            const mcDropdownList = mcDropdownAnchor ? mcDropdownAnchor.closest('li') : null;
+            const kpiVisible = kpiLinks.some(link => link && link.closest('li').style.display !== 'none');
+            
+            if (mcDropdownList) {
+                mcDropdownList.style.display = (userIsAuthorized && kpiVisible) ? 'list-item' : 'none';
+            }
+        };
+
+        // 5. Iniciar la configuración de Auth0 solo cuando el DOM esté listo (para manipular elementos)
+        document.addEventListener('DOMContentLoaded', configureAuth0);
+    </script>
+
+
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
@@ -305,7 +503,7 @@
             item.addEventListener('mouseleave', () => {
                 if(auditorImageEl) auditorImageEl.classList.remove('interactive');
                 if (initialWelcomeTyped && currentAuditorMessage !== mensajesAuditor.guia) {
-                    if (currentAuditorMessage !== mensajesAuditor.bienvenida) {
+                    if (currentAuditorMessage !== mensajesAudajesAuditor.bienvenida) {
                         setTimeout(() => {
                             if (auditorImageEl && !auditorImageEl.classList.contains('interactive')) { 
                                 setAuditorSpeech(mensajesAuditor.guia);
@@ -471,197 +669,7 @@
         </div>
     </div>
 
-  <script>
-    // ==========================================================
-    // === 1. CONFIGURACIÓN Y CREDENCIALES DE AUTH0 ===
-    // ==========================================================
-    
-    const AUTH0_DOMAIN = 'dev-8nfvmq7g3rifqdu4.us.auth0.com'; 
-    const AUTH0_CLIENT_ID = 't15UKfkVM0DacmpDIm0OsLSne9X5KoRH'; 
-    
-    let auth0Client = null; 
-    
-    // ==========================================================
-    // === 2. FUNCIONES GLOBALES DE AUTHENTICACIÓN ===
-    // ==========================================================
-
-    // Iniciar Sesión (Función GLOBAL)
-    const auth0Login = async () => {
-        if (!auth0Client) {
-            console.error("Auth0 Client aún no está listo. Intenta de nuevo.");
-            return;
-        }
-        await auth0Client.loginWithRedirect({
-            authorizationParams: {
-                redirect_uri: window.location.origin
-            }
-        });
-    };
-
-    // Cerrar Sesión (Función GLOBAL)
-    const auth0Logout = async () => {
-        if (!auth0Client) {
-            console.error("Auth0 Client no inicializado. No se puede cerrar sesión.");
-            return;
-        }
-        await auth0Client.logout({
-            logoutParams: {
-                returnTo: window.location.origin
-            }
-        });
-    };
-
-    // ==========================================================
-    // === 3. INICIALIZACIÓN DEL CLIENTE Y GATING ===
-    // ==========================================================
-    
-    // Función para inicializar el cliente de Auth0
-    const configureAuth0 = async () => {
-        // CORRECCIÓN 2: Se elimina la verificación de carga del SDK que estaba fallando
-        
-        // Inicializamos el cliente SÓLO AQUÍ
-        auth0Client = await createAuth0Client({
-            domain: AUTH0_DOMAIN,
-            clientId: AUTH0_CLIENT_ID,
-            authorizationParams: {
-                redirect_uri: window.location.origin,
-            }
-        });
-        
-        // Manejar la redirección de vuelta (Auth0 callback)
-        const query = window.location.search;
-        if (query.includes("code=") && query.includes("state=")) {
-            try {
-                await auth0Client.handleRedirectCallback();
-                window.history.replaceState({}, document.title, window.location.pathname);
-            } catch (err) {
-                console.error("Error al manejar el callback de Auth0:", err);
-            }
-        }
-        
-        // Ejecutar la verificación de acceso inicial
-        checkAccessAndGateContent();
-    };
-
-    // Obtener información del usuario autenticado
-    const getAuth0User = async () => {
-        if (!auth0Client) return null;
-        
-        const isAuthenticated = await auth0Client.isAuthenticated();
-        if (!isAuthenticated) return null;
-        
-        const user = await auth0Client.getUser();
-        
-        // Asignación de roles por defecto para pruebas
-        user.roles = user.roles || ['usuario']; 
-        
-        return user;
-    };
-    
-    // ==========================================================
-    // === 4. LÓGICA DE GATING Y RENDERIZADO ===
-    // ==========================================================
-
-    const VALID_ROLES = ['usuario', 'admin', 'admin_man', 'admin_des'];
-    const hasAnyValidRole = (roles) => roles.some(role => VALID_ROLES.includes(role));
-    
-    const renderIdentityMenu = (user) => {
-        const menuControlEl = document.getElementById('auth0-menu-control'); 
-        if (!menuControlEl) return;
-        
-        if (user) {
-            const userNamePart = user.email ? user.email.split('@')[0] : 'Usuario';
-            menuControlEl.innerHTML = `
-                <div class="user-logged-in-info">
-                    <span><i class="fas fa-user-circle"></i> ${userNamePart}</span>
-                    <button onclick="auth0Logout()" class="btn-logout-small">Cerrar Sesión</button>
-                </div>
-            `;
-        } else {
-            menuControlEl.innerHTML = `
-                <button onclick="auth0Login()" class="btn-login-small">Iniciar Sesión</button>
-            `; 
-        }
-    };
-    
-    // Función Principal de Verificación, Gating y Seguridad
-    const checkAccessAndGateContent = async () => {
-        const user = await getAuth0User();
-        const roles = user ? user.roles : []; 
-        
-        const userIsAuthorized = user && hasAnyValidRole(roles);
-        
-        const overlay = document.getElementById('login-overlay');
-        const appContainer = document.querySelector('.app-container');
-        // Se agrega la referencia al botón de login del overlay
-        const loginButton = document.getElementById('btn-login-auth0'); 
-
-        // --- CONTROL DEL ACCESO (CANDADO) ---
-        if (userIsAuthorized) {
-            overlay.style.display = 'none'; 
-            appContainer.style.display = 'flex'; 
-            renderIdentityMenu(user); 
-
-        } else {
-            overlay.style.display = 'flex'; 
-            appContainer.style.display = 'none'; 
-            renderIdentityMenu(null); 
-            
-            // CORRECCIÓN 3: Habilitar el botón de login y restaurar su texto
-            if (loginButton) {
-                loginButton.disabled = false;
-                loginButton.innerHTML = '<i class="fas fa-lock"></i> Iniciar Sesión';
-            }
-            
-            if (user && !userIsAuthorized) {
-                alert("ACCESO RESTRINGIDO. Su cuenta debe tener un rol asignado por Jefatura.");
-                auth0Logout(); 
-                return;
-            }
-        }
-
-        // --- GATING DE ENLACES ESPECÍFICOS ---
-        
-        const kpiLinks = [
-            document.querySelector('a[href="dashboard-ajustes.html"]'),
-            document.querySelector('a[href="kpi_mantenimiento.html"]')
-        ];
-
-        const isKPIsAllowed = roles.includes('admin') || roles.includes('admin_man') || roles.includes('admin_des');
-        
-        kpiLinks.forEach(link => {
-            if (link) link.closest('li').style.display = (userIsAuthorized && isKPIsAllowed) ? 'list-item' : 'none';
-        });
-        
-        const adminManLink = document.querySelector('a[href="admin_mantenimiento.html"]'); 
-        const isAdminManAllowed = roles.includes('admin_man') || roles.includes('admin_des');
-        
-        if (adminManLink) {
-            adminManLink.closest('li').style.display = (userIsAuthorized && isAdminManAllowed) ? 'list-item' : 'none';
-        }
-
-        const reportParoBtn = document.querySelector('.report-paro-btn-floating');
-        if(reportParoBtn) {
-            reportParoBtn.style.display = userIsAuthorized ? 'flex' : 'none';
-        }
-
-        const chatbotWidget = document.getElementById('chatbot-widget');
-        if(chatbotWidget) {
-            chatbotWidget.style.display = userIsAuthorized ? 'block' : 'none';
-        }
-
-        const mcDropdownAnchor = document.querySelector('a[data-area="Mejora Continua"]');
-        const mcDropdownList = mcDropdownAnchor ? mcDropdownAnchor.closest('li') : null;
-        const kpiVisible = kpiLinks.some(link => link && link.closest('li').style.display !== 'none');
-        
-        if (mcDropdownList) {
-            mcDropdownList.style.display = (userIsAuthorized && kpiVisible) ? 'list-item' : 'none';
-        }
-    };
-
-     // 5. Iniciar la configuración de Auth0 solo cuando TODOS los recursos (incluido el SDK de Auth0 del CDN) hayan cargado.
-     window.addEventListener('load', configureAuth0);
-  </script>
+  
         
 </body>
 
