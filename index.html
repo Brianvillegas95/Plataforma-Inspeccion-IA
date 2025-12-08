@@ -469,14 +469,14 @@
 
   <script>
     // ==========================================================
-    // === 1. CONFIGURACIÓN Y CREDENCIALES DE AUTH0 ===
+    // === 1. CONFIGURACIÓN Y CREDENCIALES DE AUTH0 (CORREGIDO) ===
     // ==========================================================
     
-    // ⚠️ ATENCIÓN: CORREGIDO EL ERROR DE SINTAXIS (FALTABAN LAS COMILLAS)
+    // 🔥 CORRECCIÓN: AÑADIDAS LAS COMILLAS SIMPLES 🔥
     const AUTH0_DOMAIN = 'dev-8nfvmq7g3rifqdu4.us.auth0.com'; 
     const AUTH0_CLIENT_ID = 't15UKfkVM0DacmpDIm0OsLSne9X5KoRH'; 
     
-    let auth0Client = null; // Instancia del cliente de Auth0
+    let auth0Client = null; 
     
     // ==========================================================
     // === 2. FUNCIONES GLOBALES DE AUTHENTICACIÓN (CORREGIDO EL ÁMBITO) ===
@@ -484,8 +484,9 @@
 
     // Iniciar Sesión (Función GLOBAL)
     const auth0Login = async () => {
+        // El cliente ya estará inicializado si se llama desde el HTML
         if (!auth0Client) {
-            console.error("Auth0 Client no inicializado. Esperando DOMContentLoaded.");
+            console.error("Auth0 Client aún no está listo. Intenta de nuevo.");
             return;
         }
         await auth0Client.loginWithRedirect({
@@ -515,10 +516,11 @@
     // Función para inicializar el cliente de Auth0
     const configureAuth0 = async () => {
         if (typeof createAuth0Client !== 'function') {
-            console.error("El SDK de Auth0 no se ha cargado correctamente. Verifica el script CDN en el <head>.");
+            console.error("El SDK de Auth0 no se ha cargado correctamente.");
             return;
         }
 
+        // Inicializamos el cliente SÓLO AQUÍ
         auth0Client = await createAuth0Client({
             domain: AUTH0_DOMAIN,
             clientId: AUTH0_CLIENT_ID,
@@ -558,7 +560,7 @@
     };
     
     // ==========================================================
-    // === 4. LÓGICA DE GATING Y RENDERIZADO (NO MODIFICADA) ===
+    // === 4. LÓGICA DE GATING Y RENDERIZADO ===
     // ==========================================================
 
     const VALID_ROLES = ['usuario', 'admin', 'admin_man', 'admin_des'];
