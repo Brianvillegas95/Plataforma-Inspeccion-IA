@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Plataforma de Inspección IA - Grupo Azor</title>
+
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    
-    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
     
 </head>
 <body>
@@ -516,6 +517,7 @@
     
     // Función para inicializar el cliente de Auth0
     const configureAuth0 = async () => {
+        // 🔥 ESTA VERIFICACIÓN DEBERÍA PASAR AHORA, GRACIAS A LA LÍNEA DEL CDN EN EL HEAD
         if (typeof createAuth0Client !== 'function') {
             console.error("El SDK de Auth0 no se ha cargado correctamente.");
             return;
