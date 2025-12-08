@@ -8,6 +8,16 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     </head>
 <body>
+    <div id="login-overlay"> 
+    <div class="login-popup-content">
+        <img src="imagenes/Logo azor.png" alt="Logo Azor" style="height: 60px; margin-bottom: 25px;">
+        <h2 style="color: #005f9e; margin-bottom: 10px;">Acceso Requerido</h2>
+        <p style="color: #666; margin-bottom: 30px;">Inicia sesión con tu cuenta de la organización para acceder a las herramientas.</p>
+        <button id="btn-login-auth0" class="login-btn" onclick="auth0Login()">
+            <i class="fas fa-lock"></i> Iniciar Sesión
+        </button>
+    </div>
+ </div> 
     <div class="app-container">
         <header class="app-header">
             <div class="logo-container">
@@ -576,70 +586,72 @@
     
     // Función Principal de Verificación, Gating y Seguridad
     const checkAccessAndGateContent = async () => {
-        const user = await getAuth0User();
-        const roles = user ? user.roles : []; 
-        
-        const userIsAuthorized = user && hasAnyValidRole(roles);
-        
-        // Variables DOM (Recuerda que eliminamos el login-overlay, pero lo restauraremos para simular el candado)
-        const appContainer = document.querySelector('.app-container');
+    const user = await getAuth0User();
+    const roles = user ? user.roles : []; 
+    
+    const userIsAuthorized = user && hasAnyValidRole(roles);
+    
+    // Variables DOM 
+    const overlay = document.getElementById('login-overlay');
+    const appContainer = document.querySelector('.app-container');
 
-        // --- CONTROL DEL ACCESO ---
-        if (userIsAuthorized) {
-            // Si está autorizado, muestra el contenido
-            // Aquí deberías restaurar el overlay si decides usarlo para el candado
-            appContainer.style.display = 'flex'; 
-            renderIdentityMenu(user); 
+    // --- CONTROL DEL ACCESO ---
+    if (userIsAuthorized) {
+        overlay.style.display = 'none'; // OCULTA el candado (Acceso OK)
+        appContainer.style.display = 'flex'; // MUESTRA la app
+        renderIdentityMenu(user); 
 
-        } else {
-            // Si NO está autorizado, oculta el contenido
-            appContainer.style.display = 'none'; 
-            renderIdentityMenu(null); 
-            
-            // Si Auth0 no tiene sesión o el rol no es válido, forzamos la redirección
-            // Si quieres que la gente vea la página de login de Auth0 inmediatamente:
-            // if (!user) { auth0Login(); }
+    } else {
+        overlay.style.display = 'flex'; // MUESTRA el candado (Acceso Denegado)
+        appContainer.style.display = 'none'; // OCULTA la app
+        renderIdentityMenu(null); // Muestra el botón de Login en la cabecera (que redirecciona)
+        
+        // Si Auth0 tiene sesión pero el rol no es válido, forzamos el logout
+        if (user && !userIsAuthorized) {
+            alert("ACCESO RESTRINGIDO. Su cuenta debe tener un rol asignado por Jefatura.");
+            auth0Logout(); 
+            return;
         }
+    }
 
-        // --- GATING DE ENLACES ESPECÍFICOS ---
-        
-        const kpiLinks = [
-            document.querySelector('a[href="dashboard-ajustes.html"]'),
-            document.querySelector('a[href="kpi_mantenimiento.html"]')
-        ];
+    // --- GATING DE ENLACES ESPECÍFICOS (Se mantiene la lógica) ---
+    
+    const kpiLinks = [
+        document.querySelector('a[href="dashboard-ajustes.html"]'),
+        document.querySelector('a[href="kpi_mantenimiento.html"]')
+    ];
 
-        const isKPIsAllowed = roles.includes('admin') || roles.includes('admin_man') || roles.includes('admin_des');
-        
-        kpiLinks.forEach(link => {
-            if (link) link.closest('li').style.display = (userIsAuthorized && isKPIsAllowed) ? 'list-item' : 'none';
-        });
-        
-        const adminManLink = document.querySelector('a[href="admin_mantenimiento.html"]'); 
-        const isAdminManAllowed = roles.includes('admin_man') || roles.includes('admin_des');
-        
-        if (adminManLink) {
-            adminManLink.closest('li').style.display = (userIsAuthorized && isAdminManAllowed) ? 'list-item' : 'none';
-        }
+    const isKPIsAllowed = roles.includes('admin') || roles.includes('admin_man') || roles.includes('admin_des');
+    
+    kpiLinks.forEach(link => {
+        if (link) link.closest('li').style.display = (userIsAuthorized && isKPIsAllowed) ? 'list-item' : 'none';
+    });
+    
+    const adminManLink = document.querySelector('a[href="admin_mantenimiento.html"]'); 
+    const isAdminManAllowed = roles.includes('admin_man') || roles.includes('admin_des');
+    
+    if (adminManLink) {
+        adminManLink.closest('li').style.display = (userIsAuthorized && isAdminManAllowed) ? 'list-item' : 'none';
+    }
 
-        const reportParoBtn = document.querySelector('.report-paro-btn-floating');
-        if(reportParoBtn) {
-            reportParoBtn.style.display = userIsAuthorized ? 'flex' : 'none';
-        }
+    const reportParoBtn = document.querySelector('.report-paro-btn-floating');
+    if(reportParoBtn) {
+        reportParoBtn.style.display = userIsAuthorized ? 'flex' : 'none';
+    }
 
-        const chatbotWidget = document.getElementById('chatbot-widget');
-        if(chatbotWidget) {
-            chatbotWidget.style.display = userIsAuthorized ? 'block' : 'none';
-        }
+    const chatbotWidget = document.getElementById('chatbot-widget');
+    if(chatbotWidget) {
+        chatbotWidget.style.display = userIsAuthorized ? 'block' : 'none';
+    }
 
-        const mcDropdownAnchor = document.querySelector('a[data-area="Mejora Continua"]');
-        const mcDropdownList = mcDropdownAnchor ? mcDropdownAnchor.closest('li') : null;
-        const kpiVisible = kpiLinks.some(link => link && link.closest('li').style.display !== 'none');
-        
-        if (mcDropdownList) {
-            mcDropdownList.style.display = (userIsAuthorized && kpiVisible) ? 'list-item' : 'none';
-        }
+    const mcDropdownAnchor = document.querySelector('a[data-area="Mejora Continua"]');
+    const mcDropdownList = mcDropdownAnchor ? mcDropdownAnchor.closest('li') : null;
+    const kpiVisible = kpiLinks.some(link => link && link.closest('li').style.display !== 'none');
+    
+    if (mcDropdownList) {
+        mcDropdownList.style.display = (userIsAuthorized && kpiVisible) ? 'list-item' : 'none';
+    }
     };
-
     // 4. Iniciar la configuración de Auth0 cuando el DOM esté listo
     document.addEventListener('DOMContentLoaded', configureAuth0);
     </script>
