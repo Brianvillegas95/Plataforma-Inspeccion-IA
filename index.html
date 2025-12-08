@@ -17,8 +17,8 @@
         <img src="imagenes/Logo azor.png" alt="Logo Azor" style="height: 60px; margin-bottom: 25px;">
         <h2 style="color: #005f9e; margin-bottom: 10px;">Acceso Requerido</h2>
         <p style="color: #666; margin-bottom: 30px;">Inicia sesión con tu cuenta de la organización para acceder a las herramientas.</p>
-        <button id="btn-login-auth0" class="login-btn" onclick="auth0Login()">
-            <i class="fas fa-lock"></i> Iniciar Sesión
+        <button id="btn-login-auth0" class="login-btn">
+           <i class="fas fa-lock"></i> Iniciar Sesión
         </button>
     </div>
  </div> 
@@ -522,6 +522,49 @@
             console.error("El SDK de Auth0 no se ha cargado correctamente.");
             return;
         }
+
+        // Agrega este código en tu bloque de script de Auth0 (cerca de la línea 590)
+
+    const setupLoginButton = () => {
+         const loginButton = document.getElementById('btn-login-auth0');
+         if (loginButton) {
+         loginButton.addEventListener('click', () => {
+            if (auth0Client) {
+                auth0Login();
+            } else {
+                console.error("Auth0 Client no listo. Reintentando la inicialización.");
+                // Opcional: Deshabilita el botón con un mensaje de "Cargando..."
+                loginButton.textContent = "Cargando...";
+                loginButton.disabled = true;
+                
+                // Esperar un momento y reintentar si es necesario, aunque configureAuth0 ya debería estar corriendo.
+                // En un entorno de producción, la carga asíncrona normal de createAuth0Client debería ser suficiente.
+                setTimeout(() => {
+                    if (auth0Client) {
+                       auth0Login();
+                    } else {
+                       loginButton.textContent = "Error de carga. Intenta F5.";
+                       loginButton.disabled = false;
+                    }
+                }, 2000); 
+            }
+        });
+        
+        // Inicialmente, deshabilitamos el botón hasta que configureAuth0 haya terminado (o se le da un mejor estilo).
+        loginButton.disabled = true;
+        loginButton.textContent = "Cargando...";
+        
+        // Una vez que configureAuth0 se ejecuta, el checkAccessAndGateContent lo habilitará si es necesario
+        // o si prefieres, puedes agregar la lógica para habilitarlo en la función checkAccessAndGateContent.
+    }
+};
+
+// Llama a esta nueva función al final del DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+    // ... (otras cosas)
+    configureAuth0();
+    setupLoginButton(); // Agrega el listener
+});
 
         // Inicializamos el cliente SÓLO AQUÍ
         auth0Client = await createAuth0Client({
