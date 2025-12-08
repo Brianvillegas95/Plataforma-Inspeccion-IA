@@ -1,8 +1,2 @@
-# Regla 1: Permite el acceso público a la página de login.html.
-# Esta página no se debe bloquear porque inicia el proceso de Auth0.
 /login.html 200
-
-# Regla 2: Protege todas las demás rutas.
-# Si el usuario accede a cualquier URL (/*) y NO tiene el rol 'member' 
-# (o el rol que asignaste en Auth0 Action), se le redirige a /login.html con un error 401.
 /* /login.html 401! Role=member
