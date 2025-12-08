@@ -659,9 +659,8 @@
         }
     };
 
-    // 5. CORRECCIÓN: Iniciar la configuración de Auth0 inmediatamente (scope global)
-    // Se elimina el evento DOMContentLoaded que no garantizaba la carga del SDK de Auth0.
-    configureAuth0();
+     // 5. Iniciar la configuración de Auth0 solo cuando TODOS los recursos (incluido el SDK de Auth0 del CDN) hayan cargado.
+     window.addEventListener('load', configureAuth0);
   </script>
         
 </body>
