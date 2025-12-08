@@ -1501,39 +1501,3 @@ body.color-validator-body .main-content {
     box-shadow: var(--shadow-lg);
 
 }
-
-/* ========================================================= */
-/* ESTILOS DE ESTRUCTURA Y GATING (CONTROL DE ACCESO) */
-/* ========================================================= */
-
-/* Contenedor principal de la aplicación: OCULTO POR DEFECTO */
-.app-container {
-    display: none; /* Se oculta por defecto hasta que Auth0 da OK */
-    flex-direction: column;
-    min-height: 100vh;
-}
-
-/* ESTILOS DEL CANDADO DE ACCESO (LOGIN OVERLAY) */
-#login-overlay { 
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-    background: rgba(255,255,255,0.95); 
-    z-index: 50;
-    
-    /* 🔥 CAMBIO CLAVE: HACER VISIBLE POR DEFECTO 🔥 */
-    display: flex; /* Ahora es 'flex' por defecto, el JS lo ocultará si hay sesión */
-    
-    flex-direction: column; justify-content: center; align-items: center; 
-    backdrop-filter: blur(5px);
-}
-
-.login-popup-content {
-    padding: 30px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    background: white; text-align: center;
-}
-
-.login-btn {
-    padding: 12px 40px; font-size: 1.1em; background-color: #005f9e; 
-    color: white; border: none; border-radius: 6px; cursor: pointer; 
-    box-shadow: 0 4px 10px rgba(0,95,158,0.3);
-    margin-top: 20px;
-}
