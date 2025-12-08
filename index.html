@@ -467,20 +467,53 @@
         </div>
     </div>
 
-    <script>
+  <script>
     // ==========================================================
-    // === 1. CONFIGURACIÓN Y CLIENTE DE AUTH0 ===
+    // === 1. CONFIGURACIÓN Y CREDENCIALES DE AUTH0 ===
     // ==========================================================
     
-    // ⚠️ ATENCIÓN: REEMPLAZA ESTAS VARIABLES CON TUS CREDENCIALES REALES DE AUTH0 ⚠️
-    const AUTH0_DOMAIN = dev-8nfvmq7g3rifqdu4.us.auth0.com; 
-    const AUTH0_CLIENT_ID = t15UKfkVM0DacmpDIm0OsLSne9X5KoRH; 
+    // ⚠️ ATENCIÓN: CORREGIDO EL ERROR DE SINTAXIS (FALTABAN LAS COMILLAS)
+    const AUTH0_DOMAIN = 'dev-8nfvmq7g3rifqdu4.us.auth0.com'; 
+    const AUTH0_CLIENT_ID = 't15UKfkVM0DacmpDIm0OsLSne9X5KoRH'; 
     
     let auth0Client = null; // Instancia del cliente de Auth0
     
+    // ==========================================================
+    // === 2. FUNCIONES GLOBALES DE AUTHENTICACIÓN (CORREGIDO EL ÁMBITO) ===
+    // ==========================================================
+
+    // Iniciar Sesión (Función GLOBAL)
+    const auth0Login = async () => {
+        if (!auth0Client) {
+            console.error("Auth0 Client no inicializado. Esperando DOMContentLoaded.");
+            return;
+        }
+        await auth0Client.loginWithRedirect({
+            authorizationParams: {
+                redirect_uri: window.location.origin
+            }
+        });
+    };
+
+    // Cerrar Sesión (Función GLOBAL)
+    const auth0Logout = async () => {
+        if (!auth0Client) {
+            console.error("Auth0 Client no inicializado. No se puede cerrar sesión.");
+            return;
+        }
+        await auth0Client.logout({
+            logoutParams: {
+                returnTo: window.location.origin
+            }
+        });
+    };
+
+    // ==========================================================
+    // === 3. INICIALIZACIÓN DEL CLIENTE Y GATING ===
+    // ==========================================================
+    
     // Función para inicializar el cliente de Auth0
     const configureAuth0 = async () => {
-        // Verifica si la función createAuth0Client está disponible (si se cargó el SDK)
         if (typeof createAuth0Client !== 'function') {
             console.error("El SDK de Auth0 no se ha cargado correctamente. Verifica el script CDN en el <head>.");
             return;
@@ -491,8 +524,6 @@
             clientId: AUTH0_CLIENT_ID,
             authorizationParams: {
                 redirect_uri: window.location.origin,
-                // Agregamos la audiencia si usamos Custom Claims para roles, aunque por ahora no es necesario.
-                // audience: 'TU_API_AUDIENCE' 
             }
         });
         
@@ -501,7 +532,6 @@
         if (query.includes("code=") && query.includes("state=")) {
             try {
                 await auth0Client.handleRedirectCallback();
-                // Limpiamos la URL después del callback
                 window.history.replaceState({}, document.title, window.location.pathname);
             } catch (err) {
                 console.error("Error al manejar el callback de Auth0:", err);
@@ -512,10 +542,6 @@
         checkAccessAndGateContent();
     };
 
-    // ==========================================================
-    // === 2. FUNCIONES DE AUTENTICACIÓN Y ROLES ===
-    // ==========================================================
-
     // Obtener información del usuario autenticado
     const getAuth0User = async () => {
         if (!auth0Client) return null;
@@ -525,40 +551,14 @@
         
         const user = await auth0Client.getUser();
         
-        // --- MANEJO CRÍTICO DE ROLES (DEBES CONFIGURAR ESTO EN AUTH0) ---
-        // Auth0 no devuelve los roles directamente. Esta línea debe ser ajustada 
-        // a como configures tu Action/Rule para inyectar los roles en el token de usuario.
-        
-        // 🚨 Por ahora, asignamos un rol 'usuario' por defecto para que el gating funcione
-        // y puedas probar el login/logout.
+        // Asignación de roles por defecto para pruebas
         user.roles = user.roles || ['usuario']; 
         
-        // El formato real podría ser:
-        // user.roles = user['http://tu-dominio.com/roles'] || [];
-
         return user;
     };
     
-    // Iniciar Sesión (Redirección a la página universal de Auth0)
-    const auth0Login = async () => {
-        await auth0Client.loginWithRedirect({
-            authorizationParams: {
-                redirect_uri: window.location.origin
-            }
-        });
-    };
-
-    // Cerrar Sesión (Redirección de vuelta a la página de inicio)
-    const auth0Logout = async () => {
-        await auth0Client.logout({
-            logoutParams: {
-                returnTo: window.location.origin
-            }
-        });
-    };
-    
     // ==========================================================
-    // === 3. LÓGICA DE GATING Y RENDERIZADO ===
+    // === 4. LÓGICA DE GATING Y RENDERIZADO (NO MODIFICADA) ===
     // ==========================================================
 
     const VALID_ROLES = ['usuario', 'admin', 'admin_man', 'admin_des'];
@@ -577,7 +577,6 @@
                 </div>
             `;
         } else {
-             // Si no hay usuario, mostramos el botón de login en la cabecera para iniciar la redirección
             menuControlEl.innerHTML = `
                 <button onclick="auth0Login()" class="btn-login-small">Iniciar Sesión</button>
             `; 
@@ -586,75 +585,74 @@
     
     // Función Principal de Verificación, Gating y Seguridad
     const checkAccessAndGateContent = async () => {
-    const user = await getAuth0User();
-    const roles = user ? user.roles : []; 
-    
-    const userIsAuthorized = user && hasAnyValidRole(roles);
-    
-    // Variables DOM 
-    const overlay = document.getElementById('login-overlay');
-    const appContainer = document.querySelector('.app-container');
-
-    // --- CONTROL DEL ACCESO ---
-    if (userIsAuthorized) {
-        overlay.style.display = 'none'; // OCULTA el candado (Acceso OK)
-        appContainer.style.display = 'flex'; // MUESTRA la app
-        renderIdentityMenu(user); 
-
-    } else {
-        overlay.style.display = 'flex'; // MUESTRA el candado (Acceso Denegado)
-        appContainer.style.display = 'none'; // OCULTA la app
-        renderIdentityMenu(null); // Muestra el botón de Login en la cabecera (que redirecciona)
+        const user = await getAuth0User();
+        const roles = user ? user.roles : []; 
         
-        // Si Auth0 tiene sesión pero el rol no es válido, forzamos el logout
-        if (user && !userIsAuthorized) {
-            alert("ACCESO RESTRINGIDO. Su cuenta debe tener un rol asignado por Jefatura.");
-            auth0Logout(); 
-            return;
+        const userIsAuthorized = user && hasAnyValidRole(roles);
+        
+        const overlay = document.getElementById('login-overlay');
+        const appContainer = document.querySelector('.app-container');
+
+        // --- CONTROL DEL ACCESO (CANDADO) ---
+        if (userIsAuthorized) {
+            overlay.style.display = 'none'; 
+            appContainer.style.display = 'flex'; 
+            renderIdentityMenu(user); 
+
+        } else {
+            overlay.style.display = 'flex'; 
+            appContainer.style.display = 'none'; 
+            renderIdentityMenu(null); 
+            
+            if (user && !userIsAuthorized) {
+                alert("ACCESO RESTRINGIDO. Su cuenta debe tener un rol asignado por Jefatura.");
+                auth0Logout(); 
+                return;
+            }
         }
-    }
 
-    // --- GATING DE ENLACES ESPECÍFICOS (Se mantiene la lógica) ---
-    
-    const kpiLinks = [
-        document.querySelector('a[href="dashboard-ajustes.html"]'),
-        document.querySelector('a[href="kpi_mantenimiento.html"]')
-    ];
+        // --- GATING DE ENLACES ESPECÍFICOS ---
+        
+        const kpiLinks = [
+            document.querySelector('a[href="dashboard-ajustes.html"]'),
+            document.querySelector('a[href="kpi_mantenimiento.html"]')
+        ];
 
-    const isKPIsAllowed = roles.includes('admin') || roles.includes('admin_man') || roles.includes('admin_des');
-    
-    kpiLinks.forEach(link => {
-        if (link) link.closest('li').style.display = (userIsAuthorized && isKPIsAllowed) ? 'list-item' : 'none';
-    });
-    
-    const adminManLink = document.querySelector('a[href="admin_mantenimiento.html"]'); 
-    const isAdminManAllowed = roles.includes('admin_man') || roles.includes('admin_des');
-    
-    if (adminManLink) {
-        adminManLink.closest('li').style.display = (userIsAuthorized && isAdminManAllowed) ? 'list-item' : 'none';
-    }
+        const isKPIsAllowed = roles.includes('admin') || roles.includes('admin_man') || roles.includes('admin_des');
+        
+        kpiLinks.forEach(link => {
+            if (link) link.closest('li').style.display = (userIsAuthorized && isKPIsAllowed) ? 'list-item' : 'none';
+        });
+        
+        const adminManLink = document.querySelector('a[href="admin_mantenimiento.html"]'); 
+        const isAdminManAllowed = roles.includes('admin_man') || roles.includes('admin_des');
+        
+        if (adminManLink) {
+            adminManLink.closest('li').style.display = (userIsAuthorized && isAdminManAllowed) ? 'list-item' : 'none';
+        }
 
-    const reportParoBtn = document.querySelector('.report-paro-btn-floating');
-    if(reportParoBtn) {
-        reportParoBtn.style.display = userIsAuthorized ? 'flex' : 'none';
-    }
+        const reportParoBtn = document.querySelector('.report-paro-btn-floating');
+        if(reportParoBtn) {
+            reportParoBtn.style.display = userIsAuthorized ? 'flex' : 'none';
+        }
 
-    const chatbotWidget = document.getElementById('chatbot-widget');
-    if(chatbotWidget) {
-        chatbotWidget.style.display = userIsAuthorized ? 'block' : 'none';
-    }
+        const chatbotWidget = document.getElementById('chatbot-widget');
+        if(chatbotWidget) {
+            chatbotWidget.style.display = userIsAuthorized ? 'block' : 'none';
+        }
 
-    const mcDropdownAnchor = document.querySelector('a[data-area="Mejora Continua"]');
-    const mcDropdownList = mcDropdownAnchor ? mcDropdownAnchor.closest('li') : null;
-    const kpiVisible = kpiLinks.some(link => link && link.closest('li').style.display !== 'none');
-    
-    if (mcDropdownList) {
-        mcDropdownList.style.display = (userIsAuthorized && kpiVisible) ? 'list-item' : 'none';
-    }
+        const mcDropdownAnchor = document.querySelector('a[data-area="Mejora Continua"]');
+        const mcDropdownList = mcDropdownAnchor ? mcDropdownAnchor.closest('li') : null;
+        const kpiVisible = kpiLinks.some(link => link && link.closest('li').style.display !== 'none');
+        
+        if (mcDropdownList) {
+            mcDropdownList.style.display = (userIsAuthorized && kpiVisible) ? 'list-item' : 'none';
+        }
     };
-    // 4. Iniciar la configuración de Auth0 cuando el DOM esté listo
+
+    // 5. Iniciar la configuración de Auth0 cuando el DOM esté listo
     document.addEventListener('DOMContentLoaded', configureAuth0);
-    </script>
+  </script>
         
 </body>
 
