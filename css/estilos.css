@@ -1517,7 +1517,7 @@ body.color-validator-body .main-content {
 #login-overlay { 
     position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
     background: rgba(255,255,255,0.95); 
-    z-index: 10000; /* Asegura que cubra todo */
+    z-index: 50; /* Asegura que cubra todo */
     display: none; /* El JS lo hace 'flex' si no hay sesión */
     flex-direction: column; justify-content: center; align-items: center; 
     backdrop-filter: blur(5px);
