@@ -66,9 +66,9 @@
                 </ul>
             </nav>
 
-            <div id="netlify-menu-control" class="identity-menu-container"></div>
+            <div data-netlify-identity-menu class="identity-menu-container"></div>
         </header>
-        
+
         <main class="main-content">
             <section class="hero-interactive-auditor">
 
@@ -163,7 +163,7 @@
                             <select id="aql-value" name="aql-value">
                                 <option value="1.0" selected>1.0</option>
                                 <option value="2.5">2.5</option>
-                                <option value="4.0">4.0</option>
+                                <option value="4.0">4.0</Navegación</option>
                             </select>
                         </div>
                         <button id="calculate-aql-btn" class="button primary-action">
@@ -216,8 +216,6 @@
         </div>
     </div>
     <script>
-        // INICIO DEL PRIMER BLOQUE SCRIPT (Auditor/AQL)
-        document.addEventListener('DOMContentLoaded', () => {
         // Script para el año en el footer
         document.getElementById('currentYear').textContent = new Date().getFullYear();
         
@@ -264,8 +262,7 @@
                             initialWelcomeTyped = true;
                             setTimeout(() => {
                                 if (currentAuditorMessage === mensajesAuditor.bienvenida) { 
-                                   // CORRECCIÓN: Usar mensajesAuditor.guia en lugar de mensajeria.guia
-                                   setAuditorSpeech(mensajesAuditor.guia); 
+                                   setAuditorSpeech(mensajeria.guia); 
                                 }
                             }, 4000); 
                         }
@@ -438,8 +435,28 @@
                 aqlResultsDiv.style.display = 'block';
             });
         }
-     }); // Cierre del DOMContentLoaded para el código Auditor/AQL
-   
+    </script>
+    
+    <script src="Archivos/chatbot.js"></script>
+
+    <div id="lightbox" class="lightbox">
+        <span class="lightbox-close">&times;</span>
+        <span class="gallery-nav gallery-prev" id="gallery-prev">&#10094;</span>
+        <span class="gallery-nav gallery-next" id="gallery-next">&#10095;</span>
+
+        <div id="lightbox-image-wrapper">
+            <img class="lightbox-content" id="lightbox-img">
+        </div>
+
+        <div class="zoom-toolbar" id="zoom-toolbar">
+            <button id="zoom-out" class="zoom-btn">-</button>
+            <button id="zoom-in" class="zoom-btn">+</button>
+        </div>
+        </div>
+
 </body>
 
 </html>
+
+
+
