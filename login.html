@@ -19,30 +19,32 @@
     <button id="login-btn" style="padding: 10px 20px; font-size: 16px;">Iniciar Sesión</button>
 
     <script>
-        // ⚠️ TUS CREDENCIALES
+        // 🛑 TUS CREDENCIALES (DEBEN SER FIJAS)
         const auth0_domain = 'dev-8nfvmq7g3rifqdu4.us.auth0.com'; 
         const auth0_client_id = 't15UKfkVM0DacmpDIm0OsLSne9X5KoRH'; 
-        const auth0_callback_url = window.location.origin; 
         
-        // AUDIENCE: Se mantiene para evitar el Error 400 de Auth0 (RBAC/API obligatorio)
+        // 🔑 CORRECCIÓN FINAL: Usamos la URL fija registrada en Auth0 (con la barra final)
+        const auth0_callback_url = 'https://azor-calidad.netlify.app/'; 
+        
+        // AUDIENCE: Necesario para evitar el Error 400 si RBAC está activo
         const auth0_audience = `https://${auth0_domain}/api/v2/`; 
-        
-        // --- CONSTRUCCIÓN DE LA URL DE AUTORIZACIÓN (FLUJO CODE) ---
+
+        // --- CONSTRUCCIÓN DE LA URL DE AUTORIZACIÓN (FLUJO AUTHORIZATION CODE) ---
         const authUrl = `https://${auth0_domain}/authorize?` +
-                        `response_type=code&` + 
+                        `response_type=code&` + // Usamos 'code' para mayor compatibilidad
                         `client_id=${auth0_client_id}&` +
                         `audience=${encodeURIComponent(auth0_audience)}&` + 
-                        `redirect_uri=${encodeURIComponent(auth0_callback_url)}&` +
+                        `redirect_uri=${encodeURIComponent(auth0_callback_url)}&` + // USAMOS LA URL FIJA
                         `scope=openid%20profile%20email`;
 
         function login() {
             window.location.replace(authUrl);
         }
 
-        // 1. Iniciar el login automáticamente
+        // Iniciar el login automáticamente
         window.onload = login;
 
-        // 2. Conectar la función al botón
+        // Conectar la función al botón
         document.getElementById('login-btn').addEventListener('click', login);
     </script>
 </body>
