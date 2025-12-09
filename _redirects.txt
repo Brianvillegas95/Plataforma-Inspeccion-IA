@@ -1,0 +1,2 @@
+/login.html 200
+/* /login.html 401! Role=member
