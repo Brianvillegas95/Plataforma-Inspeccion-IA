@@ -1,18 +1,24 @@
+# 1. Permite el acceso al favicon sin restricciones (para evitar 404s)
 [[redirects]]
   from = "/favicon.ico"
   to = "/favicon.ico"
   status = 200
 
+# 2. Permite el acceso directo a la página de login (sin restricciones)
 [[redirects]]
   from = "/login.html"
   to = "/login.html"
   status = 200
 
+# 🛑 3. RUTA CRUCIAL: Intercepta la URL de retorno única de Auth0
+# Esta regla redirige la respuesta de Auth0 a la función Lambda.
 [[redirects]]
-  from = "/?code=*"
+  from = "/auth-callback"
   to = "/.netlify/functions/auth-callback"
   status = 200
+  force = true 
 
+# 4. REGLA DE PROTECCIÓN: Bloquea todas las demás rutas y redirige al login
 [[redirects]]
   from = "/*"
   to = "/login.html"
