@@ -1,9 +1,8 @@
 // netlify/functions/auth-callback.js
 const axios = require('axios');
-const https = require('https'); // 🛑 1. Importar el módulo HTTPS para el diagnóstico
+const https = require('https'); 
 
-// Crea un agente que desactiva la verificación SSL/TLS estricta.
-// Esto nos ayudará a diagnosticar si el error 500 es causado por un conflicto de certificados en el entorno de Netlify.
+// Crea un agente que desactiva la verificación SSL/TLS estricta (Diagnóstico Final)
 const agent = new https.Agent({
     rejectUnauthorized: false
 });
@@ -26,11 +25,11 @@ exports.handler = async (event, context) => {
         };
     }
 
-    // Usamos la URL de la raíz (con la barra final) para coincidir con Auth0
+    // La URL debe coincidir exactamente con la configurada en Auth0 (la raíz)
     const redirectUri = 'https://azor-calidad.netlify.app/'; 
 
     try {
-        // 2. Intercambiar el código por los tokens (ID Token y Access Token)
+        // 2. Intercambiar el código por los tokens (¡Aquí se usa el Client Secret de Netlify!)
         const tokenResponse = await axios.post(`https://${AUTH0_DOMAIN}/oauth/token`, {
             grant_type: 'authorization_code',
             client_id: AUTH0_CLIENT_ID,
@@ -39,7 +38,7 @@ exports.handler = async (event, context) => {
             redirect_uri: redirectUri,
         }, {
             headers: { 'Content-Type': 'application/json' },
-            httpsAgent: agent, // 🛑 2. Usar el agente de diagnóstico
+            httpsAgent: agent, // Usar el agente de diagnóstico
         });
 
         const { id_token, access_token } = tokenResponse.data;
@@ -50,10 +49,8 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 302,
             headers: {
-                // 🛑 Set-Cookie (sin Secure)
+                // Set-Cookie (sin Secure, para máxima compatibilidad)
                 'Set-Cookie': `nf_jwt=${id_token}; Path=/; Max-Age=3600; HttpOnly`,
-                
-                // Redirige al home (/) para que Netlify revise la autenticación
                 'Location': finalRedirect,
                 'Cache-Control': 'no-cache',
             },
