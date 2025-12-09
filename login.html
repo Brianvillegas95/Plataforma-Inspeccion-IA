@@ -35,7 +35,7 @@
                         `client_id=${auth0_client_id}&` +
                         `audience=${encodeURIComponent(auth0_audience)}&` + 
                         `redirect_uri=${encodeURIComponent(auth0_callback_url)}&` + // Usa la nueva ruta
-                        `scope=openid%20email`; 
+                        `scope=openid%20email%20read:api`; 
 
         function login() {
             window.location.replace(authUrl);
