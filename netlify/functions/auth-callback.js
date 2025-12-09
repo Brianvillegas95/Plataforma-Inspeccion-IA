@@ -45,14 +45,12 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 302,
             headers: {
-                // 🔑 CRÍTICO: Establece la cookie de sesión para mantener el estado.
-                // HttpOnly = evita acceso por JavaScript (seguridad). 
-                // Secure = solo se envía sobre HTTPS.
-                // Max-Age = Duración de la sesión (ej. 1 hora).
-                'Set-Cookie': `nf_jwt=${id_token}; Path=/; Max-Age=3600; HttpOnly; Secure`,
+                // 🛑 CORRECCIÓN FINAL: Removimos el flag 'Secure' para evitar que navegadores rechacen la cookie
+                // Si el sitio no está en HTTPS estricto. (No remuevas HttpOnly)
+                'Set-Cookie': `nf_jwt=${id_token}; Path=/; Max-Age=3600; HttpOnly`,
                 
                 // Redirige al home (/) para que Netlify revise la autenticación
-                'Location': finalRedirect,
+                'Location': 'https://azor-calidad.netlify.app/',
                 'Cache-Control': 'no-cache',
             },
             body: '',
