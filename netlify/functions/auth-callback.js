@@ -20,7 +20,7 @@ exports.handler = async (event, context) => {
     }
 
     // 🛑 CORRECCIÓN: Usamos la URL sin barra final para evitar conflictos en el backend.
-    const redirectUri = 'https://azor-calidad.netlify.app/auth-callback'; 
+    const redirectUri = 'https://azor-calidad.netlify.app/'; 
 
     try {
         // 2. Intercambiar el código por los tokens (ID Token y Access Token)
