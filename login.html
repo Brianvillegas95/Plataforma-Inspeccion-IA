@@ -19,33 +19,30 @@
     <button id="login-btn" style="padding: 10px 20px; font-size: 16px;">Iniciar Sesión</button>
 
     <script>
-        // ⚠️ USAMOS LA URL CON LA REGIÓN (US) Y SIN REGIÓN COMO RESPALDO
-        const auth0_domain_us = 'dev-8nfvmq7g3rifqdu4.us.auth0.com'; 
+        // ⚠️ TUS CREDENCIALES
+        const auth0_domain = 'dev-8nfvmq7g3rifqdu4.us.auth0.com'; 
         const auth0_client_id = 't15UKfkVM0DacmpDIm0OsLSne9X5KoRH'; 
-        const auth0_callback_url = window.location.origin; // https://azor-calidad.netlify.app
-
-        // URL DE LA AUDIENCE (API) REQUERIDA POR AUTH0 PARA EL FLUJO RBAC/TOKEN
-        // Usamos la URL de la Management API que Auth0 crea por defecto
-        const auth0_audience = `https://${auth0_domain_us}/api/v2/`;
+        const auth0_callback_url = window.location.origin; 
         
-        // --- Construir la URL de autenticación manualmente (CORRECCIÓN CLAVE) ---
+        // AUDIENCE: Se mantiene para evitar el Error 400 de Auth0 (RBAC/API obligatorio)
+        const auth0_audience = `https://${auth0_domain}/api/v2/`; 
         
-        const authUrl = `https://${auth0_domain_us}/authorize?` +
-                        `response_type=token%20id_token&` +
+        // --- CONSTRUCCIÓN DE LA URL DE AUTORIZACIÓN (FLUJO CODE) ---
+        const authUrl = `https://${auth0_domain}/authorize?` +
+                        `response_type=code&` + 
                         `client_id=${auth0_client_id}&` +
-                        `audience=${encodeURIComponent(auth0_audience)}&` + // 🔑 AÑADIDO ESTE PARÁMETRO
+                        `audience=${encodeURIComponent(auth0_audience)}&` + 
                         `redirect_uri=${encodeURIComponent(auth0_callback_url)}&` +
                         `scope=openid%20profile%20email`;
 
         function login() {
-            // Usamos window.location.replace para la redirección
             window.location.replace(authUrl);
         }
 
-        // Iniciar el login automáticamente
+        // 1. Iniciar el login automáticamente
         window.onload = login;
 
-        // Conectar la función al botón
+        // 2. Conectar la función al botón
         document.getElementById('login-btn').addEventListener('click', login);
     </script>
 </body>
