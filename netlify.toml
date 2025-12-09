@@ -18,6 +18,11 @@
   status = 200
   force = true 
 
+[[redirects]]
+  from = "/logged-out"
+  to = "/login.html"
+  status = 200
+
 # 4. REGLA DE PROTECCIÓN: Bloquea todas las demás rutas y redirige al login
 [[redirects]]
   from = "/*"

@@ -12,7 +12,6 @@ exports.handler = async (event, context) => {
     // 1. Obtener el código de autorización de la URL de retorno
     const { code } = event.queryStringParameters;
     
-    // Si no hay código, algo salió mal
     if (!code) {
         return {
             statusCode: 400,
@@ -20,7 +19,8 @@ exports.handler = async (event, context) => {
         };
     }
 
-    const redirectUri = 'https://azor-calidad.netlify.app'; // Debe coincidir con el valor FIJO
+    // 🛑 CORRECCIÓN: Usamos la URL sin barra final para evitar conflictos en el backend.
+    const redirectUri = 'https://azor-calidad.netlify.app/auth-callback'; 
 
     try {
         // 2. Intercambiar el código por los tokens (ID Token y Access Token)
@@ -36,14 +36,23 @@ exports.handler = async (event, context) => {
 
         const { id_token, access_token } = tokenResponse.data;
 
-        // 3. Redireccionar al cliente, estableciendo una cookie o token de sesión
-        // En un SPA, esto sería establecer cookies y redirigir al /index.html
+        // 3. Redireccionar al cliente, estableciendo una cookie de sesión.
+        // La cookie es necesaria para que Netlify reconozca la sesión.
+        
+        // La URL final de redirección después del login exitoso.
+        const finalRedirect = 'https://azor-calidad.netlify.app/'; 
+
         return {
             statusCode: 302,
             headers: {
-                // Aquí va la lógica para manejar el token de manera segura (ej. cookies)
-                // Para una prueba simple, redirigimos al home.
-                'Location': redirectUri + '#access_token=' + access_token + '&id_token=' + id_token,
+                // 🔑 CRÍTICO: Establece la cookie de sesión para mantener el estado.
+                // HttpOnly = evita acceso por JavaScript (seguridad). 
+                // Secure = solo se envía sobre HTTPS.
+                // Max-Age = Duración de la sesión (ej. 1 hora).
+                'Set-Cookie': `nf_jwt=${id_token}; Path=/; Max-Age=3600; HttpOnly; Secure`,
+                
+                // Redirige al home (/) para que Netlify revise la autenticación
+                'Location': finalRedirect,
                 'Cache-Control': 'no-cache',
             },
             body: '',
