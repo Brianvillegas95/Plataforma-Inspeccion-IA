@@ -20,7 +20,7 @@ exports.handler = async (event, context) => {
         };
     }
 
-    const redirectUri = 'https://azor-calidad.netlify.app/'; // Debe coincidir con el valor FIJO
+    const redirectUri = 'https://azor-calidad.netlify.app'; // Debe coincidir con el valor FIJO
 
     try {
         // 2. Intercambiar el código por los tokens (ID Token y Access Token)
