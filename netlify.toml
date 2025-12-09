@@ -1,4 +1,4 @@
- [[redirects]]
+[[redirects]]
   from = "/favicon.ico"
   to = "/favicon.ico"
   status = 200
@@ -7,6 +7,12 @@
   from = "/login.html"
   to = "/login.html"
   status = 200
+
+[[redirects]]
+  from = "/?code=*"
+  to = "/.netlify/functions/auth-callback"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/*"
