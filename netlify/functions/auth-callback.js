@@ -1,5 +1,12 @@
 // netlify/functions/auth-callback.js
 const axios = require('axios');
+const https = require('https'); // 🛑 1. Importar el módulo HTTPS para el diagnóstico
+
+// Crea un agente que desactiva la verificación SSL/TLS estricta.
+// Esto nos ayudará a diagnosticar si el error 500 es causado por un conflicto de certificados en el entorno de Netlify.
+const agent = new https.Agent({
+    rejectUnauthorized: false
+});
 
 // Lee las variables de entorno de Netlify
 const { 
@@ -19,7 +26,7 @@ exports.handler = async (event, context) => {
         };
     }
 
-    // 🛑 CORRECCIÓN: Usamos la URL sin barra final para evitar conflictos en el backend.
+    // Usamos la URL de la raíz (con la barra final) para coincidir con Auth0
     const redirectUri = 'https://azor-calidad.netlify.app/'; 
 
     try {
@@ -31,32 +38,30 @@ exports.handler = async (event, context) => {
             code: code,
             redirect_uri: redirectUri,
         }, {
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            httpsAgent: agent, // 🛑 2. Usar el agente de diagnóstico
         });
 
         const { id_token, access_token } = tokenResponse.data;
 
         // 3. Redireccionar al cliente, estableciendo una cookie de sesión.
-        // La cookie es necesaria para que Netlify reconozca la sesión.
-        
-        // La URL final de redirección después del login exitoso.
         const finalRedirect = 'https://azor-calidad.netlify.app/'; 
 
         return {
             statusCode: 302,
             headers: {
-                // 🛑 CORRECCIÓN FINAL: Removimos el flag 'Secure' para evitar que navegadores rechacen la cookie
-                // Si el sitio no está en HTTPS estricto. (No remuevas HttpOnly)
+                // 🛑 Set-Cookie (sin Secure)
                 'Set-Cookie': `nf_jwt=${id_token}; Path=/; Max-Age=3600; HttpOnly`,
                 
                 // Redirige al home (/) para que Netlify revise la autenticación
-                'Location': 'https://azor-calidad.netlify.app/',
+                'Location': finalRedirect,
                 'Cache-Control': 'no-cache',
             },
             body: '',
         };
 
     } catch (error) {
+        // Reporta el error completo de la respuesta de Auth0
         console.error('Error exchanging code:', error.response ? error.response.data : error.message);
         return {
             statusCode: 500,
