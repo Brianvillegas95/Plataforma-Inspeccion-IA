@@ -10,3 +10,8 @@
   force = true
   signed = "auth0"
   conditions = {Role = ["member"]}
+
+  [[redirects]]
+  from = "/favicon.ico"
+  to = "/favicon.ico"
+  status = 200
