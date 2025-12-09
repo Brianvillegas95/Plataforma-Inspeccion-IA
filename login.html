@@ -26,7 +26,7 @@
         const auth0_callback_url = 'https://azor-calidad.netlify.app/'; 
 
         // 🔑 AUDIENCE: Usamos el dominio sin región (lo que funciona para la API)
-        const auth0_audience = `https://dev-8nfvmq7g3rifqdu4.auth0.com/api/v2/`; 
+        const auth0_audience = `https://${auth0_domain}/api/v2/`; 
 
         // --- CONSTRUCCIÓN DE LA URL DE AUTORIZACIÓN (FLUJO CODE) ---
         const authUrl = `https://${auth0_domain}/authorize?` + // Usa el dominio con .us
