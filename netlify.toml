@@ -1,29 +1,31 @@
-# 1. Permite el acceso al favicon sin restricciones (para evitar 404s)
+# 1. Permite el acceso al favicon sin restricciones
 [[redirects]]
   from = "/favicon.ico"
   to = "/favicon.ico"
   status = 200
 
-# 2. Permite el acceso directo a la página de login (sin restricciones)
+# 2. Permite el acceso directo a la página de login
 [[redirects]]
   from = "/login.html"
   to = "/login.html"
   status = 200
 
-# 🛑 3. RUTA CRUCIAL: Intercepta la URL de retorno única de Auth0
-# Esta regla redirige la respuesta de Auth0 a la función Lambda.
-[[redirects]]
-  from = "/auth-callback"
-  to = "/.netlify/functions/auth-callback"
-  status = 200
-  force = true 
-
+# 3. Permite el acceso a la página de logout (Debe estar antes del /*)
 [[redirects]]
   from = "/logged-out"
   to = "/login.html"
   status = 200
 
-# 4. REGLA DE PROTECCIÓN: Bloquea todas las demás rutas y redirige al login
+# 🛑 4. RUTA CRUCIAL: Intercepta cualquier ruta que contenga el parámetro 'code'
+# Esto fuerza a Netlify a ejecutar la función Lambda cuando Auth0 nos devuelve el código.
+[[redirects]]
+  from = "/*" # Aplica a cualquier ruta (incluyendo la raíz '/')
+  to = "/.netlify/functions/auth-callback" # Redirige a la función Lambda
+  status = 200
+  force = true
+  query = {code = ":code"} # Solo se activa si la URL tiene ?code=...
+
+# 5. REGLA DE PROTECCIÓN: Bloquea todas las demás rutas
 [[redirects]]
   from = "/*"
   to = "/login.html"
