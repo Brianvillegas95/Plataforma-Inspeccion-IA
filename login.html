@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Iniciando Sesión...</title>
+    <script src="https://cdn.auth0.com/js/auth0/9.25.0/auth0.min.js"></script> 
+    
     <style>
         body {
             font-family: sans-serif;
@@ -18,15 +20,11 @@
     <p>Si no es redirigido automáticamente, haga clic en el botón de abajo.</p>
     <button id="login-btn" style="padding: 10px 20px; font-size: 16px;">Iniciar Sesión</button>
 
-    <script src="https://cdn.auth0.com/js/auth0/9.25.0/auth0.min.js"></script>
-
     <script>
-        // ⚠️ REEMPLAZA ESTOS DOS VALORES con tus credenciales de Auth0
-        const auth0_domain = 'dev-8nfvmq7g3rifqdu4.auth0.com'; // Ejemplo: 'dev-8nfvmq7g3rifqdu4.auth0.com'
-        const auth0_client_id = 't15UKfkVM0DacmpDIm0OsLSne9X5KoRH'; // Ejemplo: 'tf5UKRvMODacmpDimOdLSne9iSKoRH'
+        // ⚠️ REEMPLAZA TUS VALORES (con el sufijo de región, si es necesario)
+        const auth0_domain = 'dev-8nfvmq7g3rifqdu4.us.auth0.com'; 
+        const auth0_client_id = 't15UKfkVM0DacmpDIm0OsLSne9X5KoRH'; 
         
-        // La URL a la que Auth0 debe regresar después del login.
-        // Debe coincidir con la URL de callback que tienes configurada en Auth0.
         const auth0_callback_url = window.location.origin;
 
         // --- Inicialización y Función de Login ---
@@ -35,9 +33,9 @@
         const webAuth = new auth0.WebAuth({
             domain: auth0_domain,
             clientID: auth0_client_id,
-            responseType: 'token id_token', // Necesitas el id_token para el RBAC de Netlify
+            responseType: 'token id_token',
             redirectUri: auth0_callback_url,
-            scope: 'openid profile email' // Solicitar datos básicos del usuario
+            scope: 'openid profile email' 
         });
 
         function login() {
