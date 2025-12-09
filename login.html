@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="https://cdn.auth0.com/js/auth0/9.25.0/auth0.min.js" defer></script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Iniciando Sesión...</title>
-    
     <style>
         body {
             font-family: sans-serif;
@@ -21,31 +19,26 @@
     <button id="login-btn" style="padding: 10px 20px; font-size: 16px;">Iniciar Sesión</button>
 
     <script>
-        // ⚠️ REEMPLAZA TUS VALORES (con el sufijo de región, si es necesario)
-        const auth0_domain = 'dev-8nfvmq7g3rifqdu4.auth0.com'; 
+        // ⚠️ REEMPLAZA ESTOS DOS VALORES CON TUS CREDENCIALES
+        const auth0_domain = 'dev-8nfvmq7g3rifqdu4.us.auth0.com'; // O .auth0.com sin .us
         const auth0_client_id = 't15UKfkVM0DacmpDIm0OsLSne9X5KoRH'; 
-        
-        const auth0_callback_url = window.location.origin;
+        const auth0_callback_url = window.location.origin; // https://azor-calidad.netlify.app
 
-        // --- Inicialización y Función de Login ---
-        
-        // 1. Inicializar el cliente de Auth0
-        const webAuth = new auth0.WebAuth({
-            domain: auth0_domain,
-            clientID: auth0_client_id,
-            responseType: 'token id_token',
-            redirectUri: auth0_callback_url,
-            scope: 'openid profile email' 
-        });
+        // Construir la URL de autenticación manualmente
+        const authUrl = `https://${auth0_domain}/authorize?` +
+                        `response_type=token%20id_token&` +
+                        `client_id=${auth0_client_id}&` +
+                        `redirect_uri=${encodeURIComponent(auth0_callback_url)}&` +
+                        `scope=openid%20profile%20email`;
 
         function login() {
-            webAuth.authorize();
+            window.location.replace(authUrl);
         }
 
-        // 2. Iniciar el login automáticamente
+        // Iniciar el login automáticamente
         window.onload = login;
 
-        // 3. Conectar la función al botón por si falla la redirección automática
+        // Conectar la función al botón
         document.getElementById('login-btn').addEventListener('click', login);
     </script>
 </body>
