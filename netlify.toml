@@ -1,0 +1,12 @@
+[[redirects]]
+  from = "/login.html"
+  to = "/login.html"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/login.html"
+  status = 401
+  force = true
+  signed = "auth0"
+  conditions = {Role = ["member"]}
