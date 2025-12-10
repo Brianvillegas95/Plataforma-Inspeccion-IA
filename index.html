@@ -10,10 +10,10 @@
     </head>
 
 <body>
-    <div id="login-screen" style="text-align: center; padding-top: 15vh; font-family: sans-serif;">
+    <div id="login-screen" style="text-align: center; padding-top: 15vh; font-family: sans-serif; background-color: #333; color: white; min-height: 100vh;">
         <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" style="width: 150px; margin-bottom: 20px;">
         <h1>Acceso a Plataforma IA</h1>
-        <p>Por favor, inicie sesión para acceder a las herramientas de inspección de Grupo Azor.</p>
+        <p>Por favor, inicie sesión para acceder a las herramientas digitales potenciadas con IA de Grupo Azor.</p>
         <button id="login-button" onclick="login()" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 5px; margin-top: 20px;">
             <i class="fas fa-sign-in-alt"></i> Iniciar Sesión con Auth0
         </button>
@@ -214,8 +214,7 @@
             &copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados. Impulsado por IA.
         </footer>
     </div>
-  </div>
-
+  
     <div id="chatbot-widget" style="right: 80px; bottom: 30px;">
         <div id="chat-bubble" style="background: transparent; box-shadow: none;">
             <img src="imagenes/Chat.png" alt="Abrir Chat" style="width: 110px; height: 110px;">
@@ -231,6 +230,8 @@
                 </div>
         </div>
     </div>
+  </div>
+
     <script>
         // Script para el año en el footer
         document.getElementById('currentYear').textContent = new Date().getFullYear();
