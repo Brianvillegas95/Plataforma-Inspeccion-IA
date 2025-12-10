@@ -70,8 +70,9 @@
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle" data-area="Mejora Continua">Mejora Continua <i class="fas fa-angle-down nav-arrow"></i></a>
                         <ul class="dropdown-menu">
-                            <li><a href="dashboard-ajustes.html">KPI Ajustes Inventario</a></li>
-                            <li><a href="kpi_mantenimiento.html">KPI Mantenimiento</a></li>
+                            <li id="link-dashboard-ajustes" style="display:none;"><a href="dashboard-ajustes.html">KPI Ajustes Inventario</a></li>
+                            <li id="link-kpis" style="display:none;"><a href="kpi_mantenimiento.html">KPI Mantenimiento</a></li>
+                            <li id="link-admin-mantenimiento" style="display:none;"><a href="admin_mantenimiento.html">Admin Mantenimiento</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -460,6 +461,7 @@
         // *** CREDENCIALES DE TU APP AZOR-CALIDAD-NETLIFY ***
         const AUTH0_DOMAIN = "dev-8nfvmq7g3rifqdu4.us.auth0.com";
         const AUTH0_CLIENT_ID = "pQcvfNTw848DR4DtRKKUN8nxcsquGkAo"; 
+        const AZOR_API_AUDIENCE = "https://azor-calidad.netlify.app"; // Identificador de tu API
 
         let auth0Client = null;
 
@@ -469,7 +471,8 @@
                 domain: AUTH0_DOMAIN,
                 clientId: AUTH0_CLIENT_ID,
                 authorizationParams: {
-                    redirect_uri: window.location.origin 
+                    redirect_uri: window.location.origin,
+                    audience: AZOR_API_AUDIENCE // Solicitar Access Token
                 }
             });
         };
@@ -489,7 +492,11 @@
 
         // Inicia el proceso de Login (redirige a Auth0)
         const login = async () => {
-            await auth0Client.loginWithRedirect();
+            await auth0Client.loginWithRedirect({
+                 authorizationParams: {
+                    audience: AZOR_API_AUDIENCE 
+                 }
+            });
         };
 
         // Cierra la sesión
@@ -501,39 +508,83 @@
             });
         };
 
-        // Actualiza la interfaz para mostrar/ocultar contenido
+        // Función auxiliar para ocultar todos los enlaces si no están autenticados
+        const hideAllRestrictedLinks = (kpis, dashboard, admin) => {
+            if (kpis) kpis.style.display = 'none';
+            if (dashboard) dashboard.style.display = 'none';
+            if (admin) admin.style.display = 'none';
+        };
+
+        // Actualiza la interfaz para mostrar/ocultar contenido y aplicar restricciones por rol
         const updateUI = async () => {
             const isAuthenticated = await auth0Client.isAuthenticated();
             
+            // Elementos de la interfaz general
             const protectedContent = document.getElementById('protected-content');
             const loginScreen = document.getElementById('login-screen');
             const logoutButton = document.getElementById('logout-button');
+            
+            // Elementos de menú que controlaremos por ID (DEBEN COINCIDIR CON LOS ID DEL HTML)
+            const kpisLink = document.getElementById('link-kpis');
+            const dashboardAjustesLink = document.getElementById('link-dashboard-ajustes');
+            const adminMantenimientoLink = document.getElementById('link-admin-mantenimiento');
 
             if (isAuthenticated) {
                 // Mostrar contenido protegido y ocultar login
                 if(protectedContent) protectedContent.style.display = 'block';
                 if(loginScreen) loginScreen.style.display = 'none';
                 if(logoutButton) logoutButton.style.display = 'inline-block';
+
+                // ----------------------------------------------------
+                // LÓGICA DE RESTRICCIÓN POR ROLES
+                // ----------------------------------------------------
+                
+                const token = await auth0Client.getIdTokenClaims();
+                // Leemos los roles del claim que inyectamos con la Action:
+                const userRoles = token['https://azor-calidad.netlify.app/roles'] || []; 
+                
+                console.log("Usuario autenticado. Roles encontrados:", userRoles); // Para depuración
+
+                const isAdmin = userRoles.includes('admin');
+                const isSuperMan = userRoles.includes('super_man');
+                const isSuper = userRoles.includes('super');
+                
+                // --- Regla 1 y 2: KPIs y Dashboard Ajustes ---
+                // Visible para: admin, super_man, super
+                const canSeeKpisAndDashboard = isAdmin || isSuperMan || isSuper;
+                
+                if (kpisLink) {
+                    kpisLink.style.display = canSeeKpisAndDashboard ? 'block' : 'none';
+                }
+                
+                if (dashboardAjustesLink) {
+                    dashboardAjustesLink.style.display = canSeeKpisAndDashboard ? 'block' : 'none';
+                }
+
+                // --- Regla 3: Admin Mantenimiento ---
+                // Visible para: admin, super_man
+                const canSeeAdminMantenimiento = isAdmin || isSuperMan;
+                
+                if (adminMantenimientoLink) {
+                    adminMantenimientoLink.style.display = canSeeAdminMantenimiento ? 'block' : 'none';
+                }
+                
             } else {
                 // Ocultar contenido protegido y mostrar login
                 if(protectedContent) protectedContent.style.display = 'none';
                 if(loginScreen) loginScreen.style.display = 'block';
                 if(logoutButton) logoutButton.style.display = 'none';
+                
+                // Ocultamos todos los enlaces restringidos
+                hideAllRestrictedLinks(kpisLink, dashboardAjustesLink, adminMantenimientoLink);
             }
         };
 
         // Función principal que se ejecuta al cargar la página
-        // IMPORTANTE: Esta línea sobrescribirá el window.onload de tu script anterior
         window.onload = async () => {
             await configureClient();
             await handleRedirectCallback();
             await updateUI();
-            
-            // DESCOMETAR PARA REDIRECCIÓN AUTOMATICA 
-            //const isAuthenticated = await auth0Client.isAuthenticated();
-            //if (!isAuthenticated) {
-            //    await login(); 
-            //} 
         };
     </script>
     
@@ -557,6 +608,3 @@
 </body>
 
 </html>
-
-
-
