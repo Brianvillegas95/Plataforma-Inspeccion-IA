@@ -553,18 +553,31 @@
                 if(logoutButton) logoutButton.style.display = 'inline-block';
 
                 // ----------------------------------------------------
-                // LÓGICA DE RESTRICCIÓN POR ROLES: LEYENDO ACCESS TOKEN
+                // LÓGICA DE RESTRICCIÓN POR ROLES: LEYENDO AMBOS TOKENS
                 // ----------------------------------------------------
-                
-                // 1. Obtener el Access Token (donde los roles deberían estar inyectados)
-                const accessToken = await auth0Client.getTokenSilently(); 
-                const parsedToken = parseJwt(accessToken); // Decodificar el token
 
-                // 2. Leer los roles del claim
-                // Usamos el claim de tu API: https://azor-calidad.netlify.app/roles
-                const userRoles = parsedToken ? parsedToken['https://azor-calidad.netlify.app/roles'] || [] : []; 
-                
-                console.log("Usuario autenticado. Roles encontrados:", userRoles); // Para depuración
+                // 1. Definimos la URL del claim
+                const CLAIM_URL = 'https://azor-calidad.netlify.app/roles';
+                let userRoles = [];
+
+                try {
+                    // INTENTO A: Leer del ID Token (más simple)
+                    const idTokenClaims = await auth0Client.getIdTokenClaims();
+                    if (idTokenClaims && idTokenClaims[CLAIM_URL] && idTokenClaims[CLAIM_URL].length > 0) {
+                       userRoles = idTokenClaims[CLAIM_URL];
+                    } else {
+                       // INTENTO B: Leer del Access Token (más robusto con API)
+                       const accessToken = await auth0Client.getTokenSilently(); 
+                       const parsedToken = parseJwt(accessToken); // Requiere la función parseJwt
+                       if (parsedToken && parsedToken[CLAIM_URL]) {
+                          userRoles = parsedToken[CLAIM_URL];
+                       }
+                    }
+                } catch (error) {
+                    console.error("Error al obtener o decodificar tokens:", error);
+                }
+
+                 console.log("Usuario autenticado. Roles encontrados:", userRoles); 
 
                 const isAdmin = userRoles.includes('admin');
                 const isSuperMan = userRoles.includes('super_man');
