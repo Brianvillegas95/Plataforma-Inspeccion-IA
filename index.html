@@ -8,7 +8,18 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     </head>
+
 <body>
+    <div id="login-screen" style="text-align: center; padding-top: 15vh; font-family: sans-serif;">
+        <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" style="width: 150px; margin-bottom: 20px;">
+        <h1>Acceso a Plataforma IA</h1>
+        <p>Por favor, inicie sesión para acceder a las herramientas de inspección de Grupo Azor.</p>
+        <button id="login-button" onclick="login()" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 5px; margin-top: 20px;">
+            <i class="fas fa-sign-in-alt"></i> Iniciar Sesión con Auth0
+        </button>
+    </div>
+
+  <div id="protected-content" style="display:none;">
     <div class="app-container">
         <header class="app-header">
             <div class="logo-container">
@@ -66,6 +77,10 @@
                 </ul>
             </nav>
 
+            <button id="logout-button" onclick="logout()" style="margin-left: 20px; padding: 10px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 4px; display:none;">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </button>
+            
             <div data-netlify-identity-menu class="identity-menu-container"></div>
         </header>
 
@@ -199,6 +214,7 @@
             &copy; <span id="currentYear"></span> Grupo Azor México. Todos los derechos reservados. Impulsado por IA.
         </footer>
     </div>
+  </div>
 
     <div id="chatbot-widget" style="right: 80px; bottom: 30px;">
         <div id="chat-bubble" style="background: transparent; box-shadow: none;">
@@ -435,6 +451,89 @@
                 aqlResultsDiv.style.display = 'block';
             });
         }
+    </script>
+
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+
+    <script>
+        // *** CREDENCIALES DE TU APP AZOR-CALIDAD-NETLIFY ***
+        const AUTH0_DOMAIN = "dev-8nfvmq7g3rifqdu4.us.auth0.com";
+        const AUTH0_CLIENT_ID = "pQcvfNTw848DR4DtRKKUN8nxcsquGkAo"; 
+
+        let auth0Client = null;
+
+        // Inicializa el cliente de Auth0
+        const configureClient = async () => {
+            auth0Client = await auth0.createAuth0Client({
+                domain: AUTH0_DOMAIN,
+                clientId: AUTH0_CLIENT_ID,
+                authorizationParams: {
+                    redirect_uri: window.location.origin 
+                }
+            });
+        };
+
+        // Maneja el regreso desde la página de login de Auth0
+        const handleRedirectCallback = async () => {
+            const query = window.location.search;
+            if (query.includes("code=") && query.includes("state=")) {
+                try {
+                    await auth0Client.handleRedirectCallback();
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (err) {
+                    console.error("Error al procesar el callback de Auth0:", err);
+                }
+            }
+        };
+
+        // Inicia el proceso de Login (redirige a Auth0)
+        const login = async () => {
+            await auth0Client.loginWithRedirect();
+        };
+
+        // Cierra la sesión
+        const logout = () => {
+            auth0Client.logout({
+                logoutParams: {
+                    returnTo: window.location.origin
+                }
+            });
+        };
+
+        // Actualiza la interfaz para mostrar/ocultar contenido
+        const updateUI = async () => {
+            const isAuthenticated = await auth0Client.isAuthenticated();
+            
+            const protectedContent = document.getElementById('protected-content');
+            const loginScreen = document.getElementById('login-screen');
+            const logoutButton = document.getElementById('logout-button');
+
+            if (isAuthenticated) {
+                // Mostrar contenido protegido y ocultar login
+                if(protectedContent) protectedContent.style.display = 'block';
+                if(loginScreen) loginScreen.style.display = 'none';
+                if(logoutButton) logoutButton.style.display = 'inline-block';
+            } else {
+                // Ocultar contenido protegido y mostrar login
+                if(protectedContent) protectedContent.style.display = 'none';
+                if(loginScreen) loginScreen.style.display = 'block';
+                if(logoutButton) logoutButton.style.display = 'none';
+            }
+        };
+
+        // Función principal que se ejecuta al cargar la página
+        // IMPORTANTE: Esta línea sobrescribirá el window.onload de tu script anterior
+        window.onload = async () => {
+            await configureClient();
+            await handleRedirectCallback();
+            await updateUI();
+            
+            // *** CLAVE DE LA PROTECCIÓN ***: Si no está logueado, forzamos el login
+            const isAuthenticated = await auth0Client.isAuthenticated();
+            if (!isAuthenticated) {
+                await login(); 
+            }
+        };
     </script>
     
     <script src="Archivos/chatbot.js"></script>
