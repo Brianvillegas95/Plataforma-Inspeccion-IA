@@ -2,7 +2,6 @@
   "name": "netlify-functions-for-azor",
   "version": "1.0.0",
   "dependencies": {
-    "googleapis": "^105.0.0",
-    "axios": "^1.6.2"
+    "googleapis": "^105.0.0"
   }
 }
