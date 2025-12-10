@@ -529,11 +529,11 @@
             await handleRedirectCallback();
             await updateUI();
             
-            // *** CLAVE DE LA PROTECCIÓN ***: Si no está logueado, forzamos el login
-            const isAuthenticated = await auth0Client.isAuthenticated();
-            if (!isAuthenticated) {
-                await login(); 
-            }
+            // DESCOMETAR PARA REDIRECCIÓN AUTOMATICA 
+            //const isAuthenticated = await auth0Client.isAuthenticated();
+            //if (!isAuthenticated) {
+            //    await login(); 
+            //} 
         };
     </script>
     
