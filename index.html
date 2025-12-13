@@ -579,6 +579,24 @@
 
                  console.log("Usuario autenticado. Roles encontrados:", userRoles); 
 
+                 const hasNoRole = userRoles.length === 0;
+
+                if (isAuthenticated && hasNoRole) {
+                    console.log("Usuario autenticado pero sin rol. Redirigiendo a logout.");
+    
+                    // Ocultamos todo para evitar destellos de contenido
+                    if(protectedContent) protectedContent.style.display = 'none';
+                    if(loginScreen) loginScreen.style.display = 'block';
+    
+                    // Forzamos el cierre de sesión para que el usuario no pueda continuar
+                    auth0Client.logout({
+                        logoutParams: {
+                            returnTo: window.location.origin
+                        }
+                    });
+                    return; // <--- SÚPER IMPORTANTE: Detiene la ejecución aquí.
+                }
+
                 const isAdmin = userRoles.includes('admin');
                 const isSuperMan = userRoles.includes('super_man');
                 const isSuper = userRoles.includes('super');
