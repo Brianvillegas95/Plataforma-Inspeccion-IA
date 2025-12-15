@@ -73,23 +73,21 @@ const hideAllRestrictedLinks = (kpis, dashboard, admin) => {
 };
 
 // Función principal de inicialización que DEBE ser llamada en cada página
-const initializeAuth = async (authRequired = false, requiredRoles = []) => {
+const initializeAuth = async (authRequired = false, requiredRoles = [], onAuthSuccess = null) => {
     await configureClient();
     await handleRedirectCallback();
-    await updateUI(authRequired, requiredRoles); // Pasa los parámetros
+    await updateUI(authRequired, requiredRoles, onAuthSuccess); // Pasa los parámetros
 };
 
 // Actualiza la interfaz para mostrar/ocultar contenido y aplicar restricciones por rol
-const updateUI = async (authRequired, requiredRoles) => {
+const updateUI = async (authRequired, requiredRoles, onAuthSuccess) => {
     const isAuthenticated = await auth0Client.isAuthenticated();
     
-    // Elementos de la interfaz general
     const mainAppContainer = document.getElementById('app-container');
     const protectedContent = document.getElementById('protected-content');
     const loginScreen = document.getElementById('login-screen');
     const logoutButton = document.getElementById('logout-button');
     
-    // Elementos de menú que controlaremos por ID (DEBEN COINCIDIR CON LOS ID DEL HTML)
     const kpisLink = document.getElementById('link-kpis');
     const dashboardAjustesLink = document.getElementById('link-dashboard-ajustes');
     const adminMantenimientoLink = document.getElementById('link-admin-mantenimiento');
@@ -98,24 +96,19 @@ const updateUI = async (authRequired, requiredRoles) => {
     if (!isAuthenticated) {
         if (authRequired) {
              console.log("Página protegida. Usuario no autenticado. Redirigiendo a login.");
-             // Redirige a Auth0. El callback volverá a esta misma página.
              await login(); 
-             return; // Detiene la ejecución en la subpágina
+             return; 
         }
 
-        // Ocultar contenido protegido y mostrar login (Lógica para index.html NO protegida)
         if(protectedContent) protectedContent.style.display = 'none';
         if(loginScreen) loginScreen.style.display = 'block';
         if(logoutButton) logoutButton.style.display = 'none';
         
-        // Ocultamos todos los enlaces restringidos
         hideAllRestrictedLinks(kpisLink, dashboardAjustesLink, adminMantenimientoLink);
         return;
     }
     
     // Si está autenticado...
-    
-    // Mostrar contenido protegido y ocultar login (solo si existen, útil para index.html)
     if(protectedContent) protectedContent.style.display = 'block';
     if(loginScreen) loginScreen.style.display = 'none';
     if(logoutButton) logoutButton.style.display = 'inline-block';
@@ -124,25 +117,24 @@ const updateUI = async (authRequired, requiredRoles) => {
     // LÓGICA DE RESTRICCIÓN POR ROLES: LEYENDO AMBOS TOKENS
     // ----------------------------------------------------
 
-    // 1. Definimos la URL del claim
     const CLAIM_URL = 'https://azor-calidad.netlify.app/roles';
     let userRoles = [];
+    let tokenRetrievalFailed = false; // <-- BANDERA PARA EVITAR EL BUCLE
 
     try {
-        // INTENTO A: Leer del ID Token (más simple)
         const idTokenClaims = await auth0Client.getIdTokenClaims();
         if (idTokenClaims && idTokenClaims[CLAIM_URL] && idTokenClaims[CLAIM_URL].length > 0) {
             userRoles = idTokenClaims[CLAIM_URL];
         } else {
-            // INTENTO B: Leer del Access Token (más robusto con API)
             const accessToken = await auth0Client.getTokenSilently(); 
-            const parsedToken = parseJwt(accessToken); // Requiere la función parseJwt
+            const parsedToken = parseJwt(accessToken); 
             if (parsedToken && parsedToken[CLAIM_URL]) {
                 userRoles = parsedToken[CLAIM_URL];
             }
         }
     } catch (error) {
-        console.error("Error al obtener o decodificar tokens:", error);
+        console.error("Error al obtener o decodificar tokens (Silencioso Falló):", error);
+        tokenRetrievalFailed = true; // Establecemos la bandera
     }
 
     console.log("Usuario autenticado. Roles encontrados:", userRoles); 
@@ -150,66 +142,61 @@ const updateUI = async (authRequired, requiredRoles) => {
     // === LÓGICA DE BLOQUEO 1: USUARIO AUTENTICADO PERO SIN ROL ===
     const hasNoRole = userRoles.length === 0;
 
-    if (isAuthenticated && hasNoRole) {
+    // ⚠️ CORRECCIÓN CLAVE: Solo hacemos logout si *sabemos* que el usuario no tiene rol
+    // (es decir, el token se cargó exitosamente y estaba vacío).
+    // Si el token falló (tokenRetrievalFailed es true), dejamos que el BLOQUE 2 lo maneje.
+    if (isAuthenticated && hasNoRole && !tokenRetrievalFailed) { 
         console.log("Usuario autenticado pero sin rol. Redirigiendo a logout.");
 
-        // Ocultamos todo para evitar destellos de contenido
         if(protectedContent) protectedContent.style.display = 'none';
         if(loginScreen) loginScreen.style.display = 'block';
 
-        // Forzamos el cierre de sesión para que el usuario no pueda continuar
         auth0Client.logout({
             logoutParams: {
                 returnTo: window.location.origin
             }
         });
-        return; // <--- SÚPER IMPORTANTE: Detiene la ejecución aquí.
+        return; 
     }
     // === FIN DE BLOQUEO 1 ===
 
     // === LÓGICA DE BLOQUEO 2: PÁGINAS CON RESTRICCIÓN DE ROL ESPECÍFICO ===
+    // Si el token falló (tokenRetrievalFailed=true), userRoles es [], y el rol requerido > 0,
+    // esta sección redirige correctamente al index.
     if (requiredRoles.length > 0) {
         const hasRequiredRole = requiredRoles.some(r => userRoles.includes(r));
         if (!hasRequiredRole) {
-            console.warn("Acceso denegado. No tiene los roles necesarios:", requiredRoles);
-            // Redirigimos a la página principal
+            console.warn("Acceso denegado o Fallo en Token. Redirigiendo a Index.");
             window.location.replace(window.location.origin); 
             return;
         }
     }
     // === FIN DE BLOQUEO 2 ===
 
-    // El resto de la lógica (visibilidad de enlaces) SOLO se aplica en index.html
-    // pero si los elementos existen, se ejecutarán.
+    // El resto de la lógica (visibilidad de enlaces en index.html)
     const isAdmin = userRoles.includes('admin');
     const isSuperMan = userRoles.includes('super_man');
     const isSuper = userRoles.includes('super');
     
-    // --- Regla 1 y 2: KPIs y Dashboard Ajustes ---
     const canSeeKpisAndDashboard = isAdmin || isSuperMan || isSuper;
     
-    if (kpisLink) {
-        kpisLink.style.display = canSeeKpisAndDashboard ? 'block' : 'none';
-    }
-    
-    if (dashboardAjustesLink) {
-        dashboardAjustesLink.style.display = canSeeKpisAndDashboard ? 'block' : 'none';
-    }
+    if (kpisLink) kpisLink.style.display = canSeeKpisAndDashboard ? 'block' : 'none';
+    if (dashboardAjustesLink) dashboardAjustesLink.style.display = canSeeKpisAndDashboard ? 'block' : 'none';
 
-    // --- Regla 3: Admin Mantenimiento ---
     const canSeeAdminMantenimiento = isAdmin || isSuperMan;
+    if (adminMantenimientoLink) adminMantenimientoLink.style.display = canSeeAdminMantenimiento ? 'block' : 'none';
     
-    if (adminMantenimientoLink) {
-        adminMantenimientoLink.style.display = canSeeAdminMantenimiento ? 'block' : 'none';
+    // Si pasó todas las verificaciones, mostramos la aplicación y ejecutamos el callback.
+    if (mainAppContainer) {
+        mainAppContainer.style.display = 'block';
     }
 
-    if (mainAppContainer) {
-    mainAppContainer.style.display = 'block';
+    if (onAuthSuccess && typeof onAuthSuccess === 'function') {
+        onAuthSuccess();
     }
 };
 
 // Función de inicialización para la página principal (index.html)
 window.onload = () => {
-    // index.html: No se requiere autenticación estricta (muestra login/logout) y no hay roles específicos
-    initializeAuth(false, []); 
+    initializeAuth(false, [], null); 
 };
