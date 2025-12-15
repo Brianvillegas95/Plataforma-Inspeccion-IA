@@ -74,6 +74,7 @@ const hideAllRestrictedLinks = (kpis, dashboard, admin) => {
 
 // Función principal de inicialización que DEBE ser llamada en cada página
 const initializeAuth = async (authRequired = false, requiredRoles = [], onAuthSuccess = null) => {
+    console.log(`[AUTH] Inicializando autenticación. Requerido: ${authRequired}, Roles necesarios: ${requiredRoles.join(', ') || 'Ninguno'}`);
     await configureClient();
     await handleRedirectCallback();
     await updateUI(authRequired, requiredRoles, onAuthSuccess); // Pasa los parámetros
@@ -95,7 +96,7 @@ const updateUI = async (authRequired, requiredRoles, onAuthSuccess) => {
     // === LÓGICA DE BLOQUEO DE PÁGINAS PROTEGIDAS (NO AUTENTICADO) ===
     if (!isAuthenticated) {
         if (authRequired) {
-             console.log("Página protegida. Usuario no autenticado. Redirigiendo a login.");
+             console.log("[AUTH] Página protegida. Usuario no autenticado. Redirigiendo a login.");
              await login(); 
              return; 
         }
@@ -109,6 +110,7 @@ const updateUI = async (authRequired, requiredRoles, onAuthSuccess) => {
     }
     
     // Si está autenticado...
+    console.log("[AUTH] Usuario autenticado. Procediendo con la verificación de roles.");
     if(protectedContent) protectedContent.style.display = 'block';
     if(loginScreen) loginScreen.style.display = 'none';
     if(logoutButton) logoutButton.style.display = 'inline-block';
@@ -123,30 +125,41 @@ const updateUI = async (authRequired, requiredRoles, onAuthSuccess) => {
 
     try {
         const idTokenClaims = await auth0Client.getIdTokenClaims();
+        console.log("[AUTH] Intentando obtener roles desde ID Token.");
+        
         if (idTokenClaims && idTokenClaims[CLAIM_URL] && idTokenClaims[CLAIM_URL].length > 0) {
             userRoles = idTokenClaims[CLAIM_URL];
+            console.log(`[AUTH] Roles encontrados en ID Token: ${userRoles.join(', ')}`);
         } else {
+            console.log("[AUTH] Roles no encontrados en ID Token. Intentando getTokenSilently.");
             const accessToken = await auth0Client.getTokenSilently(); 
             const parsedToken = parseJwt(accessToken); 
+            
             if (parsedToken && parsedToken[CLAIM_URL]) {
                 userRoles = parsedToken[CLAIM_URL];
+                console.log(`[AUTH] Roles encontrados en Access Token: ${userRoles.join(', ')}`);
+            } else {
+                console.log("[AUTH] Roles no encontrados ni en ID Token ni en Access Token.");
             }
         }
     } catch (error) {
-        console.error("Error al obtener o decodificar tokens (Silencioso Falló):", error);
+        // MENSAJE CLAVE DE FALLO
+        console.error("[AUTH] ALERTA CRÍTICA: Falló la obtención de tokens silenciosa (getTokenSilently). Esto puede causar una redirección por rol fallida.", error);
         tokenRetrievalFailed = true; // Establecemos la bandera
     }
 
-    console.log("Usuario autenticado. Roles encontrados:", userRoles); 
+    console.log("Usuario autenticado. Roles finales:", userRoles); 
 
     // === LÓGICA DE BLOQUEO 1: USUARIO AUTENTICADO PERO SIN ROL ===
     const hasNoRole = userRoles.length === 0;
 
-    // ⚠️ CORRECCIÓN CLAVE: Solo hacemos logout si *sabemos* que el usuario no tiene rol
-    // (es decir, el token se cargó exitosamente y estaba vacío).
-    // Si el token falló (tokenRetrievalFailed es true), dejamos que el BLOQUE 2 lo maneje.
-    if (isAuthenticated && hasNoRole && !tokenRetrievalFailed) { 
-        console.log("Usuario autenticado pero sin rol. Redirigiendo a logout.");
+    // ⚠️ CORRECCIÓN CLAVE: Solo hacemos logout si:
+    // 1. Está autenticado.
+    // 2. NO tiene roles (hasNoRole=true).
+    // 3. El token se cargó exitosamente (!tokenRetrievalFailed).
+    // 4. LA PÁGINA ES RESTRINGIDA (requiredRoles.length > 0).
+    if (isAuthenticated && hasNoRole && !tokenRetrievalFailed && requiredRoles.length > 0) { 
+        console.log("[AUTH] Bloqueo 1 activado. Usuario sin rol, pero la página requiere uno. Redirigiendo a logout.");
 
         if(protectedContent) protectedContent.style.display = 'none';
         if(loginScreen) loginScreen.style.display = 'block';
@@ -161,15 +174,18 @@ const updateUI = async (authRequired, requiredRoles, onAuthSuccess) => {
     // === FIN DE BLOQUEO 1 ===
 
     // === LÓGICA DE BLOQUEO 2: PÁGINAS CON RESTRICCIÓN DE ROL ESPECÍFICO ===
-    // Si el token falló (tokenRetrievalFailed=true), userRoles es [], y el rol requerido > 0,
-    // esta sección redirige correctamente al index.
     if (requiredRoles.length > 0) {
+        console.log(`[AUTH] La página requiere roles: ${requiredRoles.join(', ')}`);
         const hasRequiredRole = requiredRoles.some(r => userRoles.includes(r));
+        
         if (!hasRequiredRole) {
-            console.warn("Acceso denegado o Fallo en Token. Redirigiendo a Index.");
+            // Esto se activa si userRoles=[] debido a un fallo silencioso (tokenRetrievalFailed=true)
+            // o si el usuario simplemente no tiene el rol necesario.
+            console.warn("[AUTH] Acceso denegado. El usuario no tiene el rol requerido o Fallo en Token. Redirigiendo a Index.");
             window.location.replace(window.location.origin); 
             return;
         }
+        console.log("[AUTH] Verificación de rol exitosa. Acceso concedido.");
     }
     // === FIN DE BLOQUEO 2 ===
 
