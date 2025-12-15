@@ -15,7 +15,7 @@
         #app-container {
             display: none;
         }
-        
+
         #login-container {
             padding: 25px; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             max-width: 500px; margin: 40px auto;
@@ -676,12 +676,14 @@
     <script src="auth-security.js"></script>
 
     <script>
-     window.onload = () => {
+    // Usamos DOMContentLoaded para ejecutar la seguridad lo más pronto posible
+    document.addEventListener('DOMContentLoaded', () => {
         // initializeAuth(authRequired, requiredRoles)
-        // Requerimos autenticación (true) y NO requerimos roles específicos ([])
         initializeAuth(true, []); 
-     };
+    });
     </script>
+    
+</body>
 
 </body>
 
