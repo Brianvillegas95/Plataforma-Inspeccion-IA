@@ -161,13 +161,34 @@
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
     <script src="auth-security.js"></script>
 
-    <script>
-        // === FUNCIONES GLOBALES (DEBEN SER ACCESIBLES POR startDashboard) ===
-        let dashboardInterval = null; 
+   <script>
+        // === 0. VARIABLES DE CONTROL GLOBALES (DECLARADAS AQUÍ) ===
+        let dashboardInterval = null;
+        
+        let reassignModal;
+        let newMecSelect;
+        let btnConfirmReassign;
+        let btnCancelReassign;
 
-        // 1. LÓGICA DEL DASHBOARD
+        // Variables auxiliares requeridas por el HTML
+        window.currentReassignRow = null;
+        window.currentReassignMec = null;
+
+        // 1. FUNCIÓN DE CALLBACK (Se ejecuta solo si Auth0 valida el rol)
+        const startDashboard = () => {
+            loadDashboard(); // Carga inicial
+            
+            // Inicia el auto-refresco SÓLO si no está activo
+            if (dashboardInterval === null) {
+                dashboardInterval = setInterval(loadDashboard, 10000); 
+                console.log("Auto-refresco del Dashboard activado.");
+            }
+        };
+
+        // 2. LÓGICA DEL DASHBOARD (TUS FUNCIONES DE NEGOCIO)
         async function loadDashboard() {
             try {
+                // Aquí usamos el fetch para obtener tickets y mecánicos
                 const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
                     body: JSON.stringify({ action: 'admin_get_dashboard' })
@@ -182,18 +203,7 @@
             }
         }
         
-        // 2. FUNCIONES DE CALLBACK Y AUTO-REFRESCO
-        const startDashboard = () => {
-            loadDashboard(); // Carga inicial
-            
-            // Inicia el auto-refresco SÓLO si no está activo
-            if (dashboardInterval === null) {
-                dashboardInterval = setInterval(loadDashboard, 10000); 
-                console.log("Auto-refresco del Dashboard activado.");
-            }
-        };
-
-        // 3. FUNCIONES DE RENDERIZADO
+        // 3. FUNCIONES DE RENDERIZADO (TUS FUNCIONES DE NEGOCIO)
         function renderMechanics(mecanicos) {
             const container = document.getElementById('mechanics-list');
             if(mecanicos.length === 0) { container.innerHTML = '<p style="text-align:center; color:#999;">No hay datos.</p>'; return; }
@@ -263,9 +273,8 @@
 
         // 4. LÓGICA AUXILIAR DE BOTONES Y VENTANAS (Funciones globales requeridas por el HTML)
         window.promptReassign = function(row, currentMec, folio) {
-            const reassignModal = document.getElementById('reassign-modal');
-            const newMecSelect = document.getElementById('new-mechanic-select');
-
+            
+            // Usamos las variables definidas globalmente
             document.getElementById('reassign-job-info').innerHTML = 
                 `<strong>Folio:</strong> ${folio} <br> <strong>Mecánico Actual:</strong> ${currentMec}`;
             
@@ -310,14 +319,14 @@
             }
         }
 
-        // 5. LÓGICA DE EVENTOS DE MODALES (Debe ir dentro de DOMContentLoaded)
+        // 5. LÓGICA DE EVENTOS Y ACTIVACIÓN DE SEGURIDAD
         document.addEventListener('DOMContentLoaded', () => {
          
-            // Variables DOM y control de Reasignación
-            const reassignModal = document.getElementById('reassign-modal');
-            const newMecSelect = document.getElementById('new-mechanic-select');
-            const btnConfirmReassign = document.getElementById('btn-confirm-reassign');
-            const btnCancelReassign = document.getElementById('btn-cancel-reassign');
+            // ⚠️ ASIGNAR VARIABLES DE CONTROL DOM (AHORA ES SEGURO) ⚠️
+            reassignModal = document.getElementById('reassign-modal');
+            newMecSelect = document.getElementById('new-mechanic-select');
+            btnConfirmReassign = document.getElementById('btn-confirm-reassign');
+            btnCancelReassign = document.getElementById('btn-cancel-reassign');
             
             // Llenar el selector de mecánicos del modal al inicio
             async function loadMechanicListForReassign() {
@@ -373,7 +382,7 @@
                 }
             });
             
-            // 6. INICIALIZACIÓN DE SEGURIDAD (EJECUCIÓN RÁPIDA)
+            // INICIALIZACIÓN DE SEGURIDAD (EJECUCIÓN RÁPIDA)
             initializeAuth(true, ['admin', 'super_man'], startDashboard); 
         });
         
