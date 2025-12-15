@@ -9,6 +9,10 @@
     
     <style>
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; }
+
+        #protected-content { 
+            display: none !important;
+        }
         
         /* HEADER ESTILO PRO - CAMBIO DE COLOR */
         .app-header { 
@@ -95,7 +99,8 @@
             </div>
         </div>
     </div>
-
+    
+ <div id="protected-content">
     <header class="app-header">
         <div class="logo-section">
             <i class="fas fa-user-shield fa-lg" style="color: #ffc107;"></i>
@@ -133,6 +138,7 @@
         </div>
 
     </main>
+ </div>
 
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
     <script src="auth-security.js"></script>
