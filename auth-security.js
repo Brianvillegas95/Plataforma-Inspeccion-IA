@@ -84,6 +84,7 @@ const updateUI = async (authRequired, requiredRoles) => {
     const isAuthenticated = await auth0Client.isAuthenticated();
     
     // Elementos de la interfaz general
+    const mainAppContainer = document.getElementById('app-container');
     const protectedContent = document.getElementById('protected-content');
     const loginScreen = document.getElementById('login-screen');
     const logoutButton = document.getElementById('logout-button');
@@ -200,6 +201,10 @@ const updateUI = async (authRequired, requiredRoles) => {
     
     if (adminMantenimientoLink) {
         adminMantenimientoLink.style.display = canSeeAdminMantenimiento ? 'block' : 'none';
+    }
+
+    if (mainAppContainer) {
+    mainAppContainer.style.display = 'block';
     }
 };
 
