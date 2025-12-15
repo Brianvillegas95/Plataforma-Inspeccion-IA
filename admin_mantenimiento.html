@@ -156,25 +156,16 @@
                 </div>
             </div>
         </main>
-    </div> <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+    </div> 
+
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
     <script src="auth-security.js"></script>
 
     <script>
-        // --- FUNCIÓN DE INICIO DE AUTH0 ---
+        // === FUNCIONES GLOBALES (DEBEN SER ACCESIBLES POR startDashboard) ===
         let dashboardInterval = null; 
 
-        // 1. FUNCIÓN DE CALLBACK (Se ejecuta solo si Auth0 valida el rol)
-        const startDashboard = () => {
-            loadDashboard(); // Carga inicial
-            
-            // Inicia el auto-refresco SÓLO si no está activo
-            if (dashboardInterval === null) {
-                dashboardInterval = setInterval(loadDashboard, 10000); 
-                console.log("Auto-refresco del Dashboard activado.");
-            }
-        };
-
-        // 2. LÓGICA DEL DASHBOARD (TUS FUNCIONES DE NEGOCIO)
+        // 1. LÓGICA DEL DASHBOARD
         async function loadDashboard() {
             try {
                 const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
@@ -191,7 +182,18 @@
             }
         }
         
-        // 3. FUNCIONES DE RENDERIZADO (TUS FUNCIONES DE NEGOCIO)
+        // 2. FUNCIONES DE CALLBACK Y AUTO-REFRESCO
+        const startDashboard = () => {
+            loadDashboard(); // Carga inicial
+            
+            // Inicia el auto-refresco SÓLO si no está activo
+            if (dashboardInterval === null) {
+                dashboardInterval = setInterval(loadDashboard, 10000); 
+                console.log("Auto-refresco del Dashboard activado.");
+            }
+        };
+
+        // 3. FUNCIONES DE RENDERIZADO
         function renderMechanics(mecanicos) {
             const container = document.getElementById('mechanics-list');
             if(mecanicos.length === 0) { container.innerHTML = '<p style="text-align:center; color:#999;">No hay datos.</p>'; return; }
@@ -308,7 +310,7 @@
             }
         }
 
-        // 5. LÓGICA DE EVENTOS Y ACTIVACIÓN DE SEGURIDAD
+        // 5. LÓGICA DE EVENTOS DE MODALES (Debe ir dentro de DOMContentLoaded)
         document.addEventListener('DOMContentLoaded', () => {
          
             // Variables DOM y control de Reasignación
@@ -371,7 +373,7 @@
                 }
             });
             
-            // INICIALIZACIÓN DE SEGURIDAD (EJECUCIÓN RÁPIDA)
+            // 6. INICIALIZACIÓN DE SEGURIDAD (EJECUCIÓN RÁPIDA)
             initializeAuth(true, ['admin', 'super_man'], startDashboard); 
         });
         
