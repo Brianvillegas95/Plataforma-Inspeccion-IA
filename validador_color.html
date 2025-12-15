@@ -12,10 +12,6 @@
     <script src="deltae.js"></script> 
     <style>
 
-        #app-container {
-            display: none;
-        }
-
         #login-container {
             padding: 25px; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             max-width: 500px; margin: 40px auto;
@@ -73,7 +69,7 @@
     </style>
 </head>
 <body class="color-validator-body">
-    <div class="app-container" id="app-container">
+    <div class="app-container">
         <header class="app-header">
             <div class="logo-container">
                 <img src="imagenes/Logo azor.png" alt="Logo Grupo Azor" class="logo">
@@ -670,17 +666,6 @@
                 newTestBtn.style.display = 'block';
             });
         });
-    </script>
-
-    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
-    <script src="auth-security.js"></script>
-
-    <script>
-    // Usamos DOMContentLoaded para ejecutar la seguridad lo más pronto posible
-    document.addEventListener('DOMContentLoaded', () => {
-        // initializeAuth(authRequired, requiredRoles)
-        initializeAuth(true, []); 
-    });
     </script>
 
 </body>

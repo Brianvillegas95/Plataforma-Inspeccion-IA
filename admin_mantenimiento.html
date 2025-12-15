@@ -81,6 +81,15 @@
 </head>
 <body>
 
+    <div id="login-overlay">
+        <img src="imagenes/Logo azor.png" style="height: 60px; margin-bottom: 25px;">
+        <h2 style="color: #333; margin-bottom: 10px;">Centro de Comando</h2>
+        <p style="color: #666; margin-bottom: 30px;">Acceso exclusivo Jefatura de Mantenimiento</p>
+        <button id="btn-login" class="button primary-action" style="padding: 12px 40px; font-size: 1.1em; background-color: #005f9e; color: white; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,95,158,0.3);">
+            <i class="fas fa-lock"></i> Iniciar Sesión
+        </button>
+    </div>
+
     <div id="reassign-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;">
         <div style="background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 450px; text-align: center;">
             <h3 style="color: #005f9e; margin-top:0;"><i class="fas fa-exchange-alt"></i> Reasignación de Folio</h3>
@@ -104,6 +113,7 @@
         </div>
         <div>
             <button onclick="window.location.href='kpi_mantenimiento.html'" class="btn-header-nav" style="margin-right: 10px;">Ver Dashboard KPI</button>
+            <button onclick="netlifyIdentity.logout()" class="btn-logout">Cerrar Sesión</button>
         </div>
     </header>
 
@@ -137,7 +147,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            
+
             // Modal Reasignación DOM
             const reassignModal = document.getElementById('reassign-modal');
             const newMecSelect = document.getElementById('new-mechanic-select');
@@ -148,12 +158,9 @@
             let currentReassignRow = null; 
             let currentReassignMec = null; 
 
-            // Se asume que 'btnLogin' y 'netlifyIdentity' provienen de otro script si no son usados aquí.
-            // if (typeof netlifyIdentity !== 'undefined') {
-            //     btnLogin.addEventListener('click', () => {
-            //         netlifyIdentity.open('login');
-            //     });
-            // }
+            btnLogin.addEventListener('click', () => {
+                netlifyIdentity.open('login');
+            });
 
             // Llenar el selector de mecánicos del modal al inicio
             async function loadMechanicListForReassign() {
@@ -172,7 +179,7 @@
                     newMecSelect.innerHTML = '<option value="">Error al cargar</option>';
                 }
             }
-            // Eliminada la llamada a loadMechanicListForReassign() de aquí. Se ejecutará en el callback de seguridad.
+            loadMechanicListForReassign();
 
             // --- LÓGICA DEL DASHBOARD ---
 
@@ -305,19 +312,12 @@
             
             // --- LÓGICA DE CIERRE MANUAL ---
             window.closeManual = async function(row, folio) {
-                // netlifyIdentity ya no está disponible, se debería usar auth0Client si es necesario
-                // Pero por ahora, asumimos que el usuario está logueado gracias a la seguridad.
-                
-                // const adminUser = netlifyIdentity.currentUser(); 
-                // if (!adminUser) {
-                //     alert("Debe iniciar sesión para realizar esta acción.");
-                //     return;
-                // }
-                // const adminName = adminUser.user_metadata.full_name || 'Admin Desconocido'; 
-                
-                // Usaremos un nombre de Admin genérico o pediremos el nombre si es absolutamente necesario,
-                // ya que netlifyIdentity no es parte de este flujo de Auth0.
-                const adminName = "Admin Autenticado"; // Nombre temporal
+                const adminUser = netlifyIdentity.currentUser();
+                if (!adminUser) {
+                    alert("Debe iniciar sesión para realizar esta acción.");
+                    return;
+                }
+                const adminName = adminUser.user_metadata.full_name || 'Admin Desconocido'; 
                 
                 const confirmation = confirm(`⚠️ ¿Confirmar el CIERRE MANUAL del Folio ${folio} (Fila ${row})?\n\nEsta acción es irreversible y marcará el ticket como "Cerrado Manual" a nombre de ${adminName}.`);
                 
@@ -346,28 +346,5 @@
             }
         });
     </script>
-
-    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
-    <script src="auth-security.js"></script>
-
-    <script>
-    // Usamos DOMContentLoaded para ejecutar la seguridad lo más pronto posible
-    document.addEventListener('DOMContentLoaded', () => {
-        // [1] Autenticación Requerida: true
-        // [2] Roles Requeridos: Lista los roles que tienen permiso
-        
-        // ** ÚNICA MODIFICACIÓN: La lógica de la aplicación se ejecuta SOLO si la seguridad es exitosa **
-        initializeAuth(true, ['admin', 'super_man'], () => {
-            console.log("[ADMIN] Seguridad pasada y roles verificados. Inicializando Dashboard.");
-            
-            // Carga la lista de mecánicos para el selector del modal
-            loadMechanicListForReassign();
-            
-            // Carga los datos del dashboard
-            loadDashboard(); 
-        }); 
-    });
-    </script>
-
 </body>
 </html>
