@@ -147,10 +147,6 @@
             let currentReassignRow = null; 
             let currentReassignMec = null; 
 
-            btnLogin.addEventListener('click', () => {
-                netlifyIdentity.open('login');
-            });
-
             // Llenar el selector de mecánicos del modal al inicio
             async function loadMechanicListForReassign() {
                 try {
@@ -169,9 +165,6 @@
                 }
             }
             loadMechanicListForReassign();
-
-            loadDashboard();
-            setInterval(loadDashboard, 10000);
 
             // --- LÓGICA DEL DASHBOARD ---
 
@@ -336,6 +329,9 @@
                     }
                 }
             }
+
+            loadDashboard();
+            setInterval(loadDashboard, 10000);
         });
     </script>
 </body>
