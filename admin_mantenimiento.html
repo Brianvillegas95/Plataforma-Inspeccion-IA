@@ -67,28 +67,11 @@
         .action-btn:hover { background: #005f9e; color: white; border-color: #005f9e; }
         .btn-logout { background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; }
         
-        /* LOGIN OVERLAY */
-        #login-overlay { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(255,255,255,1); 
-            z-index: 50; 
-            display: flex; flex-direction: column; justify-content: center; align-items: center; 
-        }
-
         /* Modal Reasignación CSS */
         .filter-control { padding: 10px 15px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; color: #495057; font-size: 0.95em; transition: border-color 0.2s; }
     </style>
 </head>
 <body>
-
-    <div id="login-overlay">
-        <img src="imagenes/Logo azor.png" style="height: 60px; margin-bottom: 25px;">
-        <h2 style="color: #333; margin-bottom: 10px;">Centro de Comando</h2>
-        <p style="color: #666; margin-bottom: 30px;">Acceso exclusivo Jefatura de Mantenimiento</p>
-        <button id="btn-login" class="button primary-action" style="padding: 12px 40px; font-size: 1.1em; background-color: #005f9e; color: white; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,95,158,0.3);">
-            <i class="fas fa-lock"></i> Iniciar Sesión
-        </button>
-    </div>
 
     <div id="reassign-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;">
         <div style="background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 450px; text-align: center;">
@@ -113,7 +96,6 @@
         </div>
         <div>
             <button onclick="window.location.href='kpi_mantenimiento.html'" class="btn-header-nav" style="margin-right: 10px;">Ver Dashboard KPI</button>
-            <button onclick="netlifyIdentity.logout()" class="btn-logout">Cerrar Sesión</button>
         </div>
     </header>
 
