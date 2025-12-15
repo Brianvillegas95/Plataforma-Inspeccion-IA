@@ -84,6 +84,7 @@ const updateUI = async (authRequired, requiredRoles) => {
     const isAuthenticated = await auth0Client.isAuthenticated();
     
     // Elementos de la interfaz general
+    // El protected-content ahora es crucial para evitar el flasheo.
     const protectedContent = document.getElementById('protected-content');
     const loginScreen = document.getElementById('login-screen');
     const logoutButton = document.getElementById('logout-button');
@@ -115,6 +116,7 @@ const updateUI = async (authRequired, requiredRoles) => {
     // Si está autenticado...
     
     // Mostrar contenido protegido y ocultar login (solo si existen, útil para index.html)
+    // 🛑 ESTO MUESTRA EL CONTENIDO PROTEGIDO SI LA AUTENTICACIÓN ES EXITOSA 🛑
     if(protectedContent) protectedContent.style.display = 'block';
     if(loginScreen) loginScreen.style.display = 'none';
     if(logoutButton) logoutButton.style.display = 'inline-block';
@@ -173,6 +175,10 @@ const updateUI = async (authRequired, requiredRoles) => {
             console.warn("Acceso denegado. No tiene los roles necesarios:", requiredRoles);
             // Redirigimos a la página principal
             window.location.replace(window.location.origin); 
+            
+            // 🛑 SI EL ACCESO ES DENEGADO, OCULTAMOS EL CONTENIDO NUEVAMENTE antes de redirigir
+            if(protectedContent) protectedContent.style.display = 'none';
+
             return;
         }
     }
