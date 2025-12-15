@@ -9,11 +9,6 @@
     
     <style>
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; }
-
-        /* CSS CRÍTICO PARA OCULTAR Y EVITAR DESTELLO (FOUC) */
-        #app-container {
-            display: none; /* Oculta toda la interfaz de la aplicación hasta que JS la valide */
-        }
         
         /* HEADER ESTILO PRO - CAMBIO DE COLOR */
         .app-header { 
@@ -26,11 +21,12 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
         }
         .logo-section h1 { margin: 0; font-size: 1.4em; font-weight: 600; display: flex; align-items: center; gap: 10px; color: white; }
-        .logo-section i.fas { color: #ffc107; } 
+        /* Logo con filtro para que se vea blanco si es necesario */
+        .logo-section i.fas { color: #ffc107; } /* Mantiene el color del escudo */
 
         
         /* BOTÓN DE NAVEGACIÓN PRO */
-        .btn-header-nav { 
+        .btn-header-nav { /* Estilo para el botón de navegación del header */
             background: #ffffff; color: #005f9e; border: 1px solid #ffffff; 
             padding: 8px 15px; border-radius: 6px; font-weight: 600; 
             cursor: pointer; transition: background 0.2s, color 0.2s;
@@ -71,34 +67,16 @@
         .action-btn:hover { background: #005f9e; color: white; border-color: #005f9e; }
         .btn-logout { background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; }
         
+        /* LOGIN OVERLAY */
+        #login-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(255,255,255,1); 
+            z-index: 50; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+        }
+
         /* Modal Reasignación CSS */
-        .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 1000; 
-            left: 0; top: 0; 
-            width: 100%; 
-            height: 100%; 
-            overflow: auto; 
-            background-color: rgba(0,0,0,0.4); 
-            padding-top: 60px;
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto; 
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%; 
-            max-width: 400px;
-            border-radius: 8mm;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        }
-        .modal-content select { width: 100%; padding: 10px; margin: 10px 0 20px; border-radius: 4px; border: 1px solid #ccc; }
-        .modal-actions { display: flex; justify-content: space-between; }
-        .modal-actions button { padding: 10px 15px; border: none; border-radius: 4mm; cursor: pointer; }
-        .modal-actions .btn-confirm { background-color: #4caf50; color: white; }
-        .modal-actions .btn-cancel { background-color: #f4f4f4; color: #333; }
-        .filter-control { padding: 10px 15px; border: 1px solid #dee2e6; border-radius: 6mm; background: #f8f9fa; color: #495057; font-size: 0.95em; transition: border-color 0.2s; }
+        .filter-control { padding: 10px 15px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; color: #495057; font-size: 0.95em; transition: border-color 0.2s; }
     </style>
 </head>
 
@@ -118,7 +96,6 @@
         </div>
     </div>
 
-    <div id="app-container">
         <header class="app-header">
             <div class="logo-section">
                 <i class="fas fa-user-shield fa-lg" style="color: #ffc107;"></i>
@@ -156,236 +133,235 @@
                 </div>
             </div>
         </main>
-    </div> 
+    </div>
 
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
     <script src="auth-security.js"></script>
 
-   <script>
-        // === 0. VARIABLES DE CONTROL GLOBALES (DECLARADAS AQUÍ) ===
-        let dashboardInterval = null;
-        
-        let reassignModal;
-        let newMecSelect;
-        let btnConfirmReassign;
-        let btnCancelReassign;
+ <script>
+    // =======================================================
+    // 1. DEFINICIÓN DE FUNCIONES PRINCIPALES (Fuera de DOMContentLoaded)
+    // Estas funciones deben ser globales para que window.onload pueda llamarlas.
+    // =======================================================
 
-        // Variables auxiliares requeridas por el HTML
-        window.currentReassignRow = null;
-        window.currentReassignMec = null;
-
-        // 1. FUNCIÓN DE CALLBACK (Se ejecuta solo si Auth0 valida el rol)
-        const startDashboard = () => {
-            loadDashboard(); // Carga inicial
+    async function loadDashboard() {
+        try {
+            const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'admin_get_dashboard' })
+            });
+            if(!res.ok) throw new Error("Error API");
+            const data = await res.json();
             
-            // Inicia el auto-refresco SÓLO si no está activo
-            if (dashboardInterval === null) {
-                dashboardInterval = setInterval(loadDashboard, 10000); 
-                console.log("Auto-refresco del Dashboard activado.");
-            }
-        };
+            renderMechanics(data.mecanicos || []);
+            renderJobs(data.jobs || []);
+        } catch (e) { console.error(e); }
+    }
 
-        // 2. LÓGICA DEL DASHBOARD (TUS FUNCIONES DE NEGOCIO)
-        async function loadDashboard() {
+    function renderMechanics(mecanicos) {
+        // ... (Su función renderMechanics) ...
+        const container = document.getElementById('mechanics-list');
+        if(mecanicos.length === 0) { container.innerHTML = '<p style="text-align:center; color:#999;">No hay datos.</p>'; return; }
+        
+        let html = '';
+        mecanicos.forEach(m => {
+            let badgeClass = 'bg-grey';
+            let statusText = 'Ausente';
+            if(m.active === 'Disponible') {
+                if(m.status === 'Libre') { badgeClass = 'bg-green'; statusText = 'Libre'; } 
+                else { badgeClass = 'bg-red'; statusText = 'Ocupado'; }
+            }
+            
+            html += `
+            <div class="mec-card">
+                <div style="display:flex; align-items:center;">
+                    <div class="mec-avatar"><i class="fas fa-user"></i></div>
+                    <div class="mec-info">
+                        <div class="mec-name">${m.name}</div>
+                        <div class="mec-area">${m.area}</div>
+                    </div>
+                </div>
+                <span class="status-badge ${badgeClass}">${statusText}</span>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function renderJobs(jobs) {
+        // ... (Su función renderJobs) ...
+        const container = document.getElementById('active-jobs-list');
+        if(jobs.length === 0) { container.innerHTML = `<div style="text-align:center; margin-top:50px; color:#28a745;"><i class="fas fa-check-circle fa-3x" style="opacity:0.5;"></i><p style="margin-top:15px;">¡Excelente! Sin incidencias activas.</p></div>`; return; }
+        
+        let html = '';
+        jobs.forEach(j => {
+            const isStopped = j.status === 'detenida';
+            const icon = isStopped ? '<i class="fas fa-exclamation-triangle" style="color:#dc3545"></i>' : '<i class="fas fa-tools" style="color:#ffc107"></i>';
+            const borderClass = isStopped ? 'detenida' : '';
+
+            html += `
+            <div class="job-card ${borderClass}">
+                <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:10px;">
+                    <div>
+                        <div style="font-weight:700; font-size:1.05em; color:#333; display:flex; align-items:center; gap:8px;">
+                            ${icon} ${j.maquina}
+                        </div>
+                        <div class="job-meta">${j.area} | Folio: ${j.folio}</div>
+                    </div>
+                    <span style="font-size:0.8em; background:#eee; padding:2px 6px; border-radius:4px;">${j.estado}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:10px; border-radius:6px;">
+                    <div style="font-size:0.9em; color:#555;">
+                        Mecánico: <strong style="color:#333;">${j.mecanico}</strong>
+                    </div>
+                    <div>
+                        <button onclick="promptReassign(${j.row}, '${j.mecanico}', '${j.folio}')" class="action-btn" style="margin-right: 5px;">
+                            <i class="fas fa-exchange-alt"></i> Reasignar
+                        </button>
+                        <button onclick="closeManual(${j.row}, '${j.folio}')" class="action-btn" style="background: #dc3545; color: white; border-color: #dc3545;">
+                            <i class="fas fa-times-circle"></i> Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    // --- LÓGICA AUXILIAR DE BOTONES Y VENTANAS (Funciones globales requeridas por el HTML) ---
+    // NOTA: Estas funciones deben estar definidas a nivel global (no dentro de DOMContentLoaded).
+
+    // LÓGICA DE REASIGNACIÓN CON MODAL
+    window.promptReassign = function(row, currentMec, folio) {
+        const reassignModal = document.getElementById('reassign-modal');
+        const newMecSelect = document.getElementById('new-mechanic-select');
+
+        document.getElementById('reassign-job-info').innerHTML = 
+            `<strong>Folio:</strong> ${folio} <br> <strong>Mecánico Actual:</strong> ${currentMec}`;
+        
+        // Guardamos las variables en el objeto global (window) o en el ámbito del script
+        window.currentReassignRow = row;
+        window.currentReassignMec = currentMec; 
+        
+        newMecSelect.value = ''; 
+        reassignModal.style.display = 'flex';
+    }
+
+    // LÓGICA DE CIERRE MANUAL
+    window.closeManual = async function(row, folio) {
+        const adminName = 'Jefatura Mantenimiento';
+
+        if (!adminName || adminName === 'Desconocido') {
+            alert("Error de autenticación: No se pudo obtener el nombre del administrador de Auth0.");
+            return;
+        }
+        
+        const confirmation = confirm(`⚠️ ¿Confirmar el CIERRE MANUAL del Folio ${folio} (Fila ${row})?\n\nEsta acción es irreversible y marcará el ticket como "Cerrado Manual" a nombre de ${adminName}.`);
+        
+        if (confirmation) {
             try {
-                // Aquí usamos el fetch para obtener tickets y mecánicos
                 const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
-                    body: JSON.stringify({ action: 'admin_get_dashboard' })
+                    body: JSON.stringify({ 
+                        action: 'admin_cerrar_manual', 
+                        row: row, 
+                        name: adminName 
+                    })
                 });
-                if(!res.ok) throw new Error("Error API");
-                const data = await res.json();
                 
-                renderMechanics(data.mecanicos || []);
-                renderJobs(data.jobs || []);
-            } catch (e) { 
-                console.error("Error al cargar dashboard:", e); 
+                if (res.ok) {
+                     alert(`✅ Folio ${folio} cerrado manualmente con éxito.`);
+                     loadDashboard();
+                } else {
+                    const errorData = await res.json();
+                    throw new Error(errorData.error || "Error desconocido en el servidor.");
+                }
+            } catch(e) { 
+                alert(`❌ Error al cerrar el ticket: ${e.message}`); 
             }
         }
+    }
+
+
+    // =======================================================
+    // 2. LÓGICA DE EVENTOS (Se ejecuta cuando el DOM está listo)
+    // Aquí solo manejamos los listeners que dependen del DOM.
+    // =======================================================
+    document.addEventListener('DOMContentLoaded', () => {
+     
+        // Variables DOM y control de Reasignación
+        const reassignModal = document.getElementById('reassign-modal');
+        const newMecSelect = document.getElementById('new-mechanic-select');
+        const btnConfirmReassign = document.getElementById('btn-confirm-reassign');
+        const btnCancelReassign = document.getElementById('btn-cancel-reassign');
         
-        // 3. FUNCIONES DE RENDERIZADO (TUS FUNCIONES DE NEGOCIO)
-        function renderMechanics(mecanicos) {
-            const container = document.getElementById('mechanics-list');
-            if(mecanicos.length === 0) { container.innerHTML = '<p style="text-align:center; color:#999;">No hay datos.</p>'; return; }
-            
-            let html = '';
-            mecanicos.forEach(m => {
-                let badgeClass = 'bg-grey';
-                let statusText = 'Ausente';
-                if(m.active === 'Disponible') {
-                    if(m.status === 'Libre') { badgeClass = 'bg-green'; statusText = 'Libre'; } 
-                    else { badgeClass = 'bg-red'; statusText = 'Ocupado'; }
-                }
+        // Llenar el selector de mecánicos del modal al inicio
+        async function loadMechanicListForReassign() {
+            try {
+                const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'get_mecanicos_activos' })
+                });
+                const data = await res.json();
                 
-                html += `
-                <div class="mec-card">
-                    <div style="display:flex; align-items:center;">
-                        <div class="mec-avatar"><i class="fas fa-user"></i></div>
-                        <div class="mec-info">
-                            <div class="mec-name">${m.name}</div>
-                            <div class="mec-area">${m.area}</div>
-                        </div>
-                    </div>
-                    <span class="status-badge ${badgeClass}">${statusText}</span>
-                </div>`;
-            });
-            container.innerHTML = html;
+                newMecSelect.innerHTML = '<option value="" disabled selected>-- Seleccione un Mecánico --</option>';
+                (data.mecanicos || []).forEach(mec => {
+                    newMecSelect.add(new Option(mec, mec));
+                });
+            } catch(e) {
+                newMecSelect.innerHTML = '<option value="">Error al cargar</option>';
+            }
         }
+        loadMechanicListForReassign();
 
-        function renderJobs(jobs) {
-            const container = document.getElementById('active-jobs-list');
-            if(jobs.length === 0) { container.innerHTML = `<div style="text-align:center; margin-top:50px; color:#28a745;"><i class="fas fa-check-circle fa-3x" style="opacity:0.5;"></i><p style="margin-top:15px;">¡Excelente! Sin incidencias activas.</p></div>`; return; }
-            
-            let html = '';
-            jobs.forEach(j => {
-                const isStopped = j.status === 'detenida';
-                const icon = isStopped ? '<i class="fas fa-exclamation-triangle" style="color:#dc3545"></i>' : '<i class="fas fa-tools" style="color:#ffc107"></i>';
-                const borderClass = isStopped ? 'detenida' : '';
+        // Listeners para el Modal
+        btnCancelReassign.addEventListener('click', () => {
+            reassignModal.style.display = 'none';
+        });
 
-                html += `
-                <div class="job-card ${borderClass}">
-                    <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:10px;">
-                        <div>
-                            <div style="font-weight:700; font-size:1.05em; color:#333; display:flex; align-items:center; gap:8px;">
-                                ${icon} ${j.maquina}
-                            </div>
-                            <div class="job-meta">${j.area} | Folio: ${j.folio}</div>
-                        </div>
-                        <span style="font-size:0.8em; background:#eee; padding:2px 6px; border-radius:4px;">${j.estado}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:10px; border-radius:6px;">
-                        <div style="font-size:0.9em; color:#555;">
-                            Mecánico: <strong style="color:#333;">${j.mecanico}</strong>
-                        </div>
-                        <div>
-                            <button onclick="promptReassign(${j.row}, '${j.mecanico}', '${j.folio}')" class="action-btn" style="margin-right: 5px;">
-                                <i class="fas fa-exchange-alt"></i> Reasignar
-                            </button>
-                            <button onclick="closeManual(${j.row}, '${j.folio}')" class="action-btn" style="background: #dc3545; color: white; border-color: #dc3545;">
-                                <i class="fas fa-times-circle"></i> Cerrar
-                            </button>
-                        </div>
-                    </div>
-                </div>`;
-            });
-            container.innerHTML = html;
-        }
+        btnConfirmReassign.addEventListener('click', async () => {
+            const newMec = newMecSelect.value;
+            const currentReassignRow = window.currentReassignRow; // Obtenemos la variable
+            const currentReassignMec = window.currentReassignMec; // Obtenemos la variable
 
-        // 4. LÓGICA AUXILIAR DE BOTONES Y VENTANAS (Funciones globales requeridas por el HTML)
-        window.promptReassign = function(row, currentMec, folio) {
-            
-            // Usamos las variables definidas globalmente
-            document.getElementById('reassign-job-info').innerHTML = 
-                `<strong>Folio:</strong> ${folio} <br> <strong>Mecánico Actual:</strong> ${currentMec}`;
-            
-            window.currentReassignRow = row;
-            window.currentReassignMec = currentMec; 
-            
-            newMecSelect.value = ''; 
-            reassignModal.style.display = 'flex';
-        }
-
-        window.closeManual = async function(row, folio) {
-            const adminName = 'Jefatura Mantenimiento';
-
-            if (!adminName || adminName === 'Desconocido') {
-                alert("Error de autenticación: No se pudo obtener el nombre del administrador de Auth0.");
+            if (!newMec) {
+                alert("Por favor seleccione un nuevo mecánico.");
                 return;
             }
             
-            const confirmation = confirm(`⚠️ ¿Confirmar el CIERRE MANUAL del Folio ${folio} (Fila ${row})?\n\nEsta acción es irreversible y marcará el ticket como "Cerrado Manual" a nombre de ${adminName}.`);
-            
-            if (confirmation) {
+            if (currentReassignRow) {
                 try {
-                    const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                    await fetch('/.netlify/functions/escribir-mantenimiento', {
                         method: 'POST',
                         body: JSON.stringify({ 
-                            action: 'admin_cerrar_manual', 
-                            row: row, 
-                            name: adminName 
+                            action: 'admin_reassign', 
+                            row: currentReassignRow, 
+                            newMechanic: newMec,
+                            oldMechanic: currentReassignMec
                         })
                     });
-                    
-                    if (res.ok) {
-                         alert(`✅ Folio ${folio} cerrado manualmente con éxito.`);
-                         loadDashboard();
-                    } else {
-                        const errorData = await res.json();
-                        throw new Error(errorData.error || "Error desconocido en el servidor.");
-                    }
+                    alert("✅ Mecánico reasignado correctamente. La tarea se ha actualizado en la app del mecánico.");
+                    reassignModal.style.display = 'none';
+                    loadDashboard();
                 } catch(e) { 
-                    alert(`❌ Error al cerrar el ticket: ${e.message}`); 
+                    alert("❌ Error al conectar con el servidor."); 
                 }
             }
-        }
-
-        // 5. LÓGICA DE EVENTOS Y ACTIVACIÓN DE SEGURIDAD
-        document.addEventListener('DOMContentLoaded', () => {
-         
-            // ⚠️ ASIGNAR VARIABLES DE CONTROL DOM (AHORA ES SEGURO) ⚠️
-            reassignModal = document.getElementById('reassign-modal');
-            newMecSelect = document.getElementById('new-mechanic-select');
-            btnConfirmReassign = document.getElementById('btn-confirm-reassign');
-            btnCancelReassign = document.getElementById('btn-cancel-reassign');
-            
-            // Llenar el selector de mecánicos del modal al inicio
-            async function loadMechanicListForReassign() {
-                try {
-                    const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'get_mecanicos_activos' })
-                    });
-                    const data = await res.json();
-                    
-                    newMecSelect.innerHTML = '<option value="" disabled selected>-- Seleccione un Mecánico --</option>';
-                    (data.mecanicos || []).forEach(mec => {
-                        newMecSelect.add(new Option(mec, mec));
-                    });
-                } catch(e) {
-                    newMecSelect.innerHTML = '<option value="">Error al cargar</option>';
-                }
-            }
-            loadMechanicListForReassign();
-
-            // Listeners para el Modal
-            btnCancelReassign.addEventListener('click', () => {
-                reassignModal.style.display = 'none';
-            });
-
-            btnConfirmReassign.addEventListener('click', async () => {
-                const newMec = newMecSelect.value;
-                const currentReassignRow = window.currentReassignRow; 
-                const currentReassignMec = window.currentReassignMec; 
-
-                if (!newMec) {
-                    alert("Por favor seleccione un nuevo mecánico.");
-                    return;
-                }
-                
-                if (currentReassignRow) {
-                    try {
-                        await fetch('/.netlify/functions/escribir-mantenimiento', {
-                            method: 'POST',
-                            body: JSON.stringify({ 
-                                action: 'admin_reassign', 
-                                row: currentReassignRow, 
-                                newMechanic: newMec,
-                                oldMechanic: currentReassignMec
-                            })
-                        });
-                        alert("✅ Mecánico reasignado correctamente. La tarea se ha actualizado en la app del mecánico.");
-                        reassignModal.style.display = 'none';
-                        loadDashboard();
-                    } catch(e) { 
-                        alert("❌ Error al conectar con el servidor."); 
-                    }
-                }
-            });
-            
-            // INICIALIZACIÓN DE SEGURIDAD (EJECUCIÓN RÁPIDA)
-            initializeAuth(true, ['admin', 'super_man'], startDashboard); 
         });
+    });
+
+    // =======================================================
+    // 3. INICIALIZACIÓN DE SEGURIDAD (Se ejecuta al final de la carga de la página)
+    // =======================================================
+    window.onload = async () => {
+        // Ejecuta la seguridad: Autenticación obligatoria (true) y roles requeridos
+        await initializeAuth(true, ['admin', 'super_man']); 
         
-    </script>
+        // Si initializeAuth pasa (no hubo redirección), cargamos el dashboard.
+        loadDashboard(); 
+        setInterval(loadDashboard, 10000);
+    };
+ </script>
+
+    
 </body>
 </html>
