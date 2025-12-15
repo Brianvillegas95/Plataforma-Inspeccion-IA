@@ -28,8 +28,8 @@ const configureClient = async () => {
         clientId: AUTH0_CLIENT_ID,
         authorizationParams: {
             redirect_uri: window.location.origin,
-            audience: AZOR_API_AUDIENCE, // Token para la API
-            scope: 'openid profile email' // Aseguramos los scopes mínimos
+            audience: AZOR_API_AUDIENCE, 
+            scope: 'openid profile email' 
         }
     });
 };
@@ -39,8 +39,20 @@ const handleRedirectCallback = async () => {
     const query = window.location.search;
     if (query.includes("code=") && query.includes("state=")) {
         try {
-            await auth0Client.handleRedirectCallback();
+            // Captura el resultado de la redirección, que incluye el appState (la URL original)
+            const result = await auth0Client.handleRedirectCallback();
+            
+            // 1. Limpiamos la URL de los parámetros 'code' y 'state'
             window.history.replaceState({}, document.title, window.location.pathname);
+
+            // 2. 💡 CORRECCIÓN CLAVE: Si hay un appState (la URL de origen), navegamos a ella.
+            // Esto asegura que, después de limpiar la URL, el navegador vaya a la página correcta.
+            if (result && result.appState && result.appState.targetUrl) {
+                console.log(`[AUTH] Redirigiendo a URL de destino (appState): ${result.appState.targetUrl}`);
+                window.location.replace(result.appState.targetUrl);
+                return; // Detenemos la ejecución del resto del script para evitar bucles.
+            }
+            
         } catch (err) {
             console.error("Error al procesar el callback de Auth0:", err);
         }
@@ -49,9 +61,14 @@ const handleRedirectCallback = async () => {
 
 // Inicia el proceso de Login (redirige a Auth0)
 const login = async () => {
+    // 💡 CORRECCIÓN CLAVE: Pasamos la URL completa actual como appState
+    // para que Auth0 la recuerde y la devuelva en el callback.
     await auth0Client.loginWithRedirect({
          authorizationParams: {
             audience: AZOR_API_AUDIENCE 
+         },
+         appState: { 
+            targetUrl: window.location.pathname // Guardamos la ruta de la subpágina
          }
     });
 };
@@ -120,45 +137,44 @@ const updateUI = async (authRequired, requiredRoles, onAuthSuccess) => {
     // ----------------------------------------------------
 
     const CLAIM_URL = 'https://azor-calidad.netlify.app/roles';
-    let userRoles = [];
-    let tokenRetrievalFailed = false; // <-- BANDERA PARA EVITAR EL BUCLE
+    let rawUserRoles = []; 
+    let tokenRetrievalFailed = false; 
 
     try {
         const idTokenClaims = await auth0Client.getIdTokenClaims();
         console.log("[AUTH] Intentando obtener roles desde ID Token.");
         
         if (idTokenClaims && idTokenClaims[CLAIM_URL] && idTokenClaims[CLAIM_URL].length > 0) {
-            userRoles = idTokenClaims[CLAIM_URL];
-            console.log(`[AUTH] Roles encontrados en ID Token: ${userRoles.join(', ')}`);
+            rawUserRoles = idTokenClaims[CLAIM_URL];
+            console.log(`[AUTH] Roles encontrados en ID Token (RAW): ${rawUserRoles.join(', ')}`);
         } else {
             console.log("[AUTH] Roles no encontrados en ID Token. Intentando getTokenSilently.");
             const accessToken = await auth0Client.getTokenSilently(); 
             const parsedToken = parseJwt(accessToken); 
             
             if (parsedToken && parsedToken[CLAIM_URL]) {
-                userRoles = parsedToken[CLAIM_URL];
-                console.log(`[AUTH] Roles encontrados en Access Token: ${userRoles.join(', ')}`);
+                rawUserRoles = parsedToken[CLAIM_URL];
+                console.log(`[AUTH] Roles encontrados en Access Token (RAW): ${rawUserRoles.join(', ')}`);
             } else {
                 console.log("[AUTH] Roles no encontrados ni en ID Token ni en Access Token.");
             }
         }
     } catch (error) {
-        // MENSAJE CLAVE DE FALLO
-        console.error("[AUTH] ALERTA CRÍTICA: Falló la obtención de tokens silenciosa (getTokenSilently). Esto puede causar una redirección por rol fallida.", error);
-        tokenRetrievalFailed = true; // Establecemos la bandera
+        console.error("[AUTH] ALERTA CRÍTICA: Falló la obtención de tokens silenciosa. Redirigiendo a index por seguridad.", error);
+        tokenRetrievalFailed = true; 
     }
 
-    console.log("Usuario autenticado. Roles finales:", userRoles); 
+    // APLICAR NORMALIZACIÓN
+    const userRoles = rawUserRoles.map(role => String(role).trim().toLowerCase());
+    const normalizedRequiredRoles = requiredRoles.map(role => String(role).trim().toLowerCase());
+    
+    console.log("Usuario autenticado. Roles normales (Clean):", userRoles); 
 
     // === LÓGICA DE BLOQUEO 1: USUARIO AUTENTICADO PERO SIN ROL ===
     const hasNoRole = userRoles.length === 0;
 
-    // ⚠️ CORRECCIÓN CLAVE: Solo hacemos logout si:
-    // 1. Está autenticado.
-    // 2. NO tiene roles (hasNoRole=true).
-    // 3. El token se cargó exitosamente (!tokenRetrievalFailed).
-    // 4. LA PÁGINA ES RESTRINGIDA (requiredRoles.length > 0).
-    if (isAuthenticated && hasNoRole && !tokenRetrievalFailed && requiredRoles.length > 0) { 
+    // Solo hacemos logout si la página tiene roles requeridos y no se encontró ninguno válido
+    if (isAuthenticated && hasNoRole && !tokenRetrievalFailed && normalizedRequiredRoles.length > 0) { 
         console.log("[AUTH] Bloqueo 1 activado. Usuario sin rol, pero la página requiere uno. Redirigiendo a logout.");
 
         if(protectedContent) protectedContent.style.display = 'none';
@@ -174,15 +190,16 @@ const updateUI = async (authRequired, requiredRoles, onAuthSuccess) => {
     // === FIN DE BLOQUEO 1 ===
 
     // === LÓGICA DE BLOQUEO 2: PÁGINAS CON RESTRICCIÓN DE ROL ESPECÍFICO ===
-    if (requiredRoles.length > 0) {
-        console.log(`[AUTH] La página requiere roles: ${requiredRoles.join(', ')}`);
-        const hasRequiredRole = requiredRoles.some(r => userRoles.includes(r));
+    if (normalizedRequiredRoles.length > 0) {
+        console.log(`[AUTH] La página requiere roles (Clean): ${normalizedRequiredRoles.join(', ')}`);
+        
+        const hasRequiredRole = normalizedRequiredRoles.some(r => userRoles.includes(r));
         
         if (!hasRequiredRole) {
-            // Esto se activa si userRoles=[] debido a un fallo silencioso (tokenRetrievalFailed=true)
-            // o si el usuario simplemente no tiene el rol necesario.
-            console.warn("[AUTH] Acceso denegado. El usuario no tiene el rol requerido o Fallo en Token. Redirigiendo a Index.");
-            window.location.replace(window.location.origin); 
+            console.warn("[AUTH] Acceso denegado. El usuario no tiene el rol requerido. Redirigiendo a Index.");
+            
+            // Redirección inmediata por denegación de rol
+            window.location.replace(window.location.origin);
             return;
         }
         console.log("[AUTH] Verificación de rol exitosa. Acceso concedido.");
@@ -214,5 +231,6 @@ const updateUI = async (authRequired, requiredRoles, onAuthSuccess) => {
 
 // Función de inicialización para la página principal (index.html)
 window.onload = () => {
+    // initializeAuth(authRequired, requiredRoles, onAuthSuccess)
     initializeAuth(false, [], null); 
 };
