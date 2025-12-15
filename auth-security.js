@@ -202,9 +202,3 @@ const updateUI = async (authRequired, requiredRoles) => {
         adminMantenimientoLink.style.display = canSeeAdminMantenimiento ? 'block' : 'none';
     }
 };
-
-// Función de inicialización para la página principal (index.html)
-window.onload = () => {
-    // index.html: No se requiere autenticación estricta (muestra login/logout) y no hay roles específicos
-    initializeAuth(false, []); 
-};

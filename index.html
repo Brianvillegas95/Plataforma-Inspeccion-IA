@@ -460,6 +460,13 @@
     
     <script src="Archivos/chatbot.js"></script>
 
+    <script>
+    // Inicialización para index.html: No requiere autenticación estricta (false) y no requiere roles específicos []
+    window.onload = () => {
+        initializeAuth(false, []); 
+    };
+    </script>
+
     <div id="lightbox" class="lightbox">
         <span class="lightbox-close">&times;</span>
         <span class="gallery-nav gallery-prev" id="gallery-prev">&#10094;</span>
@@ -473,7 +480,7 @@
             <button id="zoom-out" class="zoom-btn">-</button>
             <button id="zoom-in" class="zoom-btn">+</button>
         </div>
-        </div>
+    </div>
 
 </body>
 
