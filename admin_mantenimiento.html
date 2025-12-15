@@ -24,6 +24,7 @@
             align-items: center; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
         }
+
         .logo-container { display: flex; align-items: center; gap: 15px; }
         .logo { height: 45px; width: auto; filter: brightness(0) invert(1); }
         .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
@@ -102,9 +103,9 @@
     
  <div id="protected-content">
     <header class="app-header">
-        <div class="logo-section">
-            <i class="fas fa-user-shield fa-lg" style="color: #ffc107;"></i>
-            <h1>Panel Administrativo</h1>
+        <div class="logo-container">
+           <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
+        <h1 class="app-title">Panel Administrativo</h1>
         </div>
         <div>
             <button onclick="window.location.href='/'" class="btn-header-nav" style="margin-right: 10px;">Inicio</button>
