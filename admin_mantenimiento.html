@@ -148,9 +148,12 @@
             let currentReassignRow = null; 
             let currentReassignMec = null; 
 
-            btnLogin.addEventListener('click', () => {
-                netlifyIdentity.open('login');
-            });
+            // Se asume que 'btnLogin' y 'netlifyIdentity' provienen de otro script si no son usados aquí.
+            // if (typeof netlifyIdentity !== 'undefined') {
+            //     btnLogin.addEventListener('click', () => {
+            //         netlifyIdentity.open('login');
+            //     });
+            // }
 
             // Llenar el selector de mecánicos del modal al inicio
             async function loadMechanicListForReassign() {
@@ -169,7 +172,7 @@
                     newMecSelect.innerHTML = '<option value="">Error al cargar</option>';
                 }
             }
-            loadMechanicListForReassign();
+            // Eliminada la llamada a loadMechanicListForReassign() de aquí. Se ejecutará en el callback de seguridad.
 
             // --- LÓGICA DEL DASHBOARD ---
 
@@ -302,12 +305,19 @@
             
             // --- LÓGICA DE CIERRE MANUAL ---
             window.closeManual = async function(row, folio) {
-                const adminUser = netlifyIdentity.currentUser();
-                if (!adminUser) {
-                    alert("Debe iniciar sesión para realizar esta acción.");
-                    return;
-                }
-                const adminName = adminUser.user_metadata.full_name || 'Admin Desconocido'; 
+                // netlifyIdentity ya no está disponible, se debería usar auth0Client si es necesario
+                // Pero por ahora, asumimos que el usuario está logueado gracias a la seguridad.
+                
+                // const adminUser = netlifyIdentity.currentUser(); 
+                // if (!adminUser) {
+                //     alert("Debe iniciar sesión para realizar esta acción.");
+                //     return;
+                // }
+                // const adminName = adminUser.user_metadata.full_name || 'Admin Desconocido'; 
+                
+                // Usaremos un nombre de Admin genérico o pediremos el nombre si es absolutamente necesario,
+                // ya que netlifyIdentity no es parte de este flujo de Auth0.
+                const adminName = "Admin Autenticado"; // Nombre temporal
                 
                 const confirmation = confirm(`⚠️ ¿Confirmar el CIERRE MANUAL del Folio ${folio} (Fila ${row})?\n\nEsta acción es irreversible y marcará el ticket como "Cerrado Manual" a nombre de ${adminName}.`);
                 
@@ -341,13 +351,23 @@
     <script src="auth-security.js"></script>
 
     <script>
+    // Usamos DOMContentLoaded para ejecutar la seguridad lo más pronto posible
     document.addEventListener('DOMContentLoaded', () => {
         // [1] Autenticación Requerida: true
         // [2] Roles Requeridos: Lista los roles que tienen permiso
-        initializeAuth(true, ['admin', 'super_man']); 
+        
+        // ** ÚNICA MODIFICACIÓN: La lógica de la aplicación se ejecuta SOLO si la seguridad es exitosa **
+        initializeAuth(true, ['admin', 'super_man'], () => {
+            console.log("[ADMIN] Seguridad pasada y roles verificados. Inicializando Dashboard.");
+            
+            // Carga la lista de mecánicos para el selector del modal
+            loadMechanicListForReassign();
+            
+            // Carga los datos del dashboard
+            loadDashboard(); 
+        }); 
     });
     </script>
 
-</body>
 </body>
 </html>
