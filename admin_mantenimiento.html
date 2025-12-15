@@ -14,19 +14,19 @@
             display: none;
         }
         
-        /* HEADER ESTILO PRO - CAMBIO DE COLOR */
+        /* HEADER PRO */
         .app-header { 
-            background-color: #005f9e; /* Azul Institucional */
-            color: white; 
+            background-color: #005f9e; 
+            border-bottom: 1px solid #004a7c; 
             padding: 15px 30px; 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
         }
-        .logo-section h1 { margin: 0; font-size: 1.4em; font-weight: 600; display: flex; align-items: center; gap: 10px; color: white; }
-        /* Logo con filtro para que se vea blanco si es necesario */
-        .logo-section i.fas { color: #ffc107; } /* Mantiene el color del escudo */
+        .logo-container { display: flex; align-items: center; gap: 15px; }
+        .logo { height: 45px; width: auto; filter: brightness(0) invert(1); }
+        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
 
         
         /* BOTÓN DE NAVEGACIÓN PRO */
@@ -107,6 +107,7 @@
             <h1>Panel Administrativo</h1>
         </div>
         <div>
+            <button onclick="window.location.href='/'" class="btn-header-nav" style="margin-right: 10px;">Inicio</button>
             <button onclick="window.location.href='kpi_mantenimiento.html'" class="btn-header-nav" style="margin-right: 10px;">Ver Dashboard KPI</button>
         </div>
     </header>
