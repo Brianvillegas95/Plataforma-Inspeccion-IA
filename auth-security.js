@@ -84,7 +84,6 @@ const updateUI = async (authRequired, requiredRoles) => {
     const isAuthenticated = await auth0Client.isAuthenticated();
     
     // Elementos de la interfaz general
-    // El protected-content ahora es crucial para evitar el flasheo.
     const protectedContent = document.getElementById('protected-content');
     const loginScreen = document.getElementById('login-screen');
     const logoutButton = document.getElementById('logout-button');
@@ -93,6 +92,11 @@ const updateUI = async (authRequired, requiredRoles) => {
     const kpisLink = document.getElementById('link-kpis');
     const dashboardAjustesLink = document.getElementById('link-dashboard-ajustes');
     const adminMantenimientoLink = document.getElementById('link-admin-mantenimiento');
+
+    // 🛑 AJUSTE CLAVE: Ocultar todo al inicio para evitar el flasheo 🛑
+    // Solo mostramos el contenido correcto al final del proceso de validación.
+    if(protectedContent) protectedContent.style.display = 'none';
+    if(loginScreen) loginScreen.style.display = 'none';
 
     // === LÓGICA DE BLOQUEO DE PÁGINAS PROTEGIDAS (NO AUTENTICADO) ===
     if (!isAuthenticated) {
@@ -103,8 +107,8 @@ const updateUI = async (authRequired, requiredRoles) => {
              return; // Detiene la ejecución en la subpágina
         }
 
-        // Ocultar contenido protegido y mostrar login (Lógica para index.html NO protegida)
-        if(protectedContent) protectedContent.style.display = 'none';
+        // Si la página NO requiere autenticación (index.html):
+        // Mostrar solo la pantalla de login.
         if(loginScreen) loginScreen.style.display = 'block';
         if(logoutButton) logoutButton.style.display = 'none';
         
@@ -115,12 +119,6 @@ const updateUI = async (authRequired, requiredRoles) => {
     
     // Si está autenticado...
     
-    // Mostrar contenido protegido y ocultar login (solo si existen, útil para index.html)
-    // 🛑 ESTO MUESTRA EL CONTENIDO PROTEGIDO SI LA AUTENTICACIÓN ES EXITOSA 🛑
-    if(protectedContent) protectedContent.style.display = 'block';
-    if(loginScreen) loginScreen.style.display = 'none';
-    if(logoutButton) logoutButton.style.display = 'inline-block';
-
     // ----------------------------------------------------
     // LÓGICA DE RESTRICCIÓN POR ROLES: LEYENDO AMBOS TOKENS
     // ----------------------------------------------------
@@ -154,7 +152,7 @@ const updateUI = async (authRequired, requiredRoles) => {
     if (isAuthenticated && hasNoRole) {
         console.log("Usuario autenticado pero sin rol. Redirigiendo a logout.");
 
-        // Ocultamos todo para evitar destellos de contenido
+        // Mostrar pantalla de login antes del logout
         if(protectedContent) protectedContent.style.display = 'none';
         if(loginScreen) loginScreen.style.display = 'block';
 
@@ -173,19 +171,29 @@ const updateUI = async (authRequired, requiredRoles) => {
         const hasRequiredRole = requiredRoles.some(r => userRoles.includes(r));
         if (!hasRequiredRole) {
             console.warn("Acceso denegado. No tiene los roles necesarios:", requiredRoles);
+            
+            // 🛑 Si el acceso es denegado, mostramos la pantalla de login antes de redirigir
+            if(protectedContent) protectedContent.style.display = 'none';
+            if(loginScreen) loginScreen.style.display = 'block';
+            
             // Redirigimos a la página principal
             window.location.replace(window.location.origin); 
-            
-            // 🛑 SI EL ACCESO ES DENEGADO, OCULTAMOS EL CONTENIDO NUEVAMENTE antes de redirigir
-            if(protectedContent) protectedContent.style.display = 'none';
 
             return;
         }
     }
     // === FIN DE BLOQUEO 2 ===
 
-    // El resto de la lógica (visibilidad de enlaces) SOLO se aplica en index.html
-    // pero si los elementos existen, se ejecutarán.
+    // ***************************************************************
+    // 🏆 PUNTO FINAL DE ÉXITO: MOSTRAR CONTENIDO PROTEGIDO 🏆
+    // Si llegamos aquí, el usuario está autenticado y tiene los roles.
+    // ***************************************************************
+    
+    if(protectedContent) protectedContent.style.display = 'block'; 
+    if(loginScreen) loginScreen.style.display = 'none';
+    if(logoutButton) logoutButton.style.display = 'inline-block';
+
+    // El resto de la lógica (visibilidad de enlaces) SOLO se aplica si el usuario pasa todos los filtros
     const isAdmin = userRoles.includes('admin');
     const isSuperMan = userRoles.includes('super_man');
     const isSuper = userRoles.includes('super');
