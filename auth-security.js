@@ -5,6 +5,12 @@ const AZOR_API_AUDIENCE = "https://azor-calidad.netlify.app"; // Identificador d
 
 let auth0Client = null;
 
+// NUEVA FUNCIÓN: Controla la visibilidad final de toda la aplicación
+const showApp = () => {
+    document.body.style.visibility = 'visible';
+    document.body.style.opacity = '1';
+};
+
 // Función auxiliar para decodificar JWT (Access Token)
 function parseJwt(token) {
     if (!token) return null;
@@ -37,12 +43,16 @@ const configureClient = async () => {
 // Maneja el regreso desde la página de login de Auth0
 const handleRedirectCallback = async () => {
     const query = window.location.search;
+    
+    // 🛑 MODIFICACIÓN CRÍTICA PARA ESTABILIDAD DE AUTH0 🛑
     if (query.includes("code=") && query.includes("state=")) {
         try {
             await auth0Client.handleRedirectCallback();
             window.history.replaceState({}, document.title, window.location.pathname);
         } catch (err) {
             console.error("Error al procesar el callback de Auth0:", err);
+            // 💡 CRUCIAL: Limpiar la URL si falla ("Invalid state") para evitar que el error se repita y cause inestabilidad.
+            window.history.replaceState({}, document.title, window.location.pathname); 
         }
     }
 };
@@ -93,8 +103,7 @@ const updateUI = async (authRequired, requiredRoles) => {
     const dashboardAjustesLink = document.getElementById('link-dashboard-ajustes');
     const adminMantenimientoLink = document.getElementById('link-admin-mantenimiento');
 
-    // 🛑 AJUSTE CLAVE: Ocultar todo al inicio para evitar el flasheo 🛑
-    // Solo mostramos el contenido correcto al final del proceso de validación.
+    // Ocultar los contenedores al inicio (trabajando con el CSS del body).
     if(protectedContent) protectedContent.style.display = 'none';
     if(loginScreen) loginScreen.style.display = 'none';
 
@@ -102,18 +111,18 @@ const updateUI = async (authRequired, requiredRoles) => {
     if (!isAuthenticated) {
         if (authRequired) {
              console.log("Página protegida. Usuario no autenticado. Redirigiendo a login.");
-             // Redirige a Auth0. El callback volverá a esta misma página.
              await login(); 
-             return; // Detiene la ejecución en la subpágina
+             return; 
         }
 
         // Si la página NO requiere autenticación (index.html):
-        // Mostrar solo la pantalla de login.
         if(loginScreen) loginScreen.style.display = 'block';
         if(logoutButton) logoutButton.style.display = 'none';
         
-        // Ocultamos todos los enlaces restringidos
         hideAllRestrictedLinks(kpisLink, dashboardAjustesLink, adminMantenimientoLink);
+        
+        // 🏆 Muestra la aplicación completa (solo pantalla de login)
+        showApp();
         return;
     }
     
@@ -123,19 +132,16 @@ const updateUI = async (authRequired, requiredRoles) => {
     // LÓGICA DE RESTRICCIÓN POR ROLES: LEYENDO AMBOS TOKENS
     // ----------------------------------------------------
 
-    // 1. Definimos la URL del claim
     const CLAIM_URL = 'https://azor-calidad.netlify.app/roles';
     let userRoles = [];
 
     try {
-        // INTENTO A: Leer del ID Token (más simple)
         const idTokenClaims = await auth0Client.getIdTokenClaims();
         if (idTokenClaims && idTokenClaims[CLAIM_URL] && idTokenClaims[CLAIM_URL].length > 0) {
             userRoles = idTokenClaims[CLAIM_URL];
         } else {
-            // INTENTO B: Leer del Access Token (más robusto con API)
             const accessToken = await auth0Client.getTokenSilently(); 
-            const parsedToken = parseJwt(accessToken); // Requiere la función parseJwt
+            const parsedToken = parseJwt(accessToken);
             if (parsedToken && parsedToken[CLAIM_URL]) {
                 userRoles = parsedToken[CLAIM_URL];
             }
@@ -152,17 +158,18 @@ const updateUI = async (authRequired, requiredRoles) => {
     if (isAuthenticated && hasNoRole) {
         console.log("Usuario autenticado pero sin rol. Redirigiendo a logout.");
 
-        // Mostrar pantalla de login antes del logout
         if(protectedContent) protectedContent.style.display = 'none';
         if(loginScreen) loginScreen.style.display = 'block';
+        
+        // Muestra la pantalla de login un momento antes del logout
+        showApp();
 
-        // Forzamos el cierre de sesión para que el usuario no pueda continuar
         auth0Client.logout({
             logoutParams: {
                 returnTo: window.location.origin
             }
         });
-        return; // <--- SÚPER IMPORTANTE: Detiene la ejecución aquí.
+        return; 
     }
     // === FIN DE BLOQUEO 1 ===
 
@@ -172,13 +179,13 @@ const updateUI = async (authRequired, requiredRoles) => {
         if (!hasRequiredRole) {
             console.warn("Acceso denegado. No tiene los roles necesarios:", requiredRoles);
             
-            // 🛑 Si el acceso es denegado, mostramos la pantalla de login antes de redirigir
             if(protectedContent) protectedContent.style.display = 'none';
             if(loginScreen) loginScreen.style.display = 'block';
             
-            // Redirigimos a la página principal
+            // Muestra la pantalla de login un momento antes de redirigir
+            showApp();
+            
             window.location.replace(window.location.origin); 
-
             return;
         }
     }
@@ -186,14 +193,13 @@ const updateUI = async (authRequired, requiredRoles) => {
 
     // ***************************************************************
     // 🏆 PUNTO FINAL DE ÉXITO: MOSTRAR CONTENIDO PROTEGIDO 🏆
-    // Si llegamos aquí, el usuario está autenticado y tiene los roles.
     // ***************************************************************
     
     if(protectedContent) protectedContent.style.display = 'block'; 
     if(loginScreen) loginScreen.style.display = 'none';
     if(logoutButton) logoutButton.style.display = 'inline-block';
 
-    // El resto de la lógica (visibilidad de enlaces) SOLO se aplica si el usuario pasa todos los filtros
+    // ... (Lógica de visibilidad de enlaces por rol)
     const isAdmin = userRoles.includes('admin');
     const isSuperMan = userRoles.includes('super_man');
     const isSuper = userRoles.includes('super');
@@ -215,4 +221,7 @@ const updateUI = async (authRequired, requiredRoles) => {
     if (adminMantenimientoLink) {
         adminMantenimientoLink.style.display = canSeeAdminMantenimiento ? 'block' : 'none';
     }
+    
+    // 🏆 Muestra la aplicación completa (solo contenido protegido)
+    showApp();
 };
