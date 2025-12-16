@@ -464,6 +464,12 @@
     <script src="Archivos/chatbot.js"></script>
 
     <script>
+    // Inicializa el proceso de autenticación.
+    // El 'true' indica que esta página REQUIERE autenticación y forzará la redirección.
+    initializeAuth(true); 
+    </script>
+
+    <script>
     // Inicialización para index.html: No requiere autenticación estricta (false) y no requiere roles específicos []
     window.onload = () => {
         initializeAuth(false, []); 
