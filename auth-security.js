@@ -37,18 +37,12 @@ const configureClient = async () => {
 // Maneja el regreso desde la página de login de Auth0
 const handleRedirectCallback = async () => {
     const query = window.location.search;
-    
-    // Solo actuamos si la URL trae parámetros de Auth0
     if (query.includes("code=") && query.includes("state=")) {
         try {
             await auth0Client.handleRedirectCallback();
-            console.log("Callback de Auth0 procesado con éxito.");
-        } catch (err) {
-            // Se captura el "Invalid state" para que no rompa la ejecución
-            console.warn("Aviso: El estado de la sesión anterior no era válido o ya fue procesado.");
-        } finally {
-            // 🛑 SIEMPRE limpiamos la URL para evitar que el error persista al recargar 🛑
             window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (err) {
+            console.error("Error al procesar el callback de Auth0:", err);
         }
     }
 };
@@ -94,43 +88,54 @@ const updateUI = async (authRequired, requiredRoles) => {
     const loginScreen = document.getElementById('login-screen');
     const logoutButton = document.getElementById('logout-button');
     
-    // Elementos de menú que controlaremos por ID
+    // Elementos de menú que controlaremos por ID (DEBEN COINCIDIR CON LOS ID DEL HTML)
     const kpisLink = document.getElementById('link-kpis');
     const dashboardAjustesLink = document.getElementById('link-dashboard-ajustes');
     const adminMantenimientoLink = document.getElementById('link-admin-mantenimiento');
+
+    // 🛑 AJUSTE CLAVE: Ocultar todo al inicio para evitar el flasheo 🛑
+    // Solo mostramos el contenido correcto al final del proceso de validación.
+    if(protectedContent) protectedContent.style.display = 'none';
+    if(loginScreen) loginScreen.style.display = 'none';
 
     // === LÓGICA DE BLOQUEO DE PÁGINAS PROTEGIDAS (NO AUTENTICADO) ===
     if (!isAuthenticated) {
         if (authRequired) {
              console.log("Página protegida. Usuario no autenticado. Redirigiendo a login.");
+             // Redirige a Auth0. El callback volverá a esta misma página.
              await login(); 
-             return; 
+             return; // Detiene la ejecución en la subpágina
         }
 
-        if(protectedContent) protectedContent.style.display = 'none';
+        // Si la página NO requiere autenticación (index.html):
+        // Mostrar solo la pantalla de login.
         if(loginScreen) loginScreen.style.display = 'block';
         if(logoutButton) logoutButton.style.display = 'none';
         
+        // Ocultamos todos los enlaces restringidos
         hideAllRestrictedLinks(kpisLink, dashboardAjustesLink, adminMantenimientoLink);
         return;
     }
     
     // Si está autenticado...
-    if(protectedContent) protectedContent.style.display = 'block';
-    if(loginScreen) loginScreen.style.display = 'none';
-    if(logoutButton) logoutButton.style.display = 'inline-block';
+    
+    // ----------------------------------------------------
+    // LÓGICA DE RESTRICCIÓN POR ROLES: LEYENDO AMBOS TOKENS
+    // ----------------------------------------------------
 
-    // LÓGICA DE RESTRICCIÓN POR ROLES
+    // 1. Definimos la URL del claim
     const CLAIM_URL = 'https://azor-calidad.netlify.app/roles';
     let userRoles = [];
 
     try {
+        // INTENTO A: Leer del ID Token (más simple)
         const idTokenClaims = await auth0Client.getIdTokenClaims();
         if (idTokenClaims && idTokenClaims[CLAIM_URL] && idTokenClaims[CLAIM_URL].length > 0) {
             userRoles = idTokenClaims[CLAIM_URL];
         } else {
+            // INTENTO B: Leer del Access Token (más robusto con API)
             const accessToken = await auth0Client.getTokenSilently(); 
-            const parsedToken = parseJwt(accessToken); 
+            const parsedToken = parseJwt(accessToken); // Requiere la función parseJwt
             if (parsedToken && parsedToken[CLAIM_URL]) {
                 userRoles = parsedToken[CLAIM_URL];
             }
@@ -141,34 +146,73 @@ const updateUI = async (authRequired, requiredRoles) => {
 
     console.log("Usuario autenticado. Roles encontrados:", userRoles); 
 
-    // === BLOQUEO 1: SIN ROL ===
+    // === LÓGICA DE BLOQUEO 1: USUARIO AUTENTICADO PERO SIN ROL ===
     const hasNoRole = userRoles.length === 0;
-    if (isAuthenticated && hasNoRole) {
-        auth0Client.logout({
-            logoutParams: { returnTo: window.location.origin }
-        });
-        return;
-    }
 
-    // === BLOQUEO 2: ROL ESPECÍFICO ===
+    if (isAuthenticated && hasNoRole) {
+        console.log("Usuario autenticado pero sin rol. Redirigiendo a logout.");
+
+        // Mostrar pantalla de login antes del logout
+        if(protectedContent) protectedContent.style.display = 'none';
+        if(loginScreen) loginScreen.style.display = 'block';
+
+        // Forzamos el cierre de sesión para que el usuario no pueda continuar
+        auth0Client.logout({
+            logoutParams: {
+                returnTo: window.location.origin
+            }
+        });
+        return; // <--- SÚPER IMPORTANTE: Detiene la ejecución aquí.
+    }
+    // === FIN DE BLOQUEO 1 ===
+
+    // === LÓGICA DE BLOQUEO 2: PÁGINAS CON RESTRICCIÓN DE ROL ESPECÍFICO ===
     if (requiredRoles.length > 0) {
         const hasRequiredRole = requiredRoles.some(r => userRoles.includes(r));
         if (!hasRequiredRole) {
+            console.warn("Acceso denegado. No tiene los roles necesarios:", requiredRoles);
+            
+            // 🛑 Si el acceso es denegado, mostramos la pantalla de login antes de redirigir
+            if(protectedContent) protectedContent.style.display = 'none';
+            if(loginScreen) loginScreen.style.display = 'block';
+            
+            // Redirigimos a la página principal
             window.location.replace(window.location.origin); 
+
             return;
         }
     }
+    // === FIN DE BLOQUEO 2 ===
 
-    // Visibilidad de enlaces
+    // ***************************************************************
+    // 🏆 PUNTO FINAL DE ÉXITO: MOSTRAR CONTENIDO PROTEGIDO 🏆
+    // Si llegamos aquí, el usuario está autenticado y tiene los roles.
+    // ***************************************************************
+    
+    if(protectedContent) protectedContent.style.display = 'block'; 
+    if(loginScreen) loginScreen.style.display = 'none';
+    if(logoutButton) logoutButton.style.display = 'inline-block';
+
+    // El resto de la lógica (visibilidad de enlaces) SOLO se aplica si el usuario pasa todos los filtros
     const isAdmin = userRoles.includes('admin');
     const isSuperMan = userRoles.includes('super_man');
     const isSuper = userRoles.includes('super');
     
+    // --- Regla 1 y 2: KPIs y Dashboard Ajustes ---
     const canSeeKpisAndDashboard = isAdmin || isSuperMan || isSuper;
     
-    if (kpisLink) kpisLink.style.display = canSeeKpisAndDashboard ? 'block' : 'none';
-    if (dashboardAjustesLink) dashboardAjustesLink.style.display = canSeeKpisAndDashboard ? 'block' : 'none';
+    if (kpisLink) {
+        kpisLink.style.display = canSeeKpisAndDashboard ? 'block' : 'none';
+    }
+    
+    if (dashboardAjustesLink) {
+        dashboardAjustesLink.style.display = canSeeKpisAndDashboard ? 'block' : 'none';
+    }
 
+    // --- Regla 3: Admin Mantenimiento ---
     const canSeeAdminMantenimiento = isAdmin || isSuperMan;
-    if (adminMantenimientoLink) adminMantenimientoLink.style.display = canSeeAdminMantenimiento ? 'block' : 'none';
+    
+    if (adminMantenimientoLink) {
+        adminMantenimientoLink.style.display = canSeeAdminMantenimiento ? 'block' : 'none';
+    }
 };
