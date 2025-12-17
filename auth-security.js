@@ -78,29 +78,26 @@ const updateUI = async (authRequired, requiredRoles) => {
     const protectedContent = document.getElementById('protected-content');
     const loginScreen = document.getElementById('login-screen');
     const logoutButton = document.getElementById('logout-button');
-    const kpisLink = document.getElementById('link-kpis');
-    const dashboardAjustesLink = document.getElementById('link-dashboard-ajustes');
-    const adminMantenimientoLink = document.getElementById('link-admin-mantenimiento');
 
-    // 1. USUARIO NO AUTENTICADO
+    // 1. CASO: NO AUTENTICADO
     if (!isAuthenticated) {
         if (authRequired) {
              await login(); 
              return; 
         }
-        if(loginScreen) loginScreen.style.display = 'block';
+        // Solo mostramos login si estamos seguros de que no hay sesión
         if(protectedContent) protectedContent.style.display = 'none';
+        if(loginScreen) loginScreen.style.display = 'block';
         return;
     }
     
-    // 2. VALIDACIÓN DE ROLES
+    // 2. CASO: AUTENTICADO - VALIDAR ROLES
     const CLAIM_URL = 'https://azor-calidad.netlify.app/roles';
     let userRoles = [];
 
     try {
         const idTokenClaims = await auth0Client.getIdTokenClaims();
         userRoles = idTokenClaims?.[CLAIM_URL] || [];
-        
         if (userRoles.length === 0) {
             const accessToken = await auth0Client.getTokenSilently(); 
             const parsedToken = parseJwt(accessToken);
@@ -110,10 +107,7 @@ const updateUI = async (authRequired, requiredRoles) => {
         console.error("Error al recuperar roles:", e);
     }
 
-    if (userRoles.length === 0) {
-        logout();
-        return;
-    }
+    if (userRoles.length === 0) { logout(); return; }
 
     if (requiredRoles.length > 0) {
         const hasRequiredRole = requiredRoles.some(r => userRoles.includes(r));
@@ -123,25 +117,30 @@ const updateUI = async (authRequired, requiredRoles) => {
         }
     }
 
-    // 3. MOSTRAR INTERFAZ
-    if (isAuthenticated) {
-        if(loginScreen) loginScreen.style.display = 'none';
-        if(protectedContent) protectedContent.style.setProperty('display', 'block', 'important'); // Usamos important aquí desde JS para asegurar
-        if(logoutButton) logoutButton.style.display = 'inline-block';
-        
-        // Lógica de visibilidad de menús
-        const isAdmin = userRoles.includes('admin');
-        const isSuperMan = userRoles.includes('super_man');
-        const isSuper = userRoles.includes('super');
-        const canSeeKpis = isAdmin || isSuperMan || isSuper;
-        const canSeeAdmin = isAdmin || isSuperMan;
-
-        if (kpisLink) kpisLink.style.display = canSeeKpis ? 'block' : 'none';
-        if (dashboardAjustesLink) dashboardAjustesLink.style.display = canSeeKpis ? 'block' : 'none';
-        if (adminMantenimientoLink) adminMantenimientoLink.style.display = canSeeAdmin ? 'block' : 'none';
-    } else {
-        // Si no está autenticado y estamos en index
-        if(loginScreen) loginScreen.style.setProperty('display', 'block', 'important');
-        if(protectedContent) protectedContent.style.display = 'none';
+    // 3. MOSTRAR INTERFAZ (Sin parpadeos)
+    // Primero ocultamos el login por completo
+    if(loginScreen) loginScreen.style.display = 'none';
+    
+    // Mostramos el contenido solo cuando ya sabemos que todo es correcto
+    if(protectedContent) {
+        protectedContent.style.display = 'block';
     }
+    
+    if(logoutButton) logoutButton.style.display = 'inline-block';
+
+    // Manejo de visibilidad de menús según roles
+    const isAdmin = userRoles.includes('admin');
+    const isSuperMan = userRoles.includes('super_man');
+    const isSuper = userRoles.includes('super');
+    
+    const canSeeKpis = isAdmin || isSuperMan || isSuper;
+    const canSeeAdmin = isAdmin || isSuperMan;
+
+    const kpisLink = document.getElementById('link-kpis');
+    const dashLink = document.getElementById('link-dashboard-ajustes');
+    const adminLink = document.getElementById('link-admin-mantenimiento');
+
+    if (kpisLink) kpisLink.style.display = canSeeKpis ? 'block' : 'none';
+    if (dashLink) dashLink.style.display = canSeeKpis ? 'block' : 'none';
+    if (adminLink) adminLink.style.display = canSeeAdmin ? 'block' : 'none';
 };

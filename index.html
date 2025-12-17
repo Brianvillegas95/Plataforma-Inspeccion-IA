@@ -475,10 +475,8 @@
     </script>
 
     <script>
-    // Única llamada: No requiere auth obligatoria para ver el index (false)
-    // Pero si ya está logueado, mostrará el contenido automáticamente.
-    document.addEventListener('DOMContentLoaded', () => {
-        initializeAuth(false);
+    document.addEventListener('DOMContentLoaded', async () => {
+        await initializeAuth(false, []); 
     });
     </script>
 
