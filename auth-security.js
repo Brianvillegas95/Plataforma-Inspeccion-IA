@@ -32,25 +32,23 @@ const configureClient = async () => {
     });
 };
 
-// MANEJO DE CALLBACK OPTIMIZADO: Evita procesar si ya hay sesión
+// MANEJO DE CALLBACK: Evita errores de estado al navegar o refrescar
 const handleRedirectCallback = async () => {
     const query = window.location.search;
     const hasParams = query.includes("code=") && query.includes("state=");
     
     if (hasParams) {
         try {
-            // Verificamos si ya estamos autenticados antes de procesar el callback
-            // Esto evita el error "Invalid State" al navegar hacia atrás
+            // Verificamos si ya hay sesión para no procesar un estado viejo
             const isAuthenticated = await auth0Client.isAuthenticated();
-            
             if (!isAuthenticated) {
                 await auth0Client.handleRedirectCallback();
             }
-            
-            // Limpiamos la URL siempre, sin importar el resultado
-            window.history.replaceState({}, document.title, window.location.pathname);
         } catch (err) {
-            console.warn("Callback ignorado o estado expirado:", err.message);
+            // Silenciamos el error de estado inválido ya que limpiamos la URL
+            console.warn("Estado de Auth0 expirado o procesado previamente.");
+        } finally {
+            // Limpiamos la URL de parámetros siempre
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }
@@ -70,15 +68,13 @@ const logout = () => {
 
 const initializeAuth = async (authRequired = false, requiredRoles = []) => {
     await configureClient();
-    await handleRedirectCallback(); // Primero limpiamos/procesamos la URL
+    await handleRedirectCallback(); 
     await updateUI(authRequired, requiredRoles);
 };
 
 const updateUI = async (authRequired, requiredRoles) => {
-    // 1. Obtener estado de autenticación
     const isAuthenticated = await auth0Client.isAuthenticated();
     
-    // 2. Referencias a elementos
     const protectedContent = document.getElementById('protected-content');
     const loginScreen = document.getElementById('login-screen');
     const logoutButton = document.getElementById('logout-button');
@@ -86,19 +82,18 @@ const updateUI = async (authRequired, requiredRoles) => {
     const dashboardAjustesLink = document.getElementById('link-dashboard-ajustes');
     const adminMantenimientoLink = document.getElementById('link-admin-mantenimiento');
 
-    // 3. Lógica para NO AUTENTICADOS
+    // 1. USUARIO NO AUTENTICADO
     if (!isAuthenticated) {
         if (authRequired) {
              await login(); 
              return; 
         }
-        if(protectedContent) protectedContent.style.display = 'none';
         if(loginScreen) loginScreen.style.display = 'block';
-        if(logoutButton) logoutButton.style.display = 'none';
+        if(protectedContent) protectedContent.style.display = 'none';
         return;
     }
     
-    // 4. Lógica para AUTENTICADOS (Roles)
+    // 2. VALIDACIÓN DE ROLES
     const CLAIM_URL = 'https://azor-calidad.netlify.app/roles';
     let userRoles = [];
 
@@ -112,16 +107,14 @@ const updateUI = async (authRequired, requiredRoles) => {
             userRoles = parsedToken?.[CLAIM_URL] || [];
         }
     } catch (e) {
-        console.error("Error obteniendo roles:", e);
+        console.error("Error al recuperar roles:", e);
     }
 
-    // Bloqueo por falta de roles
     if (userRoles.length === 0) {
         logout();
         return;
     }
 
-    // Bloqueo por rol insuficiente
     if (requiredRoles.length > 0) {
         const hasRequiredRole = requiredRoles.some(r => userRoles.includes(r));
         if (!hasRequiredRole) {
@@ -130,12 +123,12 @@ const updateUI = async (authRequired, requiredRoles) => {
         }
     }
 
-    // 5. Mostrar Interfaz Final
+    // 3. MOSTRAR INTERFAZ (Esto sobrescribe el display:none del CSS)
     if(loginScreen) loginScreen.style.display = 'none';
     if(protectedContent) protectedContent.style.display = 'block'; 
     if(logoutButton) logoutButton.style.display = 'inline-block';
 
-    // Visibilidad de menú
+    // 4. VISIBILIDAD DE MENÚS
     const isAdmin = userRoles.includes('admin');
     const isSuperMan = userRoles.includes('super_man');
     const isSuper = userRoles.includes('super');
