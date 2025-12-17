@@ -132,7 +132,7 @@ body {
     transition: background-color 0.2s ease, color 0.2s ease; 
 }
 .dropdown-menu li a i { margin-right: 10px; color: var(--azor-blue); width: 1.1em; text-align: center; }
-.dropdown-menu li a:hover { background-color: #e9ecef !important; color: rgba(255,255,255,0.25) !important; }
+.dropdown-menu li a:hover { background-color: #e9ecef !important; color: #005db4     !important; }
 
 /* === CONTENIDO PRINCIPAL Y SECCIONES DE HERRAMIENTAS (GLOBAL) === */
 .main-content { flex-grow: 1; display: flex; flex-direction: column; padding: 20px;} 
