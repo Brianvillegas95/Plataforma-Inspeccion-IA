@@ -8,8 +8,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+    body {
+        visibility: hidden; /* Oculta todo el renderizado inicial */
+        background-color: #333; /* Evita el flash blanco */
+    }
+    
     #protected-content, #login-screen {
-        display: none;
+        display: none; /* Mantiene ambos ocultos hasta que el JS decida */
     }
     </style>
 </head>
@@ -474,10 +479,16 @@
     initializeAuth(true); 
     </script>
 
-    <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-        await initializeAuth(false, []); 
-    });
+   <script>
+    window.onload = async () => {
+        try {
+            await initializeAuth(false);
+            document.body.style.visibility = 'visible';
+        } catch (e) {
+            console.error("Error en carga inicial:", e);
+            document.body.style.visibility = 'visible';
+        }
+    };
     </script>
 
     <div id="lightbox" class="lightbox">

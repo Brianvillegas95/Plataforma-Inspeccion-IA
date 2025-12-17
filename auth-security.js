@@ -77,70 +77,54 @@ const updateUI = async (authRequired, requiredRoles) => {
     
     const protectedContent = document.getElementById('protected-content');
     const loginScreen = document.getElementById('login-screen');
-    const logoutButton = document.getElementById('logout-button');
 
-    // 1. CASO: NO AUTENTICADO
+    // Limpiamos estados previos para evitar el parpadeo
+    if(protectedContent) protectedContent.style.display = 'none';
+    if(loginScreen) loginScreen.style.display = 'none';
+
     if (!isAuthenticated) {
         if (authRequired) {
              await login(); 
              return; 
         }
-        // Solo mostramos login si estamos seguros de que no hay sesión
-        if(protectedContent) protectedContent.style.display = 'none';
+        // Si no está autenticado, mostramos login
         if(loginScreen) loginScreen.style.display = 'block';
         return;
     }
     
-    // 2. CASO: AUTENTICADO - VALIDAR ROLES
+    // Si llegamos aquí, ESTÁ autenticado. 
+    // Ejecutamos validación de roles...
     const CLAIM_URL = 'https://azor-calidad.netlify.app/roles';
     let userRoles = [];
-
     try {
         const idTokenClaims = await auth0Client.getIdTokenClaims();
         userRoles = idTokenClaims?.[CLAIM_URL] || [];
-        if (userRoles.length === 0) {
-            const accessToken = await auth0Client.getTokenSilently(); 
-            const parsedToken = parseJwt(accessToken);
-            userRoles = parsedToken?.[CLAIM_URL] || [];
-        }
-    } catch (e) {
-        console.error("Error al recuperar roles:", e);
+    } catch (e) { console.error(e); }
+
+    // Si tiene roles, mostramos el contenido protegido
+    if (userRoles.length > 0) {
+        if(protectedContent) protectedContent.style.display = 'block';
+        
+        // Lógica de visibilidad de botones/links
+        actualizarVisibilidadBotones(userRoles);
+    } else {
+        // Si no tiene roles, lo sacamos
+        logout();
     }
-
-    if (userRoles.length === 0) { logout(); return; }
-
-    if (requiredRoles.length > 0) {
-        const hasRequiredRole = requiredRoles.some(r => userRoles.includes(r));
-        if (!hasRequiredRole) {
-            window.location.replace(window.location.origin); 
-            return;
-        }
-    }
-
-    // 3. MOSTRAR INTERFAZ (Sin parpadeos)
-    // Primero ocultamos el login por completo
-    if(loginScreen) loginScreen.style.display = 'none';
-    
-    // Mostramos el contenido solo cuando ya sabemos que todo es correcto
-    if(protectedContent) {
-        protectedContent.style.display = 'block';
-    }
-    
-    if(logoutButton) logoutButton.style.display = 'inline-block';
-
-    // Manejo de visibilidad de menús según roles
-    const isAdmin = userRoles.includes('admin');
-    const isSuperMan = userRoles.includes('super_man');
-    const isSuper = userRoles.includes('super');
-    
-    const canSeeKpis = isAdmin || isSuperMan || isSuper;
-    const canSeeAdmin = isAdmin || isSuperMan;
-
-    const kpisLink = document.getElementById('link-kpis');
-    const dashLink = document.getElementById('link-dashboard-ajustes');
-    const adminLink = document.getElementById('link-admin-mantenimiento');
-
-    if (kpisLink) kpisLink.style.display = canSeeKpis ? 'block' : 'none';
-    if (dashLink) dashLink.style.display = canSeeKpis ? 'block' : 'none';
-    if (adminLink) adminLink.style.display = canSeeAdmin ? 'block' : 'none';
 };
+
+// Función de apoyo para limpiar el código principal
+function actualizarVisibilidadBotones(userRoles) {
+    const isAdmin = userRoles.includes('admin') || userRoles.includes('super_man');
+    const isUser = userRoles.includes('super') || isAdmin;
+
+    const kpis = document.getElementById('link-kpis');
+    const dash = document.getElementById('link-dashboard-ajustes');
+    const admin = document.getElementById('link-admin-mantenimiento');
+    const logoutBtn = document.getElementById('logout-button');
+
+    if (kpis) kpis.style.display = isUser ? 'block' : 'none';
+    if (dash) dash.style.display = isUser ? 'block' : 'none';
+    if (admin) admin.style.display = isAdmin ? 'block' : 'none';
+    if (logoutBtn) logoutBtn.style.display = 'inline-block';
+}
