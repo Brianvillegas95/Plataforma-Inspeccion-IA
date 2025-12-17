@@ -6,10 +6,10 @@
     <title>Plataforma de Inspección IA - Grupo Azor</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
     <style>
-    #protected-content, 
-    #login-screen {
-    display: none !important;
+    #protected-content, #login-screen {
+        display: none;
     }
     </style>
 </head>
@@ -475,10 +475,11 @@
     </script>
 
     <script>
-    // Inicialización para index.html: No requiere autenticación estricta (false) y no requiere roles específicos []
-    window.onload = () => {
-        initializeAuth(false, []); 
-    };
+    // Única llamada: No requiere auth obligatoria para ver el index (false)
+    // Pero si ya está logueado, mostrará el contenido automáticamente.
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeAuth(false);
+    });
     </script>
 
     <div id="lightbox" class="lightbox">

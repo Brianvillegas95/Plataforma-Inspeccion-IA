@@ -123,20 +123,25 @@ const updateUI = async (authRequired, requiredRoles) => {
         }
     }
 
-    // 3. MOSTRAR INTERFAZ (Esto sobrescribe el display:none del CSS)
-    if(loginScreen) loginScreen.style.display = 'none';
-    if(protectedContent) protectedContent.style.display = 'block'; 
-    if(logoutButton) logoutButton.style.display = 'inline-block';
+    // 3. MOSTRAR INTERFAZ
+    if (isAuthenticated) {
+        if(loginScreen) loginScreen.style.display = 'none';
+        if(protectedContent) protectedContent.style.setProperty('display', 'block', 'important'); // Usamos important aquí desde JS para asegurar
+        if(logoutButton) logoutButton.style.display = 'inline-block';
+        
+        // Lógica de visibilidad de menús
+        const isAdmin = userRoles.includes('admin');
+        const isSuperMan = userRoles.includes('super_man');
+        const isSuper = userRoles.includes('super');
+        const canSeeKpis = isAdmin || isSuperMan || isSuper;
+        const canSeeAdmin = isAdmin || isSuperMan;
 
-    // 4. VISIBILIDAD DE MENÚS
-    const isAdmin = userRoles.includes('admin');
-    const isSuperMan = userRoles.includes('super_man');
-    const isSuper = userRoles.includes('super');
-    
-    const canSeeKpis = isAdmin || isSuperMan || isSuper;
-    const canSeeAdmin = isAdmin || isSuperMan;
-
-    if (kpisLink) kpisLink.style.display = canSeeKpis ? 'block' : 'none';
-    if (dashboardAjustesLink) dashboardAjustesLink.style.display = canSeeKpis ? 'block' : 'none';
-    if (adminMantenimientoLink) adminMantenimientoLink.style.display = canSeeAdmin ? 'block' : 'none';
+        if (kpisLink) kpisLink.style.display = canSeeKpis ? 'block' : 'none';
+        if (dashboardAjustesLink) dashboardAjustesLink.style.display = canSeeKpis ? 'block' : 'none';
+        if (adminMantenimientoLink) adminMantenimientoLink.style.display = canSeeAdmin ? 'block' : 'none';
+    } else {
+        // Si no está autenticado y estamos en index
+        if(loginScreen) loginScreen.style.setProperty('display', 'block', 'important');
+        if(protectedContent) protectedContent.style.display = 'none';
+    }
 };
