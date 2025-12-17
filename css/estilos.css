@@ -2,7 +2,7 @@
 
 /* === VARIABLES GLOBALES ( :root ) === */
 :root {
-    --azor-blue: #007bff; 
+    --azor-blue: #005db4; 
     --azor-blue-dark: #0056b3; 
     --light-bg: #f0f2f5; 
     --surface-bg: #ffffff; 
@@ -1414,8 +1414,6 @@ body.color-validator-body .main-content {
 
 /* --- ▲▲ FIN DEL NUEVO CÓDIGO DE GALERÍA Y ZOOM ▲▲ --- */
 
-/* Archivo: css/estilos.css */
-
 .chat-media-link {
     display: inline-block;
     padding: 10px 15px;
@@ -1456,6 +1454,7 @@ body.color-validator-body .main-content {
     scrollbar-width: thin;
     scrollbar-color: #909090 var(--light-bg);
 }
+
 /* ========================================================= */
 /* === ESTILOS PARA EL BOTÓN "REPORTAR PARO" (FLOTANTE) === */
 /* ========================================================= */
@@ -1503,7 +1502,7 @@ body.color-validator-body .main-content {
 }
 
 /* ========================================================= */
-/* === ESTILOS PARA EL BOTÓN "PULMON OP" (FLOTANTE VERDE) === */
+/* === ESTILOS PARA EL BOTÓN "LOCALIZADOR" (FLOTANTE VERDE) === */
 /* ========================================================= */
 
 .pulmon-op-btn-floating {

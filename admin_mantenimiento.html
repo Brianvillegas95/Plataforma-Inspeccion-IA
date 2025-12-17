@@ -16,7 +16,7 @@
         
         /* HEADER PRO */
         .app-header { 
-            background-color: #005f9e; 
+            background-color: #005db4; 
             border-bottom: 1px solid #004a7c; 
             padding: 15px 30px; 
             display: flex; 
@@ -36,7 +36,7 @@
             padding: 8px 15px; border-radius: 6px; font-weight: 600; 
             cursor: pointer; transition: background 0.2s, color 0.2s;
         }
-        .btn-header-nav:hover { background: #e0e0e0; color: #005f9e; border-color: #e0e0e0; }
+        .btn-header-nav:hover { background: #e0e0e0; color: #005db4; border-color: #e0e0e0; }
 
         /* LAYOUT */
         .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; padding: 30px; max-width: 1600px; margin: 0 auto; }
@@ -56,7 +56,7 @@
         
         /* TARJETAS MECÁNICOS */
         .mec-card { background: #fff; border: 1px solid #e1e4e8; padding: 12px 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
-        .mec-avatar { width: 36px; height: 36px; background: #005f9e; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9em; }
+        .mec-avatar { width: 36px; height: 36px; background: #005db4; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9em; }
         .mec-info { margin-left: 12px; }
         .mec-name { font-weight: 700; color: #333; font-size: 0.95em; }
         .mec-area { font-size: 0.75em; color: #888; text-transform: uppercase; }
@@ -69,7 +69,7 @@
 
         /* BOTONES */
         .action-btn { background: white; border: 1px solid #ced4da; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em; color: #333; transition: all 0.2s; }
-        .action-btn:hover { background: #005f9e; color: white; border-color: #005f9e; }
+        .action-btn:hover { background: #005db4; color: white; border-color: #005db4; }
         .btn-logout { background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; }
         
         /* LOGIN OVERLAY */
@@ -87,7 +87,7 @@
 <body>
     <div id="reassign-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;">
         <div style="background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 450px; text-align: center;">
-            <h3 style="color: #005f9e; margin-top:0;"><i class="fas fa-exchange-alt"></i> Reasignación de Folio</h3>
+            <h3 style="color: #005db4; margin-top:0;"><i class="fas fa-exchange-alt"></i> Reasignación de Folio</h3>
             <p id="reassign-job-info" style="color: #555; margin-bottom: 20px;">Cargando...</p>
             <div class="filter-group" style="margin-bottom: 20px;">
                 <label for="new-mechanic-select" style="text-align: left; margin-bottom: 8px; font-weight: bold; display: block;">Seleccione el nuevo responsable:</label>
@@ -117,7 +117,7 @@
         
         <div class="panel">
             <div class="panel-header">
-                <h3><i class="fas fa-clipboard-list" style="color:#005f9e;"></i> Tickets en Curso</h3>
+                <h3><i class="fas fa-clipboard-list" style="color:#005db4;"></i> Tickets en Curso</h3>
                 <button onclick="loadDashboard()" class="action-btn" title="Actualizar"><i class="fas fa-sync"></i></button>
             </div>
             <div class="panel-body" id="active-jobs-list">
