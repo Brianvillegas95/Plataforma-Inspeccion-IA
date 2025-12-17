@@ -69,6 +69,10 @@
         .result-item { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; }
         .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #005f9e; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* BOTONES PRO */
+        .btn-header-nav { background: #ffffff; color: #005f9e; border: 1px solid #ffffff; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; }
+        .btn-header-nav:hover { background: #e0e0e0; color: #005f9e; border-color: #e0e0e0; }
     </style>
 </head>
 <body>
@@ -78,7 +82,7 @@
             <h1 class="app-title">Localizador</h1>
         </div>
         <div>
-            <button onclick="window.location.href='/'" class="btn-header-nav" style="margin-right: 10px;">Inicio</button>
+            <button onclick="window.location.href='/'" class="btn-header-nav">Inicio</button>
         </div>
     </header>
 
