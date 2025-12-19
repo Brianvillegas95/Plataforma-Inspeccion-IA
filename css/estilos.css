@@ -1000,6 +1000,42 @@ body.color-validator-body .main-content {
 /* === ESTILOS DEL WIDGET DE CHATBOT FLOTANTE === */
 /* ==================================================================================== */
 
+/* Burbuja de notificación proactiva */
+.chat-notification-bubble {
+    position: absolute;
+    bottom: 100px; /* Ajusta según el tamaño de tu icono de Chat.png */
+    right: 20px;
+    background-color: white;
+    color: #333;
+    padding: 12px 18px;
+    border-radius: 20px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    font-size: 0.9rem;
+    font-weight: 500;
+    width: 180px;
+    z-index: 10000;
+    border: 2px solid var(--azor-blue);
+    animation: bounceIn 0.8s ease;
+}
+
+/* El triangulito de la burbuja */
+.chat-notification-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    right: 30px;
+    border-width: 10px 10px 0;
+    border-style: solid;
+    border-color: white transparent transparent;
+}
+
+@keyframes bounceIn {
+    0% { opacity: 0; transform: scale(0.3) translateY(20px); }
+    50% { opacity: 1; transform: scale(1.05) translateY(0); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+}
+
 /* 1. La burbuja flotante */
 #chat-bubble {
     position: fixed;

@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos del DOM (Chat) ---
+    const notification = document.getElementById('chat-notification');
     const chatBubble = document.getElementById('chat-bubble');
     const chatContainer = document.getElementById('chat-container');
     const closeChat = document.getElementById('close-chat');
@@ -46,26 +47,41 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPan = { x: 0, y: 0 }; 
     let imageNaturalSize = { width: 0, height: 0 }; 
 
-    // SALUDO PROACTIVO AL CARGAR LA PÁGINA ---
+    // --- SALUDO PROACTIVO (SOLO BURBUJA) ---
+    // Sustituye el bloque de saludo anterior por este:
     window.addEventListener('load', () => {
-        // Esperamos 2 segundos para que el usuario se instale en la página
         setTimeout(() => {
-            // Solo lo enviamos si el chat no se ha abierto manualmente todavía
-            if (!isChatInitiated) {
-                const mensajeProactivo = "¡Hola! 👋 Soy Quali. Estoy aquí por si tienes alguna duda sobre los procesos. ¿Te puedo ayudar en algo?";
-                
-                // Usamos tu función existente para mostrar el mensaje
-                showBotMessage(mensajeProactivo);
-                
-                // Iniciamos la lógica del chat para que ya cargue las opciones iniciales (Menú principal)
-                historyStack = ['0'];
-                getNextDialogue('0');
-                
-                // Marcamos como iniciado para que no se repita el saludo de bienvenida si el usuario hace clic después
-                isChatInitiated = true;
+            // Solo mostramos la burbuja si el chat NO ha sido iniciado
+            if (notification && !isChatInitiated) {
+                notification.style.display = 'block';
             }
-        }, 2000); 
+        }, 3000); // Aparece a los 3 segundos
     });
+
+    // --- MODIFICA EL EVENTO CLICK DE chatBubble ---
+    chatBubble.addEventListener('click', () => {
+        chatContainer.classList.toggle('open');
+        
+        // Al abrir el chat, ocultamos la burbuja definitivamente
+        if (notification) {
+            notification.style.display = 'none';
+        }
+
+        if (!isChatInitiated && chatContainer.classList.contains('open')) {
+            const welcomeMessage = "¡Hola! Soy Quali, tu asistente virtual. Puedo ayudarte a resolver las dudas más frecuentes. Para empezar, selecciona el área que deseas consultar.";
+            showBotMessage(welcomeMessage);
+            historyStack = ['0'];
+            getNextDialogue('0');
+            isChatInitiated = true;
+        }
+    });
+
+    //  (Opcional) Hacer que la burbuja también abra el chat al clickearla
+    if (notification) {
+        notification.addEventListener('click', () => {
+            chatBubble.click(); // Simula el click en Quali
+        });
+    }
 
     chatBubble.addEventListener('click', () => {
         chatContainer.classList.toggle('open');
