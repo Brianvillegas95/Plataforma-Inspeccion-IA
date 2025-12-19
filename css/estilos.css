@@ -100,6 +100,32 @@ body {
 
 /* === MENÚ DE NAVEGACIÓN DESPLEGABLE (GLOBAL) === */
 
+/* Estilo unificado para botones tipo "Salir" o "Inicio" en el Header */
+.btn-header-translucido {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.25); /* */
+    color: white !important; /* */
+    padding: 4px 10px; /* */
+    border-radius: 8px; /* */
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.btn-header-translucido:hover {
+    background: rgba(255, 255, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-header-translucido i {
+    margin-right: 6px;
+}
+
 .main-nav { position: relative; display: flex; align-items: center; }
 .main-nav ul { list-style: none; display: flex; gap: 8px; padding: 0; margin: 0; }
 .main-nav > ul > li.dropdown { position: relative; }
