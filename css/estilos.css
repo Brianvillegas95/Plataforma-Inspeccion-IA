@@ -100,11 +100,6 @@ body {
 
 /* === MENÚ DE NAVEGACIÓN DESPLEGABLE (GLOBAL) === */
 
-.btn-nav-estilo { color: var(--text-light) !important; text-decoration: none; font-weight: 500; font-size: 0.95rem; padding: 10px 18px; border-radius: var(--border-radius);
-    transition: background-color 0.2s ease, color 0.2s ease; display: flex; align-items: center; white-space: nowrap; cursor: pointer; background-color: transparent; border: none;
-    font-family: var(--font-main); }
-.btn-nav-estilo:hover { background-color: rgba(255, 255, 255, 0.25) !important; color: white !important; }
-
 .main-nav { position: relative; display: flex; align-items: center; }
 .main-nav ul { list-style: none; display: flex; gap: 8px; padding: 0; margin: 0; }
 .main-nav > ul > li.dropdown { position: relative; }
