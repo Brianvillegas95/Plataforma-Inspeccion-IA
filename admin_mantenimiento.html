@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Mantenimiento | Grupo Azor</title>
+    <title>Admin Mantenimiento</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
@@ -107,10 +107,14 @@
            <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
         <h1 class="app-title">Panel Administrativo</h1>
         </div>
-        <div>
-            <button onclick="window.location.href='/'" class="btn-header-nav" style="margin-right: 10px;">Inicio</button>
-            <button onclick="window.location.href='kpi_mantenimiento.html'" class="btn-header-nav" style="margin-right: 10px;">Ver Dashboard KPI</button>
-        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+        <a href="index.html" class="btn-header-translucido">
+            <i class="fas fa-home"></i> Inicio
+        </a>
+        <a href="kpi_mantenimiento.html" class="btn-header-translucido">
+            <i class="fas fa-chart-bar"></i> Ver KPI´s
+        </a>
+    </div>
     </header>
 
     <main class="dashboard-grid">
