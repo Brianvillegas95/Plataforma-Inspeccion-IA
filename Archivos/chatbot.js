@@ -47,18 +47,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPan = { x: 0, y: 0 }; 
     let imageNaturalSize = { width: 0, height: 0 }; 
 
-    // --- SALUDO PROACTIVO (SOLO BURBUJA) ---
-    // Sustituye el bloque de saludo anterior por este:
+    // --- SALUDO PROACTIVO (BURBUJA FLOTANTE) ---
     window.addEventListener('load', () => {
         setTimeout(() => {
-            // Solo mostramos la burbuja si el chat NO ha sido iniciado
             if (notification && !isChatInitiated) {
                 notification.style.display = 'block';
             }
-        }, 3000); // Aparece a los 3 segundos
+        }, 3000);
     });
 
-    // --- MODIFICA EL EVENTO CLICK DE chatBubble ---
+    // --- EVENTO CLICK PARA EL WIDGET (MONITO) ---
     chatBubble.addEventListener('click', () => {
         chatContainer.classList.toggle('open');
         
@@ -76,23 +74,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    //  (Opcional) Hacer que la burbuja también abra el chat al clickearla
+    // --- EVENTO CLICK PARA LA BURBUJA (TEXTO) ---
     if (notification) {
-        notification.addEventListener('click', () => {
-            chatBubble.click(); // Simula el click en Quali
+        notification.addEventListener('click', (e) => {
+            e.stopPropagation(); // Evita conflictos con el click del monito
+            chatBubble.click();  // Activa la lógica de apertura superior
         });
     }
-
-    chatBubble.addEventListener('click', () => {
-        chatContainer.classList.toggle('open');
-        if (!isChatInitiated && chatContainer.classList.contains('open')) {
-            const welcomeMessage = "¡Hola! Soy Quali, tu asistente virtual. Puedo ayudarte a resolver las dudas más frecuentes. Para empezar, selecciona el área que deseas consultar.";
-            showBotMessage(welcomeMessage);
-            historyStack = ['0'];
-            getNextDialogue('0');
-            isChatInitiated = true;
-        }
-    });
 
     closeChat.addEventListener('click', () => {
         chatContainer.classList.remove('open');
