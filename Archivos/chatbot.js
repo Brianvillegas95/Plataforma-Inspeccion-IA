@@ -46,6 +46,27 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPan = { x: 0, y: 0 }; 
     let imageNaturalSize = { width: 0, height: 0 }; 
 
+    // SALUDO PROACTIVO AL CARGAR LA PÁGINA ---
+    window.addEventListener('load', () => {
+        // Esperamos 2 segundos para que el usuario se instale en la página
+        setTimeout(() => {
+            // Solo lo enviamos si el chat no se ha abierto manualmente todavía
+            if (!isChatInitiated) {
+                const mensajeProactivo = "¡Hola! 👋 Soy Quali. Estoy aquí por si tienes alguna duda sobre los procesos. ¿Te puedo ayudar en algo?";
+                
+                // Usamos tu función existente para mostrar el mensaje
+                showBotMessage(mensajeProactivo);
+                
+                // Iniciamos la lógica del chat para que ya cargue las opciones iniciales (Menú principal)
+                historyStack = ['0'];
+                getNextDialogue('0');
+                
+                // Marcamos como iniciado para que no se repita el saludo de bienvenida si el usuario hace clic después
+                isChatInitiated = true;
+            }
+        }, 2000); 
+    });
+
     chatBubble.addEventListener('click', () => {
         chatContainer.classList.toggle('open');
         if (!isChatInitiated && chatContainer.classList.contains('open')) {
