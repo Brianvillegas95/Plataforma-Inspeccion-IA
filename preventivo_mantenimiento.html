@@ -245,8 +245,8 @@
         }
 
         function actualizarTablasPrioridad(actual, proxima) {
-            const dataActual = dbPreventivos.filter(i => getWeekNumber(new Date(i.fecha_inicio)) == actual);
-            const dataProxima = dbPreventivos.filter(i => getWeekNumber(new Date(i.fecha_inicio)) == proxima);
+            const dataActual = dbPreventivos.filter(i => i.fecha_inicio && getWeekNumber(new Date(i.fecha_inicio + 'T00:00:00')) == actual);
+            const dataProxima = dbPreventivos.filter(i => i.fecha_inicio && getWeekNumber(new Date(i.fecha_inicio + 'T00:00:00')) == proxima);
             renderTable(dataActual, 'agenda-actual');
             renderTable(dataProxima, 'agenda-proxima');
         }
@@ -256,7 +256,7 @@
             const area = document.getElementById('f-area').value;
             const mach = document.getElementById('f-machine').value;
             const filtrados = dbPreventivos.filter(item => {
-                const cumpleSem = sem === "" || getWeekNumber(new Date(item.fecha_inicio)) == sem;
+                const cumpleSem = sem === "" || (item.fecha_inicio && getWeekNumber(new Date(item.fecha_inicio + 'T00:00:00')) == sem);
                 const cumpleArea = area === "TODAS" || item.area === area;
                 const cumpleMach = mach === "TODAS" || item.maquina === mach;
                 return cumpleSem && cumpleArea && cumpleMach;
@@ -282,7 +282,7 @@
             }
 
             tbody.innerHTML = data.map(item => {
-                const fInicio = new Date(item.fecha_inicio);
+                const fInicio = new Date(item.fecha_inicio + 'T00:00:00');
                 const semItem = getWeekNumber(fInicio);
                 let dotClass = 'bg-futuro'; let textStatus = 'Programado';
                 
@@ -293,12 +293,10 @@
                 const formatView = (isoDate) => {
                     if (!isoDate) return '-';
                     const parts = isoDate.split('-');
-                    if (parts.length === 3) {
-                        return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                    }
+                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
                     return isoDate;
                 };
-                
+
                 return `
                     <tr>
                         <td><span class="status-badge"><span class="dot ${dotClass}"></span> ${textStatus}</span></td>
