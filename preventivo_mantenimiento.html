@@ -286,7 +286,7 @@
                         <td title="${item.desc}">${item.desc}</td>
                         <td>
                             <button class="btn-verify ${item.estatus === 1 ? 'done' : ''}" 
-                                    onclick="confirmar(${item.id})" ${item.estatus === 1 ? 'disabled' : ''}>
+                                    onclick="confirmar('${item.id}')" ${item.estatus === 1 ? 'disabled' : ''}>
                                 <i class="fas ${item.estatus === 1 ? 'fa-check-double' : 'fa-check'}"></i> 
                                 ${item.estatus === 1 ? 'Ok' : 'Verificar'}
                             </button>
@@ -296,14 +296,50 @@
             }).join('');
         }
 
-        function confirmar(id) {
-            if (confirm("¿Confirmar realización?")) {
-                const index = dbPreventivos.findIndex(i => i.id === id);
-                if (index !== -1) {
-                    dbPreventivos[index].estatus = 1;
-                    const semActual = getWeekNumber(new Date());
-                    actualizarTablasPrioridad(semActual, semActual + 1);
-                    aplicarFiltroGeneral();
+        async function confirmar(id) {
+            // Confirmación
+            if (!confirm("¿Confirmar realización de la tarea " + id + "?")) return;
+
+            // 1. Feedback visual (buscamos el botón que se presionó)
+            let btn = null;
+            if (event && event.target) {
+                btn = event.target.closest('button');
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+                    btn.disabled = true;
+                }
+            }
+
+            try {
+                // 2. Llamada al Backend para guardar en Excel
+                const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                    method: 'POST',
+                    body: JSON.stringify({ 
+                        action: 'update_preventive_status',
+                        data: { id_prev: id } 
+                    })
+                });
+                
+                if (res.ok) {
+                    // 3. Actualizar la vista local si se guardó bien
+                    const index = dbPreventivos.findIndex(i => i.id === id);
+                    if (index !== -1) {
+                        dbPreventivos[index].estatus = 1;
+                        const semActual = getWeekNumber(new Date());
+                        actualizarTablasPrioridad(semActual, semActual + 1);
+                        aplicarFiltroGeneral();
+                    }
+                } else {
+                    throw new Error("Error en servidor");
+                }
+
+            } catch (e) {
+                console.error(e);
+                alert("Error al guardar. Intenta de nuevo.");
+                // Restaurar botón si falló
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-check"></i> Verificar';
+                    btn.disabled = false;
                 }
             }
         }

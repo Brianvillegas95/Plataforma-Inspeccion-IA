@@ -673,6 +673,31 @@ exports.handler = async function (event) {
 
           return { statusCode: 200, body: JSON.stringify({ data }) };
       }
+
+      case 'update_preventive_status': {
+          if (!data || !data.id_prev) return { statusCode: 400, body: JSON.stringify({ error: 'Falta ID.' }) };
+          
+          const targetId = data.id_prev;
+          const spreadsheetId = '1bF9_C-4h1jESEnHZcAHEJ3PlYNCKcX-WkJ3Z8JgjIY8'; 
+          
+          // 1. Buscar la fila del ID
+          const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: 'Hoja 1!A:A' });
+          const rows = res.data.values || [];
+          // +1 porque Excel empieza en 1, no en 0
+          const rowIndex = rows.findIndex(row => row[0] === targetId) + 1;
+
+          if (rowIndex > 1) {
+              // 2. Escribir "1" en la columna H (Estatus)
+              await sheets.spreadsheets.values.update({
+                  spreadsheetId,
+                  range: `Hoja 1!H${rowIndex}`,
+                  valueInputOption: 'USER_ENTERED',
+                  resource: { values: [['1']] }
+              });
+              return { statusCode: 200, body: JSON.stringify({ message: 'OK' }) };
+          }
+          return { statusCode: 404, body: JSON.stringify({ error: 'ID no encontrado' }) };
+      }
       // Fin cambio
       
       default:
