@@ -651,6 +651,29 @@ exports.handler = async function (event) {
           }));
           return { statusCode: 200, body: JSON.stringify({ data }) };
       }
+
+      // cambio 
+      case 'get_preventive_data': {
+          const spreadsheetId = '1bF9_C-4h1jESEnHZcAHEJ3PlYNCKcX-WkJ3Z8JgjIY8'; 
+          const range = 'Hoja 1!A2:H'; 
+
+          const res = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+          const rows = res.data.values || [];
+
+          const data = rows.map(r => ({
+              id_prev: r[0],      // A: ID
+              area: r[1],         // B: Area
+              activo: r[2],       // C: Activo/Maquina
+              f_inicio: r[3],     // D: Fecha Inicio
+              f_fin: r[4],        // E: Fecha Fin
+              id_act: r[5],       // F: ID Actividad
+              desc: r[6],         // G: Descripcion
+              estatus: r[7]       // H: Estatus (0 o 1)
+          }));
+
+          return { statusCode: 200, body: JSON.stringify({ data }) };
+      }
+      // Fin cambio
       
       default:
         return { statusCode: 400, body: JSON.stringify({ error: `Acción desconocida.` }) };

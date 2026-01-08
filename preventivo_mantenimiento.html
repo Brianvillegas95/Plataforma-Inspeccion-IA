@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda de Preventivos</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
+        
+        /* HEADER AZOR */
+        .app-header { 
+            background-color: #005db4; 
+            border-bottom: 1px solid #004a7c; 
+            padding: 15px 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        .logo-container { display: flex; align-items: center; gap: 15px; }
+        .logo { height: 45px; width: auto; filter: brightness(0) invert(1); }
+        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
+        
+        .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
+
+        /* GRID PARA ALINEAR SEMANAS */
+        .top-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 25px; 
+            margin-bottom: 30px; 
+        }
+
+        /* Responsive: Si la pantalla es pequeña, se apilan */
+        @media (max-width: 1100px) {
+            .top-grid { grid-template-columns: 1fr; }
+        }
+
+        .dashboard-panel { background: #fff; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); height: 100%; box-sizing: border-box; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; }
+        .panel-title { font-size: 1.1em; font-weight: 700; color: #343a40; margin: 0; display: flex; align-items: center; gap: 10px; }
+        .panel-subtitle { font-size: 0.85em; color: #005f9e; font-weight: 600; }
+        
+        /* TABLAS CON ANCHOS FIJOS PARA ALINEACIÓN PERFECTA */
+        .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid #e9ecef; }
+        .custom-table { width: 100%; border-collapse: collapse; font-size: 0.82em; table-layout: fixed; }
+        .custom-table th { background: #f8f9fa; color: #495057; font-weight: 700; text-align: left; padding: 12px; border-bottom: 2px solid #dee2e6; }
+        .custom-table td { padding: 10px 12px; border-bottom: 1px solid #e9ecef; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Definición de anchos de columna para que coincidan */
+        .col-status { width: 110px; }
+        .col-activo { width: 120px; }
+        .col-fecha { width: 95px; }
+        .col-accion { width: 110px; }
+
+        /* STATUS */
+        .status-badge { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .bg-realizado { background-color: #28a745; }
+        .bg-atrasado { background-color: #dc3545; }
+        .bg-proximo { background-color: #ffc107; }
+        .bg-futuro { background-color: #6c757d; }
+
+        /* FILTROS */
+        .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; align-items: flex-end; }
+        .filter-group { display: flex; flex-direction: column; }
+        .filter-group label { font-size: 0.75em; font-weight: 700; color: #495057; margin-bottom: 5px; }
+        .filter-control { padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; font-size: 0.9em; }
+
+        .btn-verify {
+            background: #005f9e; color: white; border: none; padding: 7px 10px;
+            border-radius: 4px; cursor: pointer; font-weight: 600; transition: background 0.2s;
+            width: 100%; font-size: 0.9em;
+        }
+        .btn-verify.done { background: #e7f1ff; color: #005f9e; cursor: default; }
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="logo-container">
+           <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
+        <h1 class="app-title">Agenda de Preventivos</h1>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+        <a href="index.html" class="btn-header-translucido">
+            <i class="fas fa-home"></i> Inicio
+        </a>
+        <a href="kpi_mantenimiento.html" class="btn-header-translucido">
+            <i class="fas fa-chart-bar"></i> Ver KPI´s
+        </a>
+    </div>
+    </header>
+
+    <main class="main-content">
+        
+        <div class="top-grid">
+            <section class="dashboard-panel" style="border-top: 5px solid #ffc107;">
+                <div class="panel-header">
+                    <h2 class="panel-title"><i class="fas fa-calendar-check"></i> ESTA SEMANA</h2>
+                    <span id="label-actual" class="panel-subtitle">Semana --</span>
+                </div>
+                <div class="table-container">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th class="col-status">Status</th>
+                                <th class="col-activo">Activo</th>
+                                <th class="col-fecha">Inicio</th>
+                                <th>Descripción</th>
+                                <th class="col-accion">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agenda-actual"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="dashboard-panel" style="border-top: 5px solid #005db4;">
+                <div class="panel-header">
+                    <h2 class="panel-title"><i class="fas fa-forward"></i> PRÓXIMA SEMANA</h2>
+                    <span id="label-proxima" class="panel-subtitle">Semana --</span>
+                </div>
+                <div class="table-container">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th class="col-status">Status</th>
+                                <th class="col-activo">Activo</th>
+                                <th class="col-fecha">Inicio</th>
+                                <th>Descripción</th>
+                                <th class="col-accion">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agenda-proxima"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <h2 class="panel-title"><i class="fas fa-search"></i> BUSCADOR GENERAL</h2>
+            </div>
+            
+            <div class="filter-grid" style="margin-bottom: 25px;">
+                <div class="filter-group">
+                    <label>Semana</label>
+                    <input type="number" id="f-week" class="filter-control" placeholder="Ej: 5">
+                </div>
+                <div class="filter-group">
+                    <label>Área</label>
+                    <select id="f-area" class="filter-control"><option value="TODAS">Todas</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Activo</label>
+                    <select id="f-machine" class="filter-control"><option value="TODAS">Todos</option></select>
+                </div>
+                <div class="filter-group">
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="aplicarFiltroGeneral()" class="btn-verify" style="padding: 10px; flex: 1;"><i class="fas fa-search"></i> Filtrar Datos</button>
+        
+                        <button onclick="limpiarFiltros()" class="btn-verify" style="padding: 10px; background: #6c757d; width: 45px; flex-shrink: 0;" title="Limpiar Filtros">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="custom-table" style="table-layout: auto;">
+                    <thead>
+                        <tr><th>Status</th><th>Sem</th><th>Activo</th><th>F. Inicio</th><th>F. Fin</th><th>Tarea</th><th>Acción</th></tr>
+                    </thead>
+                    <tbody id="agenda-general"></tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        let dbPreventivos = [ ];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. Cargar datos del Backend
+            try {
+                const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'get_preventive_data' })
+                });
+                const json = await res.json();
+                const rawData = json.data || [];
+
+                // 2. Convertir formato del Backend al formato de la Agenda
+                dbPreventivos = rawData.map(item => ({
+                    id: item.id_prev,       
+                    maquina: item.activo,    // Mapeamos 'activo' a 'maquina'
+                    area: item.area,
+                    fecha_inicio: item.f_inicio, 
+                    fecha_fin: item.f_fin,
+                    desc: item.desc,
+                    estatus: parseInt(item.estatus) || 0 // Aseguramos que sea número
+                }));
+
+            } catch (e) {
+                console.error('Error cargando agenda:', e);
+                // Si falla, dbPreventivos se queda vacío y la tabla mostrará "No hay tareas"
+            }
+
+            // 3. Inicializar la vista (esto es igual que antes, pero ahora con datos reales)
+            const hoy = new Date();
+            const semActual = getWeekNumber(hoy);
+            const semProxima = semActual + 1;
+
+            document.getElementById('label-actual').textContent = `Semana ${semActual} (En curso)`;
+            document.getElementById('label-proxima').textContent = `Semana ${semProxima} (Siguiente)`;
+            
+            actualizarTablasPrioridad(semActual, semProxima);
+            cargarOpcionesFiltros();
+            renderTable(dbPreventivos, 'agenda-general');
+        });
+
+        function getWeekNumber(d) {
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            let yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
+        function actualizarTablasPrioridad(actual, proxima) {
+            const dataActual = dbPreventivos.filter(i => getWeekNumber(new Date(i.fecha_inicio)) == actual);
+            const dataProxima = dbPreventivos.filter(i => getWeekNumber(new Date(i.fecha_inicio)) == proxima);
+            renderTable(dataActual, 'agenda-actual');
+            renderTable(dataProxima, 'agenda-proxima');
+        }
+
+        function aplicarFiltroGeneral() {
+            const sem = document.getElementById('f-week').value;
+            const area = document.getElementById('f-area').value;
+            const mach = document.getElementById('f-machine').value;
+            const filtrados = dbPreventivos.filter(item => {
+                const cumpleSem = sem === "" || getWeekNumber(new Date(item.fecha_inicio)) == sem;
+                const cumpleArea = area === "TODAS" || item.area === area;
+                const cumpleMach = mach === "TODAS" || item.maquina === mach;
+                return cumpleSem && cumpleArea && cumpleMach;
+            });
+            renderTable(filtrados, 'agenda-general');
+        }
+
+        function limpiarFiltros() {
+            document.getElementById('f-week').value = "";
+            document.getElementById('f-area').value = "TODAS";
+            document.getElementById('f-machine').value = "TODAS";
+            renderTable(dbPreventivos, 'agenda-general');
+        }
+
+        function renderTable(data, targetId) {
+            const tbody = document.getElementById(targetId);
+            const hoy = new Date().setHours(0,0,0,0);
+            const semActual = getWeekNumber(new Date());
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:15px; color:#999;">No hay tareas.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(item => {
+                const fInicio = new Date(item.fecha_inicio);
+                const semItem = getWeekNumber(fInicio);
+                let dotClass = 'bg-futuro'; let textStatus = 'Programado';
+                if (item.estatus === 1) { dotClass = 'bg-realizado'; textStatus = 'Realizado'; }
+                else if (fInicio.getTime() < hoy) { dotClass = 'bg-atrasado'; textStatus = 'Atrasado'; }
+                else if (semItem === semActual) { dotClass = 'bg-proximo'; textStatus = 'Esta Sem.'; }
+
+                return `
+                    <tr>
+                        <td><span class="status-badge"><span class="dot ${dotClass}"></span> ${textStatus}</span></td>
+                        ${targetId === 'agenda-general' ? `<td>${semItem}</td>` : ''}
+                        <td><b>${item.maquina}</b></td>
+                        <td>${item.fecha_inicio}</td>
+                        ${targetId === 'agenda-general' ? `<td>${item.fecha_fin || '-'}</td>` : ''}
+                        <td title="${item.desc}">${item.desc}</td>
+                        <td>
+                            <button class="btn-verify ${item.estatus === 1 ? 'done' : ''}" 
+                                    onclick="confirmar(${item.id})" ${item.estatus === 1 ? 'disabled' : ''}>
+                                <i class="fas ${item.estatus === 1 ? 'fa-check-double' : 'fa-check'}"></i> 
+                                ${item.estatus === 1 ? 'Ok' : 'Verificar'}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function confirmar(id) {
+            if (confirm("¿Confirmar realización?")) {
+                const index = dbPreventivos.findIndex(i => i.id === id);
+                if (index !== -1) {
+                    dbPreventivos[index].estatus = 1;
+                    const semActual = getWeekNumber(new Date());
+                    actualizarTablasPrioridad(semActual, semActual + 1);
+                    aplicarFiltroGeneral();
+                }
+            }
+        }
+
+        function cargarOpcionesFiltros() {
+            const areas = [...new Set(dbPreventivos.map(i => i.area))].sort();
+            const maquinas = [...new Set(dbPreventivos.map(i => i.maquina))].sort();
+            const selArea = document.getElementById('f-area');
+            const selMach = document.getElementById('f-machine');
+            areas.forEach(a => selArea.add(new Option(a, a)));
+            maquinas.forEach(m => selMach.add(new Option(m, m)));
+        }
+    </script>
+</body>
+</html>

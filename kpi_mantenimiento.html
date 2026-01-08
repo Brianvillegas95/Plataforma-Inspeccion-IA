@@ -130,6 +130,13 @@
         .badge-blue { background: #e7f1ff; color: #005f9e; }
         .text-danger { color: #dc3545; font-weight: bold; }
         .text-center { text-align: center; }
+
+        /* --- NUEVO CSS PARA TOGGLE --- */
+        .toggle-switch-container { display: flex; justify-content: center; margin-bottom: 25px; }
+        .toggle-wrapper { background: #fff; padding: 5px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: inline-flex; gap: 5px; }
+        .btn-toggle { border: none; background: transparent; padding: 10px 30px; border-radius: 6px; font-weight: 600; color: #6c757d; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; }
+        .btn-toggle:hover { background: #f8f9fa; }
+        .btn-toggle.active { background: #005f9e; color: #fff; box-shadow: 0 2px 4px rgba(0,95,158,0.3); }
     </style>
 </head>
 <body>
@@ -152,169 +159,503 @@
 
     <main class="main-content">
         
-        <section class="dashboard-panel">
-            <div class="panel-header">
-                <h2 class="panel-title"><i class="fas fa-filter"></i> Filtros de Análisis</h2>
-                <button id="btn-reset" class="btn-secondary" style="padding: 5px 15px; font-size: 0.8em;">Limpiar Filtros</button>
+        <div class="toggle-switch-container">
+            <div class="toggle-wrapper">
+                <button id="btn-toggle-corrective" class="btn-toggle active" onclick="switchView('corrective')">
+                    <i class="fas fa-tools"></i> Correctivo
+                </button>
+                <button id="btn-toggle-preventive" class="btn-toggle" onclick="switchView('preventive')">
+                    <i class="fas fa-calendar-check"></i> Preventivo
+                </button>
             </div>
-            <div class="filter-grid">
-                <div class="filter-group">
-                    <label>Fecha y Hora Inicio</label>
-                    <input type="datetime-local" id="filter-start-date" class="filter-control">
+        </div>
+
+        <div id="view-corrective">
+            <section class="dashboard-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title"><i class="fas fa-filter"></i> Filtros de Análisis</h2>
+                    <button id="btn-reset" class="btn-secondary" style="padding: 5px 15px; font-size: 0.8em;">Limpiar Filtros</button>
                 </div>
-                <div class="filter-group">
-                    <label>Fecha y Hora Fin</label>
-                    <input type="datetime-local" id="filter-end-date" class="filter-control">
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label>Fecha y Hora Inicio</label>
+                        <input type="datetime-local" id="filter-start-date" class="filter-control">
+                    </div>
+                    <div class="filter-group">
+                        <label>Fecha y Hora Fin</label>
+                        <input type="datetime-local" id="filter-end-date" class="filter-control">
+                    </div>
+                    <div class="filter-group">
+                        <label>Área</label>
+                        <select id="filter-area" class="filter-control"><option value="TODAS">Todas las Áreas</option></select>
+                    </div>
+                    
+                    <div class="filter-group multiselect-container" id="machine-filter-group">
+                        <label>Máquina (Selección Múltiple)</label>
+                        <button class="multiselect-button" id="btn-machine-select">
+                            <span>Todas las Máquinas</span>
+                            <i class="fas fa-caret-down"></i>
+                        </button>
+                        <div class="multiselect-dropdown" id="machine-dropdown" style="display: none;">
+                            </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Mecánico</label>
+                        <select id="filter-mec" class="filter-control"><option value="TODOS">Todos los Mecánicos</option></select>
+                    </div>
+                    
+                    <div class="filter-group multiselect-container" id="status-filter-group">
+                        <label>Status del Paro</label>
+                        <button class="multiselect-button" id="btn-status-select">
+                            <span>Todos los Status</span>
+                            <i class="fas fa-caret-down"></i>
+                        </button>
+                        <div class="multiselect-dropdown" id="status-dropdown" style="display: none;">
+                            </div>
+                    </div>
+                    
+                    <div class="filter-group" style="justify-content: flex-end;">
+                        <button id="btn-apply" class="btn-primary"><i class="fas fa-search"></i> Filtrar Datos</button>
+                    </div>
                 </div>
-                <div class="filter-group">
-                    <label>Área</label>
-                    <select id="filter-area" class="filter-control"><option value="TODAS">Todas las Áreas</option></select>
+            </section>
+
+            <section class="kpi-container">
+                <div class="kpi-card">
+                    <div class="kpi-title">Tickets Totales</div>
+                    <div class="kpi-value" id="kpi-count">0</div>
+                    <div class="kpi-sub">Incluidos en el periodo</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #28a745;">
+                    <div class="kpi-title">MTTR (Tiempo Reparación)</div>
+                    <div class="kpi-value" id="kpi-mttr">0 min</div>
+                    <div class="kpi-sub">Promedio</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #ffc107;">
+                    <div class="kpi-title">MTTA (Tiempo Respuesta)</div>
+                    <div class="kpi-value" id="kpi-mtta">0 min</div>
+                    <div class="kpi-sub">Promedio</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #dc3545;">
+                    <div class="kpi-title">Tiempo Muerto Total</div>
+                    <div class="kpi-value" id="kpi-total-downtime">0 min</div>
+                    <div class="kpi-sub">Acumulado</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #17a2b8;">
+                    <div class="kpi-title">Eficiencia de Solución</div>
+                    <div class="kpi-value" id="kpi-efficiency">0%</div>
+                    <div class="kpi-sub" id="kpi-efficiency-sub">0 de 0 Asignados</div>
+                </div>
+            </section>
+
+            <div class="charts-grid">
+                <div class="dashboard-panel">
+                    <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Top 10 Máquinas con más Fallas</h2>
+                    <div class="chart-box"><canvas id="chartMachines"></canvas></div>
                 </div>
                 
-                <div class="filter-group multiselect-container" id="machine-filter-group">
-                    <label>Máquina (Selección Múltiple)</label>
-                    <button class="multiselect-button" id="btn-machine-select">
-                        <span>Todas las Máquinas</span>
-                        <i class="fas fa-caret-down"></i>
-                    </button>
-                    <div class="multiselect-dropdown" id="machine-dropdown" style="display: none;">
-                        </div>
+                <div class="dashboard-panel">
+                    <h2 class="panel-title"><i class="fas fa-microchip"></i> Fallas por Estación (Pareto)</h2>
+                    <div class="chart-box"><canvas id="chartStations"></canvas></div>
                 </div>
 
-                <div class="filter-group">
-                    <label>Mecánico</label>
-                    <select id="filter-mec" class="filter-control"><option value="TODOS">Todos los Mecánicos</option></select>
+                <div class="dashboard-panel">
+                    <h2 class="panel-title"><i class="fas fa-chart-pie"></i> Distribución por Área</h2>
+                    <div class="chart-box"><canvas id="chartAreas"></canvas></div>
                 </div>
-                
-                <div class="filter-group multiselect-container" id="status-filter-group">
-                    <label>Status del Paro</label>
-                    <button class="multiselect-button" id="btn-status-select">
-                        <span>Todos los Status</span>
-                        <i class="fas fa-caret-down"></i>
-                    </button>
-                    <div class="multiselect-dropdown" id="status-dropdown" style="display: none;">
-                        </div>
+
+                <div class="dashboard-panel">
+                    <h2 class="panel-title"><i class="fas fa-tools"></i> Tipos de Solución Aplicada</h2>
+                    <div class="chart-box"><canvas id="chartSolutions"></canvas></div>
                 </div>
-                
-                <div class="filter-group" style="justify-content: flex-end;">
-                    <button id="btn-apply" class="btn-primary"><i class="fas fa-search"></i> Filtrar Datos</button>
+
+                <div class="dashboard-panel charts-full">
+                    <h2 class="panel-title"><i class="fas fa-user-shield"></i> Eficiencia por Mecánico Asignado</h2>
+                    <div class="table-container">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Mecánico Asignado</th>
+                                    <th class="text-center">Tickets Asignados</th>
+                                    <th class="text-center">Tickets Solucionados</th>
+                                    <th class="text-center">Eficiencia (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-mec-efficiency">
+                                <tr><td colspan="4" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-        </section>
+                <div class="dashboard-panel charts-full">
+                    <h2 class="panel-title"><i class="fas fa-sitemap"></i> Solucionados por Área y Mecánico</h2>
+                    <div class="table-container">
+                        <table class="custom-table">
+                            <thead>
+                                <tr id="table-area-mec-header">
+                                    <th>Mecánico</th>
+                                    </tr>
+                            </thead>
+                            <tbody id="table-area-mec-body">
+                                <tr><td colspan="1" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                </div>
 
-        <section class="kpi-container">
-            <div class="kpi-card">
-                <div class="kpi-title">Tickets Totales</div>
-                <div class="kpi-value" id="kpi-count">0</div>
-                <div class="kpi-sub">Incluidos en el periodo</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #28a745;">
-                <div class="kpi-title">MTTR (Tiempo Reparación)</div>
-                <div class="kpi-value" id="kpi-mttr">0 min</div>
-                <div class="kpi-sub">Promedio</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #ffc107;">
-                <div class="kpi-title">MTTA (Tiempo Respuesta)</div>
-                <div class="kpi-value" id="kpi-mtta">0 min</div>
-                <div class="kpi-sub">Promedio</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #dc3545;">
-                <div class="kpi-title">Tiempo Muerto Total</div>
-                <div class="kpi-value" id="kpi-total-downtime">0 min</div>
-                <div class="kpi-sub">Acumulado</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #17a2b8;">
-                <div class="kpi-title">Eficiencia de Solución</div>
-                <div class="kpi-value" id="kpi-efficiency">0%</div>
-                <div class="kpi-sub" id="kpi-efficiency-sub">0 de 0 Asignados</div>
-            </div>
-        </section>
-
-        <div class="charts-grid">
-            <div class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Top 10 Máquinas con más Fallas</h2>
-                <div class="chart-box"><canvas id="chartMachines"></canvas></div>
-            </div>
-            
-            <div class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-microchip"></i> Fallas por Estación (Pareto)</h2>
-                <div class="chart-box"><canvas id="chartStations"></canvas></div>
-            </div>
-
-            <div class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-chart-pie"></i> Distribución por Área</h2>
-                <div class="chart-box"><canvas id="chartAreas"></canvas></div>
-            </div>
-
-            <div class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-tools"></i> Tipos de Solución Aplicada</h2>
-                <div class="chart-box"><canvas id="chartSolutions"></canvas></div>
-            </div>
-
-             <div class="dashboard-panel charts-full">
-                <h2 class="panel-title"><i class="fas fa-user-shield"></i> Eficiencia por Mecánico Asignado</h2>
+            <section class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-list"></i> Historial Detallado</h2>
                 <div class="table-container">
                     <table class="custom-table">
                         <thead>
                             <tr>
-                                <th>Mecánico Asignado</th>
-                                <th class="text-center">Tickets Asignados</th>
-                                <th class="text-center">Tickets Solucionados</th>
-                                <th class="text-center">Eficiencia (%)</th>
+                                <th>Folio</th>
+                                <th>Fecha</th>
+                                <th>Área</th>
+                                <th>Máquina</th>
+                                <th>Estación</th>
+                                <th>Falla</th>
+                                <th>Solución</th>
+                                <th>Mecánico</th>
+                                <th>T. Resp (Min)</th>
+                                <th>T. Rep (Min)</th>
+                                <th>T. Total (Min)</th>
                             </tr>
                         </thead>
-                        <tbody id="table-mec-efficiency">
-                            <tr><td colspan="4" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
+                        <tbody id="table-body">
+                            <tr><td colspan="11" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
                         </tbody>
                     </table>
                 </div>
+            </section>
+        </div>
+
+        <div id="view-preventive" style="display: none;">
+            
+            <section class="dashboard-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title"><i class="fas fa-filter"></i> Filtros de Análisis</h2>
+                    <button id="btn-prev-reset" class="btn-secondary" style="padding: 5px 15px; font-size: 0.8em;">Limpiar Filtros</button>
+                </div>
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label>Semana del Año</label>
+                        <input type="number" id="prev-filter-week" class="filter-control" placeholder="Ej: 2">
+                    </div>
+                    <div class="filter-group">
+                        <label>Área</label>
+                        <select id="prev-filter-area" class="filter-control"><option value="TODAS">Todas las Áreas</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Activo</label>
+                        <select id="prev-filter-asset" class="filter-control"><option value="TODAS">Todos los Activos</option></select>
+                    </div>
+                    <div class="filter-group" style="justify-content: flex-end;">
+                        <button id="btn-prev-apply" class="btn-primary" onclick="processPreventiveData()"><i class="fas fa-search"></i> Filtrar Datos</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="kpi-container">
+                <div class="kpi-card" style="border-left-color: #28a745;">
+                    <div class="kpi-title">% Cumplimiento Programa</div>
+                    <div class="kpi-value" id="prev-kpi-compliance">0%</div>
+                    <div class="kpi-sub">Ejecutados vs Programados</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #005f9e;">
+                    <div class="kpi-title">Total Actividades</div>
+                    <div class="kpi-value" id="prev-kpi-total">0</div>
+                    <div class="kpi-sub">Programadas en el periodo</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #dc3545;">
+                    <div class="kpi-title">Tareas Atrasadas</div>
+                    <div class="kpi-value" id="prev-kpi-overdue">0</div>
+                    <div class="kpi-sub">Sin completar fuera de fecha</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #ffc107;">
+                    <div class="kpi-title">Efectividad Plan</div>
+                    <div class="kpi-value" id="prev-kpi-effectiveness">0%</div>
+                    <div class="kpi-sub">Realizados a tiempo</div>
+                </div>
+            </section>
+
+            <div class="charts-grid">
+                <div class="dashboard-panel">
+                    <h2 class="panel-title"><i class="fas fa-calendar-check"></i> Cumplimiento por Activo</h2>
+                    <div class="chart-box"><canvas id="chartPrevAssets"></canvas></div>
+                </div>
+                
+                <div class="dashboard-panel">
+                    <h2 class="panel-title"><i class="fas fa-tasks"></i> Cumplimiento por Área</h2>
+                    <div class="chart-box"><canvas id="chartPrevAreaComp"></canvas></div>
+                </div>
+
+                <div class="dashboard-panel">
+                    <h2 class="panel-title"><i class="fas fa-chart-pie"></i> Distribución por Área</h2>
+                    <div class="chart-box"><canvas id="chartPrevAreaDist"></canvas></div>
+                </div>
+
+                <div class="dashboard-panel">
+                    <h2 class="panel-title"><i class="fas fa-check-circle"></i> Estatus de Ejecución</h2>
+                    <div class="chart-box"><canvas id="chartPrevStatus"></canvas></div>
+                </div>
             </div>
-            <div class="dashboard-panel charts-full">
-                <h2 class="panel-title"><i class="fas fa-sitemap"></i> Solucionados por Área y Mecánico</h2>
+
+            <section class="dashboard-panel">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 class="panel-title" style="margin: 0;">
+                        <i class="fas fa-list-alt"></i> Plan Maestro Detallado
+                    </h2>
+                    <a href="preventivo_mantenimiento.html" class="btn-primary" style="text-decoration: none; font-size: 0.9em; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-calendar-alt"></i> Ir a Agenda
+                    </a>
+                </div>
+
                 <div class="table-container">
                     <table class="custom-table">
                         <thead>
-                            <tr id="table-area-mec-header">
-                                <th>Mecánico</th>
-                                </tr>
+                            <tr>
+                                <th>ID Preventivo</th>
+                                <th>Área</th>
+                                <th>Activo</th>
+                                <th>F. Inicio</th>
+                                <th>F. Fin</th>
+                                <th>ID Actividad</th>
+                                <th>Descripción</th>
+                                <th>Estatus</th>
+                            </tr>
                         </thead>
-                        <tbody id="table-area-mec-body">
-                            <tr><td colspan="1" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
+                        <tbody id="prev-table-body">
+                            <tr><td colspan="8" class="text-center">Cargando Plan...</td></tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
-            </div>
-
-        <section class="dashboard-panel">
-            <h2 class="panel-title"><i class="fas fa-list"></i> Historial Detallado</h2>
-            <div class="table-container">
-                <table class="custom-table">
-                    <thead>
-                        <tr>
-                            <th>Folio</th>
-                            <th>Fecha</th>
-                            <th>Área</th>
-                            <th>Máquina</th>
-                            <th>Estación</th>
-                            <th>Falla</th>
-                            <th>Solución</th>
-                            <th>Mecánico</th>
-                            <th>T. Resp (Min)</th>
-                            <th>T. Rep (Min)</th>
-                            <th>T. Total (Min)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body">
-                        <tr><td colspan="11" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+            </section>
+        </div>
 
     </main>
 
     <script>
+    // FUNCION GLOBAL DE CAMBIO DE VISTA
+    function switchView(viewName) {
+        document.getElementById('view-corrective').style.display = viewName === 'corrective' ? 'block' : 'none';
+        document.getElementById('view-preventive').style.display = viewName === 'preventive' ? 'block' : 'none';
+        
+        document.getElementById('btn-toggle-corrective').classList.toggle('active', viewName === 'corrective');
+        document.getElementById('btn-toggle-preventive').classList.toggle('active', viewName === 'preventive');
+        
+        // Cargar preventivo si es la primera vez
+        if (viewName === 'preventive' && typeof loadPreventiveData === 'function') {
+            loadPreventiveData();
+        }
+    }
+
+    // --- VARIABLES Y LÓGICA DEL PREVENTIVO ---
+    let rawDataPreventivo = []; 
+    // Variables para almacenar las instancias de gráficas preventivas
+    let chartsPreventive = {
+        assets: null,
+        areaComp: null,
+        areaDist: null,
+        status: null
+    };
+    
+    async function loadPreventiveData() {
+        // Indicador de carga
+        document.getElementById('prev-table-body').innerHTML = '<tr><td colspan="8" class="text-center">Cargando base de datos...</td></tr>';
+
+        try {
+            // 1. Petición al Backend
+            const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'get_preventive_data' })
+            });
+
+            const json = await res.json();
+            
+            // 2. Guardar datos reales en la variable global
+            rawDataPreventivo = json.data || [];
+
+            // 3. Lógica para llenar los filtros (Selects) con los datos nuevos
+            const pAreas = [...new Set(rawDataPreventivo.map(r => r.area))].sort();
+            const pActivos = [...new Set(rawDataPreventivo.map(r => r.activo))].sort();
+            
+            const selArea = document.getElementById('prev-filter-area');
+            const selAsset = document.getElementById('prev-filter-asset');
+
+            // Limpiar y llenar Select de Área
+            if(selArea) {
+                selArea.innerHTML = '<option value="TODAS">Todas las Áreas</option>';
+                pAreas.forEach(a => selArea.add(new Option(a, a)));
+            }
+            // Limpiar y llenar Select de Activo
+            if(selAsset) {
+                selAsset.innerHTML = '<option value="TODAS">Todos los Activos</option>';
+                pActivos.forEach(a => selAsset.add(new Option(a, a)));
+            }
+
+            // 4. Ejecutar el procesado de gráficas y tablas
+            processPreventiveData();
+
+        } catch (error) {
+            console.error("Error cargando preventivos:", error);
+            document.getElementById('prev-table-body').innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error de conexión</td></tr>';
+        }
+    }
+
+    function processPreventiveData() {
+        const fArea = document.getElementById('prev-filter-area').value;
+        const fAsset = document.getElementById('prev-filter-asset').value;
+
+        // Filtrado
+        const data = rawDataPreventivo.filter(r => {
+            if (fArea !== 'TODAS' && r.area !== fArea) return false;
+            if (fAsset !== 'TODAS' && r.activo !== fAsset) return false;
+            return true;
+        });
+
+        // Cálculos KPIs
+        const total = data.length;
+        const ejecutados = data.filter(r => r.estatus == 1 || (r.f_fin && r.f_fin !== '')).length;
+        const compliance = total > 0 ? ((ejecutados / total) * 100).toFixed(1) : 0;
+        
+        const today = new Date('2026-01-02'); 
+        const atrasadas = data.filter(r => {
+            const fIni = new Date(r.f_inicio);
+            return r.estatus == 0 && fIni < today;
+        }).length;
+
+        // Render KPIs
+        document.getElementById('prev-kpi-total').textContent = total;
+        document.getElementById('prev-kpi-compliance').textContent = compliance + '%';
+        document.getElementById('prev-kpi-overdue').textContent = atrasadas;
+        document.getElementById('prev-kpi-effectiveness').textContent = compliance + '%';
+
+        // Render Tabla
+        let tableHtml = '';
+        data.forEach(r => {
+            const statusBadge = r.estatus == 1 
+                ? '<span class="badge badge-blue" style="background:#28a745; color:white;">Realizado</span>' 
+                : '<span class="badge badge-blue" style="background:#ffc107; color:#333;">Pendiente</span>';
+            
+            tableHtml += `
+                <tr>
+                    <td>${r.id_prev}</td>
+                    <td>${r.area}</td>
+                    <td><b>${r.activo}</b></td>
+                    <td>${r.f_inicio}</td>
+                    <td>${r.f_fin || '-'}</td>
+                    <td>${r.id_act}</td>
+                    <td>${r.desc}</td>
+                    <td class="text-center">${statusBadge}</td>
+                </tr>
+            `;
+        });
+        document.getElementById('prev-table-body').innerHTML = tableHtml || '<tr><td colspan="8" class="text-center">No hay datos</td></tr>';
+
+        // Render Gráficas (Llamada actualizada para manejar las 4)
+        updatePreventiveCharts(data);
+    }
+
+    function updatePreventiveCharts(data) {
+        // --- PREPARACIÓN DE DATOS ---
+        
+        // 1. Cumplimiento por Activo
+        const assetsCounts = {};
+        // 2. Cumplimiento por Área
+        const areaCompCounts = {};
+        // 3. Distribución por Área (Total tickets)
+        const areaDistCounts = {};
+        // 4. Estatus de Ejecución
+        const statusCounts = { 'Realizado': 0, 'Pendiente': 0 };
+
+        data.forEach(r => {
+            // Activos
+            if(!assetsCounts[r.activo]) assetsCounts[r.activo] = { total: 0, done: 0 };
+            assetsCounts[r.activo].total++;
+            if(r.estatus == 1) assetsCounts[r.activo].done++;
+
+            // Área Cumplimiento y Distribución
+            if(!areaCompCounts[r.area]) areaCompCounts[r.area] = { total: 0, done: 0 };
+            areaCompCounts[r.area].total++;
+            areaDistCounts[r.area] = (areaDistCounts[r.area] || 0) + 1;
+            
+            if(r.estatus == 1) areaCompCounts[r.area].done++;
+
+            // Estatus Global
+            if(r.estatus == 1) statusCounts['Realizado']++;
+            else statusCounts['Pendiente']++;
+        });
+
+        // --- RENDERIZADO ---
+
+        // CHART 1: CUMPLIMIENTO POR ACTIVO (BARRAS)
+        const ctxAssets = document.getElementById('chartPrevAssets').getContext('2d');
+        const labelsAssets = Object.keys(assetsCounts);
+        if(chartsPreventive.assets) chartsPreventive.assets.destroy();
+        chartsPreventive.assets = new Chart(ctxAssets, {
+            type: 'bar',
+            data: {
+                labels: labelsAssets,
+                datasets: [
+                    { label: 'Realizados', data: labelsAssets.map(l => assetsCounts[l].done), backgroundColor: '#28a745' },
+                    { label: 'Total', data: labelsAssets.map(l => assetsCounts[l].total), backgroundColor: '#005f9e' }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        // CHART 2: CUMPLIMIENTO POR ÁREA (BARRAS) - SOLICITADO
+        const ctxAreaComp = document.getElementById('chartPrevAreaComp').getContext('2d');
+        const labelsAreaComp = Object.keys(areaCompCounts);
+        if(chartsPreventive.areaComp) chartsPreventive.areaComp.destroy();
+        chartsPreventive.areaComp = new Chart(ctxAreaComp, {
+            type: 'bar',
+            data: {
+                labels: labelsAreaComp,
+                datasets: [
+                    { label: 'Realizados', data: labelsAreaComp.map(l => areaCompCounts[l].done), backgroundColor: '#28a745' },
+                    { label: 'Total', data: labelsAreaComp.map(l => areaCompCounts[l].total), backgroundColor: '#ffc107' }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        // CHART 3: DISTRIBUCIÓN POR ÁREA (DONA)
+        const ctxAreaDist = document.getElementById('chartPrevAreaDist').getContext('2d');
+        const labelsAreaDist = Object.keys(areaDistCounts);
+        if(chartsPreventive.areaDist) chartsPreventive.areaDist.destroy();
+        chartsPreventive.areaDist = new Chart(ctxAreaDist, {
+            type: 'doughnut',
+            data: {
+                labels: labelsAreaDist,
+                datasets: [{
+                    data: Object.values(areaDistCounts),
+                    backgroundColor: ['#005f9e', '#ffc107', '#dc3545', '#17a2b8', '#28a745']
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        });
+
+        // CHART 4: ESTATUS DE EJECUCIÓN (PASTEL)
+        const ctxStatus = document.getElementById('chartPrevStatus').getContext('2d');
+        if(chartsPreventive.status) chartsPreventive.status.destroy();
+        chartsPreventive.status = new Chart(ctxStatus, {
+            type: 'pie',
+            data: {
+                labels: ['Realizado', 'Pendiente'],
+                datasets: [{
+                    data: [statusCounts['Realizado'], statusCounts['Pendiente']],
+                    backgroundColor: ['#28a745', '#005f9e']
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        });
+    }
+
+
     document.addEventListener('DOMContentLoaded', () => {
         
         // --- CONFIGURACIÓN INICIAL ---
@@ -326,7 +667,6 @@
         // --- DOM REFERENCES ---
         const elArea = document.getElementById('filter-area');
         const elMec = document.getElementById('filter-mec');
-        // Los inputs ahora son datetime-local
         const elStartDate = document.getElementById('filter-start-date');
         const elEndDate = document.getElementById('filter-end-date');
         
@@ -335,39 +675,25 @@
         const btnStatusSelect = document.getElementById('btn-status-select');
         const statusDropdown = document.getElementById('status-dropdown');
 
-        // --- PARSERS ROBUSTOS ---
+        // --- PARSERS ---
         function parseCustomDate(dateStr) {
             if (!dateStr) return null;
             try {
-                // Separamos por cualquier espacio (o coma) para dividir Fecha y Hora
                 const parts = dateStr.trim().split(/[\s,]+/); 
-                
                 if (parts.length < 1) return null;
-                
-                const dPart = parts[0]; // DD/MM/YYYY
-                const tPart = parts[1] || '00:00:00'; // HH:MM:SS (si solo hay fecha)
-                
-                // Procesamos la fecha
+                const dPart = parts[0]; 
+                const tPart = parts[1] || '00:00:00'; 
                 const dateParts = dPart.split('/');
                 if (dateParts.length !== 3) return null;
-
                 const [day, month, year] = dateParts.map(Number);
-
-                // Procesamos la hora
                 const timeParts = tPart.split(':');
                 const hour = Number(timeParts[0]);
                 const min = Number(timeParts[1]);
                 const sec = Number(timeParts[2] || 0);
-                
                 if (isNaN(day) || isNaN(month) || isNaN(year) || isNaN(hour) || isNaN(min) || isNaN(sec)) return null;
-
-                // Importante: validar rangos básicos
                 if (month < 1 || month > 12 || day < 1 || day > 31 || year < 2000) return null;
-                
                 return new Date(year, month - 1, day, hour, min, sec);
-            } catch (e) { 
-                return null; 
-            }
+            } catch (e) { return null; }
         }
 
         function getDiffMinutes(dStart, dEnd) {
@@ -375,27 +701,21 @@
             return Math.round((dEnd - dStart) / 1000 / 60);
         }
 
-        // --- INICIO: CAMBIO 1: UTILIDAD DE TIEMPO (MINUTOS A HORAS) ---
         function formatMinutesToHours(minutes) {
             if (minutes < 60) return `${minutes} min`;
             const hours = Math.floor(minutes / 60);
             const remainingMinutes = minutes % 60;
-            if (remainingMinutes === 0) {
-                return `${hours} hr`;
-            }
+            if (remainingMinutes === 0) return `${hours} hr`;
             return `${hours} hr ${remainingMinutes} min`;
         }
         
         function getHoursHtml(minutes) {
              const hoursText = formatMinutesToHours(minutes);
-             // Aplicamos un estilo para reducir el tamaño de fuente.
              return `<span style="font-size: 0.5em; color: #6c757d; font-weight: 500; display: block; margin-top: 5px;">(${hoursText})</span>`;
         }
-        // --- FIN: CAMBIO 1 ---
 
 
-        // --- LÓGICA DE MULTISELECT CON CHECKBOXES (sin cambios) ---
-        
+        // --- MULTISELECT ---
         function toggleDropdown(button, dropdown) {
             const isVisible = dropdown.style.display === 'block';
             dropdown.style.display = isVisible ? 'none' : 'block';
@@ -440,31 +760,20 @@
             } else {
                 textSpan.textContent = `${selectedCount} ${labelPlural} Seleccionadas`;
             }
-            
-            if (allCheckbox) {
-                allCheckbox.checked = (selectedCount === totalOptions);
-            }
+            if (allCheckbox) allCheckbox.checked = (selectedCount === totalOptions);
         }
 
         function getSelectedMultiselectValues(dropdownId) {
-            const selectedValues = Array.from(document.querySelectorAll(`#${dropdownId} input[type="checkbox"]:checked`))
-                .map(checkbox => checkbox.value);
-            
-            if (selectedValues.includes('TODAS') || selectedValues.length === 0) {
-                return []; 
-            }
+            const selectedValues = Array.from(document.querySelectorAll(`#${dropdownId} input[type="checkbox"]:checked`)).map(checkbox => checkbox.value);
+            if (selectedValues.includes('TODAS') || selectedValues.length === 0) return []; 
             const allOptions = document.querySelectorAll(`#${dropdownId} input[type="checkbox"]`).length - 1;
-            if (selectedValues.length === allOptions) {
-                 return [];
-            }
-
+            if (selectedValues.length === allOptions) return [];
             return selectedValues;
         }
         
-        // --- CARGA DE DATOS Y FILTROS ---
+        // --- CARGA DATOS ---
         async function loadData() {
             try {
-                // Asegúrate de que esta URL y action sean correctos para tu backend
                 const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST', body: JSON.stringify({ action: 'get_kpi_data' })
                 });
@@ -473,16 +782,14 @@
                 
                 rawData.forEach(r => {
                     const area = r.area || 'N/A';
-                    if (!allMachinesByArea[area]) {
-                        allMachinesByArea[area] = new Set();
-                    }
+                    if (!allMachinesByArea[area]) allMachinesByArea[area] = new Set();
                     allMachinesByArea[area].add(r.maquina);
                 });
 
                 initFilters();
                 updateMachineFilterByArea();
                 processData(); 
-            } catch(e) { console.error(e); alert("Error cargando datos. Revisa la consola."); }
+            } catch(e) { console.error(e); alert("Error cargando datos."); }
         }
 
         function populateMultiselect(dropdownEl, items, type) {
@@ -495,24 +802,20 @@
 
             const selectAll = document.createElement('div');
             selectAll.className = 'multiselect-option';
-            selectAll.innerHTML = `<input type="checkbox" id="check-all-${typeKey}" value="TODAS" checked>
-                                   <label for="check-all-${typeKey}">**Todas las ${labelPlural}**</label>`;
+            selectAll.innerHTML = `<input type="checkbox" id="check-all-${typeKey}" value="TODAS" checked><label for="check-all-${typeKey}">**Todas las ${labelPlural}**</label>`;
             dropdownEl.appendChild(selectAll);
             
             items.forEach(item => {
                 if (!item) return;
                 const div = document.createElement('div');
                 div.className = 'multiselect-option';
-                div.innerHTML = `<input type="checkbox" id="check-${typeKey}-${item}" value="${item}" checked>
-                                 <label for="check-${typeKey}-${item}">${item}</label>`;
+                div.innerHTML = `<input type="checkbox" id="check-${typeKey}-${item}" value="${item}" checked><label for="check-${typeKey}-${item}">${item}</label>`;
                 dropdownEl.appendChild(div);
             });
             
             document.getElementById(`check-all-${typeKey}`).addEventListener('change', (e) => {
                 const isChecked = e.target.checked;
-                dropdownEl.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                    checkbox.checked = isChecked;
-                });
+                dropdownEl.querySelectorAll('input[type="checkbox"]').forEach(checkbox => checkbox.checked = isChecked);
                 updateMultiselectText(buttonEl, dropdownId, typeKey === 'machine' ? 'Máquina' : 'Status', labelPlural);
             });
             
@@ -521,17 +824,11 @@
                     const totalOptions = dropdownEl.querySelectorAll('input[type="checkbox"]').length - 1;
                     const selectedCount = Array.from(dropdownEl.querySelectorAll('input[type="checkbox"]:checked')).filter(cb => cb.value !== 'TODAS').length;
                     const allCheckbox = document.getElementById(`check-all-${typeKey}`);
-
-                    if (allCheckbox && selectedCount < totalOptions) {
-                        allCheckbox.checked = false;
-                    } else if (allCheckbox && selectedCount === totalOptions) {
-                        allCheckbox.checked = true;
-                    }
-
+                    if (allCheckbox && selectedCount < totalOptions) allCheckbox.checked = false;
+                    else if (allCheckbox && selectedCount === totalOptions) allCheckbox.checked = true;
                     updateMultiselectText(buttonEl, dropdownId, typeKey === 'machine' ? 'Máquina' : 'Status', labelPlural);
                 });
             });
-
             updateMultiselectText(buttonEl, dropdownId, typeKey === 'machine' ? 'Máquina' : 'Status', labelPlural);
         }
         
@@ -541,18 +838,14 @@
             
             if (selectedArea === 'TODAS') {
                 const allMachines = new Set();
-                Object.values(allMachinesByArea).forEach(set => {
-                    set.forEach(m => allMachines.add(m));
-                });
+                Object.values(allMachinesByArea).forEach(set => set.forEach(m => allMachines.add(m)));
                 filteredMachines = Array.from(allMachines).sort();
             } else if (allMachinesByArea[selectedArea]) {
                 filteredMachines = Array.from(allMachinesByArea[selectedArea]).sort();
             }
-
             populateMultiselect(machineDropdown, filteredMachines, 'machine');
             processData();
         }
-
 
         function initFilters() {
             const areas = [...new Set(rawData.map(r => r.area).filter(Boolean))].sort();
@@ -561,13 +854,11 @@
             
             areas.forEach(x => elArea.add(new Option(x, x)));
             mecs.forEach(x => elMec.add(new Option(x, x)));
-            
             populateMultiselect(statusDropdown, statuses, 'status');
 
             elArea.addEventListener('change', updateMachineFilterByArea);
             elMec.addEventListener('change', processData); 
         }
-
 
         document.getElementById('btn-apply').addEventListener('click', (e) => {
             e.preventDefault();
@@ -576,31 +867,30 @@
             processData();
         });
         
-        document.getElementById('btn-reset').addEventListener('click', () => {
-            elArea.value = 'TODAS'; 
-            elMec.value = 'TODOS'; 
-            elStartDate.value = '';
-            elEndDate.value = '';
-            
-            document.querySelectorAll('.multiselect-dropdown input[type="checkbox"]').forEach(checkbox => {
-                checkbox.checked = true;
-            });
-
+        document.getElementById('btn-reset',).addEventListener('click', () => {
+            elArea.value = 'TODAS'; elMec.value = 'TODOS'; 
+            elStartDate.value = ''; elEndDate.value = '';
+            document.querySelectorAll('.multiselect-dropdown input[type="checkbox"]').forEach(checkbox => checkbox.checked = true);
             elArea.value = 'TODAS';
             updateMachineFilterByArea(); 
-
             updateMultiselectText(btnStatusSelect, 'status-dropdown', 'Status', 'Status');
-            
             processData();
         });
 
-        
-        // --- PROCESAMIENTO Y RENDERIZADO ---
+        const btnPrevReset = document.getElementById('btn-prev-reset');
+        if (btnPrevReset) {
+            btnPrevReset.addEventListener('click', () => {
+                document.getElementById('prev-filter-week').value = '';
+                document.getElementById('prev-filter-area').value = 'TODAS';
+                document.getElementById('prev-filter-asset').value = 'TODAS';
+                processPreventiveData();
+            });
+        }
+
+        // --- PROCESAMIENTO CORRECTIVO ---
         function processData() {
             const fArea = elArea.value;
             const fMec = elMec.value;
-            
-            // 1. Lógica para establecer hora por defecto y mejorar UX
             const fStartDateValue = elStartDate.value;
             const fEndDateValue = elEndDate.value;
             
@@ -608,68 +898,37 @@
             let fEndDateObj = null;
 
             if (fStartDateValue) {
-                // Si la hora NO está especificada (solo YYYY-MM-DD), fijar a 00:00:00
-                if (fStartDateValue.length === 10) { 
-                    fStartDateObj = new Date(fStartDateValue + 'T00:00:00');
-                } else { // YYYY-MM-DDTHH:MM
-                    fStartDateObj = new Date(fStartDateValue);
-                }
+                if (fStartDateValue.length === 10) fStartDateObj = new Date(fStartDateValue + 'T00:00:00');
+                else fStartDateObj = new Date(fStartDateValue);
             }
-
             if (fEndDateValue) {
-                 // Si la hora NO está especificada (solo YYYY-MM-DD), fijar a 23:59:59
                 if (fEndDateValue.length === 10) {
                     const dateEnd = new Date(fEndDateValue);
-                    // DÍA SIGUIENTE a las 00:00:00 y retroceder 1 milisegundo.
                     fEndDateObj = new Date(dateEnd.getFullYear(), dateEnd.getMonth(), dateEnd.getDate() + 1, 0, 0, 0, 0);
                     fEndDateObj.setMilliseconds(fEndDateObj.getMilliseconds() - 1);
-                } else { // YYYY-MM-DDTHH:MM
-                    fEndDateObj = new Date(fEndDateValue);
-                }
+                } else fEndDateObj = new Date(fEndDateValue);
             }
-
 
             const fMachs = getSelectedMultiselectValues('machine-dropdown');
             const fStatuses = getSelectedMultiselectValues('status-dropdown');
-
             const isFilterStartValid = fStartDateObj && !isNaN(fStartDateObj.getTime());
             const isFilterEndValid = fEndDateObj && !isNaN(fEndDateObj.getTime());
 
-
             const data = rawData.filter(r => {
-                // 1. Filtros de Categoría
                 if (fArea !== 'TODAS' && r.area !== fArea) return false;
-                
-                // Nota: Usamos r.mecanicoAsignado ahora que se corrigió el backend
                 const filterMecValue = r.mecanico || r.mecanicoAsignado; 
                 if (fMec !== 'TODOS' && filterMecValue !== fMec) return false;
-                
                 if (fMachs.length > 0 && fMachs.includes(r.maquina) === false) return false;
-                
                 if (fStatuses.length > 0 && fStatuses.includes(r.statusParo) === false) return false;
-
-                // 2. Lógica de RANGO DE FECHAS Y HORA
                 if (isFilterStartValid) {
                     const rOpenDate = parseCustomDate(r.apertura); 
-                    
                     if (!rOpenDate || isNaN(rOpenDate.getTime())) return false; 
-                    
                     const rOpenTime = rOpenDate.getTime();
-                    
-                    // Si la fecha de apertura es anterior al inicio del filtro, descartar
-                    if (rOpenTime < fStartDateObj.getTime()) {
-                        return false;
-                    }
-                    
-                    // Si hay fecha de fin y la fecha de apertura es posterior al fin del filtro, descartar
-                    if (isFilterEndValid && rOpenTime > fEndDateObj.getTime()) {
-                        return false;
-                    }
+                    if (rOpenTime < fStartDateObj.getTime()) return false;
+                    if (isFilterEndValid && rOpenTime > fEndDateObj.getTime()) return false;
                 }
-                
                 return true;
             });
-
             calculateMetrics(data);
         }
 
@@ -697,70 +956,46 @@
                 
                 let tResp = 0, tRep = 0, tTotal = 0;
                 let isClosed = false;
-                
-                // Usamos la propiedad corregida del backend (r.mecanicoAsignado)
                 const asignado = r.mecanicoAsignado; 
                 const soluciono = r.mecanico; 
                 const area = r.area || 'N/A';
 
-                // Agregamos al Mecánico que SOLUCIONÓ (Trabajo) a la lista global.
-                if (soluciono) {
-                    allMecs.add(soluciono);
-                }
-
-                // 1. Lógica para KPI de Eficiencia General y por Mecánico Asignado
+                if (soluciono) allMecs.add(soluciono);
                 if (asignado) {
-                    allMecs.add(asignado); // Añadir también el asignado a la lista de mecánicos
+                    allMecs.add(asignado);
                     ticketsAsignados++;
-                    if (!mecEfficiency[asignado]) {
-                        mecEfficiency[asignado] = { asignados: 0, solucionados: 0 };
-                    }
+                    if (!mecEfficiency[asignado]) mecEfficiency[asignado] = { asignados: 0, solucionados: 0 };
                     mecEfficiency[asignado].asignados++;
                 }
 
-                if (tOpen && tClose && r.statusParo !== 'Cerrado Manual') { // <-- ÚNICO IF para tiempos y eficiencia
-                    // Solo calcula tiempos si las fechas son válidas (no NaN)
+                if (tOpen && tClose && r.statusParo !== 'Cerrado Manual') {
                     if (!isNaN(tOpen.getTime()) && !isNaN(tClose.getTime())) {
                         isClosed = true;
                         const validArrive = tArrive && !isNaN(tArrive.getTime()) ? tArrive : tOpen; 
                         tResp = getDiffMinutes(tOpen, validArrive);
                         tRep = getDiffMinutes(validArrive, tClose);
                         tTotal = getDiffMinutes(tOpen, tClose);
-                        
                         sumResp += tResp; sumRep += tRep; sumTot += tTotal; countClosed++;
                     }
-                    
                     if (soluciono) { 
                          ticketsSolucionados++;
-                         
-                         // Eficiencia por Mecánico: solo si Asignado y Solucionó son iguales
                          if (asignado && soluciono === asignado) { 
-                            // Inicializar si no existe, ya que el flujo de 'asignado' podría ser distinto
-                            if (!mecEfficiency[asignado]) {
-                                mecEfficiency[asignado] = { asignados: 0, solucionados: 0 };
-                            }
+                            if (!mecEfficiency[asignado]) mecEfficiency[asignado] = { asignados: 0, solucionados: 0 };
                             mecEfficiency[asignado].solucionados++;
                          }
-                         
-                         // Solucionados por Área y Mecánico: se usa el que Solucionó (r.mecanico)
                          allAreas.add(area);
-                         if (!mecAreaSolution[soluciono]) {
-                            mecAreaSolution[soluciono] = {};
-                         }
+                         if (!mecAreaSolution[soluciono]) mecAreaSolution[soluciono] = {};
                          mecAreaSolution[soluciono][area] = (mecAreaSolution[soluciono][area] || 0) + 1;
                     }
                 }
                 
-                // 3. Lógica para Gráficas
                 const maq = r.maquina || 'N/A'; countsMachine[maq] = (countsMachine[maq] || 0) + 1;
                 countsArea[area] = (countsArea[area] || 0) + 1;
                 const sol = r.solucion || 'Sin Clasificar'; countsSol[sol] = (countsSol[sol] || 0) + 1;
                 const station = r.estacion || r.falla || 'Sin Estación'; countsStation[station] = (countsStation[station] || 0) + 1; 
 
-                // 4. Lógica para Tabla Detallada
                 const timeClass = tTotal > 30 ? 'text-danger' : '';
                 const displayDate = tOpen && !isNaN(tOpen.getTime()) ? tOpen.toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: 'numeric'}) : (r.apertura || '-').split(/[\s,]+/)[0];
-
 
                 tableHtml += `
                     <tr>
@@ -778,85 +1013,56 @@
                 `;
             });
             
-            // --- RENDERIZADO DE KPIS SUPERIORES ---
             const avgResp = countClosed ? Math.round(sumResp / countClosed) : 0;
             const avgRep = countClosed ? Math.round(sumRep / countClosed) : 0;
-            
             const efficiency = ticketsAsignados > 0 ? ((ticketsSolucionados / ticketsAsignados) * 100).toFixed(1) : 0;
 
             document.getElementById('kpi-count').textContent = totalTickets; 
-            
-            // INICIO: CAMBIO 1: RENDERIZADO CON HORAS
             document.getElementById('kpi-mttr').innerHTML = avgRep + " min" + getHoursHtml(avgRep);
             document.getElementById('kpi-mtta').innerHTML = avgResp + " min" + getHoursHtml(avgResp);
             document.getElementById('kpi-total-downtime').innerHTML = sumTot + " min" + getHoursHtml(sumTot);
-            // FIN: CAMBIO 1
-
             document.getElementById('kpi-efficiency').textContent = efficiency + "%";
             document.getElementById('kpi-efficiency-sub').textContent = `${ticketsSolucionados} de ${ticketsAsignados} Asignados`;
-            
             document.getElementById('table-body').innerHTML = tableHtml || '<tr><td colspan="11" style="text-align:center; padding:20px;">No se encontraron datos.</td></tr>';
 
-            
-            // --- RENDERIZADO DE TABLA DE EFICIENCIA POR MECÁNICO ASIGNADO (CORRECCIÓN FINAL) ---
+            // Tabla Eficiencia
             let mecTableHtml = '';
-            // Recorremos SOLO los mecánicos que fueron ASIGNADOS (ya que el KPI es de asignación)
             const assignedMecs = Object.keys(mecEfficiency).sort(); 
-
             if (assignedMecs.length === 0) {
-                 document.getElementById('table-mec-efficiency').innerHTML = '<tr><td colspan="4" class="text-center" style="padding:20px;">No se encontraron asignaciones en este filtro.</td></tr>';
+                 document.getElementById('table-mec-efficiency').innerHTML = '<tr><td colspan="4" class="text-center" style="padding:20px;">No se encontraron asignaciones.</td></tr>';
             } else {
                  assignedMecs.forEach(mecanico => {
-                    const metrics = mecEfficiency[mecanico]; // Ya sabemos que existe
-                    const efficiencyMec = metrics.asignados > 0 
-                        ? ((metrics.solucionados / metrics.asignados) * 100).toFixed(1)
-                        : 0;
+                    const metrics = mecEfficiency[mecanico];
+                    const efficiencyMec = metrics.asignados > 0 ? ((metrics.solucionados / metrics.asignados) * 100).toFixed(1) : 0;
                     const colorClass = parseFloat(efficiencyMec) < 50 ? 'text-danger' : '';
-
-                    mecTableHtml += `
-                        <tr>
-                            <td><b>${mecanico}</b></td>
-                            <td class="text-center">${metrics.asignados}</td>
-                            <td class="text-center">${metrics.solucionados}</td>
-                            <td class="${colorClass} text-center">${efficiencyMec}%</td>
-                        </tr>
-                    `;
+                    mecTableHtml += `<tr><td><b>${mecanico}</b></td><td class="text-center">${metrics.asignados}</td><td class="text-center">${metrics.solucionados}</td><td class="${colorClass} text-center">${efficiencyMec}%</td></tr>`;
                 });
                 document.getElementById('table-mec-efficiency').innerHTML = mecTableHtml;
             }
-
             
-            // --- RENDERIZADO DE TABLA DE SOLUCIONADOS POR ÁREA Y MECÁNICO ---
+            // Tabla Area-Mec
             const sortedAreas = Array.from(allAreas).sort();
-            
-            // Construir cabecera: Mecánico + Áreas + Total
             let areaHeaderHtml = '<th>Mecánico</th>' + sortedAreas.map(area => `<th class="text-center">${area}</th>`).join('') + '<th class="text-center">Total</th>';
             document.getElementById('table-area-mec-header').innerHTML = areaHeaderHtml;
             
             let areaBodyHtml = '';
-            const allMecSolution = Object.keys(mecAreaSolution).sort(); // Solo los que realmente solucionaron
-            const colSpan = sortedAreas.length + 2; // Mecánico + Areas + Total
-            
+            const allMecSolution = Object.keys(mecAreaSolution).sort();
+            const colSpan = sortedAreas.length + 2;
             if (allMecSolution.length > 0) {
                  allMecSolution.forEach(mecanico => {
                     let totalMec = 0;
                     let row = `<tr><td><b>${mecanico}</b></td>`;
-                    
                     sortedAreas.forEach(area => {
                         const count = mecAreaSolution[mecanico][area] || 0;
                         row += `<td class="text-center">${count > 0 ? count : '-'}</td>`;
                         totalMec += count;
                     });
-                    
                     row += `<td class="text-center"><b>${totalMec}</b></td></tr>`;
                     areaBodyHtml += row;
                  });
             }
-            
-            document.getElementById('table-area-mec-body').innerHTML = areaBodyHtml || `<tr><td colspan="${colSpan}" class="text-center" style="padding:20px;">No se encontraron tickets solucionados.</td></tr>`;
+            document.getElementById('table-area-mec-body').innerHTML = areaBodyHtml || `<tr><td colspan="${colSpan}" class="text-center" style="padding:20px;">No se encontraron tickets.</td></tr>`;
 
-
-            // --- RENDERIZADO DE GRÁFICAS ---
             updateChart('chartMachines', 'bar', countsMachine, 'Fallas por Máquina');
             updateChart('chartStations', 'bar', countsStation, 'Fallas por Estación'); 
             updateChart('chartAreas', 'doughnut', countsArea, 'Distribución por Área');
@@ -865,13 +1071,10 @@
 
         function updateChart(id, type, dataObj, label) {
             const ctx = document.getElementById(id).getContext('2d');
-            
             let entries = Object.entries(dataObj).filter(e => e[1] > 0).sort((a,b) => b[1] - a[1]);
             if (type === 'bar') entries = entries.slice(0, 10); 
-
             const labels = entries.map(e => e[0]);
             const values = entries.map(e => e[1]);
-
             if(charts[id]) charts[id].destroy();
 
             charts[id] = new Chart(ctx, {
@@ -889,9 +1092,7 @@
                     responsive: true, maintainAspectRatio: false,
                     plugins: { 
                         legend: { 
-                            display: type !== 'bar', 
-                            position: 'right',
-                            // INICIO: CAMBIO 2B: AÑADIR PORCENTAJE A LA LEYENDA
+                            display: type !== 'bar', position: 'right',
                             labels: {
                                 generateLabels: (chart) => {
                                     const data = chart.data;
@@ -900,39 +1101,24 @@
                                         return data.labels.map((label, i) => {
                                             const value = data.datasets[0].data[i];
                                             const percentage = total > 0 ? ` (${(value / total * 100).toFixed(1)}%)` : '';
-                                            
                                             return {
-                                                text: label + percentage, // Aquí se añade el porcentaje a la etiqueta
-                                                fillStyle: data.datasets[0].backgroundColor[i],
-                                                strokeStyle: data.datasets[0].borderColor || 'transparent',
-                                                lineWidth: data.datasets[0].borderWidth || 0,
-                                                hidden: chart.getDatasetMeta(0).data[i].hidden,
-                                                index: i
+                                                text: label + percentage, fillStyle: data.datasets[0].backgroundColor[i],
+                                                strokeStyle: 'transparent', hidden: chart.getDatasetMeta(0).data[i].hidden, index: i
                                             };
                                         });
                                     }
                                     return [];
                                 }
                             }
-                            // FIN: CAMBIO 2B
                         },
-                        // INICIO: CAMBIO 2A: DEJAR SOLO EL VALOR EN EL GRÁFICO
                         datalabels: {
-                            display: type !== 'bar', 
-                            formatter: (value, context) => {
-                                // Muestra solo el valor (número de eventos)
-                                return value; 
-                            },
-                            color: '#fff',
-                            textAlign: 'center',
-                            font: { weight: 'bold', size: 14 }
+                            display: type !== 'bar', formatter: (value) => value,
+                            color: '#fff', textAlign: 'center', font: { weight: 'bold', size: 14 }
                         }
-                        // FIN: CAMBIO 2A
                     }
                 }
             });
         }
-
         loadData();
     });
     </script>
