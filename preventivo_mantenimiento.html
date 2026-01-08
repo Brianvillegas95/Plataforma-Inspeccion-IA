@@ -196,15 +196,28 @@
                 const rawData = json.data || [];
 
                 // 2. Convertir formato del Backend al formato de la Agenda
-                dbPreventivos = rawData.map(item => ({
-                    id: item.id_prev,       
-                    maquina: item.activo,    // Mapeamos 'activo' a 'maquina'
-                    area: item.area,
-                    fecha_inicio: item.f_inicio, 
-                    fecha_fin: item.f_fin,
-                    desc: item.desc,
-                    estatus: parseInt(item.estatus) || 0 // Aseguramos que sea número
-                }));
+                dbPreventivos = rawData.map(item => {
+                    // Función interna para convertir DD/MM/YYYY a YYYY-MM-DD (ISO)
+                    const convertirFecha = (fechaStr) => {
+                        if (!fechaStr) return null;
+                        const parts = fechaStr.trim().split('/'); // Cortamos por la barra
+                        if (parts.length === 3) {
+                            // Reordenamos a Año-Mes-Día para que Javascript lo entienda
+                            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                        }
+                        return fechaStr; // Si ya viene bien, lo dejamos igual
+                    };
+
+                    return {
+                        id: item.id_prev,       
+                        maquina: item.activo,    
+                        area: item.area,
+                        fecha_inicio: convertirFecha(item.f_inicio), // Convertimos aquí
+                        fecha_fin: convertirFecha(item.f_fin),       // Convertimos aquí
+                        desc: item.desc,
+                        estatus: parseInt(item.estatus) || 0 
+                    };
+                });
 
             } catch (e) {
                 console.error('Error cargando agenda:', e);
