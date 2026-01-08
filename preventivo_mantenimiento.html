@@ -285,17 +285,29 @@
                 const fInicio = new Date(item.fecha_inicio);
                 const semItem = getWeekNumber(fInicio);
                 let dotClass = 'bg-futuro'; let textStatus = 'Programado';
+                
                 if (item.estatus === 1) { dotClass = 'bg-realizado'; textStatus = 'Realizado'; }
                 else if (fInicio.getTime() < hoy) { dotClass = 'bg-atrasado'; textStatus = 'Atrasado'; }
                 else if (semItem === semActual) { dotClass = 'bg-proximo'; textStatus = 'Esta Sem.'; }
 
+                const formatView = (isoDate) => {
+                    if (!isoDate) return '-';
+                    const parts = isoDate.split('-');
+                    if (parts.length === 3) {
+                        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    }
+                    return isoDate;
+                };
+                
                 return `
                     <tr>
                         <td><span class="status-badge"><span class="dot ${dotClass}"></span> ${textStatus}</span></td>
                         ${targetId === 'agenda-general' ? `<td>${semItem}</td>` : ''}
                         <td><b>${item.maquina}</b></td>
-                        <td>${item.fecha_inicio}</td>
-                        ${targetId === 'agenda-general' ? `<td>${item.fecha_fin || '-'}</td>` : ''}
+                        
+                        <td>${formatView(item.fecha_inicio)}</td>
+                        ${targetId === 'agenda-general' ? `<td>${formatView(item.fecha_fin)}</td>` : ''}
+                        
                         <td title="${item.desc}">${item.desc}</td>
                         <td>
                             <button class="btn-verify ${item.estatus === 1 ? 'done' : ''}" 
