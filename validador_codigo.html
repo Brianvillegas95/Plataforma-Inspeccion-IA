@@ -357,7 +357,7 @@
                 setAuditorState('neutral', 'Lectura automática falló. Use el escáner manual.');
                 manualInputContainer.style.display = 'block';
                 manualInput.focus();
-            }, 15000);
+            }, 1000);
 
             codeReader.decodeFromVideoDevice(undefined, 'video-feed', (result, err) => {
                 if (result) {
@@ -495,4 +495,5 @@
     });
     </script>
 </body>
+
 </html>
