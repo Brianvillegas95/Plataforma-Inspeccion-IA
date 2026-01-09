@@ -26,54 +26,22 @@
         
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
 
-        /* --- ESTILO DE SWITCH CENTRADO (ESTILO KPI) --- */
-        .toggle-switch-container { 
-            display: flex; 
-            justify-content: center; 
-            margin-bottom: 30px; 
-        }
-        .toggle-wrapper { 
-            background: #fff; 
-            padding: 5px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
-            display: inline-flex; 
-            gap: 5px; 
-            flex-wrap: wrap; 
-            justify-content: center;
-        }
-        .chip { 
-            border: none; 
-            background: transparent; 
-            padding: 10px 25px; 
-            border-radius: 6px; 
-            font-weight: 600; 
-            color: #6c757d; 
-            cursor: pointer; 
-            transition: all 0.3s; 
-            display: flex; 
-            align-items: center; 
-            gap: 8px;
-            font-size: 0.9em;
-        }
+        /* --- ESTILO DE SWITCH CENTRADO --- */
+        .toggle-switch-container { display: flex; justify-content: center; margin-bottom: 30px; }
+        .toggle-wrapper { background: #fff; padding: 5px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: inline-flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+        .chip { border: none; background: transparent; padding: 10px 25px; border-radius: 6px; font-weight: 600; color: #6c757d; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; font-size: 0.9em; }
         .chip:hover { background: #f8f9fa; }
-        .chip.active { 
-            background: #005f9e; 
-            color: #fff; 
-            box-shadow: 0 2px 4px rgba(0,95,158,0.3); 
-        }
+        .chip.active { background: #005f9e; color: #fff; box-shadow: 0 2px 4px rgba(0,95,158,0.3); }
 
-        /* GRID PARA ALINEAR SEMANAS */
-        .top-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 25px; 
-            margin-bottom: 30px; 
-        }
+        /* PAGINACIÓN */
+        .pagination-container { display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-top: 15px; padding: 10px; font-size: 0.85em; color: #666; }
+        .btn-pag { background: #fff; border: 1px solid #dee2e6; padding: 5px 12px; border-radius: 4px; cursor: pointer; color: #005f9e; font-weight: 600; transition: 0.2s; }
+        .btn-pag:disabled { color: #ccc; cursor: not-allowed; border-color: #eee; }
+        .btn-pag:hover:not(:disabled) { background: #005f9e; color: #fff; }
 
-        @media (max-width: 1100px) {
-            .top-grid { grid-template-columns: 1fr; }
-        }
+        /* GRID SEMANAS */
+        .top-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
+        @media (max-width: 1100px) { .top-grid { grid-template-columns: 1fr; } }
 
         .dashboard-panel { background: #fff; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); height: 100%; box-sizing: border-box; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; }
@@ -102,11 +70,7 @@
         .filter-group label { font-size: 0.75em; font-weight: 700; color: #495057; margin-bottom: 5px; }
         .filter-control { padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; font-size: 0.9em; }
 
-        .btn-verify {
-            background: #005f9e; color: white; border: none; padding: 7px 10px;
-            border-radius: 4px; cursor: pointer; font-weight: 600; transition: background 0.2s;
-            width: 100%; font-size: 0.9em;
-        }
+        .btn-verify { background: #005f9e; color: white; border: none; padding: 7px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; transition: background 0.2s; width: 100%; font-size: 0.9em; }
         .btn-verify.done { background: #e7f1ff; color: #005f9e; cursor: default; }
     </style>
 </head>
@@ -126,8 +90,7 @@
     <main class="main-content">
         
         <div class="toggle-switch-container">
-            <div id="chips-wrapper" class="toggle-wrapper">
-                </div>
+            <div id="chips-wrapper" class="toggle-wrapper"></div>
         </div>
 
         <div class="top-grid">
@@ -140,11 +103,7 @@
                     <table class="custom-table">
                         <thead>
                             <tr>
-                                <th class="col-status">Status</th>
-                                <th class="col-activo">Activo</th>
-                                <th class="col-fecha">Inicio</th>
-                                <th>Descripción</th>
-                                <th class="col-accion">Acción</th>
+                                <th class="col-status">Status</th><th class="col-activo">Activo</th><th class="col-fecha">Inicio</th><th>Descripción</th><th class="col-accion">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="agenda-actual"></tbody>
@@ -161,11 +120,7 @@
                     <table class="custom-table">
                         <thead>
                             <tr>
-                                <th class="col-status">Status</th>
-                                <th class="col-activo">Activo</th>
-                                <th class="col-fecha">Inicio</th>
-                                <th>Descripción</th>
-                                <th class="col-accion">Acción</th>
+                                <th class="col-status">Status</th><th class="col-activo">Activo</th><th class="col-fecha">Inicio</th><th>Descripción</th><th class="col-accion">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="agenda-proxima"></tbody>
@@ -175,49 +130,39 @@
         </div>
 
         <section class="dashboard-panel">
-            <div class="panel-header">
-                <h2 class="panel-title"><i class="fas fa-search"></i> BUSCADOR GENERAL</h2>
-            </div>
-            
+            <div class="panel-header"><h2 class="panel-title"><i class="fas fa-search"></i> BUSCADOR GENERAL</h2></div>
             <div class="filter-grid" style="margin-bottom: 25px;">
-                <div class="filter-group">
-                    <label>Semana</label>
-                    <input type="number" id="f-week" class="filter-control" placeholder="Ej: 5">
-                </div>
-                <div class="filter-group">
-                    <label>Área</label>
-                    <select id="f-area" class="filter-control"><option value="TODAS">Todas</option></select>
-                </div>
-                <div class="filter-group">
-                    <label>Activo</label>
-                    <select id="f-machine" class="filter-control"><option value="TODAS">Todos</option></select>
-                </div>
+                <div class="filter-group"><label>Semana</label><input type="number" id="f-week" class="filter-control" placeholder="Ej: 5"></div>
+                <div class="filter-group"><label>Área</label><select id="f-area" class="filter-control"><option value="TODAS">Todas</option></select></div>
+                <div class="filter-group"><label>Activo</label><select id="f-machine" class="filter-control"><option value="TODAS">Todos</option></select></div>
                 <div class="filter-group">
                     <div style="display: flex; gap: 5px;">
                         <button onclick="aplicarFiltroGeneral()" class="btn-verify" style="padding: 10px; flex: 1;"><i class="fas fa-search"></i> Filtrar Datos</button>
-                        <button onclick="limpiarFiltros()" class="btn-verify" style="padding: 10px; background: #6c757d; width: 45px; flex-shrink: 0;" title="Limpiar Filtros">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
+                        <button onclick="limpiarFiltros()" class="btn-verify" style="padding: 10px; background: #6c757d; width: 45px; flex-shrink: 0;"><i class="fas fa-sync-alt"></i></button>
                     </div>
                 </div>
             </div>
 
             <div class="table-container">
                 <table class="custom-table" style="table-layout: auto;">
-                    <thead>
-                        <tr><th>Status</th><th>Sem</th><th>Activo</th><th>F. Inicio</th><th>F. Fin</th><th>Tarea</th><th>Acción</th></tr>
-                    </thead>
+                    <thead><tr><th>Status</th><th>Sem</th><th>Activo</th><th>F. Inicio</th><th>F. Fin</th><th>Tarea</th><th>Acción</th></tr></thead>
                     <tbody id="agenda-general"></tbody>
                 </table>
             </div>
+            <div id="pagination-controls" class="pagination-container"></div>
         </section>
 
     </main>
 
     <script>
-        let dbPreventivos = [ ];
-        let areaFiltroSuperior = "TODAS"; 
-        let carruselInterval = null; // Para el cambio automático
+        let dbPreventivos = [];
+        let areaFiltroSuperior = ""; 
+        let carruselInterval = null;
+        
+        // Variables Paginación
+        let currentPage = 1;
+        const rowsPerPage = 15;
+        let filteredDataGlobal = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
             try {
@@ -232,39 +177,33 @@
                     const convertirFecha = (fechaStr) => {
                         if (!fechaStr) return null;
                         const parts = fechaStr.trim().split('/');
-                        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-                        return fechaStr;
+                        return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : fechaStr;
                     };
-
                     return {
-                        id: item.id_prev,       
-                        maquina: item.activo,    
-                        area: item.area,
-                        fecha_inicio: convertirFecha(item.f_inicio),
-                        fecha_fin: convertirFecha(item.f_fin),
-                        desc: item.desc,
-                        estatus: parseInt(item.estatus) || 0 
+                        id: item.id_prev, maquina: item.activo, area: item.area,
+                        fecha_inicio: convertirFecha(item.f_inicio), fecha_fin: convertirFecha(item.f_fin),
+                        desc: item.desc, estatus: parseInt(item.estatus) || 0 
                     };
                 });
 
-            } catch (e) {
-                console.error('Error cargando agenda:', e);
-            }
+                // Inicializar primera área disponible como default
+                const areasDisponibles = [...new Set(dbPreventivos.map(i => i.area).filter(a => a))].sort();
+                areaFiltroSuperior = areasDisponibles[0] || "TODAS";
 
-            const hoy = new Date();
-            const semActual = getWeekNumber(hoy);
-            const semProxima = semActual + 1;
+                const hoy = new Date();
+                const semActual = getWeekNumber(hoy);
+                document.getElementById('label-actual').textContent = `Semana ${semActual} (En curso)`;
+                document.getElementById('label-proxima').textContent = `Semana ${semActual + 1} (Siguiente)`;
+                
+                generarChipsArea(); 
+                actualizarTablasPrioridad(semActual, semActual + 1);
+                cargarOpcionesFiltros();
+                
+                filteredDataGlobal = [...dbPreventivos];
+                renderGeneralTable(1);
 
-            document.getElementById('label-actual').textContent = `Semana ${semActual} (En curso)`;
-            document.getElementById('label-proxima').textContent = `Semana ${semProxima} (Siguiente)`;
-            
-            generarChipsArea(); 
-            actualizarTablasPrioridad(semActual, semProxima);
-            cargarOpcionesFiltros();
-            renderTable(dbPreventivos, 'agenda-general');
-
-            // Iniciar rotación cada 8 segundos
-            iniciarCarrusel(8000); 
+                iniciarCarrusel(8000); 
+            } catch (e) { console.error(e); }
         });
 
         function getWeekNumber(d) {
@@ -276,18 +215,15 @@
 
         function generarChipsArea() {
             const wrapper = document.getElementById('chips-wrapper');
-            const areas = ["TODAS", ...new Set(dbPreventivos.map(i => i.area).filter(a => a))].sort();
+            // AQUÍ QUITAMOS "TODAS" DE LAS OPCIONES
+            const areas = [...new Set(dbPreventivos.map(i => i.area).filter(a => a))].sort();
             
             wrapper.innerHTML = '';
             areas.forEach((area) => {
                 const chip = document.createElement('button');
                 chip.className = `chip ${area === areaFiltroSuperior ? 'active' : ''}`;
-                chip.textContent = area === "TODAS" ? "Todas" : area;
-                
-                chip.onclick = () => {
-                    detenerCarrusel(); // Se detiene si el usuario interactúa
-                    cambiarArea(area, chip);
-                };
+                chip.textContent = area;
+                chip.onclick = () => { detenerCarrusel(); cambiarArea(area, chip); };
                 wrapper.appendChild(chip);
             });
         }
@@ -296,47 +232,26 @@
             areaFiltroSuperior = area;
             document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
             elemento.classList.add('active');
-            
             const hoy = new Date();
             actualizarTablasPrioridad(getWeekNumber(hoy), getWeekNumber(hoy) + 1);
         }
 
-        // --- LÓGICA DEL CARRUSEL ---
         function iniciarCarrusel(ms) {
             carruselInterval = setInterval(() => {
                 const chips = document.querySelectorAll('.chip');
                 if (chips.length <= 1) return;
-
                 let nextIndex = 0;
                 chips.forEach((c, i) => { if(c.classList.contains('active')) nextIndex = i + 1; });
                 if (nextIndex >= chips.length) nextIndex = 0;
-
-                const nextChip = chips[nextIndex];
-                const areaNombre = nextChip.textContent === "Todas" ? "TODAS" : nextChip.textContent;
-                cambiarArea(areaNombre, nextChip);
+                cambiarArea(chips[nextIndex].textContent, chips[nextIndex]);
             }, ms);
         }
 
-        function detenerCarrusel() {
-            if (carruselInterval) {
-                clearInterval(carruselInterval);
-                carruselInterval = null;
-            }
-        }
+        function detenerCarrusel() { if (carruselInterval) { clearInterval(carruselInterval); carruselInterval = null; } }
 
         function actualizarTablasPrioridad(actual, proxima) {
-            const dataActual = dbPreventivos.filter(i => {
-                const cumpleSemana = i.fecha_inicio && getWeekNumber(new Date(i.fecha_inicio + 'T00:00:00')) == actual;
-                const cumpleArea = areaFiltroSuperior === "TODAS" || i.area === areaFiltroSuperior;
-                return cumpleSemana && cumpleArea;
-            });
-
-            const dataProxima = dbPreventivos.filter(i => {
-                const cumpleSemana = i.fecha_inicio && getWeekNumber(new Date(i.fecha_inicio + 'T00:00:00')) == proxima;
-                const cumpleArea = areaFiltroSuperior === "TODAS" || i.area === areaFiltroSuperior;
-                return cumpleSemana && cumpleArea;
-            });
-
+            const dataActual = dbPreventivos.filter(i => (i.fecha_inicio && getWeekNumber(new Date(i.fecha_inicio + 'T00:00:00')) == actual) && (i.area === areaFiltroSuperior));
+            const dataProxima = dbPreventivos.filter(i => (i.fecha_inicio && getWeekNumber(new Date(i.fecha_inicio + 'T00:00:00')) == proxima) && (i.area === areaFiltroSuperior));
             renderTable(dataActual, 'agenda-actual');
             renderTable(dataProxima, 'agenda-proxima');
         }
@@ -345,20 +260,49 @@
             const sem = document.getElementById('f-week').value;
             const area = document.getElementById('f-area').value;
             const mach = document.getElementById('f-machine').value;
-            const filtrados = dbPreventivos.filter(item => {
+            filteredDataGlobal = dbPreventivos.filter(item => {
                 const cumpleSem = sem === "" || (item.fecha_inicio && getWeekNumber(new Date(item.fecha_inicio + 'T00:00:00')) == sem);
                 const cumpleArea = area === "TODAS" || item.area === area;
                 const cumpleMach = mach === "TODAS" || item.maquina === mach;
                 return cumpleSem && cumpleArea && cumpleMach;
             });
-            renderTable(filtrados, 'agenda-general');
+            renderGeneralTable(1);
         }
 
         function limpiarFiltros() {
             document.getElementById('f-week').value = "";
             document.getElementById('f-area').value = "TODAS";
             document.getElementById('f-machine').value = "TODAS";
-            renderTable(dbPreventivos, 'agenda-general');
+            filteredDataGlobal = [...dbPreventivos];
+            renderGeneralTable(1);
+        }
+
+        // --- LÓGICA DE PAGINACIÓN ---
+        function renderGeneralTable(page) {
+            currentPage = page;
+            const start = (page - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedItems = filteredDataGlobal.slice(start, end);
+            
+            renderTable(paginatedItems, 'agenda-general');
+            renderPaginationControls();
+        }
+
+        function renderPaginationControls() {
+            const container = document.getElementById('pagination-controls');
+            const totalPages = Math.ceil(filteredDataGlobal.length / rowsPerPage) || 1;
+            
+            container.innerHTML = `
+                <span>Página ${currentPage} de ${totalPages}</span>
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn-pag" onclick="renderGeneralTable(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="btn-pag" onclick="renderGeneralTable(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            `;
         }
 
         function renderTable(data, targetId) {
@@ -375,7 +319,6 @@
                 const fInicio = new Date(item.fecha_inicio + 'T00:00:00');
                 const semItem = getWeekNumber(fInicio);
                 let dotClass = 'bg-futuro'; let textStatus = 'Programado';
-                
                 if (item.estatus === 1) { dotClass = 'bg-realizado'; textStatus = 'Realizado'; }
                 else if (fInicio.getTime() < hoy) { dotClass = 'bg-atrasado'; textStatus = 'Atrasado'; }
                 else if (semItem === semActual) { dotClass = 'bg-proximo'; textStatus = 'Esta Sem.'; }
@@ -383,8 +326,7 @@
                 const formatView = (isoDate) => {
                     if (!isoDate) return '-';
                     const parts = isoDate.split('-');
-                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                    return isoDate;
+                    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : isoDate;
                 };
 
                 return `
@@ -396,10 +338,8 @@
                         ${targetId === 'agenda-general' ? `<td>${formatView(item.fecha_fin)}</td>` : ''}
                         <td title="${item.desc}">${item.desc}</td>
                         <td>
-                            <button class="btn-verify ${item.estatus === 1 ? 'done' : ''}" 
-                                    onclick="confirmar('${item.id}')" ${item.estatus === 1 ? 'disabled' : ''}>
-                                <i class="fas ${item.estatus === 1 ? 'fa-check-double' : 'fa-check'}"></i> 
-                                ${item.estatus === 1 ? 'Ok' : 'Verificar'}
+                            <button class="btn-verify ${item.estatus === 1 ? 'done' : ''}" onclick="confirmar('${item.id}')" ${item.estatus === 1 ? 'disabled' : ''}>
+                                <i class="fas ${item.estatus === 1 ? 'fa-check-double' : 'fa-check'}"></i> ${item.estatus === 1 ? 'Ok' : 'Verificar'}
                             </button>
                         </td>
                     </tr>
@@ -408,22 +348,12 @@
         }
 
         async function confirmar(id) {
-            if (!confirm("¿Confirmar realización de la tarea " + id + "?")) return;
-            let btn = null;
-            if (event && event.target) {
-                btn = event.target.closest('button');
-                if (btn) {
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-                    btn.disabled = true;
-                }
-            }
-
+            if (!confirm("¿Confirmar realización de la tarea?")) return;
             try {
                 const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
                     body: JSON.stringify({ action: 'update_preventive_status', data: { id_prev: id } })
                 });
-                
                 if (res.ok) {
                     const index = dbPreventivos.findIndex(i => i.id === id);
                     if (index !== -1) {
@@ -432,15 +362,8 @@
                         actualizarTablasPrioridad(semActual, semActual + 1);
                         aplicarFiltroGeneral();
                     }
-                } else { throw new Error("Error en servidor"); }
-            } catch (e) {
-                console.error(e);
-                alert("Error al guardar. Intenta de nuevo.");
-                if (btn) {
-                    btn.innerHTML = '<i class="fas fa-check"></i> Verificar';
-                    btn.disabled = false;
                 }
-            }
+            } catch (e) { console.error(e); }
         }
 
         function cargarOpcionesFiltros() {
