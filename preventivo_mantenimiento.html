@@ -26,45 +26,41 @@
         
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
 
-        /* FILTROS POR CHIPS (SUTILES Y MINIMALISTAS) */
-        .area-filter-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 25px;
-            padding: 0 5px;
-            flex-wrap: wrap;
+        /* --- ESTILO DE SWITCH CENTRADO (ESTILO KPI) --- */
+        .toggle-switch-container { 
+            display: flex; 
+            justify-content: center; 
+            margin-bottom: 30px; 
         }
-        .filter-label-text {
-            font-size: 0.8em;
-            font-weight: 800;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-right: 5px;
+        .toggle-wrapper { 
+            background: #fff; 
+            padding: 5px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+            display: inline-flex; 
+            gap: 5px; 
+            flex-wrap: wrap; 
+            justify-content: center;
         }
-        .chip {
-            padding: 7px 18px;
-            border-radius: 50px;
-            background: #fff;
-            border: 1px solid #ddd;
-            color: #555;
-            font-size: 0.85em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            user-select: none;
+        .chip { 
+            border: none; 
+            background: transparent; 
+            padding: 10px 25px; 
+            border-radius: 6px; 
+            font-weight: 600; 
+            color: #6c757d; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px;
+            font-size: 0.9em;
         }
-        .chip:hover {
-            border-color: #005db4;
-            color: #005db4;
-            background: #f0f7ff;
-        }
-        .chip.active {
-            background: #005db4;
-            border-color: #005db4;
-            color: white;
-            box-shadow: 0 3px 10px rgba(0, 93, 180, 0.2);
+        .chip:hover { background: #f8f9fa; }
+        .chip.active { 
+            background: #005f9e; 
+            color: #fff; 
+            box-shadow: 0 2px 4px rgba(0,95,158,0.3); 
         }
 
         /* GRID PARA ALINEAR SEMANAS */
@@ -129,9 +125,8 @@
 
     <main class="main-content">
         
-        <div class="area-filter-container">
-            <span class="filter-label-text">Área:</span>
-            <div id="chips-container" style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <div class="toggle-switch-container">
+            <div id="chips-wrapper" class="toggle-wrapper">
                 </div>
         </div>
 
@@ -221,7 +216,8 @@
 
     <script>
         let dbPreventivos = [ ];
-        let areaFiltroSuperior = "TODAS"; // Estado para los chips
+        let areaFiltroSuperior = "TODAS"; 
+        let carruselInterval = null; // Para el cambio automático
 
         document.addEventListener('DOMContentLoaded', async () => {
             try {
@@ -262,11 +258,13 @@
             document.getElementById('label-actual').textContent = `Semana ${semActual} (En curso)`;
             document.getElementById('label-proxima').textContent = `Semana ${semProxima} (Siguiente)`;
             
-            // Inicializar vista
             generarChipsArea(); 
             actualizarTablasPrioridad(semActual, semProxima);
             cargarOpcionesFiltros();
             renderTable(dbPreventivos, 'agenda-general');
+
+            // Iniciar rotación cada 8 segundos
+            iniciarCarrusel(8000); 
         });
 
         function getWeekNumber(d) {
@@ -276,27 +274,54 @@
             return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
         }
 
-        // --- NUEVA FUNCIÓN PARA LOS CHIPS ---
         function generarChipsArea() {
-            const container = document.getElementById('chips-container');
+            const wrapper = document.getElementById('chips-wrapper');
             const areas = ["TODAS", ...new Set(dbPreventivos.map(i => i.area).filter(a => a))].sort();
             
-            container.innerHTML = '';
-            areas.forEach(area => {
-                const chip = document.createElement('div');
+            wrapper.innerHTML = '';
+            areas.forEach((area) => {
+                const chip = document.createElement('button');
                 chip.className = `chip ${area === areaFiltroSuperior ? 'active' : ''}`;
                 chip.textContent = area === "TODAS" ? "Todas" : area;
                 
                 chip.onclick = () => {
-                    areaFiltroSuperior = area;
-                    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-                    chip.classList.add('active');
-                    
-                    const hoy = new Date();
-                    actualizarTablasPrioridad(getWeekNumber(hoy), getWeekNumber(hoy) + 1);
+                    detenerCarrusel(); // Se detiene si el usuario interactúa
+                    cambiarArea(area, chip);
                 };
-                container.appendChild(chip);
+                wrapper.appendChild(chip);
             });
+        }
+
+        function cambiarArea(area, elemento) {
+            areaFiltroSuperior = area;
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            elemento.classList.add('active');
+            
+            const hoy = new Date();
+            actualizarTablasPrioridad(getWeekNumber(hoy), getWeekNumber(hoy) + 1);
+        }
+
+        // --- LÓGICA DEL CARRUSEL ---
+        function iniciarCarrusel(ms) {
+            carruselInterval = setInterval(() => {
+                const chips = document.querySelectorAll('.chip');
+                if (chips.length <= 1) return;
+
+                let nextIndex = 0;
+                chips.forEach((c, i) => { if(c.classList.contains('active')) nextIndex = i + 1; });
+                if (nextIndex >= chips.length) nextIndex = 0;
+
+                const nextChip = chips[nextIndex];
+                const areaNombre = nextChip.textContent === "Todas" ? "TODAS" : nextChip.textContent;
+                cambiarArea(areaNombre, nextChip);
+            }, ms);
+        }
+
+        function detenerCarrusel() {
+            if (carruselInterval) {
+                clearInterval(carruselInterval);
+                carruselInterval = null;
+            }
         }
 
         function actualizarTablasPrioridad(actual, proxima) {
@@ -316,7 +341,6 @@
             renderTable(dataProxima, 'agenda-proxima');
         }
 
-        // BUSCADOR GENERAL (Se mantiene intacto)
         function aplicarFiltroGeneral() {
             const sem = document.getElementById('f-week').value;
             const area = document.getElementById('f-area').value;
