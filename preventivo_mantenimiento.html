@@ -26,6 +26,47 @@
         
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
 
+        /* FILTROS POR CHIPS (SUTILES Y MINIMALISTAS) */
+        .area-filter-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 25px;
+            padding: 0 5px;
+            flex-wrap: wrap;
+        }
+        .filter-label-text {
+            font-size: 0.8em;
+            font-weight: 800;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-right: 5px;
+        }
+        .chip {
+            padding: 7px 18px;
+            border-radius: 50px;
+            background: #fff;
+            border: 1px solid #ddd;
+            color: #555;
+            font-size: 0.85em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        .chip:hover {
+            border-color: #005db4;
+            color: #005db4;
+            background: #f0f7ff;
+        }
+        .chip.active {
+            background: #005db4;
+            border-color: #005db4;
+            color: white;
+            box-shadow: 0 3px 10px rgba(0, 93, 180, 0.2);
+        }
+
         /* GRID PARA ALINEAR SEMANAS */
         .top-grid { 
             display: grid; 
@@ -34,7 +75,6 @@
             margin-bottom: 30px; 
         }
 
-        /* Responsive: Si la pantalla es pequeña, se apilan */
         @media (max-width: 1100px) {
             .top-grid { grid-template-columns: 1fr; }
         }
@@ -44,19 +84,16 @@
         .panel-title { font-size: 1.1em; font-weight: 700; color: #343a40; margin: 0; display: flex; align-items: center; gap: 10px; }
         .panel-subtitle { font-size: 0.85em; color: #005f9e; font-weight: 600; }
         
-        /* TABLAS CON ANCHOS FIJOS PARA ALINEACIÓN PERFECTA */
         .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid #e9ecef; }
         .custom-table { width: 100%; border-collapse: collapse; font-size: 0.82em; table-layout: fixed; }
         .custom-table th { background: #f8f9fa; color: #495057; font-weight: 700; text-align: left; padding: 12px; border-bottom: 2px solid #dee2e6; }
         .custom-table td { padding: 10px 12px; border-bottom: 1px solid #e9ecef; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        /* Definición de anchos de columna para que coincidan */
         .col-status { width: 110px; }
         .col-activo { width: 120px; }
         .col-fecha { width: 95px; }
         .col-accion { width: 110px; }
 
-        /* STATUS */
         .status-badge { display: flex; align-items: center; gap: 6px; font-weight: 700; }
         .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
         .bg-realizado { background-color: #28a745; }
@@ -64,7 +101,6 @@
         .bg-proximo { background-color: #ffc107; }
         .bg-futuro { background-color: #6c757d; }
 
-        /* FILTROS */
         .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; }
         .filter-group label { font-size: 0.75em; font-weight: 700; color: #495057; margin-bottom: 5px; }
@@ -83,20 +119,22 @@
     <header class="app-header">
         <div class="logo-container">
            <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
-        <h1 class="app-title">Agenda de Preventivos</h1>
+           <h1 class="app-title">Agenda de Preventivos</h1>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
-        <a href="index.html" class="btn-header-translucido">
-            <i class="fas fa-home"></i> Inicio
-        </a>
-        <a href="kpi_mantenimiento.html" class="btn-header-translucido">
-            <i class="fas fa-chart-bar"></i> Ver KPI´s
-        </a>
-    </div>
+            <a href="index.html" class="btn-header-translucido"><i class="fas fa-home"></i> Inicio</a>
+            <a href="kpi_mantenimiento.html" class="btn-header-translucido"><i class="fas fa-chart-bar"></i> Ver KPI´s</a>
+        </div>
     </header>
 
     <main class="main-content">
         
+        <div class="area-filter-container">
+            <span class="filter-label-text">Área:</span>
+            <div id="chips-container" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                </div>
+        </div>
+
         <div class="top-grid">
             <section class="dashboard-panel" style="border-top: 5px solid #ffc107;">
                 <div class="panel-header">
@@ -162,7 +200,6 @@
                 <div class="filter-group">
                     <div style="display: flex; gap: 5px;">
                         <button onclick="aplicarFiltroGeneral()" class="btn-verify" style="padding: 10px; flex: 1;"><i class="fas fa-search"></i> Filtrar Datos</button>
-        
                         <button onclick="limpiarFiltros()" class="btn-verify" style="padding: 10px; background: #6c757d; width: 45px; flex-shrink: 0;" title="Limpiar Filtros">
                             <i class="fas fa-sync-alt"></i>
                         </button>
@@ -184,9 +221,9 @@
 
     <script>
         let dbPreventivos = [ ];
+        let areaFiltroSuperior = "TODAS"; // Estado para los chips
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // 1. Cargar datos del Backend
             try {
                 const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
@@ -195,25 +232,20 @@
                 const json = await res.json();
                 const rawData = json.data || [];
 
-                // 2. Convertir formato del Backend al formato de la Agenda
                 dbPreventivos = rawData.map(item => {
-                    // Función interna para convertir DD/MM/YYYY a YYYY-MM-DD (ISO)
                     const convertirFecha = (fechaStr) => {
                         if (!fechaStr) return null;
-                        const parts = fechaStr.trim().split('/'); // Cortamos por la barra
-                        if (parts.length === 3) {
-                            // Reordenamos a Año-Mes-Día para que Javascript lo entienda
-                            return `${parts[2]}-${parts[1]}-${parts[0]}`;
-                        }
-                        return fechaStr; // Si ya viene bien, lo dejamos igual
+                        const parts = fechaStr.trim().split('/');
+                        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                        return fechaStr;
                     };
 
                     return {
                         id: item.id_prev,       
                         maquina: item.activo,    
                         area: item.area,
-                        fecha_inicio: convertirFecha(item.f_inicio), // Convertimos aquí
-                        fecha_fin: convertirFecha(item.f_fin),       // Convertimos aquí
+                        fecha_inicio: convertirFecha(item.f_inicio),
+                        fecha_fin: convertirFecha(item.f_fin),
                         desc: item.desc,
                         estatus: parseInt(item.estatus) || 0 
                     };
@@ -221,10 +253,8 @@
 
             } catch (e) {
                 console.error('Error cargando agenda:', e);
-                // Si falla, dbPreventivos se queda vacío y la tabla mostrará "No hay tareas"
             }
 
-            // 3. Inicializar la vista (esto es igual que antes, pero ahora con datos reales)
             const hoy = new Date();
             const semActual = getWeekNumber(hoy);
             const semProxima = semActual + 1;
@@ -232,6 +262,8 @@
             document.getElementById('label-actual').textContent = `Semana ${semActual} (En curso)`;
             document.getElementById('label-proxima').textContent = `Semana ${semProxima} (Siguiente)`;
             
+            // Inicializar vista
+            generarChipsArea(); 
             actualizarTablasPrioridad(semActual, semProxima);
             cargarOpcionesFiltros();
             renderTable(dbPreventivos, 'agenda-general');
@@ -244,13 +276,47 @@
             return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
         }
 
+        // --- NUEVA FUNCIÓN PARA LOS CHIPS ---
+        function generarChipsArea() {
+            const container = document.getElementById('chips-container');
+            const areas = ["TODAS", ...new Set(dbPreventivos.map(i => i.area).filter(a => a))].sort();
+            
+            container.innerHTML = '';
+            areas.forEach(area => {
+                const chip = document.createElement('div');
+                chip.className = `chip ${area === areaFiltroSuperior ? 'active' : ''}`;
+                chip.textContent = area === "TODAS" ? "Todas" : area;
+                
+                chip.onclick = () => {
+                    areaFiltroSuperior = area;
+                    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    
+                    const hoy = new Date();
+                    actualizarTablasPrioridad(getWeekNumber(hoy), getWeekNumber(hoy) + 1);
+                };
+                container.appendChild(chip);
+            });
+        }
+
         function actualizarTablasPrioridad(actual, proxima) {
-            const dataActual = dbPreventivos.filter(i => i.fecha_inicio && getWeekNumber(new Date(i.fecha_inicio + 'T00:00:00')) == actual);
-            const dataProxima = dbPreventivos.filter(i => i.fecha_inicio && getWeekNumber(new Date(i.fecha_inicio + 'T00:00:00')) == proxima);
+            const dataActual = dbPreventivos.filter(i => {
+                const cumpleSemana = i.fecha_inicio && getWeekNumber(new Date(i.fecha_inicio + 'T00:00:00')) == actual;
+                const cumpleArea = areaFiltroSuperior === "TODAS" || i.area === areaFiltroSuperior;
+                return cumpleSemana && cumpleArea;
+            });
+
+            const dataProxima = dbPreventivos.filter(i => {
+                const cumpleSemana = i.fecha_inicio && getWeekNumber(new Date(i.fecha_inicio + 'T00:00:00')) == proxima;
+                const cumpleArea = areaFiltroSuperior === "TODAS" || i.area === areaFiltroSuperior;
+                return cumpleSemana && cumpleArea;
+            });
+
             renderTable(dataActual, 'agenda-actual');
             renderTable(dataProxima, 'agenda-proxima');
         }
 
+        // BUSCADOR GENERAL (Se mantiene intacto)
         function aplicarFiltroGeneral() {
             const sem = document.getElementById('f-week').value;
             const area = document.getElementById('f-area').value;
@@ -302,10 +368,8 @@
                         <td><span class="status-badge"><span class="dot ${dotClass}"></span> ${textStatus}</span></td>
                         ${targetId === 'agenda-general' ? `<td>${semItem}</td>` : ''}
                         <td><b>${item.maquina}</b></td>
-                        
                         <td>${formatView(item.fecha_inicio)}</td>
                         ${targetId === 'agenda-general' ? `<td>${formatView(item.fecha_fin)}</td>` : ''}
-                        
                         <td title="${item.desc}">${item.desc}</td>
                         <td>
                             <button class="btn-verify ${item.estatus === 1 ? 'done' : ''}" 
@@ -320,10 +384,7 @@
         }
 
         async function confirmar(id) {
-            // Confirmación
             if (!confirm("¿Confirmar realización de la tarea " + id + "?")) return;
-
-            // 1. Feedback visual (buscamos el botón que se presionó)
             let btn = null;
             if (event && event.target) {
                 btn = event.target.closest('button');
@@ -334,17 +395,12 @@
             }
 
             try {
-                // 2. Llamada al Backend para guardar en Excel
                 const res = await fetch('/.netlify/functions/escribir-mantenimiento', {
                     method: 'POST',
-                    body: JSON.stringify({ 
-                        action: 'update_preventive_status',
-                        data: { id_prev: id } 
-                    })
+                    body: JSON.stringify({ action: 'update_preventive_status', data: { id_prev: id } })
                 });
                 
                 if (res.ok) {
-                    // 3. Actualizar la vista local si se guardó bien
                     const index = dbPreventivos.findIndex(i => i.id === id);
                     if (index !== -1) {
                         dbPreventivos[index].estatus = 1;
@@ -352,14 +408,10 @@
                         actualizarTablasPrioridad(semActual, semActual + 1);
                         aplicarFiltroGeneral();
                     }
-                } else {
-                    throw new Error("Error en servidor");
-                }
-
+                } else { throw new Error("Error en servidor"); }
             } catch (e) {
                 console.error(e);
                 alert("Error al guardar. Intenta de nuevo.");
-                // Restaurar botón si falló
                 if (btn) {
                     btn.innerHTML = '<i class="fas fa-check"></i> Verificar';
                     btn.disabled = false;
@@ -368,8 +420,8 @@
         }
 
         function cargarOpcionesFiltros() {
-            const areas = [...new Set(dbPreventivos.map(i => i.area))].sort();
-            const maquinas = [...new Set(dbPreventivos.map(i => i.maquina))].sort();
+            const areas = [...new Set(dbPreventivos.map(i => i.area).filter(a => a))].sort();
+            const maquinas = [...new Set(dbPreventivos.map(i => i.maquina).filter(m => m))].sort();
             const selArea = document.getElementById('f-area');
             const selMach = document.getElementById('f-machine');
             areas.forEach(a => selArea.add(new Option(a, a)));
