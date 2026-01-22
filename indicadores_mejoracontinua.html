@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Mejora Continua</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
+    <style>
+
+        body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
+        
+        .app-header { 
+            background-color: #005db4;  
+            border-bottom: 1px solid #004a7c; 
+            padding: 15px 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        .logo-container { display: flex; align-items: center; gap: 15px; }
+        .logo { height: 45px; width: auto; filter: brightness(0) invert(1); }
+        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
+
+        .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
+
+        /* KPI CARDS */
+        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .kpi-card { background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid #005f9e; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .kpi-title { font-size: 0.8em; font-weight: 700; color: #6c757d; text-transform: uppercase; margin-bottom: 8px; }
+        .kpi-value { font-size: 2em; font-weight: 800; color: #212529; }
+        .kpi-sub { font-size: 0.8em; color: #adb5bd; }
+        
+        /* FILTROS */
+        .dashboard-panel { background: #fff; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; }
+        .panel-title { font-size: 1.1em; font-weight: 700; color: #343a40; margin: 0; display: flex; align-items: center; gap: 10px; }
+        
+        .filter-grid { display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
+        .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 180px; }
+        .filter-group label { font-size: 0.8em; font-weight: 700; color: #495057; margin-bottom: 5px; }
+        .filter-control { 
+            padding: 10px 15px; border: 1px solid #dee2e6; border-radius: 6px; 
+            background: #f8f9fa; color: #495057; font-size: 0.9em; 
+        }
+
+        /* BOTONES PRO */
+        .btn-primary { background: #005f9e; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .btn-primary:hover { background: #004a7c; }
+        .btn-secondary { background: #6c757d; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        .btn-header-nav { background: #ffffff; color: #005f9e; border: 1px solid #ffffff; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; }
+        .btn-header-nav:hover { background: #e0e0e0; color: #005f9e; border-color: #e0e0e0; }
+        
+        /* GRÁFICAS */
+        .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; }
+        .chart-box { height: 300px; position: relative; }
+
+        /* TABLA */
+        .table-container { overflow-x: auto; border-radius: 8px; margin-top: 15px; }
+        .custom-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .custom-table th { background: #f8f9fa; color: #495057; text-align: left; padding: 12px; border-bottom: 2px solid #dee2e6; }
+        .custom-table td { padding: 12px; border-bottom: 1px solid #e9ecef; }
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+    <div class="logo-container">
+        <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
+        <h1 class="app-title">Dashboard de Mejora Continua</h1>
+    </div>
+    
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <a href="index.html" class="btn-header-translucido"><i class="fas fa-home"></i> Inicio</a>
+    </div>
+    </header>
+
+    <main class="main-content">
+        
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <h2 class="panel-title"><i class="fas fa-filter"></i> Filtros de Mejora Continua</h2>
+            </div>
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label>Rango de Fecha</label>
+                    <input type="date" class="filter-control">
+                </div>
+                <div class="filter-group">
+                    <label>Área</label>
+                    <select class="filter-control">
+                        <option value="TODAS">Todas las Áreas</option>
+                        <option>Empaque</option>
+                        <option>Ensamble</option>
+                        <option>Kinera</option>
+                        <option>Moldeo</option>
+                        <option>Pasteles</option>
+                        <option>Tintas</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Indicador Principal</label>
+                    <select class="filter-control">
+                        <option value="TODOS">Todos los Indicadores</option>
+                        <option>5´S</option>
+                        <option>Ajustes de Inventarios</option>
+                        <option>Buenas Prácticas de Pesaje</option>
+                        <option>Adicionales</option>
+                        <option>Devoluciones</option>
+                        <option>Sobreconsumos</option>
+                    </select>
+                </div>
+                <div class="filter-group" style="flex: 0;">
+                    <button class="btn-primary"><i class="fas fa-sync-alt"></i> Actualizar</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="kpi-container">
+            <div class="kpi-card" style="border-left-color: #28a745;">
+                <div class="kpi-title">Cumplimiento 5´S</div>
+                <div class="kpi-value">0%</div>
+                <div class="kpi-sub">Promedio General</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #005f9e;">
+                <div class="kpi-title">Ajustes Inv.</div>
+                <div class="kpi-value">$0.00</div>
+                <div class="kpi-sub">Monto Acumulado</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #ffc107;">
+                <div class="kpi-title">B.P. Pesaje</div>
+                <div class="kpi-value">0%</div>
+                <div class="kpi-sub">Efectividad</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #17a2b8;">
+                <div class="kpi-title">Adicionales</div>
+                <div class="kpi-value">0</div>
+                <div class="kpi-sub">Solicitudes Mes</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #dc3545;">
+                <div class="kpi-title">Devoluciones</div>
+                <div class="kpi-value">0</div>
+                <div class="kpi-sub">Unidades Totales</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #6610f2;">
+                <div class="kpi-title">Sobreconsumos</div>
+                <div class="kpi-value">0%</div>
+                <div class="kpi-sub">Desviación Standard</div>
+            </div>
+        </section>
+
+        <div class="charts-grid">
+            <div class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Desempeño por Área</h2>
+                <div class="chart-box">
+                    <canvas id="chartAreas"></canvas>
+                </div>
+            </div>
+            <div class="dashboard-panel">
+                <h2 class="panel-title"><i class="fas fa-chart-line"></i> Tendencia de Devoluciones</h2>
+                <div class="chart-box">
+                    <canvas id="chartTrend"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <section class="dashboard-panel">
+            <h2 class="panel-title"><i class="fas fa-list"></i> Registro Detallado de Mejora</h2>
+            <div class="table-container">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Área</th>
+                            <th>Indicador</th>
+                            <th>Descripción</th>
+                            <th>Valor</th>
+                            <th>Responsable</th>
+                            <th>Estatus</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="7" style="text-align:center; padding: 30px; color: #6c757d;">
+                                <i class="fas fa-info-circle"></i> Esperando selección de datos...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Configuración básica de gráficas (sin datos reales)
+        document.addEventListener('DOMContentLoaded', () => {
+            const ctxAreas = document.getElementById('chartAreas').getContext('2d');
+            new Chart(ctxAreas, {
+                type: 'bar',
+                data: {
+                    labels: ['Empaque', 'Ensamble', 'Kinera', 'Moldeo', 'Pasteles', 'Tintas'],
+                    datasets: [{
+                        label: 'Efectividad %',
+                        data: [0, 0, 0, 0, 0, 0],
+                        backgroundColor: '#005f9e'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const ctxTrend = document.getElementById('chartTrend').getContext('2d');
+            new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+                    datasets: [{
+                        label: 'Incidentes',
+                        data: [0, 0, 0, 0],
+                        borderColor: '#dc3545',
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        });
+    </script>
+</body>
+</html>
