@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 
     <style>
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
@@ -14,26 +15,22 @@
         .logo { height: 45px; filter: brightness(0) invert(1); }
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
 
-        /* PANEL DE FILTROS ACTUALIZADO */
         .filter-panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 150px; }
         .filter-group label { font-size: 0.75em; font-weight: 700; color: #495057; margin-bottom: 8px; text-transform: uppercase; }
         .filter-control { padding: 10px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; font-size: 0.85em; font-weight: 600; }
 
-        /* KPIs HORIZONTALES SIN SIGNO DE PESOS */
         .kpi-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .kpi-card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid #005f9e; }
         .kpi-value { font-size: 2.2em; font-weight: 800; color: #212529; margin: 5px 0; }
         .kpi-label { font-size: 0.85em; font-weight: 700; color: #6c757d; }
 
-        /* GRÁFICAS LADO A LADO */
-        .charts-section { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        /* GRÁFICAS ANCHAS (UNA POR FILA) */
+        .charts-section { display: flex; flex-direction: column; gap: 30px; }
         .chart-container { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .chart-header { border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; margin-bottom: 20px; }
         .chart-title { font-size: 1.1em; font-weight: 700; color: #343a40; margin: 0; }
-        .chart-box { height: 350px; width: 100%; position: relative; }
-        
-        @media (max-width: 1200px) { .charts-section { grid-template-columns: 1fr; } }
+        .chart-box { height: 450px; width: 100%; position: relative; }
     </style>
 </head>
 <body>
@@ -48,80 +45,42 @@
 
     <main class="main-content">
         <section class="filter-panel">
-            <div class="filter-group">
-                <label>Indicador</label>
-                <select id="filter-indicator" class="filter-control">
-                    <option value="AJUSTES">AJUSTE DE INVENTARIO</option>
-                </select>
-            </div>
+            <div class="filter-group"><label>Indicador</label><select id="filter-indicator" class="filter-control"><option>AJUSTE DE INVENTARIO</option></select></div>
             <div class="filter-group">
                 <label>Área</label>
                 <select id="filter-area" class="filter-control" onchange="processData()">
                     <option value="TODAS">TODAS LAS ÁREAS</option>
-                    <option value="BOLÍGRAFO">BOLÍGRAFO</option>
-                    <option value="EMPAQUE">EMPAQUE</option>
-                    <option value="ENSAMBLE">ENSAMBLE</option>
-                    <option value="KINERA">KINERA</option>
-                    <option value="MOLDEO COLORANTES">MOLDEO COLORANTES</option>
-                    <option value="MOLDEO RESINAS">MOLDEO RESINAS</option>
-                    <option value="TINTAS">TINTAS</option>
+                    <option>BOLÍGRAFO</option><option>EMPAQUE</option><option>ENSAMBLE</option><option>KINERA</option><option>MOLDEO COLORANTES</option><option>MOLDEO RESINAS</option><option>TINTAS</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label>Mes</label>
                 <select id="filter-month" class="filter-control" onchange="processData()">
                     <option value="TODOS">TODOS LOS MESES</option>
-                    <option value="ENERO">ENERO</option>
-                    <option value="FEBRERO">FEBRERO</option>
-                    <option value="MARZO">MARZO</option>
-                    <option value="ABRIL">ABRIL</option>
-                    <option value="MAYO">MAYO</option>
-                    <option value="JUNIO">JUNIO</option>
-                    <option value="JULIO">JULIO</option>
-                    <option value="AGOSTO">AGOSTO</option>
-                    <option value="SEPTIEMBRE">SEPTIEMBRE</option>
-                    <option value="OCTUBRE">OCTUBRE</option>
-                    <option value="NOVIEMBRE">NOVIEMBRE</option>
-                    <option value="DICIEMBRE">DICIEMBRE</option>
+                    <option>ENERO</option><option>FEBRERO</option><option>MARZO</option><option>ABRIL</option><option>MAYO</option><option>JUNIO</option><option>JULIO</option><option>AGOSTO</option><option>SEPTIEMBRE</option><option>OCTUBRE</option><option>NOVIEMBRE</option><option>DICIEMBRE</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label>Año</label>
                 <select id="filter-year" class="filter-control" onchange="processData()">
-                    <option value="TODOS">TODOS LOS AÑOS</option>
-                    <option value="2024">2024</option>
-                    <option value="2025">2025</option>
+                    <option value="TODOS">TODOS LOS AÑOS</option><option>2024</option><option>2025</option>
                 </select>
             </div>
         </section>
 
         <section class="kpi-container">
-            <div class="kpi-card" style="border-left-color: #28a745;">
-                <div class="kpi-label">Total Ajustes Positivos</div>
-                <div class="kpi-value" id="kpi-positivo">0.00</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #dc3545;">
-                <div class="kpi-label">Total Ajustes Negativos</div>
-                <div class="kpi-value" id="kpi-negativo">0.00</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #005f9e;">
-                <div class="kpi-label">Balance Neto</div>
-                <div class="kpi-value" id="kpi-neto">0.00</div>
-            </div>
+            <div class="kpi-card" style="border-left-color: #28a745;"><div class="kpi-label">Total Ajustes Positivos</div><div class="kpi-value" id="kpi-positivo">0.00</div></div>
+            <div class="kpi-card" style="border-left-color: #dc3545;"><div class="kpi-label">Total Ajustes Negativos</div><div class="kpi-value" id="kpi-negativo">0.00</div></div>
+            <div class="kpi-card" style="border-left-color: #005f9e;"><div class="kpi-label">Balance Neto</div><div class="kpi-value" id="kpi-neto">0.00</div></div>
         </section>
 
         <div class="charts-section">
             <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title"><i class="fas fa-chart-line"></i> Positivos 2024 vs 2025</h2>
-                </div>
+                <div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Línea de Tiempo en Ajustes Positivos 2024 vs 2025</h2></div>
                 <div class="chart-box"><canvas id="chartPositive"></canvas></div>
             </div>
-
             <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title"><i class="fas fa-chart-line"></i> Negativos 2024 vs 2025</h2>
-                </div>
+                <div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Línea de Tiempo en Ajustes Negativos 2024 vs 2025</h2></div>
                 <div class="chart-box"><canvas id="chartNegative"></canvas></div>
             </div>
         </div>
@@ -132,10 +91,22 @@
         let chartPos, chartNeg;
         const mesesLabels = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 
+        // Función para limpiar comas
         function parseV(v) { 
             if (!v) return 0;
-            const cleanValue = v.toString().replace(/,/g, '').replace('%', '');
-            return parseFloat(cleanValue) || 0; 
+            return parseFloat(v.toString().replace(/,/g, '').replace('%', '')) || 0; 
+        }
+
+        // Función para calcular Tendencia Lineal (Mínimos Cuadrados)
+        function calculateTrend(data) {
+            const n = data.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            data.forEach((y, x) => {
+                sumX += x; sumY += y; sumXY += x * y; sumX2 += x * x;
+            });
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            return data.map((_, x) => slope * x + intercept);
         }
 
         document.addEventListener('DOMContentLoaded', loadData);
@@ -154,57 +125,63 @@
             const month = document.getElementById('filter-month').value;
             const year = document.getElementById('filter-year').value;
 
-            let filtered = rawDataAjustes;
-            
-            if (area !== 'TODAS') filtered = filtered.filter(r => r.ÁREA === area);
-            if (month !== 'TODOS') filtered = filtered.filter(r => r.MES === month);
-            if (year !== 'TODOS') filtered = filtered.filter(r => r.AÑO.toString() === year);
+            let f = rawDataAjustes;
+            if (area !== 'TODAS') f = f.filter(r => r.ÁREA === area);
+            if (month !== 'TODOS') f = f.filter(r => r.MES === month);
+            if (year !== 'TODOS') f = f.filter(r => r.AÑO.toString() === year);
 
-            const totalPos = filtered.reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0);
-            const totalNeg = filtered.reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0);
+            const tP = f.reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0);
+            const tN = f.reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0);
             
-            // Se eliminó el signo "$" de la visualización
-            document.getElementById('kpi-positivo').textContent = totalPos.toLocaleString(undefined, {minimumFractionDigits: 2});
-            document.getElementById('kpi-negativo').textContent = totalNeg.toLocaleString(undefined, {minimumFractionDigits: 2});
-            document.getElementById('kpi-neto').textContent = (totalPos + totalNeg).toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('kpi-positivo').textContent = tP.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('kpi-negativo').textContent = tN.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('kpi-neto').textContent = (tP + tN).toLocaleString(undefined, {minimumFractionDigits: 2});
 
-            renderCharts(filtered);
+            renderCharts(f);
         }
 
         function renderCharts(data) {
             if (chartPos) chartPos.destroy();
             if (chartNeg) chartNeg.destroy();
 
-            const getSeries = (year, field) => mesesLabels.map(m => {
-                const found = data.find(r => r.MES === m && r.AÑO.toString() === year.toString());
-                return found ? parseV(found[field]) : 0;
+            const getS = (y, field) => mesesLabels.map(m => {
+                const r = data.find(item => item.MES === m && item.AÑO.toString() === y.toString());
+                return r ? parseV(r[field]) : 0;
             });
 
-            const options = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } };
+            const createConfig = (title, field) => {
+                const d24 = getS(2024, field);
+                const d25 = getS(2025, field);
+                const trend25 = calculateTrend(d25);
 
-            chartPos = new Chart(document.getElementById('chartPositive'), {
-                type: 'line',
-                data: {
-                    labels: mesesLabels,
-                    datasets: [
-                        { label: '2024', data: getSeries(2024, 'AJUSTE POSITIVO'), borderColor: '#005db4', borderDash: [5, 5], tension: 0.3 },
-                        { label: '2025', data: getSeries(2025, 'AJUSTE POSITIVO'), borderColor: '#005db4', borderWidth: 3, tension: 0.3 }
-                    ]
-                },
-                options: options
-            });
+                return {
+                    type: 'line',
+                    data: {
+                        labels: mesesLabels,
+                        datasets: [
+                            { label: '2024', data: d24, borderColor: '#005db4', borderDash: [5, 5], tension: 0.3, pointRadius: 4 },
+                            { label: '2025', data: d25, borderColor: '#005db4', borderWidth: 3, tension: 0.3, pointRadius: 6 },
+                            { label: 'Lineal (2025)', data: trend25, borderColor: '#28a745', borderDash: [2, 2], pointRadius: 0, fill: false }
+                        ]
+                    },
+                    plugins: [ChartDataLabels],
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { 
+                            legend: { position: 'bottom' },
+                            datalabels: {
+                                anchor: 'end', align: 'top',
+                                formatter: (v) => v > 0 ? v.toLocaleString(undefined, {maximumFractionDigits:0}) : '',
+                                font: { weight: 'bold', size: 10 }
+                            }
+                        },
+                        scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } } }
+                    }
+                };
+            };
 
-            chartNeg = new Chart(document.getElementById('chartNegative'), {
-                type: 'line',
-                data: {
-                    labels: mesesLabels,
-                    datasets: [
-                        { label: '2024', data: getSeries(2024, 'AJUSTE NEGATIVO'), borderColor: '#17a2b8', borderDash: [5, 5], tension: 0.3 },
-                        { label: '2025', data: getSeries(2025, 'AJUSTE NEGATIVO'), borderColor: '#17a2b8', borderWidth: 3, tension: 0.3 }
-                    ]
-                },
-                options: options
-            });
+            chartPos = new Chart(document.getElementById('chartPositive'), createConfig('Positivos', 'AJUSTE POSITIVO'));
+            chartNeg = new Chart(document.getElementById('chartNegative'), createConfig('Negativos', 'AJUSTE NEGATIVO'));
         }
     </script>
 </body>
