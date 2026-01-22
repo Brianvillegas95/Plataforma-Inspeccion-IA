@@ -14,37 +14,23 @@
         .logo { height: 45px; filter: brightness(0) invert(1); }
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
 
-        /* PANEL DE FILTROS */
         .filter-panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 20px; align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; flex: 1; }
         .filter-group label { font-size: 0.8em; font-weight: 700; color: #495057; margin-bottom: 8px; text-transform: uppercase; }
         .filter-control { padding: 10px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; font-size: 0.9em; font-weight: 600; }
 
-        /* KPIs ACOMODADOS HORIZONTALMENTE */
-        .kpi-container { 
-            display: grid; 
-            grid-template-columns: repeat(3, 1fr); /* Tres columnas iguales */
-            gap: 20px; 
-            margin-bottom: 30px; 
-        }
+        .kpi-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .kpi-card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid #005f9e; }
         .kpi-value { font-size: 2.2em; font-weight: 800; color: #212529; margin: 5px 0; }
         .kpi-label { font-size: 0.85em; font-weight: 700; color: #6c757d; }
 
-        /* SECCIÓN DE GRÁFICAS ACOMODADAS HORIZONTALMENTE */
-        .charts-section { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; /* Dos columnas para gráficas lado a lado */
-            gap: 25px; 
-        }
+        .charts-section { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
         .chart-container { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .chart-header { border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; margin-bottom: 20px; }
         .chart-title { font-size: 1.1em; font-weight: 700; color: #343a40; margin: 0; }
         .chart-box { height: 350px; width: 100%; position: relative; }
         
-        @media (max-width: 1000px) {
-            .kpi-container, .charts-section { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 1000px) { .kpi-container, .charts-section { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -69,11 +55,12 @@
                 <label>Área de Producción</label>
                 <select id="filter-area" class="filter-control" onchange="processData()">
                     <option value="TODAS">TODAS LAS ÁREAS</option>
+                    <option value="BOLIGRAFO">BOLIGRAFO</option>
                     <option value="EMPAQUE">EMPAQUE</option>
                     <option value="ENSAMBLE">ENSAMBLE</option>
                     <option value="KINERA">KINERA</option>
-                    <option value="MOLDEO">MOLDEO</option>
-                    <option value="PASTELES">PASTELES</option>
+                    <option value="MOLDEO COLORANTES">MOLDEO COLORANTES</option>
+                    <option value="MOLDEO RESINAS">MOLDEO RESINAS</option>
                     <option value="TINTAS">TINTAS</option>
                 </select>
             </div>
@@ -116,75 +103,74 @@
         let chartPos, chartNeg;
         const mesesLabels = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 
-        // NUEVA FUNCIÓN: Limpia comas y porcentajes antes de convertir a número
+        // Función corregida para procesar números con comas
         function parseV(v) { 
-        if (!v) return 0;
-        const cleanValue = v.toString().replace(/,/g, '').replace('%', '');
-        return parseFloat(cleanValue) || 0; 
+            if (!v) return 0;
+            const cleanValue = v.toString().replace(/,/g, '').replace('%', '');
+            return parseFloat(cleanValue) || 0; 
         }
 
         document.addEventListener('DOMContentLoaded', loadData);
 
         async function loadData() {
-        try {
-            const res = await fetch('/.netlify/functions/mejora-continua');
-            const json = await res.json();
-            rawDataAjustes = json.data.ajustes;
-            processData();
-        } catch (e) { console.error(e); }
+            try {
+                const res = await fetch('/.netlify/functions/mejora-continua');
+                const json = await res.json();
+                rawDataAjustes = json.data.ajustes;
+                processData();
+            } catch (e) { console.error(e); }
         }
 
         function processData() {
-        const area = document.getElementById('filter-area').value;
-        let filtered = rawDataAjustes;
-        if (area !== 'TODAS') filtered = filtered.filter(r => r.ÁREA === area);
+            const area = document.getElementById('filter-area').value;
+            let filtered = rawDataAjustes;
+            if (area !== 'TODAS') filtered = filtered.filter(r => r.ÁREA === area);
 
-        // Se aplica parseV para leer correctamente valores como "27,735.00"
-        const totalPos = filtered.reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0);
-        const totalNeg = filtered.reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0);
-        
-        document.getElementById('kpi-positivo').textContent = "$" + totalPos.toLocaleString();
-        document.getElementById('kpi-negativo').textContent = "$" + totalNeg.toLocaleString();
-        document.getElementById('kpi-neto').textContent = "$" + (totalPos + totalNeg).toLocaleString();
+            // Uso de parseV para cálculos correctos de totales
+            const totalPos = filtered.reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0);
+            const totalNeg = filtered.reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0);
+            
+            document.getElementById('kpi-positivo').textContent = "$" + totalPos.toLocaleString();
+            document.getElementById('kpi-negativo').textContent = "$" + totalNeg.toLocaleString();
+            document.getElementById('kpi-neto').textContent = "$" + (totalPos + totalNeg).toLocaleString();
 
-        renderCharts(filtered);
+            renderCharts(filtered);
         }
 
         function renderCharts(data) {
-        if (chartPos) chartPos.destroy();
-        if (chartNeg) chartNeg.destroy();
+            if (chartPos) chartPos.destroy();
+            if (chartNeg) chartNeg.destroy();
 
-        const getSeries = (year, field) => mesesLabels.map(m => {
-            const found = data.find(r => r.MES === m && r.AÑO.toString() === year.toString());
-            // Se aplica parseV también en las series de la gráfica
-            return found ? parseV(found[field]) : 0;
-        });
+            const getSeries = (year, field) => mesesLabels.map(m => {
+                const found = data.find(r => r.MES === m && r.AÑO.toString() === year.toString());
+                return found ? parseV(found[field]) : 0; // Uso de parseV para la gráfica
+            });
 
-        const options = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } };
+            const options = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } };
 
-        chartPos = new Chart(document.getElementById('chartPositive'), {
-            type: 'line',
-            data: {
-                labels: mesesLabels,
-                datasets: [
-                    { label: '2024', data: getSeries(2024, 'AJUSTE POSITIVO'), borderColor: '#005db4', borderDash: [5, 5], tension: 0.3 },
-                    { label: '2025', data: getSeries(2025, 'AJUSTE POSITIVO'), borderColor: '#005db4', borderWidth: 3, tension: 0.3 }
-                ]
-            },
-            options: options
-        });
+            chartPos = new Chart(document.getElementById('chartPositive'), {
+                type: 'line',
+                data: {
+                    labels: mesesLabels,
+                    datasets: [
+                        { label: '2024', data: getSeries(2024, 'AJUSTE POSITIVO'), borderColor: '#005db4', borderDash: [5, 5], tension: 0.3 },
+                        { label: '2025', data: getSeries(2025, 'AJUSTE POSITIVO'), borderColor: '#005db4', borderWidth: 3, tension: 0.3 }
+                    ]
+                },
+                options: options
+            });
 
-        chartNeg = new Chart(document.getElementById('chartNegative'), {
-            type: 'line',
-            data: {
-                labels: mesesLabels,
-                datasets: [
-                    { label: '2024', data: getSeries(2024, 'AJUSTE NEGATIVO'), borderColor: '#17a2b8', borderDash: [5, 5], tension: 0.3 },
-                    { label: '2025', data: getSeries(2025, 'AJUSTE NEGATIVO'), borderColor: '#17a2b8', borderWidth: 3, tension: 0.3 }
-                ]
-            },
-            options: options
-        });
+            chartNeg = new Chart(document.getElementById('chartNegative'), {
+                type: 'line',
+                data: {
+                    labels: mesesLabels,
+                    datasets: [
+                        { label: '2024', data: getSeries(2024, 'AJUSTE NEGATIVO'), borderColor: '#17a2b8', borderDash: [5, 5], tension: 0.3 },
+                        { label: '2025', data: getSeries(2025, 'AJUSTE NEGATIVO'), borderColor: '#17a2b8', borderWidth: 3, tension: 0.3 }
+                    ]
+                },
+                options: options
+            });
         }
     </script>
 </body>
