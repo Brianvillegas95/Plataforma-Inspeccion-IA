@@ -13,209 +13,132 @@
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
         
         .app-header { 
-            background-color: #005db4;  
-            border-bottom: 1px solid #004a7c; 
-            padding: 15px 30px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
+            background-color: #005db4; border-bottom: 1px solid #004a7c; 
+            padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
         }
         .logo-container { display: flex; align-items: center; gap: 15px; }
         .logo { height: 45px; width: auto; filter: brightness(0) invert(1); }
         .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
-
-        .btn-header-translucido { 
-            color: white; border: 1px solid rgba(255,255,255,0.4); 
-            padding: 8px 15px; border-radius: 6px; text-decoration: none; 
-            font-size: 0.9em; transition: 0.3s; 
-        }
-        .btn-header-translucido:hover { background: rgba(255,255,255,0.1); }
+        .btn-header-translucido { color: white; border: 1px solid rgba(255,255,255,0.4); padding: 8px 15px; border-radius: 6px; text-decoration: none; font-size: 0.9em; transition: 0.3s; }
 
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
 
+        /* --- TOGGLE PILLS (Estilo Preventivo) --- */
+        .toggle-switch-container { display: flex; justify-content: center; margin-bottom: 30px; }
+        .toggle-wrapper { background: #fff; padding: 5px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: inline-flex; gap: 5px; }
+        .chip { 
+            border: none; background: transparent; padding: 10px 25px; border-radius: 6px; 
+            font-weight: 600; color: #6c757d; cursor: pointer; transition: all 0.3s; 
+            display: flex; align-items: center; gap: 8px; font-size: 0.9em;
+        }
+        .chip:hover { background: #f8f9fa; }
+        .chip.active { background: #005f9e; color: #fff; box-shadow: 0 2px 4px rgba(0,95,158,0.3); }
+
         /* KPI CARDS */
         .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .kpi-card { background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid #005f9e; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .kpi-card { background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid #005f9e; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: 0.3s; }
+        .kpi-card.active-kpi { border-left-width: 10px; transform: scale(1.02); }
         .kpi-title { font-size: 0.8em; font-weight: 700; color: #6c757d; text-transform: uppercase; margin-bottom: 8px; }
         .kpi-value { font-size: 2em; font-weight: 800; color: #212529; }
-        .kpi-sub { font-size: 0.8em; color: #adb5bd; }
         
-        /* FILTROS */
         .dashboard-panel { background: #fff; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 30px; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; }
-        .panel-title { font-size: 1.1em; font-weight: 700; color: #343a40; margin: 0; display: flex; align-items: center; gap: 10px; }
         
-        .filter-grid { display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
-        .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 180px; }
-        .filter-group label { font-size: 0.8em; font-weight: 700; color: #495057; margin-bottom: 5px; }
-        .filter-control { 
-            padding: 10px 15px; border: 1px solid #dee2e6; border-radius: 6px; 
-            background: #f8f9fa; color: #495057; font-size: 0.9em; 
-        }
-
-        .btn-primary { background: #005f9e; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-        .btn-primary:hover { background: #004a7c; }
-        
-        /* GRÁFICAS */
         .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; }
-        .chart-box { height: 300px; position: relative; }
-
-        /* TABLA */
-        .table-container { overflow-x: auto; border-radius: 8px; margin-top: 15px; }
+        .chart-box { height: 350px; position: relative; }
         .custom-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
-        .custom-table th { background: #f8f9fa; color: #495057; text-align: left; padding: 12px; border-bottom: 2px solid #dee2e6; }
+        .custom-table th { background: #f8f9fa; text-align: left; padding: 12px; border-bottom: 2px solid #dee2e6; }
         .custom-table td { padding: 12px; border-bottom: 1px solid #e9ecef; }
-        .badge-blue { background: #e7f1ff; color: #005f9e; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 0.85em; }
+        .badge-blue { background: #e7f1ff; color: #005f9e; padding: 4px 8px; border-radius: 4px; font-weight: 700; }
     </style>
 </head>
 <body>
 
     <header class="app-header">
-    <div class="logo-container">
-        <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
-        <h1 class="app-title">Dashboard de Mejora Continua</h1>
-    </div>
-    
-    <div style="display: flex; gap: 10px; align-items: center;">
+        <div class="logo-container">
+            <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
+            <h1 class="app-title">Mejora Continua: Panel de Indicadores</h1>
+        </div>
         <a href="index.html" class="btn-header-translucido"><i class="fas fa-home"></i> Inicio</a>
-    </div>
     </header>
 
     <main class="main-content">
         
-        <section class="dashboard-panel">
-            <div class="panel-header">
-                <h2 class="panel-title"><i class="fas fa-filter"></i> Filtros de Mejora Continua</h2>
+        <div class="toggle-switch-container">
+            <div class="toggle-wrapper" id="indicator-chips">
+                <button class="chip active" onclick="switchIndicator('TODOS', this)"><i class="fas fa-th-large"></i> General</button>
+                <button class="chip" onclick="switchIndicator('5´S', this)"><i class="fas fa-broom"></i> 5´S</button>
+                <button class="chip" onclick="switchIndicator('AJUSTES', this)"><i class="fas fa-boxes"></i> Ajustes</button>
+                <button class="chip" onclick="switchIndicator('BPP', this)"><i class="fas fa-balance-scale"></i> BPP</button>
+                <button class="chip" onclick="switchIndicator('ADICIONALES', this)"><i class="fas fa-plus-circle"></i> Adicionales</button>
+                <button class="chip" onclick="switchIndicator('DEVOLUCIONES', this)"><i class="fas fa-undo"></i> Devoluciones</button>
+                <button class="chip" onclick="switchIndicator('DESPERDICIO', this)"><i class="fas fa-trash-alt"></i> Desperdicio</button>
             </div>
-            <div class="filter-grid">
-                <div class="filter-group">
-                    <label>Rango de Fecha</label>
-                    <input type="month" id="filter-date" class="filter-control">
-                </div>
-                <div class="filter-group">
-                    <label>Área</label>
-                    <select id="filter-area" class="filter-control">
-                        <option value="TODAS">Todas las Áreas</option>
-                        <option>EMPAQUE</option>
-                        <option>ENSAMBLE</option>
-                        <option>KINERA</option>
-                        <option>MOLDEO</option>
-                        <option>PASTELES</option>
-                        <option>TINTAS</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label>Indicador Principal</label>
-                    <select id="filter-indicator" class="filter-control">
-                        <option value="TODOS">Todos los Indicadores</option>
-                        <option value="5´S">5´S</option>
-                        <option value="AJUSTES">Ajustes de Inventarios</option>
-                        <option value="BPP">Buenas Prácticas de Pesaje</option>
-                        <option value="ADICIONALES">Adicionales</option>
-                        <option value="DEVOLUCIONES">Devoluciones</option>
-                        <option value="DESPERDICIO">Sobreconsumos</option>
-                    </select>
-                </div>
-                <div class="filter-group" style="flex: 0;">
-                    <button id="btn-update" class="btn-primary"><i class="fas fa-sync-alt"></i> Actualizar</button>
-                </div>
-            </div>
-        </section>
+        </div>
 
         <section class="kpi-container">
-            <div class="kpi-card" style="border-left-color: #28a745;">
+            <div class="kpi-card" id="card-5s" style="border-left-color: #28a745;">
                 <div class="kpi-title">Cumplimiento 5´S</div>
                 <div class="kpi-value" id="kpi-5s">0%</div>
-                <div class="kpi-sub">Promedio General</div>
             </div>
-            <div class="kpi-card" style="border-left-color: #005f9e;">
+            <div class="kpi-card" id="card-ajustes" style="border-left-color: #005f9e;">
                 <div class="kpi-title">Ajustes Inv.</div>
                 <div class="kpi-value" id="kpi-ajustes">$0.00</div>
-                <div class="kpi-sub">Monto Acumulado</div>
             </div>
-            <div class="kpi-card" style="border-left-color: #ffc107;">
+            <div class="kpi-card" id="card-bpp" style="border-left-color: #ffc107;">
                 <div class="kpi-title">B.P. Pesaje</div>
                 <div class="kpi-value" id="kpi-bpp">0%</div>
-                <div class="kpi-sub">Efectividad</div>
             </div>
-            <div class="kpi-card" style="border-left-color: #17a2b8;">
+            <div class="kpi-card" id="card-adicionales" style="border-left-color: #17a2b8;">
                 <div class="kpi-title">Adicionales</div>
                 <div class="kpi-value" id="kpi-adicionales">0</div>
-                <div class="kpi-sub">Solicitudes Mes</div>
             </div>
-            <div class="kpi-card" style="border-left-color: #dc3545;">
+            <div class="kpi-card" id="card-devoluciones" style="border-left-color: #dc3545;">
                 <div class="kpi-title">Devoluciones</div>
                 <div class="kpi-value" id="kpi-devoluciones">0</div>
-                <div class="kpi-sub">Unidades Totales</div>
             </div>
-            <div class="kpi-card" style="border-left-color: #6610f2;">
+            <div class="kpi-card" id="card-desperdicio" style="border-left-color: #6610f2;">
                 <div class="kpi-title">Sobreconsumos</div>
                 <div class="kpi-value" id="kpi-desperdicio">0%</div>
-                <div class="kpi-sub">Promedio Mensual</div>
             </div>
         </section>
 
         <div class="charts-grid">
             <div class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Desempeño por Área</h2>
-                <div class="chart-box">
-                    <canvas id="chartAreas"></canvas>
-                </div>
+                <h2 class="panel-title" id="chart-title-area"><i class="fas fa-chart-bar"></i> Desempeño por Área</h2>
+                <div class="chart-box"><canvas id="chartAreas"></canvas></div>
             </div>
             <div class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-chart-line"></i> Tendencia Mensual</h2>
-                <div class="chart-box">
-                    <canvas id="chartTrend"></canvas>
-                </div>
+                <h2 class="panel-title" id="chart-title-trend"><i class="fas fa-chart-line"></i> Tendencia Temporal</h2>
+                <div class="chart-box"><canvas id="chartTrend"></canvas></div>
             </div>
         </div>
 
         <section class="dashboard-panel">
-            <h2 class="panel-title"><i class="fas fa-list"></i> Registro Detallado de Mejora</h2>
+            <h2 class="panel-title"><i class="fas fa-list"></i> Detalle de Registros: <span id="table-indicator-name">General</span></h2>
             <div class="table-container">
                 <table class="custom-table" id="main-table">
                     <thead>
-                        <tr>
-                            <th>Periodo</th>
-                            <th>Área</th>
-                            <th>Indicador</th>
-                            <th>Detalle</th>
-                            <th>Valor</th>
-                            <th>Responsable</th>
-                            <th>Estatus</th>
-                        </tr>
+                        <tr><th>Periodo</th><th>Área</th><th>Indicador</th><th>Detalle</th><th>Valor</th><th>Responsable</th></tr>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td colspan="7" style="text-align:center; padding: 30px; color: #6c757d;">
-                                <i class="fas fa-spinner fa-spin"></i> Cargando datos...
-                            </td>
-                        </tr>
-                    </tbody>
+                    <tbody></tbody>
                 </table>
             </div>
         </section>
     </main>
 
     <script>
-        let rawData = { ajustes: [], bpp: [], adicionales: [], devoluciones: [], desperdicio: [], cinco_s: [] };
+        let rawData = {};
         let charts = {};
+        let currentIndicator = 'TODOS';
 
-        const mesesMap = {
-            'ENERO': 0, 'FEBRERO': 1, 'MARZO': 2, 'ABRIL': 3, 'MAYO': 4, 'JUNIO': 5,
-            'JULIO': 6, 'AGOSTO': 7, 'SEPTIEMBRE': 8, 'OCTUBRE': 9, 'NOVIEMBRE': 10, 'DICIEMBRE': 11
-        };
-
-        const bimestresMap = {
-            '1 BIMESTRE': 'FEBRERO', '2 BIMESTRE': 'ABRIL', '3 BIMESTRE': 'JUNIO',
-            '4 BIMESTRE': 'AGOSTO', '5 BIMESTRE': 'OCTUBRE', '6 BIMESTRE': 'DICIEMBRE'
-        };
+        const mesesMap = {'ENERO':0,'FEBRERO':1,'MARZO':2,'ABRIL':3,'MAYO':4,'JUNIO':5,'JULIO':6,'AGOSTO':7,'SEPTIEMBRE':8,'OCTUBRE':9,'NOVIEMBRE':10,'DICIEMBRE':11};
+        const bimestresMap = {'1 BIMESTRE':'FEBRERO','2 BIMESTRE':'ABRIL','3 BIMESTRE':'JUNIO','4 BIMESTRE':'AGOSTO','5 BIMESTRE':'OCTUBRE','6 BIMESTRE':'DICIEMBRE'};
 
         document.addEventListener('DOMContentLoaded', () => {
             initCharts();
             loadData();
-            document.getElementById('btn-update').addEventListener('click', processData);
         });
 
         async function loadData() {
@@ -223,178 +146,102 @@
                 const res = await fetch('/.netlify/functions/mejora-continua');
                 const json = await res.json();
                 rawData = json.data;
-                processData();
-            } catch (e) {
-                console.error("Error al cargar datos:", e);
-                document.querySelector('#main-table tbody').innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Error al cargar datos del servidor</td></tr>';
-            }
+                updateDashboard();
+            } catch (e) { console.error(e); }
         }
 
-        function processData() {
-            const fArea = document.getElementById('filter-area').value;
-            const fIndicator = document.getElementById('filter-indicator').value;
-            const fDateStr = document.getElementById('filter-date').value;
+        function switchIndicator(ind, btn) {
+            currentIndicator = ind;
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Resaltar la tarjeta KPI correspondiente
+            document.querySelectorAll('.kpi-card').forEach(c => c.classList.remove('active-kpi'));
+            const cardId = `card-${ind.toLowerCase().replace('´','')}`;
+            if(document.getElementById(cardId)) document.getElementById(cardId).classList.add('active-kpi');
 
-            let fMes = null, fAño = null;
-            if (fDateStr) {
-                const parts = fDateStr.split('-');
-                fAño = parts[0];
-                const mesIdx = parseInt(parts[1]) - 1;
-                fMes = Object.keys(mesesMap)[mesIdx];
-            }
-
-            const filtrar = (tabla, esBimestral = false) => {
-                return tabla.filter(r => {
-                    const cumpleArea = fArea === 'TODAS' || r.ÁREA === fArea;
-                    let cumpleFecha = true;
-                    if (fMes && fAño) {
-                        const mesReg = esBimestral ? bimestresMap[r.BIMESTRE] : r.MES;
-                        cumpleFecha = (mesReg === fMes && r.AÑO.toString() === fAño);
-                    }
-                    return cumpleArea && cumpleFecha;
-                });
-            };
-
-            const df = {
-                ajustes: filtrar(rawData.ajustes),
-                bpp: filtrar(rawData.bpp),
-                adicionales: filtrar(rawData.adicionales),
-                devoluciones: filtrar(rawData.devoluciones),
-                desperdicio: filtrar(rawData.desperdicio),
-                cinco_s: filtrar(rawData.cinco_s, true)
-            };
-
-            updateDashboard(df, fIndicator);
+            updateDashboard();
         }
 
-        function updateDashboard(df, fIndicator) {
-            // --- KPIs ---
-            const parseVal = (v) => parseFloat(v.toString().replace('%','')) || 0;
-            const getAvg = (arr) => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1) : 0;
+        function updateDashboard() {
+            const parseVal = (v) => parseFloat(v?.toString().replace('%','')) || 0;
+            
+            // KPIs Globales (siempre se calculan)
+            document.getElementById('kpi-5s').textContent = (rawData.cinco_s.reduce((a,r)=>a+parseVal(r.VALOR),0)/rawData.cinco_s.length || 0).toFixed(1) + "%";
+            document.getElementById('kpi-ajustes').textContent = "$" + rawData.ajustes.reduce((a,r)=>a+parseVal(r['AJUSTE POSITIVO'])+parseVal(r['AJUSTE NEGATIVO']),0).toLocaleString();
+            document.getElementById('kpi-bpp').textContent = (rawData.bpp.reduce((a,r)=>a+parseVal(r.VALOR),0)/rawData.bpp.length || 0).toFixed(1) + "%";
+            document.getElementById('kpi-adicionales').textContent = rawData.adicionales.reduce((a,r)=>a+parseVal(r.VALOR),0);
+            document.getElementById('kpi-devoluciones').textContent = rawData.devoluciones.reduce((a,r)=>a+parseVal(r.VALOR),0);
+            document.getElementById('kpi-desperdicio').textContent = (rawData.desperdicio.reduce((a,r)=>a+parseVal(r.VALOR),0)/rawData.desperdicio.length || 0).toFixed(1) + "%";
 
-            // 5S
-            const v5s = df.cinco_s.map(r => parseVal(r.VALOR));
-            document.getElementById('kpi-5s').textContent = getAvg(v5s) + "%";
-
-            // Ajustes
-            const sumAjustes = df.ajustes.reduce((acc, r) => acc + parseVal(r['AJUSTE POSITIVO']) + parseVal(r['AJUSTE NEGATIVO']), 0);
-            document.getElementById('kpi-ajustes').textContent = "$" + sumAjustes.toLocaleString(undefined, {minimumFractionDigits: 2});
-
-            // BPP
-            const vBpp = df.bpp.map(r => parseVal(r.VALOR));
-            document.getElementById('kpi-bpp').textContent = getAvg(vBpp) + "%";
-
-            // Adicionales
-            const sumAdic = df.adicionales.reduce((acc, r) => acc + parseVal(r.VALOR), 0);
-            document.getElementById('kpi-adicionales').textContent = sumAdic;
-
-            // Devoluciones
-            const sumDev = df.devoluciones.reduce((acc, r) => acc + parseVal(r.VALOR), 0);
-            document.getElementById('kpi-devoluciones').textContent = sumDev;
-
-            // Desperdicio
-            const vDesp = df.desperdicio.map(r => parseVal(r.VALOR));
-            document.getElementById('kpi-desperdicio').textContent = getAvg(vDesp) + "%";
-
-            renderTable(df, fIndicator);
-            updateCharts(df);
+            renderTable();
+            updateCharts();
         }
 
-        function renderTable(df, fIndicator) {
+        function renderTable() {
             const tbody = document.querySelector('#main-table tbody');
+            document.getElementById('table-indicator-name').textContent = currentIndicator;
             let rows = [];
 
-            if (fIndicator === 'TODOS' || fIndicator === '5´S') {
-                df.cinco_s.forEach(r => rows.push({ p: r.BIMESTRE, a: r.ÁREA, i: '5´S', d: 'Auditoría Bimestral', v: r.VALOR, r: 'Calidad' }));
-            }
-            if (fIndicator === 'TODOS' || fIndicator === 'AJUSTES') {
-                df.ajustes.forEach(r => {
-                    const neto = (parseFloat(r['AJUSTE POSITIVO']) || 0) + (parseFloat(r['AJUSTE NEGATIVO']) || 0);
-                    rows.push({ p: r.MES, a: r.ÁREA, i: 'AJUSTES', d: `Pos: ${r['AJUSTE POSITIVO']} / Neg: ${r['AJUSTE NEGATIVO']}`, v: `$${neto.toLocaleString()}`, r: 'Almacén' });
-                });
-            }
-            if (fIndicator === 'TODOS' || fIndicator === 'BPP') {
-                df.bpp.forEach(r => rows.push({ p: r.MES, a: r.ÁREA, i: 'BPP', d: 'Eficiencia Pesaje', v: r.VALOR, r: 'Producción' }));
-            }
-            if (fIndicator === 'TODOS' || fIndicator === 'ADICIONALES') {
-                df.adicionales.forEach(r => rows.push({ p: r.MES, a: r.ÁREA, i: 'ADICIONALES', d: 'Material Extra', v: r.VALOR, r: 'Producción' }));
-            }
-            if (fIndicator === 'TODOS' || fIndicator === 'DEVOLUCIONES') {
-                df.devoluciones.forEach(r => rows.push({ p: r.MES, a: r.ÁREA, i: 'DEVOLUCIONES', d: 'Retorno Cliente', v: r.VALOR, r: 'Calidad' }));
-            }
-            if (fIndicator === 'TODOS' || fIndicator === 'DESPERDICIO') {
-                df.desperdicio.forEach(r => rows.push({ p: r.MES, a: r.ÁREA, i: 'SOBRECONSUMO', d: 'Desperdicio Material', v: r.VALOR, r: 'Producción' }));
-            }
+            const addRows = (data, name, detailField = 'VALOR') => {
+                data.forEach(r => rows.push({
+                    p: r.MES || r.BIMESTRE, a: r.ÁREA, i: name, 
+                    d: r.DESCRIPCION || (r['AJUSTE POSITIVO'] ? `Pos: ${r['AJUSTE POSITIVO']}` : 'Mensual'), 
+                    v: r[detailField] || r.VALOR, res: r.RESPONSABLE || 'Admin'
+                }));
+            };
 
-            if (rows.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No se encontraron registros</td></tr>';
-                return;
-            }
+            if(currentIndicator === 'TODOS' || currentIndicator === '5´S') addRows(rawData.cinco_s, '5´S');
+            if(currentIndicator === 'TODOS' || currentIndicator === 'AJUSTES') addRows(rawData.ajustes, 'AJUSTES', 'AJUSTE NEGATIVO');
+            if(currentIndicator === 'TODOS' || currentIndicator === 'BPP') addRows(rawData.bpp, 'BPP');
+            if(currentIndicator === 'TODOS' || currentIndicator === 'DEVOLUCIONES') addRows(rawData.devoluciones, 'DEVOLUCIONES');
+            if(currentIndicator === 'TODOS' || currentIndicator === 'DESPERDICIO') addRows(rawData.desperdicio, 'DESPERDICIO');
 
-            tbody.innerHTML = rows.map(r => `
-                <tr>
-                    <td>${r.p}</td>
-                    <td>${r.a}</td>
-                    <td><span class="badge-blue">${r.i}</span></td>
-                    <td>${r.d}</td>
-                    <td><b>${r.v}</b></td>
-                    <td>${r.r}</td>
-                    <td><i class="fas fa-check-circle" style="color: #28a745;"></i></td>
-                </tr>
+            tbody.innerHTML = rows.slice(0, 20).map(r => `
+                <tr><td>${r.p}</td><td>${r.a}</td><td><span class="badge-blue">${r.i}</span></td><td>${r.d}</td><td><b>${r.v}</b></td><td>${r.res}</td></tr>
             `).join('');
         }
 
         function initCharts() {
-            const ctxAreas = document.getElementById('chartAreas').getContext('2d');
-            charts.areas = new Chart(ctxAreas, {
-                type: 'bar',
-                data: {
-                    labels: ['EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO', 'PASTELES', 'TINTAS'],
-                    datasets: [{ label: 'Promedio General %', data: [0,0,0,0,0,0], backgroundColor: '#005f9e' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
+            const commonOptions = { responsive: true, maintainAspectRatio: false };
+            charts.areas = new Chart(document.getElementById('chartAreas'), {
+                type: 'bar', data: { labels: [], datasets: [{ label: 'Valor', backgroundColor: '#005f9e', data: [] }] }, options: commonOptions
             });
-
-            const ctxTrend = document.getElementById('chartTrend').getContext('2d');
-            charts.trend = new Chart(ctxTrend, {
-                type: 'line',
-                data: {
-                    labels: Object.keys(mesesMap),
-                    datasets: [{ label: 'Nivel Cumplimiento', data: [], borderColor: '#dc3545', tension: 0.3, fill: false }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
+            charts.trend = new Chart(document.getElementById('chartTrend'), {
+                type: 'line', data: { labels: Object.keys(mesesMap), datasets: [{ label: 'Tendencia', borderColor: '#dc3545', data: [], tension: 0.3 }] }, options: commonOptions
             });
         }
 
-        function updateCharts(df) {
-            const parseVal = (v) => parseFloat(v.toString().replace('%','')) || 0;
+        function updateCharts() {
             const areas = ['EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO', 'PASTELES', 'TINTAS'];
+            let activeData = [];
             
-            // Promedio por área (unificando BPP, 5S y Desperdicio)
-            const areaData = areas.map(a => {
-                const vals = [
-                    ...df.cinco_s.filter(r => r.ÁREA === a).map(r => parseVal(r.VALOR)),
-                    ...df.bpp.filter(r => r.ÁREA === a).map(r => parseVal(r.VALOR)),
-                    ...df.desperdicio.filter(r => r.ÁREA === a).map(r => parseVal(r.VALOR))
-                ];
-                return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : 0;
-            });
+            // Lógica para decidir qué datos graficar según la Pill activa
+            if(currentIndicator === '5´S') activeData = rawData.cinco_s;
+            else if(currentIndicator === 'AJUSTES') activeData = rawData.ajustes;
+            else if(currentIndicator === 'BPP') activeData = rawData.bpp;
+            else if(currentIndicator === 'DEVOLUCIONES') activeData = rawData.devoluciones;
+            else activeData = rawData.desperdicio;
 
-            charts.areas.data.datasets[0].data = areaData;
+            const parseVal = (v) => parseFloat(v?.toString().replace('%','')) || 0;
+
+            // Actualizar Gráfica de Áreas
+            const areaValues = areas.map(a => {
+                const filtered = activeData.filter(r => r.ÁREA === a);
+                return filtered.length ? (filtered.reduce((acc, r) => acc + parseVal(r.VALOR || r['AJUSTE POSITIVO']), 0) / filtered.length).toFixed(1) : 0;
+            });
+            charts.areas.data.labels = areas;
+            charts.areas.data.datasets[0].data = areaValues;
+            charts.areas.data.datasets[0].label = `Desempeño: ${currentIndicator}`;
             charts.areas.update();
 
-            // Tendencia Mensual
-            const meses = Object.keys(mesesMap);
-            const trendData = meses.map(m => {
-                const vals = [
-                    ...df.bpp.filter(r => r.MES === m).map(r => parseVal(r.VALOR)),
-                    ...df.desperdicio.filter(r => r.MES === m).map(r => parseVal(r.VALOR)),
-                    ...df.cinco_s.filter(r => bimestresMap[r.BIMESTRE] === m).map(r => parseVal(r.VALOR))
-                ];
-                return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : 0;
+            // Actualizar Gráfica de Tendencia
+            const trendValues = Object.keys(mesesMap).map(m => {
+                const filtered = activeData.filter(r => (r.MES === m || bimestresMap[r.BIMESTRE] === m));
+                return filtered.length ? (filtered.reduce((acc, r) => acc + parseVal(r.VALOR || r['AJUSTE NEGATIVO']), 0) / filtered.length).toFixed(1) : 0;
             });
-
-            charts.trend.data.datasets[0].data = trendData;
+            charts.trend.data.datasets[0].data = trendValues;
+            charts.trend.data.datasets[0].label = `Histórico: ${currentIndicator}`;
             charts.trend.update();
         }
     </script>
