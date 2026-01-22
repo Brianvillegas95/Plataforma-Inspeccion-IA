@@ -17,23 +17,24 @@
         /* OCUPAR TODO EL ANCHO DE LA PANTALLA */
         .main-content { 
             padding: 20px; 
-            width: 98%; /* Casi el 100% del ancho */
+            width: 98%; 
             margin: 0 auto; 
-            max-width: none; /* Eliminamos el límite de 1600px */
+            max-width: none; 
         }
 
+        /* PANEL DE FILTROS */
         .filter-panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 150px; }
         .filter-group label { font-size: 0.75em; font-weight: 700; color: #495057; margin-bottom: 8px; text-transform: uppercase; }
         .filter-control { padding: 10px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; font-size: 0.85em; font-weight: 600; }
 
-        /* KPIs HORIZONTALES */
+        /* KPIs HORIZONTALES SIN SIGNO DE PESOS */
         .kpi-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .kpi-card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid #005f9e; }
         .kpi-value { font-size: 2.2em; font-weight: 800; color: #212529; margin: 5px 0; }
         .kpi-label { font-size: 0.85em; font-weight: 700; color: #6c757d; }
 
-        /* GRÁFICAS JUNTAS HORIZONTALMENTE AL 100% */
+        /* GRÁFICAS JUNTAS HORIZONTALMENTE */
         .charts-section { 
             display: grid; 
             grid-template-columns: 1fr 1fr; 
@@ -43,7 +44,9 @@
         .chart-container { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .chart-header { border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; margin-bottom: 20px; }
         .chart-title { font-size: 1.1em; font-weight: 700; color: #343a40; margin: 0; }
-        .chart-box { height: 500px; width: 100%; position: relative; } /* Aumentamos altura para mejor visibilidad */
+        .chart-box { height: 500px; width: 100%; position: relative; }
+        
+        @media (max-width: 1100px) { .charts-section, .kpi-container { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -58,42 +61,71 @@
 
     <main class="main-content">
         <section class="filter-panel">
-            <div class="filter-group"><label>Indicador</label><select id="filter-indicator" class="filter-control"><option>AJUSTE DE INVENTARIO</option></select></div>
+            <div class="filter-group">
+                <label>Indicador</label>
+                <select id="filter-indicator" class="filter-control">
+                    <option value="AJUSTES">AJUSTE DE INVENTARIO</option>
+                </select>
+            </div>
             <div class="filter-group">
                 <label>Área</label>
                 <select id="filter-area" class="filter-control" onchange="processData()">
                     <option value="TODAS">TODAS LAS ÁREAS</option>
-                    <option>BOLÍGRAFO</option><option>EMPAQUE</option><option>ENSAMBLE</option><option>KINERA</option><option>MOLDEO COLORANTES</option><option>MOLDEO RESINAS</option><option>TINTAS</option>
+                    <option>BOLÍGRAFO</option>
+                    <option>EMPAQUE</option>
+                    <option>ENSAMBLE</option>
+                    <option>KINERA</option>
+                    <option>MOLDEO COLORANTES</option>
+                    <option>MOLDEO RESINAS</option>
+                    <option>TINTAS</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label>Mes</label>
                 <select id="filter-month" class="filter-control" onchange="processData()">
                     <option value="TODOS">TODOS LOS MESES</option>
-                    <option>ENERO</option><option>FEBRERO</option><option>MARZO</option><option>ABRIL</option><option>MAYO</option><option>JUNIO</option><option>JULIO</option><option>AGOSTO</option><option>SEPTIEMBRE</option><option>OCTUBRE</option><option>NOVIEMBRE</option><option>DICIEMBRE</option>
+                    <option>ENERO</option><option>FEBRERO</option><option>MARZO</option>
+                    <option>ABRIL</option><option>MAYO</option><option>JUNIO</option>
+                    <option>JULIO</option><option>AGOSTO</option><option>SEPTIEMBRE</option>
+                    <option>OCTUBRE</option><option>NOVIEMBRE</option><option>DICIEMBRE</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label>Año</label>
                 <select id="filter-year" class="filter-control" onchange="processData()">
-                    <option value="TODOS">TODOS LOS AÑOS</option><option>2024</option><option>2025</option>
+                    <option value="TODOS">TODOS LOS AÑOS</option>
+                    <option>2024</option>
+                    <option>2025</option>
                 </select>
             </div>
         </section>
 
         <section class="kpi-container">
-            <div class="kpi-card" style="border-left-color: #28a745;"><div class="kpi-label">Total Ajustes Positivos</div><div class="kpi-value" id="kpi-positivo">0.00</div></div>
-            <div class="kpi-card" style="border-left-color: #dc3545;"><div class="kpi-label">Total Ajustes Negativos</div><div class="kpi-value" id="kpi-negativo">0.00</div></div>
-            <div class="kpi-card" style="border-left-color: #005f9e;"><div class="kpi-label">Balance Neto</div><div class="kpi-value" id="kpi-neto">0.00</div></div>
+            <div class="kpi-card" style="border-left-color: #28a745;">
+                <div class="kpi-label">Total Ajustes Positivos</div>
+                <div class="kpi-value" id="kpi-positivo">0.00</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #dc3545;">
+                <div class="kpi-label">Total Ajustes Negativos</div>
+                <div class="kpi-value" id="kpi-negativo">0.00</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #005f9e;">
+                <div class="kpi-label">Balance Neto</div>
+                <div class="kpi-value" id="kpi-neto">0.00</div>
+            </div>
         </section>
 
         <div class="charts-section">
             <div class="chart-container">
-                <div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Positivos 2024 vs 2025</h2></div>
+                <div class="chart-header">
+                    <h2 class="chart-title"><i class="fas fa-chart-line"></i> Positivos 2024 vs 2025</h2>
+                </div>
                 <div class="chart-box"><canvas id="chartPositive"></canvas></div>
             </div>
             <div class="chart-container">
-                <div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Negativos 2024 vs 2025</h2></div>
+                <div class="chart-header">
+                    <h2 class="chart-title"><i class="fas fa-chart-line"></i> Negativos 2024 vs 2025</h2>
+                </div>
                 <div class="chart-box"><canvas id="chartNegative"></canvas></div>
             </div>
         </div>
@@ -106,13 +138,18 @@
 
         function parseV(v) { 
             if (!v) return 0;
-            return parseFloat(v.toString().replace(/,/g, '').replace('%', '')) || 0;
+            return parseFloat(v.toString().replace(/,/g, '').replace('%', '')) || 0; 
         }
 
         function calculateTrend(data) {
-            const n = data.length;
+            const validData = data.map((v, i) => ({x: i, y: v})).filter(d => d.y !== null);
+            if (validData.length < 2) return data.map(() => null);
+            
+            const n = validData.length;
             let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-            data.forEach((y, x) => { sumX += x; sumY += y; sumXY += x * y; sumX2 += x * x; });
+            validData.forEach(d => {
+                sumX += d.x; sumY += d.y; sumXY += d.x * d.y; sumX2 += d.x * d.x;
+            });
             const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
             const intercept = (sumY - slope * sumX) / n;
             return data.map((_, x) => slope * x + intercept);
@@ -155,7 +192,8 @@
 
             const getS = (y, field) => mesesLabels.map(m => {
                 const r = data.find(item => item.MES === m && item.AÑO.toString() === y.toString());
-                return r ? parseV(r[field]) : 0;
+                const val = r ? parseV(r[field]) : 0;
+                return val === 0 ? null : val; // No graficar si el valor es 0
             });
 
             const createConfig = (field) => {
@@ -168,12 +206,18 @@
                     data: {
                         labels: mesesLabels,
                         datasets: [
-                            { label: '2024', data: d24, borderColor: '#005db4', borderDash: [5, 5], tension: 0.3, pointRadius: 4 },
-                            { label: '2025', data: d25, borderColor: '#005db4', borderWidth: 3, tension: 0.3, pointRadius: 6 },
+                            { 
+                                label: '2024', data: d24, borderColor: '#005db4', 
+                                borderDash: [5, 5], tension: 0.3, pointRadius: 4, spanGaps: true 
+                            },
+                            { 
+                                label: '2025', data: d25, borderColor: '#005db4', 
+                                borderWidth: 3, tension: 0.3, pointRadius: 6, spanGaps: true 
+                            },
                             { 
                                 label: 'Tendencia (2025)', data: trend25, borderColor: '#28a745', 
                                 borderDash: [2, 2], pointRadius: 0, fill: false,
-                                datalabels: { display: false } // OCULTAR VALORES EN LÍNEA VERDE
+                                datalabels: { display: false } // No mostrar valores en la tendencia
                             }
                         ]
                     },
@@ -184,7 +228,7 @@
                             legend: { position: 'bottom' },
                             datalabels: {
                                 anchor: 'end', align: 'top',
-                                formatter: (v) => v > 0 ? v.toLocaleString(undefined, {maximumFractionDigits:0}) : '',
+                                formatter: (v) => (v !== null && v > 0) ? v.toLocaleString(undefined, {maximumFractionDigits:0}) : '',
                                 font: { weight: 'bold', size: 10 }
                             }
                         },
