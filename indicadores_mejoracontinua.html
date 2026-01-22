@@ -13,27 +13,37 @@
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
         .app-header { background-color: #005db4; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; color: white; }
         .logo { height: 45px; filter: brightness(0) invert(1); }
-        .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
+        
+        /* OCUPAR TODO EL ANCHO DE LA PANTALLA */
+        .main-content { 
+            padding: 20px; 
+            width: 98%; /* Casi el 100% del ancho */
+            margin: 0 auto; 
+            max-width: none; /* Eliminamos el límite de 1600px */
+        }
 
         .filter-panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 150px; }
         .filter-group label { font-size: 0.75em; font-weight: 700; color: #495057; margin-bottom: 8px; text-transform: uppercase; }
         .filter-control { padding: 10px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; font-size: 0.85em; font-weight: 600; }
 
-        /* KPIs ACOMODADOS HORIZONTALMENTE */
+        /* KPIs HORIZONTALES */
         .kpi-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .kpi-card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid #005f9e; }
         .kpi-value { font-size: 2.2em; font-weight: 800; color: #212529; margin: 5px 0; }
         .kpi-label { font-size: 0.85em; font-weight: 700; color: #6c757d; }
 
-        /* GRÁFICAS JUNTAS HORIZONTALMENTE */
-        .charts-section { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
-        .chart-container { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        /* GRÁFICAS JUNTAS HORIZONTALMENTE AL 100% */
+        .charts-section { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+            width: 100%;
+        }
+        .chart-container { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .chart-header { border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; margin-bottom: 20px; }
         .chart-title { font-size: 1.1em; font-weight: 700; color: #343a40; margin: 0; }
-        .chart-box { height: 400px; width: 100%; position: relative; }
-        
-        @media (max-width: 1100px) { .charts-section { grid-template-columns: 1fr; } .kpi-container { grid-template-columns: 1fr; } }
+        .chart-box { height: 500px; width: 100%; position: relative; } /* Aumentamos altura para mejor visibilidad */
     </style>
 </head>
 <body>
@@ -161,9 +171,9 @@
                             { label: '2024', data: d24, borderColor: '#005db4', borderDash: [5, 5], tension: 0.3, pointRadius: 4 },
                             { label: '2025', data: d25, borderColor: '#005db4', borderWidth: 3, tension: 0.3, pointRadius: 6 },
                             { 
-                                label: 'Lineal (2025)', data: trend25, borderColor: '#28a745', 
+                                label: 'Tendencia (2025)', data: trend25, borderColor: '#28a745', 
                                 borderDash: [2, 2], pointRadius: 0, fill: false,
-                                datalabels: { display: false } // SE OCULTAN VALORES EN TENDENCIA
+                                datalabels: { display: false } // OCULTAR VALORES EN LÍNEA VERDE
                             }
                         ]
                     },
@@ -175,10 +185,10 @@
                             datalabels: {
                                 anchor: 'end', align: 'top',
                                 formatter: (v) => v > 0 ? v.toLocaleString(undefined, {maximumFractionDigits:0}) : '',
-                                font: { weight: 'bold', size: 9 }
+                                font: { weight: 'bold', size: 10 }
                             }
                         },
-                        scales: { y: { beginAtZero: true, grid: { color: '#f8f8f8' } } }
+                        scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } } }
                     }
                 };
             };
