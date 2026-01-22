@@ -3,33 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Mejora Continua</title>
+    <title>Mejora Continua - Ajuste de Inventario</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
-        .app-header { background-color: #005db4; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .app-header { background-color: #005db4; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; color: white; }
         .logo { height: 45px; filter: brightness(0) invert(1); }
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
-        
-        /* TOGGLE PILLS (Estilo Preventivo) */
-        .toggle-switch-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 30px; }
-        .toggle-wrapper { background: #fff; padding: 5px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: inline-flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
-        .chip { border: none; background: transparent; padding: 10px 20px; border-radius: 6px; font-weight: 600; color: #6c757d; cursor: pointer; transition: 0.3s; font-size: 0.85em; display: flex; align-items: center; gap: 8px; }
-        .chip.active { background: #005f9e; color: #fff; box-shadow: 0 2px 4px rgba(0,95,158,0.3); }
-        .chip i { font-size: 1.1em; }
-        .label-pills { font-size: 0.75em; font-weight: 800; color: #adb5bd; text-transform: uppercase; letter-spacing: 1px; }
 
-        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .kpi-card { background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid #005f9e; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: 0.3s; }
-        .kpi-card.highlight { transform: scale(1.05); border-left-width: 10px; z-index: 10; }
-        .kpi-value { font-size: 1.8em; font-weight: 800; color: #212529; }
-        
-        .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; margin-bottom: 30px; }
-        .dashboard-panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .chart-box { height: 350px; position: relative; }
-        .panel-title { font-size: 1em; font-weight: 700; margin-bottom: 15px; color: #495057; display: flex; align-items: center; gap: 10px; }
+        /* NUEVO PANEL DE FILTROS */
+        .filter-panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 20px; align-items: flex-end; }
+        .filter-group { display: flex; flex-direction: column; flex: 1; }
+        .filter-group label { font-size: 0.8em; font-weight: 700; color: #495057; margin-bottom: 8px; text-transform: uppercase; }
+        .filter-control { padding: 10px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; font-size: 0.9em; font-weight: 600; }
+
+        /* KPIs ESPECÍFICOS */
+        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .kpi-card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid #005f9e; }
+        .kpi-value { font-size: 2.2em; font-weight: 800; color: #212529; margin: 5px 0; }
+        .kpi-label { font-size: 0.85em; font-weight: 700; color: #6c757d; }
+
+        /* CONTENEDOR DE GRÁFICAS */
+        .charts-section { display: flex; flex-direction: column; gap: 30px; }
+        .chart-container { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .chart-header { border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .chart-title { font-size: 1.1em; font-weight: 700; color: #343a40; margin: 0; }
+        .chart-box { height: 350px; width: 100%; position: relative; }
     </style>
 </head>
 <body>
@@ -43,153 +45,149 @@
     </header>
 
     <main class="main-content">
-        
-        <div class="toggle-switch-container">
-            <div>
-                <span class="label-pills">Indicadores</span>
-                <div class="toggle-wrapper" id="pills-indicators">
-                    <button class="chip active" onclick="switchInd('5´S', this)"><i class="fas fa-broom"></i> 5´S</button>
-                    <button class="chip" onclick="switchInd('AJUSTES', this)"><i class="fas fa-boxes"></i> AJUSTES</button>
-                    <button class="chip" onclick="switchInd('BPP', this)"><i class="fas fa-balance-scale"></i> BPP</button>
-                    <button class="chip" onclick="switchInd('ADICIONALES', this)"><i class="fas fa-plus-circle"></i> ADICIONALES</button>
-                    <button class="chip" onclick="switchInd('DEVOLUCIONES', this)"><i class="fas fa-undo"></i> DEVOLUCIONES</button>
-                    <button class="chip" onclick="switchInd('DESPERDICIO', this)"><i class="fas fa-trash-alt"></i> DESPERDICIO</button>
-                </div>
+        <section class="filter-panel">
+            <div class="filter-group">
+                <label>Seleccionar Indicador</label>
+                <select id="filter-indicator" class="filter-control" onchange="handleIndicatorChange()">
+                    <option value="AJUSTES" selected>AJUSTE DE INVENTARIO</option>
+                    <option value="BPP">BPP</option>
+                    <option value="ADICIONALES">ADICIONALES</option>
+                    <option value="DEVOLUCIONES">DEVOLUCIONES</option>
+                    <option value="DESPERDICIO">DESPERDICIO</option>
+                    <option value="5S">5´S</option>
+                </select>
             </div>
-            <div>
-                <span class="label-pills">Áreas de Producción</span>
-                <div class="toggle-wrapper" id="pills-areas">
-                    <button class="chip active" onclick="switchArea('TODAS', this)">TODAS</button>
-                    <button class="chip" onclick="switchArea('EMPAQUE', this)">EMPAQUE</button>
-                    <button class="chip" onclick="switchArea('ENSAMBLE', this)">ENSAMBLE</button>
-                    <button class="chip" onclick="switchArea('KINERA', this)">KINERA</button>
-                    <button class="chip" onclick="switchArea('MOLDEO', this)">MOLDEO</button>
-                    <button class="chip" onclick="switchArea('PASTELES', this)">PASTELES</button>
-                    <button class="chip" onclick="switchArea('TINTAS', this)">TINTAS</button>
-                </div>
+            <div class="filter-group">
+                <label>Área de Producción</label>
+                <select id="filter-area" class="filter-control" onchange="processData()">
+                    <option value="TODAS">TODAS LAS ÁREAS</option>
+                    <option value="EMPAQUE">EMPAQUE</option>
+                    <option value="ENSAMBLE">ENSAMBLE</option>
+                    <option value="KINERA">KINERA</option>
+                    <option value="MOLDEO">MOLDEO</option>
+                    <option value="PASTELES">PASTELES</option>
+                    <option value="TINTAS">TINTAS</option>
+                </select>
             </div>
-        </div>
+        </section>
 
-        <section class="kpi-container" id="kpi-row"></section>
-
-        <div class="charts-grid">
-            <div class="dashboard-panel">
-                <div class="panel-title" id="title-area"><i class="fas fa-chart-bar"></i> Comparativa por Área</div>
-                <div class="chart-box"><canvas id="chartArea"></canvas></div>
+        <section class="kpi-container">
+            <div class="kpi-card" style="border-left-color: #28a745;">
+                <div class="kpi-label">Total Ajustes Positivos</div>
+                <div class="kpi-value" id="kpi-positivo">$0.00</div>
             </div>
-            <div class="dashboard-panel">
-                <div class="panel-title" id="title-trend"><i class="fas fa-chart-line"></i> Evolución Temporal</div>
-                <div class="chart-box"><canvas id="chartTrend"></canvas></div>
+            <div class="kpi-card" style="border-left-color: #dc3545;">
+                <div class="kpi-label">Total Ajustes Negativos</div>
+                <div class="kpi-value" id="kpi-negativo">$0.00</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #005f9e;">
+                <div class="kpi-label">Balance Neto</div>
+                <div class="kpi-value" id="kpi-neto">$0.00</div>
+            </div>
+        </section>
+
+        <div class="charts-section">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title"><i class="fas fa-chart-line"></i> Línea de Tiempo en Ajustes Positivos 2024 vs 2025</h2>
+                </div>
+                <div class="chart-box"><canvas id="chartPositive"></canvas></div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title"><i class="fas fa-chart-line"></i> Línea de Tiempo en Ajustes Negativos 2024 vs 2025</h2>
+                </div>
+                <div class="chart-box"><canvas id="chartNegative"></canvas></div>
             </div>
         </div>
     </main>
 
     <script>
-        let rawData = {};
-        let chartArea, chartTrend;
-        let currentInd = '5´S';
-        let currentArea = 'TODAS';
-
-        const meses = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-        const bimestres = ['1 BIMESTRE','2 BIMESTRE','3 BIMESTRE','4 BIMESTRE','5 BIMESTRE','6 BIMESTRE'];
-        const areasList = ['EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO', 'PASTELES', 'TINTAS'];
+        let rawDataAjustes = [];
+        let chartPos, chartNeg;
+        const mesesLabels = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const res = await fetch('/.netlify/functions/mejora-continua');
-            const json = await res.json();
-            rawData = json.data;
-            updateUI();
+            await loadData();
         });
 
-        function switchInd(ind, btn) {
-            currentInd = ind;
-            updateActivePill('pills-indicators', btn);
-            updateUI();
+        async function loadData() {
+            try {
+                const res = await fetch('/.netlify/functions/mejora-continua');
+                const json = await res.json();
+                rawDataAjustes = json.data.ajustes;
+                processData();
+            } catch (e) { console.error("Error cargando ajustes:", e); }
         }
 
-        function switchArea(area, btn) {
-            currentArea = area;
-            updateActivePill('pills-areas', btn);
-            updateUI();
+        function processData() {
+            const area = document.getElementById('filter-area').value;
+            let filtered = rawDataAjustes;
+            if (area !== 'TODAS') filtered = filtered.filter(r => r.ÁREA === area);
+
+            // Cálculos para KPIs
+            const totalPos = filtered.reduce((acc, r) => acc + parseFloat(r['AJUSTE POSITIVO'] || 0), 0);
+            const totalNeg = filtered.reduce((acc, r) => acc + parseFloat(r['AJUSTE NEGATIVO'] || 0), 0);
+            
+            document.getElementById('kpi-positivo').textContent = "$" + totalPos.toLocaleString();
+            document.getElementById('kpi-negativo').textContent = "$" + totalNeg.toLocaleString();
+            document.getElementById('kpi-neto').textContent = "$" + (totalPos + totalNeg).toLocaleString();
+
+            renderCharts(filtered);
         }
 
-        function updateActivePill(containerId, activeBtn) {
-            document.querySelectorAll(`#${containerId} .chip`).forEach(c => c.classList.remove('active'));
-            activeBtn.classList.add('active');
+        function renderCharts(data) {
+            if (chartPos) chartPos.destroy();
+            if (chartNeg) chartNeg.destroy();
+
+            const getSeries = (year, field) => {
+                return mesesLabels.map(m => {
+                    const found = data.find(r => r.MES === m && r.AÑO.toString() === year.toString());
+                    return found ? parseFloat(found[field]) : 0;
+                });
+            };
+
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true } }
+            };
+
+            // Gráfica de Positivos (2024 vs 2025)
+            chartPos = new Chart(document.getElementById('chartPositive'), {
+                type: 'line',
+                data: {
+                    labels: mesesLabels,
+                    datasets: [
+                        { label: '2024', data: getSeries(2024, 'AJUSTE POSITIVO'), borderColor: '#005db4', borderDash: [5, 5], tension: 0.3 },
+                        { label: '2025', data: getSeries(2025, 'AJUSTE POSITIVO'), borderColor: '#005db4', borderWidth: 3, tension: 0.3 }
+                    ]
+                },
+                options: commonOptions
+            });
+
+            // Gráfica de Negativos (2024 vs 2025)
+            chartNeg = new Chart(document.getElementById('chartNegative'), {
+                type: 'line',
+                data: {
+                    labels: mesesLabels,
+                    datasets: [
+                        { label: '2024', data: getSeries(2024, 'AJUSTE NEGATIVO'), borderColor: '#17a2b8', borderDash: [5, 5], tension: 0.3 },
+                        { label: '2025', data: getSeries(2025, 'AJUSTE NEGATIVO'), borderColor: '#17a2b8', borderWidth: 3, tension: 0.3 }
+                    ]
+                },
+                options: commonOptions
+            });
         }
 
-        function parseV(v) { return parseFloat(v?.toString().replace('%','')) || 0; }
-
-        function updateUI() {
-            renderKPIs();
-            renderCharts();
-        }
-
-        function renderKPIs() {
-            const container = document.getElementById('kpi-row');
-            const f = (data) => currentArea === 'TODAS' ? data : data.filter(r => r.ÁREA === currentArea);
-
-            const metrics = [
-                {id:'5´S', t:'Cumplimiento 5´S', v: (f(rawData.cinco_s).reduce((a,r)=>a+parseV(r.VALOR),0)/f(rawData.cinco_s).length || 0).toFixed(1)+'%', c:'#28a745'},
-                {id:'AJUSTES', t:'Ajustes Inv.', v: '$'+f(rawData.ajustes).reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO'])+parseV(r['AJUSTE NEGATIVO']),0).toLocaleString(), c:'#005f9e'},
-                {id:'BPP', t:'Efectividad BPP', v: (f(rawData.bpp).reduce((a,r)=>a+parseV(r.VALOR),0)/f(rawData.bpp.length || 0).toFixed(1) || 0)+'%', c:'#ffc107'},
-                {id:'DEVOLUCIONES', t:'Devoluciones', v: f(rawData.devoluciones).reduce((a,r)=>a+parseV(r.VALOR),0), c:'#dc3545'}
-            ];
-
-            container.innerHTML = metrics.map(m => `
-                <div class="kpi-card ${currentInd === m.id ? 'highlight' : ''}" style="border-left-color:${m.c}">
-                    <div style="font-size:0.75em; color:#6c757d; font-weight:700;">${m.t}</div>
-                    <div class="kpi-value">${m.v}</div>
-                </div>
-            `).join('');
-        }
-
-        function renderCharts() {
-            if(chartArea) chartArea.destroy();
-            if(chartTrend) chartTrend.destroy();
-
-            let configArea = {}, configTrend = {};
-            const filterByArea = (data) => currentArea === 'TODAS' ? data : data.filter(r => r.ÁREA === currentArea);
-
-            switch(currentInd) {
-                case '5´S':
-                    configArea = { labels: areasList, data: areasList.map(a => parseV(rawData.cinco_s.find(r=>r.ÁREA===a)?.VALOR)), color: '#005db4' };
-                    configTrend = { labels: bimestres, datasets: [{ label: 'Bimestres %', data: bimestres.map(b => parseV(filterByArea(rawData.cinco_s).find(r=>r.BIMESTRE===b)?.VALOR)), backgroundColor: '#1a3a5a' }], type: 'bar' };
-                    break;
-
-                case 'AJUSTES':
-                    configArea = { labels: areasList, data: areasList.map(a => rawData.ajustes.filter(r=>r.ÁREA===a).reduce((acc,r)=>acc+parseV(r['AJUSTE POSITIVO'])+parseV(r['AJUSTE NEGATIVO']),0)), color: '#005f9e' };
-                    configTrend = { labels: meses, type: 'line', datasets: [
-                        { label: 'Positivos', data: meses.map(m => filterByArea(rawData.ajustes).filter(r=>r.MES===m).reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO']),0)), borderColor: '#28a745', tension:0.3 },
-                        { label: 'Negativos', data: meses.map(m => filterByArea(rawData.ajustes).filter(r=>r.MES===m).reduce((a,r)=>a+parseV(r['AJUSTE NEGATIVO']),0)), borderColor: '#dc3545', tension:0.3 }
-                    ]};
-                    break;
-
-                case 'BPP':
-                    configArea = { labels: areasList, data: areasList.map(a => parseV(rawData.bpp.find(r=>r.ÁREA===a)?.VALOR)), color: '#ffc107' };
-                    configTrend = { labels: meses, type: 'line', datasets: [
-                        { label: 'Real %', data: meses.map(m => parseV(filterByArea(rawData.bpp).find(r=>r.MES===m)?.VALOR)), borderColor: '#005db4', fill:true, backgroundColor:'rgba(0,95,158,0.1)' },
-                        { label: 'Meta', data: meses.map(()=>90), borderColor: 'red', borderDash: [5,5], pointRadius:0 }
-                    ]};
-                    break;
-                
-                default: // ADICIONALES, DEVOLUCIONES, DESPERDICIO
-                    const key = currentInd.toLowerCase() === 'desperdicio' ? 'desperdicio' : currentInd.toLowerCase();
-                    configArea = { labels: areasList, data: areasList.map(a => parseV(rawData[key].find(r=>r.ÁREA===a)?.VALOR)), color: '#17a2b8' };
-                    configTrend = { labels: meses, type: 'line', datasets: [{ label: 'Incidencias', data: meses.map(m => parseV(filterByArea(rawData[key]).find(r=>r.MES===m)?.VALOR)), borderColor: '#6610f2', tension:0.3 }] };
+        function handleIndicatorChange() {
+            const val = document.getElementById('filter-indicator').value;
+            if (val !== 'AJUSTES') {
+                alert("Módulo en desarrollo. Por ahora solo Ajuste de Inventario está disponible.");
+                document.getElementById('filter-indicator').value = 'AJUSTES';
             }
-
-            chartArea = new Chart(document.getElementById('chartArea'), {
-                type: 'bar',
-                data: { labels: configArea.labels, datasets: [{ label: currentInd, data: configArea.data, backgroundColor: configArea.color }] },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-
-            chartTrend = new Chart(document.getElementById('chartTrend'), {
-                type: configTrend.type || 'line',
-                data: { labels: configTrend.labels, datasets: configTrend.datasets },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
         }
     </script>
 </body>
