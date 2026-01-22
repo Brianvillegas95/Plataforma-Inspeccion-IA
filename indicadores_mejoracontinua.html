@@ -10,7 +10,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 
     <style>
-
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
         
         .app-header { 
@@ -25,6 +24,13 @@
         .logo-container { display: flex; align-items: center; gap: 15px; }
         .logo { height: 45px; width: auto; filter: brightness(0) invert(1); }
         .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
+
+        .btn-header-translucido { 
+            color: white; border: 1px solid rgba(255,255,255,0.4); 
+            padding: 8px 15px; border-radius: 6px; text-decoration: none; 
+            font-size: 0.9em; transition: 0.3s; 
+        }
+        .btn-header-translucido:hover { background: rgba(255,255,255,0.1); }
 
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
 
@@ -48,12 +54,8 @@
             background: #f8f9fa; color: #495057; font-size: 0.9em; 
         }
 
-        /* BOTONES PRO */
         .btn-primary { background: #005f9e; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
         .btn-primary:hover { background: #004a7c; }
-        .btn-secondary { background: #6c757d; color: white; border: none; padding: 10px 25px; border-radius: 6px; font-weight: 600; cursor: pointer; }
-        .btn-header-nav { background: #ffffff; color: #005f9e; border: 1px solid #ffffff; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; }
-        .btn-header-nav:hover { background: #e0e0e0; color: #005f9e; border-color: #e0e0e0; }
         
         /* GRÁFICAS */
         .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; }
@@ -64,6 +66,7 @@
         .custom-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
         .custom-table th { background: #f8f9fa; color: #495057; text-align: left; padding: 12px; border-bottom: 2px solid #dee2e6; }
         .custom-table td { padding: 12px; border-bottom: 1px solid #e9ecef; }
+        .badge-blue { background: #e7f1ff; color: #005f9e; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 0.85em; }
     </style>
 </head>
 <body>
@@ -88,34 +91,34 @@
             <div class="filter-grid">
                 <div class="filter-group">
                     <label>Rango de Fecha</label>
-                    <input type="date" class="filter-control">
+                    <input type="month" id="filter-date" class="filter-control">
                 </div>
                 <div class="filter-group">
                     <label>Área</label>
-                    <select class="filter-control">
+                    <select id="filter-area" class="filter-control">
                         <option value="TODAS">Todas las Áreas</option>
-                        <option>Empaque</option>
-                        <option>Ensamble</option>
-                        <option>Kinera</option>
-                        <option>Moldeo</option>
-                        <option>Pasteles</option>
-                        <option>Tintas</option>
+                        <option>EMPAQUE</option>
+                        <option>ENSAMBLE</option>
+                        <option>KINERA</option>
+                        <option>MOLDEO</option>
+                        <option>PASTELES</option>
+                        <option>TINTAS</option>
                     </select>
                 </div>
                 <div class="filter-group">
                     <label>Indicador Principal</label>
-                    <select class="filter-control">
+                    <select id="filter-indicator" class="filter-control">
                         <option value="TODOS">Todos los Indicadores</option>
-                        <option>5´S</option>
-                        <option>Ajustes de Inventarios</option>
-                        <option>Buenas Prácticas de Pesaje</option>
-                        <option>Adicionales</option>
-                        <option>Devoluciones</option>
-                        <option>Sobreconsumos</option>
+                        <option value="5´S">5´S</option>
+                        <option value="AJUSTES">Ajustes de Inventarios</option>
+                        <option value="BPP">Buenas Prácticas de Pesaje</option>
+                        <option value="ADICIONALES">Adicionales</option>
+                        <option value="DEVOLUCIONES">Devoluciones</option>
+                        <option value="DESPERDICIO">Sobreconsumos</option>
                     </select>
                 </div>
                 <div class="filter-group" style="flex: 0;">
-                    <button class="btn-primary"><i class="fas fa-sync-alt"></i> Actualizar</button>
+                    <button id="btn-update" class="btn-primary"><i class="fas fa-sync-alt"></i> Actualizar</button>
                 </div>
             </div>
         </section>
@@ -123,33 +126,33 @@
         <section class="kpi-container">
             <div class="kpi-card" style="border-left-color: #28a745;">
                 <div class="kpi-title">Cumplimiento 5´S</div>
-                <div class="kpi-value">0%</div>
+                <div class="kpi-value" id="kpi-5s">0%</div>
                 <div class="kpi-sub">Promedio General</div>
             </div>
             <div class="kpi-card" style="border-left-color: #005f9e;">
                 <div class="kpi-title">Ajustes Inv.</div>
-                <div class="kpi-value">$0.00</div>
+                <div class="kpi-value" id="kpi-ajustes">$0.00</div>
                 <div class="kpi-sub">Monto Acumulado</div>
             </div>
             <div class="kpi-card" style="border-left-color: #ffc107;">
                 <div class="kpi-title">B.P. Pesaje</div>
-                <div class="kpi-value">0%</div>
+                <div class="kpi-value" id="kpi-bpp">0%</div>
                 <div class="kpi-sub">Efectividad</div>
             </div>
             <div class="kpi-card" style="border-left-color: #17a2b8;">
                 <div class="kpi-title">Adicionales</div>
-                <div class="kpi-value">0</div>
+                <div class="kpi-value" id="kpi-adicionales">0</div>
                 <div class="kpi-sub">Solicitudes Mes</div>
             </div>
             <div class="kpi-card" style="border-left-color: #dc3545;">
                 <div class="kpi-title">Devoluciones</div>
-                <div class="kpi-value">0</div>
+                <div class="kpi-value" id="kpi-devoluciones">0</div>
                 <div class="kpi-sub">Unidades Totales</div>
             </div>
             <div class="kpi-card" style="border-left-color: #6610f2;">
                 <div class="kpi-title">Sobreconsumos</div>
-                <div class="kpi-value">0%</div>
-                <div class="kpi-sub">Desviación Standard</div>
+                <div class="kpi-value" id="kpi-desperdicio">0%</div>
+                <div class="kpi-sub">Promedio Mensual</div>
             </div>
         </section>
 
@@ -161,7 +164,7 @@
                 </div>
             </div>
             <div class="dashboard-panel">
-                <h2 class="panel-title"><i class="fas fa-chart-line"></i> Tendencia de Devoluciones</h2>
+                <h2 class="panel-title"><i class="fas fa-chart-line"></i> Tendencia Mensual</h2>
                 <div class="chart-box">
                     <canvas id="chartTrend"></canvas>
                 </div>
@@ -171,13 +174,13 @@
         <section class="dashboard-panel">
             <h2 class="panel-title"><i class="fas fa-list"></i> Registro Detallado de Mejora</h2>
             <div class="table-container">
-                <table class="custom-table">
+                <table class="custom-table" id="main-table">
                     <thead>
                         <tr>
-                            <th>Fecha</th>
+                            <th>Periodo</th>
                             <th>Área</th>
                             <th>Indicador</th>
-                            <th>Descripción</th>
+                            <th>Detalle</th>
                             <th>Valor</th>
                             <th>Responsable</th>
                             <th>Estatus</th>
@@ -186,7 +189,7 @@
                     <tbody>
                         <tr>
                             <td colspan="7" style="text-align:center; padding: 30px; color: #6c757d;">
-                                <i class="fas fa-info-circle"></i> Esperando selección de datos...
+                                <i class="fas fa-spinner fa-spin"></i> Cargando datos...
                             </td>
                         </tr>
                     </tbody>
@@ -196,37 +199,204 @@
     </main>
 
     <script>
-        // Configuración básica de gráficas (sin datos reales)
+        let rawData = { ajustes: [], bpp: [], adicionales: [], devoluciones: [], desperdicio: [], cinco_s: [] };
+        let charts = {};
+
+        const mesesMap = {
+            'ENERO': 0, 'FEBRERO': 1, 'MARZO': 2, 'ABRIL': 3, 'MAYO': 4, 'JUNIO': 5,
+            'JULIO': 6, 'AGOSTO': 7, 'SEPTIEMBRE': 8, 'OCTUBRE': 9, 'NOVIEMBRE': 10, 'DICIEMBRE': 11
+        };
+
+        const bimestresMap = {
+            '1 BIMESTRE': 'FEBRERO', '2 BIMESTRE': 'ABRIL', '3 BIMESTRE': 'JUNIO',
+            '4 BIMESTRE': 'AGOSTO', '5 BIMESTRE': 'OCTUBRE', '6 BIMESTRE': 'DICIEMBRE'
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            loadData();
+            document.getElementById('btn-update').addEventListener('click', processData);
+        });
+
+        async function loadData() {
+            try {
+                const res = await fetch('/.netlify/functions/mejora-continua');
+                const json = await res.json();
+                rawData = json.data;
+                processData();
+            } catch (e) {
+                console.error("Error al cargar datos:", e);
+                document.querySelector('#main-table tbody').innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Error al cargar datos del servidor</td></tr>';
+            }
+        }
+
+        function processData() {
+            const fArea = document.getElementById('filter-area').value;
+            const fIndicator = document.getElementById('filter-indicator').value;
+            const fDateStr = document.getElementById('filter-date').value;
+
+            let fMes = null, fAño = null;
+            if (fDateStr) {
+                const parts = fDateStr.split('-');
+                fAño = parts[0];
+                const mesIdx = parseInt(parts[1]) - 1;
+                fMes = Object.keys(mesesMap)[mesIdx];
+            }
+
+            const filtrar = (tabla, esBimestral = false) => {
+                return tabla.filter(r => {
+                    const cumpleArea = fArea === 'TODAS' || r.ÁREA === fArea;
+                    let cumpleFecha = true;
+                    if (fMes && fAño) {
+                        const mesReg = esBimestral ? bimestresMap[r.BIMESTRE] : r.MES;
+                        cumpleFecha = (mesReg === fMes && r.AÑO.toString() === fAño);
+                    }
+                    return cumpleArea && cumpleFecha;
+                });
+            };
+
+            const df = {
+                ajustes: filtrar(rawData.ajustes),
+                bpp: filtrar(rawData.bpp),
+                adicionales: filtrar(rawData.adicionales),
+                devoluciones: filtrar(rawData.devoluciones),
+                desperdicio: filtrar(rawData.desperdicio),
+                cinco_s: filtrar(rawData.cinco_s, true)
+            };
+
+            updateDashboard(df, fIndicator);
+        }
+
+        function updateDashboard(df, fIndicator) {
+            // --- KPIs ---
+            const parseVal = (v) => parseFloat(v.toString().replace('%','')) || 0;
+            const getAvg = (arr) => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1) : 0;
+
+            // 5S
+            const v5s = df.cinco_s.map(r => parseVal(r.VALOR));
+            document.getElementById('kpi-5s').textContent = getAvg(v5s) + "%";
+
+            // Ajustes
+            const sumAjustes = df.ajustes.reduce((acc, r) => acc + parseVal(r['AJUSTE POSITIVO']) + parseVal(r['AJUSTE NEGATIVO']), 0);
+            document.getElementById('kpi-ajustes').textContent = "$" + sumAjustes.toLocaleString(undefined, {minimumFractionDigits: 2});
+
+            // BPP
+            const vBpp = df.bpp.map(r => parseVal(r.VALOR));
+            document.getElementById('kpi-bpp').textContent = getAvg(vBpp) + "%";
+
+            // Adicionales
+            const sumAdic = df.adicionales.reduce((acc, r) => acc + parseVal(r.VALOR), 0);
+            document.getElementById('kpi-adicionales').textContent = sumAdic;
+
+            // Devoluciones
+            const sumDev = df.devoluciones.reduce((acc, r) => acc + parseVal(r.VALOR), 0);
+            document.getElementById('kpi-devoluciones').textContent = sumDev;
+
+            // Desperdicio
+            const vDesp = df.desperdicio.map(r => parseVal(r.VALOR));
+            document.getElementById('kpi-desperdicio').textContent = getAvg(vDesp) + "%";
+
+            renderTable(df, fIndicator);
+            updateCharts(df);
+        }
+
+        function renderTable(df, fIndicator) {
+            const tbody = document.querySelector('#main-table tbody');
+            let rows = [];
+
+            if (fIndicator === 'TODOS' || fIndicator === '5´S') {
+                df.cinco_s.forEach(r => rows.push({ p: r.BIMESTRE, a: r.ÁREA, i: '5´S', d: 'Auditoría Bimestral', v: r.VALOR, r: 'Calidad' }));
+            }
+            if (fIndicator === 'TODOS' || fIndicator === 'AJUSTES') {
+                df.ajustes.forEach(r => {
+                    const neto = (parseFloat(r['AJUSTE POSITIVO']) || 0) + (parseFloat(r['AJUSTE NEGATIVO']) || 0);
+                    rows.push({ p: r.MES, a: r.ÁREA, i: 'AJUSTES', d: `Pos: ${r['AJUSTE POSITIVO']} / Neg: ${r['AJUSTE NEGATIVO']}`, v: `$${neto.toLocaleString()}`, r: 'Almacén' });
+                });
+            }
+            if (fIndicator === 'TODOS' || fIndicator === 'BPP') {
+                df.bpp.forEach(r => rows.push({ p: r.MES, a: r.ÁREA, i: 'BPP', d: 'Eficiencia Pesaje', v: r.VALOR, r: 'Producción' }));
+            }
+            if (fIndicator === 'TODOS' || fIndicator === 'ADICIONALES') {
+                df.adicionales.forEach(r => rows.push({ p: r.MES, a: r.ÁREA, i: 'ADICIONALES', d: 'Material Extra', v: r.VALOR, r: 'Producción' }));
+            }
+            if (fIndicator === 'TODOS' || fIndicator === 'DEVOLUCIONES') {
+                df.devoluciones.forEach(r => rows.push({ p: r.MES, a: r.ÁREA, i: 'DEVOLUCIONES', d: 'Retorno Cliente', v: r.VALOR, r: 'Calidad' }));
+            }
+            if (fIndicator === 'TODOS' || fIndicator === 'DESPERDICIO') {
+                df.desperdicio.forEach(r => rows.push({ p: r.MES, a: r.ÁREA, i: 'SOBRECONSUMO', d: 'Desperdicio Material', v: r.VALOR, r: 'Producción' }));
+            }
+
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No se encontraron registros</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rows.map(r => `
+                <tr>
+                    <td>${r.p}</td>
+                    <td>${r.a}</td>
+                    <td><span class="badge-blue">${r.i}</span></td>
+                    <td>${r.d}</td>
+                    <td><b>${r.v}</b></td>
+                    <td>${r.r}</td>
+                    <td><i class="fas fa-check-circle" style="color: #28a745;"></i></td>
+                </tr>
+            `).join('');
+        }
+
+        function initCharts() {
             const ctxAreas = document.getElementById('chartAreas').getContext('2d');
-            new Chart(ctxAreas, {
+            charts.areas = new Chart(ctxAreas, {
                 type: 'bar',
                 data: {
-                    labels: ['Empaque', 'Ensamble', 'Kinera', 'Moldeo', 'Pasteles', 'Tintas'],
-                    datasets: [{
-                        label: 'Efectividad %',
-                        data: [0, 0, 0, 0, 0, 0],
-                        backgroundColor: '#005f9e'
-                    }]
+                    labels: ['EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO', 'PASTELES', 'TINTAS'],
+                    datasets: [{ label: 'Promedio General %', data: [0,0,0,0,0,0], backgroundColor: '#005f9e' }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
             const ctxTrend = document.getElementById('chartTrend').getContext('2d');
-            new Chart(ctxTrend, {
+            charts.trend = new Chart(ctxTrend, {
                 type: 'line',
                 data: {
-                    labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
-                    datasets: [{
-                        label: 'Incidentes',
-                        data: [0, 0, 0, 0],
-                        borderColor: '#dc3545',
-                        tension: 0.3
-                    }]
+                    labels: Object.keys(mesesMap),
+                    datasets: [{ label: 'Nivel Cumplimiento', data: [], borderColor: '#dc3545', tension: 0.3, fill: false }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
-        });
+        }
+
+        function updateCharts(df) {
+            const parseVal = (v) => parseFloat(v.toString().replace('%','')) || 0;
+            const areas = ['EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO', 'PASTELES', 'TINTAS'];
+            
+            // Promedio por área (unificando BPP, 5S y Desperdicio)
+            const areaData = areas.map(a => {
+                const vals = [
+                    ...df.cinco_s.filter(r => r.ÁREA === a).map(r => parseVal(r.VALOR)),
+                    ...df.bpp.filter(r => r.ÁREA === a).map(r => parseVal(r.VALOR)),
+                    ...df.desperdicio.filter(r => r.ÁREA === a).map(r => parseVal(r.VALOR))
+                ];
+                return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : 0;
+            });
+
+            charts.areas.data.datasets[0].data = areaData;
+            charts.areas.update();
+
+            // Tendencia Mensual
+            const meses = Object.keys(mesesMap);
+            const trendData = meses.map(m => {
+                const vals = [
+                    ...df.bpp.filter(r => r.MES === m).map(r => parseVal(r.VALOR)),
+                    ...df.desperdicio.filter(r => r.MES === m).map(r => parseVal(r.VALOR)),
+                    ...df.cinco_s.filter(r => bimestresMap[r.BIMESTRE] === m).map(r => parseVal(r.VALOR))
+                ];
+                return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : 0;
+            });
+
+            charts.trend.data.datasets[0].data = trendData;
+            charts.trend.update();
+        }
     </script>
 </body>
 </html>
