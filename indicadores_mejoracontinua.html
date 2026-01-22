@@ -9,24 +9,27 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
-        .app-header { background-color: #005db4; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; color: white; }
+        .app-header { background-color: #005db4; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .logo { height: 45px; filter: brightness(0) invert(1); }
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
         
-        /* TOGGLE PILLS */
-        .toggle-switch-container { display: flex; justify-content: center; margin-bottom: 30px; }
-        .toggle-wrapper { background: #fff; padding: 5px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: inline-flex; gap: 5px; }
-        .chip { border: none; background: transparent; padding: 10px 20px; border-radius: 6px; font-weight: 600; color: #6c757d; cursor: pointer; transition: 0.3s; font-size: 0.85em; }
-        .chip.active { background: #005f9e; color: #fff; }
+        /* TOGGLE PILLS (Estilo Preventivo) */
+        .toggle-switch-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 30px; }
+        .toggle-wrapper { background: #fff; padding: 5px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: inline-flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+        .chip { border: none; background: transparent; padding: 10px 20px; border-radius: 6px; font-weight: 600; color: #6c757d; cursor: pointer; transition: 0.3s; font-size: 0.85em; display: flex; align-items: center; gap: 8px; }
+        .chip.active { background: #005f9e; color: #fff; box-shadow: 0 2px 4px rgba(0,95,158,0.3); }
+        .chip i { font-size: 1.1em; }
+        .label-pills { font-size: 0.75em; font-weight: 800; color: #adb5bd; text-transform: uppercase; letter-spacing: 1px; }
 
         .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .kpi-card { background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid #005f9e; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .kpi-value { font-size: 1.8em; font-weight: 800; }
+        .kpi-card { background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid #005f9e; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: 0.3s; }
+        .kpi-card.highlight { transform: scale(1.05); border-left-width: 10px; z-index: 10; }
+        .kpi-value { font-size: 1.8em; font-weight: 800; color: #212529; }
         
         .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; margin-bottom: 30px; }
         .dashboard-panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .chart-box { height: 350px; position: relative; }
-        .panel-title { font-size: 1em; font-weight: 700; margin-bottom: 15px; color: #495057; }
+        .panel-title { font-size: 1em; font-weight: 700; margin-bottom: 15px; color: #495057; display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
 <body>
@@ -36,17 +39,34 @@
             <img src="imagenes/Logo azor.png" class="logo">
             <h1 style="margin:0; font-size: 1.3em;">Mejora Continua</h1>
         </div>
+        <a href="index.html" style="color: white; text-decoration: none; font-weight: 600;"><i class="fas fa-home"></i> Inicio</a>
     </header>
 
     <main class="main-content">
+        
         <div class="toggle-switch-container">
-            <div class="toggle-wrapper">
-                <button class="chip active" onclick="switchView('5´S', this)">5´S</button>
-                <button class="chip" onclick="switchView('AJUSTES', this)">AJUSTES</button>
-                <button class="chip" onclick="switchView('BPP', this)">BPP</button>
-                <button class="chip" onclick="switchView('ADICIONALES', this)">ADICIONALES</button>
-                <button class="chip" onclick="switchView('DEVOLUCIONES', this)">DEVOLUCIONES</button>
-                <button class="chip" onclick="switchView('DESPERDICIO', this)">DESPERDICIO</button>
+            <div>
+                <span class="label-pills">Indicadores</span>
+                <div class="toggle-wrapper" id="pills-indicators">
+                    <button class="chip active" onclick="switchInd('5´S', this)"><i class="fas fa-broom"></i> 5´S</button>
+                    <button class="chip" onclick="switchInd('AJUSTES', this)"><i class="fas fa-boxes"></i> AJUSTES</button>
+                    <button class="chip" onclick="switchInd('BPP', this)"><i class="fas fa-balance-scale"></i> BPP</button>
+                    <button class="chip" onclick="switchInd('ADICIONALES', this)"><i class="fas fa-plus-circle"></i> ADICIONALES</button>
+                    <button class="chip" onclick="switchInd('DEVOLUCIONES', this)"><i class="fas fa-undo"></i> DEVOLUCIONES</button>
+                    <button class="chip" onclick="switchInd('DESPERDICIO', this)"><i class="fas fa-trash-alt"></i> DESPERDICIO</button>
+                </div>
+            </div>
+            <div>
+                <span class="label-pills">Áreas de Producción</span>
+                <div class="toggle-wrapper" id="pills-areas">
+                    <button class="chip active" onclick="switchArea('TODAS', this)">TODAS</button>
+                    <button class="chip" onclick="switchArea('EMPAQUE', this)">EMPAQUE</button>
+                    <button class="chip" onclick="switchArea('ENSAMBLE', this)">ENSAMBLE</button>
+                    <button class="chip" onclick="switchArea('KINERA', this)">KINERA</button>
+                    <button class="chip" onclick="switchArea('MOLDEO', this)">MOLDEO</button>
+                    <button class="chip" onclick="switchArea('PASTELES', this)">PASTELES</button>
+                    <button class="chip" onclick="switchArea('TINTAS', this)">TINTAS</button>
+                </div>
             </div>
         </div>
 
@@ -54,11 +74,11 @@
 
         <div class="charts-grid">
             <div class="dashboard-panel">
-                <div class="panel-title" id="title-area">Cargando...</div>
+                <div class="panel-title" id="title-area"><i class="fas fa-chart-bar"></i> Comparativa por Área</div>
                 <div class="chart-box"><canvas id="chartArea"></canvas></div>
             </div>
             <div class="dashboard-panel">
-                <div class="panel-title" id="title-trend">Cargando...</div>
+                <div class="panel-title" id="title-trend"><i class="fas fa-chart-line"></i> Evolución Temporal</div>
                 <div class="chart-box"><canvas id="chartTrend"></canvas></div>
             </div>
         </div>
@@ -68,9 +88,11 @@
         let rawData = {};
         let chartArea, chartTrend;
         let currentInd = '5´S';
+        let currentArea = 'TODAS';
 
         const meses = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
         const bimestres = ['1 BIMESTRE','2 BIMESTRE','3 BIMESTRE','4 BIMESTRE','5 BIMESTRE','6 BIMESTRE'];
+        const areasList = ['EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO', 'PASTELES', 'TINTAS'];
 
         document.addEventListener('DOMContentLoaded', async () => {
             const res = await fetch('/.netlify/functions/mejora-continua');
@@ -79,11 +101,21 @@
             updateUI();
         });
 
-        function switchView(ind, btn) {
+        function switchInd(ind, btn) {
             currentInd = ind;
-            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
+            updateActivePill('pills-indicators', btn);
             updateUI();
+        }
+
+        function switchArea(area, btn) {
+            currentArea = area;
+            updateActivePill('pills-areas', btn);
+            updateUI();
+        }
+
+        function updateActivePill(containerId, activeBtn) {
+            document.querySelectorAll(`#${containerId} .chip`).forEach(c => c.classList.remove('active'));
+            activeBtn.classList.add('active');
         }
 
         function parseV(v) { return parseFloat(v?.toString().replace('%','')) || 0; }
@@ -95,80 +127,67 @@
 
         function renderKPIs() {
             const container = document.getElementById('kpi-row');
-            let html = '';
-            // Generar KPIs dinámicos según el indicador (similar a tus tarjetas originales)
+            const f = (data) => currentArea === 'TODAS' ? data : data.filter(r => r.ÁREA === currentArea);
+
             const metrics = [
-                {t:'5´S', v: (rawData.cinco_s.reduce((a,r)=>a+parseV(r.VALOR),0)/rawData.cinco_s.length || 0).toFixed(1)+'%', c:'#28a745'},
-                {t:'AJUSTES', v: '$'+rawData.ajustes.reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO'])+parseV(r['AJUSTE NEGATIVO']),0).toLocaleString(), c:'#005f9e'},
-                {t:'BPP', v: (rawData.bpp.reduce((a,r)=>a+parseV(r.VALOR),0)/rawData.bpp.length || 0).toFixed(1)+'%', c:'#ffc107'}
+                {id:'5´S', t:'Cumplimiento 5´S', v: (f(rawData.cinco_s).reduce((a,r)=>a+parseV(r.VALOR),0)/f(rawData.cinco_s).length || 0).toFixed(1)+'%', c:'#28a745'},
+                {id:'AJUSTES', t:'Ajustes Inv.', v: '$'+f(rawData.ajustes).reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO'])+parseV(r['AJUSTE NEGATIVO']),0).toLocaleString(), c:'#005f9e'},
+                {id:'BPP', t:'Efectividad BPP', v: (f(rawData.bpp).reduce((a,r)=>a+parseV(r.VALOR),0)/f(rawData.bpp.length || 0).toFixed(1) || 0)+'%', c:'#ffc107'},
+                {id:'DEVOLUCIONES', t:'Devoluciones', v: f(rawData.devoluciones).reduce((a,r)=>a+parseV(r.VALOR),0), c:'#dc3545'}
             ];
-            metrics.forEach(m => {
-                html += `<div class="kpi-card" style="border-left-color:${m.c}"><div style="font-size:0.7em; color:grey;">${m.t}</div><div class="kpi-value">${m.v}</div></div>`;
-            });
-            container.innerHTML = html;
+
+            container.innerHTML = metrics.map(m => `
+                <div class="kpi-card ${currentInd === m.id ? 'highlight' : ''}" style="border-left-color:${m.c}">
+                    <div style="font-size:0.75em; color:#6c757d; font-weight:700;">${m.t}</div>
+                    <div class="kpi-value">${m.v}</div>
+                </div>
+            `).join('');
         }
 
         function renderCharts() {
             if(chartArea) chartArea.destroy();
             if(chartTrend) chartTrend.destroy();
 
-            const areas = ['EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO', 'PASTELES', 'TINTAS'];
-            let dataArea = [], dataTrend = [], configArea = {}, configTrend = {};
+            let configArea = {}, configTrend = {};
+            const filterByArea = (data) => currentArea === 'TODAS' ? data : data.filter(r => r.ÁREA === currentArea);
 
             switch(currentInd) {
                 case '5´S':
-                    document.getElementById('title-area').innerText = "Calificación 5'S por Área";
-                    document.getElementById('title-trend').innerText = "Histórico Bimestral";
-                    configArea = { type: 'bar', label: '5´S %', color: '#005db4', labels: areas, 
-                                   data: areas.map(a => parseV(rawData.cinco_s.find(r=>r.ÁREA===a)?.VALOR)) };
-                    configTrend = { type: 'bar', label: 'Evolución %', color: '#1a3a5a', labels: bimestres, 
-                                    data: bimestres.map(b => parseV(rawData.cinco_s.find(r=>r.BIMESTRE===b)?.VALOR)), indexAxis: 'y' };
+                    configArea = { labels: areasList, data: areasList.map(a => parseV(rawData.cinco_s.find(r=>r.ÁREA===a)?.VALOR)), color: '#005db4' };
+                    configTrend = { labels: bimestres, datasets: [{ label: 'Bimestres %', data: bimestres.map(b => parseV(filterByArea(rawData.cinco_s).find(r=>r.BIMESTRE===b)?.VALOR)), backgroundColor: '#1a3a5a' }], type: 'bar' };
                     break;
 
                 case 'AJUSTES':
-                    document.getElementById('title-area').innerText = "Ajuste Neto por Área";
-                    document.getElementById('title-trend').innerText = "Positivos vs Negativos";
-                    configArea = { type: 'bar', label: 'Monto $', color: '#005f9e', labels: areas,
-                                   data: areas.map(a => rawData.ajustes.filter(r=>r.ÁREA===a).reduce((acc,r)=>acc+parseV(r['AJUSTE POSITIVO'])+parseV(r['AJUSTE NEGATIVO']),0)) };
-                    // Tendencia con dos líneas (Positivo vs Negativo) como en Excel
-                    configTrend = { type: 'line', labels: meses, datasets: [
-                        { label: 'Positivos', data: meses.map(m => rawData.ajustes.filter(r=>r.MES===m).reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO']),0)), borderColor: '#28a745', tension:0.3 },
-                        { label: 'Negativos', data: meses.map(m => rawData.ajustes.filter(r=>r.MES===m).reduce((a,r)=>a+parseV(r['AJUSTE NEGATIVO']),0)), borderColor: '#dc3545', tension:0.3 }
+                    configArea = { labels: areasList, data: areasList.map(a => rawData.ajustes.filter(r=>r.ÁREA===a).reduce((acc,r)=>acc+parseV(r['AJUSTE POSITIVO'])+parseV(r['AJUSTE NEGATIVO']),0)), color: '#005f9e' };
+                    configTrend = { labels: meses, type: 'line', datasets: [
+                        { label: 'Positivos', data: meses.map(m => filterByArea(rawData.ajustes).filter(r=>r.MES===m).reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO']),0)), borderColor: '#28a745', tension:0.3 },
+                        { label: 'Negativos', data: meses.map(m => filterByArea(rawData.ajustes).filter(r=>r.MES===m).reduce((a,r)=>a+parseV(r['AJUSTE NEGATIVO']),0)), borderColor: '#dc3545', tension:0.3 }
                     ]};
                     break;
 
                 case 'BPP':
-                    document.getElementById('title-area').innerText = "Eficiencia BPP por Área";
-                    document.getElementById('title-trend').innerText = "Tendencia Mensual vs Objetivo (90%)";
-                    configArea = { type: 'bar', label: 'BPP %', color: '#ffc107', labels: areas,
-                                   data: areas.map(a => parseV(rawData.bpp.find(r=>r.ÁREA===a)?.VALOR)) };
-                    configTrend = { type: 'line', labels: meses, datasets: [
-                        { label: 'Real %', data: meses.map(m => parseV(rawData.bpp.find(r=>r.MES===m)?.VALOR)), borderColor: '#005f9e', fill:true, backgroundColor:'rgba(0,95,158,0.1)' },
-                        { label: 'Objetivo', data: meses.map(()=>90), borderColor: 'red', borderDash: [5,5], pointRadius:0 }
+                    configArea = { labels: areasList, data: areasList.map(a => parseV(rawData.bpp.find(r=>r.ÁREA===a)?.VALOR)), color: '#ffc107' };
+                    configTrend = { labels: meses, type: 'line', datasets: [
+                        { label: 'Real %', data: meses.map(m => parseV(filterByArea(rawData.bpp).find(r=>r.MES===m)?.VALOR)), borderColor: '#005db4', fill:true, backgroundColor:'rgba(0,95,158,0.1)' },
+                        { label: 'Meta', data: meses.map(()=>90), borderColor: 'red', borderDash: [5,5], pointRadius:0 }
                     ]};
                     break;
                 
                 default: // ADICIONALES, DEVOLUCIONES, DESPERDICIO
-                    document.getElementById('title-area').innerText = `Incidencias ${currentInd} por Área`;
-                    document.getElementById('title-trend').innerText = `Histórico Mensual`;
                     const key = currentInd.toLowerCase() === 'desperdicio' ? 'desperdicio' : currentInd.toLowerCase();
-                    configArea = { type: 'bar', label: 'Cantidad', color: '#17a2b8', labels: areas,
-                                   data: areas.map(a => parseV(rawData[key].find(r=>r.ÁREA===a)?.VALOR)) };
-                    configTrend = { type: 'line', label: 'Tendencia', color: '#6610f2', labels: meses, 
-                                    data: meses.map(m => parseV(rawData[key].find(r=>r.MES===m)?.VALOR)) };
+                    configArea = { labels: areasList, data: areasList.map(a => parseV(rawData[key].find(r=>r.ÁREA===a)?.VALOR)), color: '#17a2b8' };
+                    configTrend = { labels: meses, type: 'line', datasets: [{ label: 'Incidencias', data: meses.map(m => parseV(filterByArea(rawData[key]).find(r=>r.MES===m)?.VALOR)), borderColor: '#6610f2', tension:0.3 }] };
             }
 
-            // Renderizar Gráfica 1 (Área)
             chartArea = new Chart(document.getElementById('chartArea'), {
-                type: configArea.type || 'bar',
-                data: { labels: configArea.labels, datasets: configArea.datasets || [{ label: configArea.label, data: configArea.data, backgroundColor: configArea.color }] },
-                options: { responsive: true, maintainAspectRatio: false, indexAxis: configArea.indexAxis || 'x' }
+                type: 'bar',
+                data: { labels: configArea.labels, datasets: [{ label: currentInd, data: configArea.data, backgroundColor: configArea.color }] },
+                options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // Renderizar Gráfica 2 (Tendencia)
             chartTrend = new Chart(document.getElementById('chartTrend'), {
                 type: configTrend.type || 'line',
-                data: { labels: configTrend.labels, datasets: configTrend.datasets || [{ label: configTrend.label, data: configTrend.data, borderColor: configTrend.color, tension:0.3 }] },
+                data: { labels: configTrend.labels, datasets: configTrend.datasets },
                 options: { responsive: true, maintainAspectRatio: false }
             });
         }
