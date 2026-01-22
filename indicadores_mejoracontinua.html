@@ -7,242 +7,170 @@
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-
     <style>
         body { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; color: #333; }
-        
-        .app-header { 
-            background-color: #005db4; border-bottom: 1px solid #004a7c; 
-            padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-        }
-        .logo-container { display: flex; align-items: center; gap: 15px; }
-        .logo { height: 45px; width: auto; filter: brightness(0) invert(1); }
-        .app-title { font-size: 1.4em; font-weight: 700; color: #ffffff; margin: 0; }
-        .btn-header-translucido { color: white; border: 1px solid rgba(255,255,255,0.4); padding: 8px 15px; border-radius: 6px; text-decoration: none; font-size: 0.9em; transition: 0.3s; }
-
+        .app-header { background-color: #005db4; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; color: white; }
+        .logo { height: 45px; filter: brightness(0) invert(1); }
         .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
-
-        /* --- TOGGLE PILLS (Estilo Preventivo) --- */
+        
+        /* TOGGLE PILLS */
         .toggle-switch-container { display: flex; justify-content: center; margin-bottom: 30px; }
         .toggle-wrapper { background: #fff; padding: 5px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: inline-flex; gap: 5px; }
-        .chip { 
-            border: none; background: transparent; padding: 10px 25px; border-radius: 6px; 
-            font-weight: 600; color: #6c757d; cursor: pointer; transition: all 0.3s; 
-            display: flex; align-items: center; gap: 8px; font-size: 0.9em;
-        }
-        .chip:hover { background: #f8f9fa; }
-        .chip.active { background: #005f9e; color: #fff; box-shadow: 0 2px 4px rgba(0,95,158,0.3); }
+        .chip { border: none; background: transparent; padding: 10px 20px; border-radius: 6px; font-weight: 600; color: #6c757d; cursor: pointer; transition: 0.3s; font-size: 0.85em; }
+        .chip.active { background: #005f9e; color: #fff; }
 
-        /* KPI CARDS */
-        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .kpi-card { background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid #005f9e; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: 0.3s; }
-        .kpi-card.active-kpi { border-left-width: 10px; transform: scale(1.02); }
-        .kpi-title { font-size: 0.8em; font-weight: 700; color: #6c757d; text-transform: uppercase; margin-bottom: 8px; }
-        .kpi-value { font-size: 2em; font-weight: 800; color: #212529; }
+        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .kpi-card { background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid #005f9e; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .kpi-value { font-size: 1.8em; font-weight: 800; }
         
-        .dashboard-panel { background: #fff; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 30px; }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; }
-        
-        .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; }
+        .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; margin-bottom: 30px; }
+        .dashboard-panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .chart-box { height: 350px; position: relative; }
-        .custom-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
-        .custom-table th { background: #f8f9fa; text-align: left; padding: 12px; border-bottom: 2px solid #dee2e6; }
-        .custom-table td { padding: 12px; border-bottom: 1px solid #e9ecef; }
-        .badge-blue { background: #e7f1ff; color: #005f9e; padding: 4px 8px; border-radius: 4px; font-weight: 700; }
+        .panel-title { font-size: 1em; font-weight: 700; margin-bottom: 15px; color: #495057; }
     </style>
 </head>
 <body>
 
     <header class="app-header">
-        <div class="logo-container">
-            <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
-            <h1 class="app-title">Mejora Continua: Panel de Indicadores</h1>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="imagenes/Logo azor.png" class="logo">
+            <h1 style="margin:0; font-size: 1.3em;">Mejora Continua</h1>
         </div>
-        <a href="index.html" class="btn-header-translucido"><i class="fas fa-home"></i> Inicio</a>
     </header>
 
     <main class="main-content">
-        
         <div class="toggle-switch-container">
-            <div class="toggle-wrapper" id="indicator-chips">
-                <button class="chip active" onclick="switchIndicator('TODOS', this)"><i class="fas fa-th-large"></i> General</button>
-                <button class="chip" onclick="switchIndicator('5´S', this)"><i class="fas fa-broom"></i> 5´S</button>
-                <button class="chip" onclick="switchIndicator('AJUSTES', this)"><i class="fas fa-boxes"></i> Ajustes</button>
-                <button class="chip" onclick="switchIndicator('BPP', this)"><i class="fas fa-balance-scale"></i> BPP</button>
-                <button class="chip" onclick="switchIndicator('ADICIONALES', this)"><i class="fas fa-plus-circle"></i> Adicionales</button>
-                <button class="chip" onclick="switchIndicator('DEVOLUCIONES', this)"><i class="fas fa-undo"></i> Devoluciones</button>
-                <button class="chip" onclick="switchIndicator('DESPERDICIO', this)"><i class="fas fa-trash-alt"></i> Desperdicio</button>
+            <div class="toggle-wrapper">
+                <button class="chip active" onclick="switchView('5´S', this)">5´S</button>
+                <button class="chip" onclick="switchView('AJUSTES', this)">AJUSTES</button>
+                <button class="chip" onclick="switchView('BPP', this)">BPP</button>
+                <button class="chip" onclick="switchView('ADICIONALES', this)">ADICIONALES</button>
+                <button class="chip" onclick="switchView('DEVOLUCIONES', this)">DEVOLUCIONES</button>
+                <button class="chip" onclick="switchView('DESPERDICIO', this)">DESPERDICIO</button>
             </div>
         </div>
 
-        <section class="kpi-container">
-            <div class="kpi-card" id="card-5s" style="border-left-color: #28a745;">
-                <div class="kpi-title">Cumplimiento 5´S</div>
-                <div class="kpi-value" id="kpi-5s">0%</div>
-            </div>
-            <div class="kpi-card" id="card-ajustes" style="border-left-color: #005f9e;">
-                <div class="kpi-title">Ajustes Inv.</div>
-                <div class="kpi-value" id="kpi-ajustes">$0.00</div>
-            </div>
-            <div class="kpi-card" id="card-bpp" style="border-left-color: #ffc107;">
-                <div class="kpi-title">B.P. Pesaje</div>
-                <div class="kpi-value" id="kpi-bpp">0%</div>
-            </div>
-            <div class="kpi-card" id="card-adicionales" style="border-left-color: #17a2b8;">
-                <div class="kpi-title">Adicionales</div>
-                <div class="kpi-value" id="kpi-adicionales">0</div>
-            </div>
-            <div class="kpi-card" id="card-devoluciones" style="border-left-color: #dc3545;">
-                <div class="kpi-title">Devoluciones</div>
-                <div class="kpi-value" id="kpi-devoluciones">0</div>
-            </div>
-            <div class="kpi-card" id="card-desperdicio" style="border-left-color: #6610f2;">
-                <div class="kpi-title">Sobreconsumos</div>
-                <div class="kpi-value" id="kpi-desperdicio">0%</div>
-            </div>
-        </section>
+        <section class="kpi-container" id="kpi-row"></section>
 
         <div class="charts-grid">
             <div class="dashboard-panel">
-                <h2 class="panel-title" id="chart-title-area"><i class="fas fa-chart-bar"></i> Desempeño por Área</h2>
-                <div class="chart-box"><canvas id="chartAreas"></canvas></div>
+                <div class="panel-title" id="title-area">Cargando...</div>
+                <div class="chart-box"><canvas id="chartArea"></canvas></div>
             </div>
             <div class="dashboard-panel">
-                <h2 class="panel-title" id="chart-title-trend"><i class="fas fa-chart-line"></i> Tendencia Temporal</h2>
+                <div class="panel-title" id="title-trend">Cargando...</div>
                 <div class="chart-box"><canvas id="chartTrend"></canvas></div>
             </div>
         </div>
-
-        <section class="dashboard-panel">
-            <h2 class="panel-title"><i class="fas fa-list"></i> Detalle de Registros: <span id="table-indicator-name">General</span></h2>
-            <div class="table-container">
-                <table class="custom-table" id="main-table">
-                    <thead>
-                        <tr><th>Periodo</th><th>Área</th><th>Indicador</th><th>Detalle</th><th>Valor</th><th>Responsable</th></tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </section>
     </main>
 
     <script>
         let rawData = {};
-        let charts = {};
-        let currentIndicator = 'TODOS';
+        let chartArea, chartTrend;
+        let currentInd = '5´S';
 
-        const mesesMap = {'ENERO':0,'FEBRERO':1,'MARZO':2,'ABRIL':3,'MAYO':4,'JUNIO':5,'JULIO':6,'AGOSTO':7,'SEPTIEMBRE':8,'OCTUBRE':9,'NOVIEMBRE':10,'DICIEMBRE':11};
-        const bimestresMap = {'1 BIMESTRE':'FEBRERO','2 BIMESTRE':'ABRIL','3 BIMESTRE':'JUNIO','4 BIMESTRE':'AGOSTO','5 BIMESTRE':'OCTUBRE','6 BIMESTRE':'DICIEMBRE'};
+        const meses = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+        const bimestres = ['1 BIMESTRE','2 BIMESTRE','3 BIMESTRE','4 BIMESTRE','5 BIMESTRE','6 BIMESTRE'];
 
-        document.addEventListener('DOMContentLoaded', () => {
-            initCharts();
-            loadData();
+        document.addEventListener('DOMContentLoaded', async () => {
+            const res = await fetch('/.netlify/functions/mejora-continua');
+            const json = await res.json();
+            rawData = json.data;
+            updateUI();
         });
 
-        async function loadData() {
-            try {
-                const res = await fetch('/.netlify/functions/mejora-continua');
-                const json = await res.json();
-                rawData = json.data;
-                updateDashboard();
-            } catch (e) { console.error(e); }
-        }
-
-        function switchIndicator(ind, btn) {
-            currentIndicator = ind;
+        function switchView(ind, btn) {
+            currentInd = ind;
             document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
             btn.classList.add('active');
-            
-            // Resaltar la tarjeta KPI correspondiente
-            document.querySelectorAll('.kpi-card').forEach(c => c.classList.remove('active-kpi'));
-            const cardId = `card-${ind.toLowerCase().replace('´','')}`;
-            if(document.getElementById(cardId)) document.getElementById(cardId).classList.add('active-kpi');
-
-            updateDashboard();
+            updateUI();
         }
 
-        function updateDashboard() {
-            const parseVal = (v) => parseFloat(v?.toString().replace('%','')) || 0;
-            
-            // KPIs Globales (siempre se calculan)
-            document.getElementById('kpi-5s').textContent = (rawData.cinco_s.reduce((a,r)=>a+parseVal(r.VALOR),0)/rawData.cinco_s.length || 0).toFixed(1) + "%";
-            document.getElementById('kpi-ajustes').textContent = "$" + rawData.ajustes.reduce((a,r)=>a+parseVal(r['AJUSTE POSITIVO'])+parseVal(r['AJUSTE NEGATIVO']),0).toLocaleString();
-            document.getElementById('kpi-bpp').textContent = (rawData.bpp.reduce((a,r)=>a+parseVal(r.VALOR),0)/rawData.bpp.length || 0).toFixed(1) + "%";
-            document.getElementById('kpi-adicionales').textContent = rawData.adicionales.reduce((a,r)=>a+parseVal(r.VALOR),0);
-            document.getElementById('kpi-devoluciones').textContent = rawData.devoluciones.reduce((a,r)=>a+parseVal(r.VALOR),0);
-            document.getElementById('kpi-desperdicio').textContent = (rawData.desperdicio.reduce((a,r)=>a+parseVal(r.VALOR),0)/rawData.desperdicio.length || 0).toFixed(1) + "%";
+        function parseV(v) { return parseFloat(v?.toString().replace('%','')) || 0; }
 
-            renderTable();
-            updateCharts();
+        function updateUI() {
+            renderKPIs();
+            renderCharts();
         }
 
-        function renderTable() {
-            const tbody = document.querySelector('#main-table tbody');
-            document.getElementById('table-indicator-name').textContent = currentIndicator;
-            let rows = [];
-
-            const addRows = (data, name, detailField = 'VALOR') => {
-                data.forEach(r => rows.push({
-                    p: r.MES || r.BIMESTRE, a: r.ÁREA, i: name, 
-                    d: r.DESCRIPCION || (r['AJUSTE POSITIVO'] ? `Pos: ${r['AJUSTE POSITIVO']}` : 'Mensual'), 
-                    v: r[detailField] || r.VALOR, res: r.RESPONSABLE || 'Admin'
-                }));
-            };
-
-            if(currentIndicator === 'TODOS' || currentIndicator === '5´S') addRows(rawData.cinco_s, '5´S');
-            if(currentIndicator === 'TODOS' || currentIndicator === 'AJUSTES') addRows(rawData.ajustes, 'AJUSTES', 'AJUSTE NEGATIVO');
-            if(currentIndicator === 'TODOS' || currentIndicator === 'BPP') addRows(rawData.bpp, 'BPP');
-            if(currentIndicator === 'TODOS' || currentIndicator === 'DEVOLUCIONES') addRows(rawData.devoluciones, 'DEVOLUCIONES');
-            if(currentIndicator === 'TODOS' || currentIndicator === 'DESPERDICIO') addRows(rawData.desperdicio, 'DESPERDICIO');
-
-            tbody.innerHTML = rows.slice(0, 20).map(r => `
-                <tr><td>${r.p}</td><td>${r.a}</td><td><span class="badge-blue">${r.i}</span></td><td>${r.d}</td><td><b>${r.v}</b></td><td>${r.res}</td></tr>
-            `).join('');
-        }
-
-        function initCharts() {
-            const commonOptions = { responsive: true, maintainAspectRatio: false };
-            charts.areas = new Chart(document.getElementById('chartAreas'), {
-                type: 'bar', data: { labels: [], datasets: [{ label: 'Valor', backgroundColor: '#005f9e', data: [] }] }, options: commonOptions
+        function renderKPIs() {
+            const container = document.getElementById('kpi-row');
+            let html = '';
+            // Generar KPIs dinámicos según el indicador (similar a tus tarjetas originales)
+            const metrics = [
+                {t:'5´S', v: (rawData.cinco_s.reduce((a,r)=>a+parseV(r.VALOR),0)/rawData.cinco_s.length || 0).toFixed(1)+'%', c:'#28a745'},
+                {t:'AJUSTES', v: '$'+rawData.ajustes.reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO'])+parseV(r['AJUSTE NEGATIVO']),0).toLocaleString(), c:'#005f9e'},
+                {t:'BPP', v: (rawData.bpp.reduce((a,r)=>a+parseV(r.VALOR),0)/rawData.bpp.length || 0).toFixed(1)+'%', c:'#ffc107'}
+            ];
+            metrics.forEach(m => {
+                html += `<div class="kpi-card" style="border-left-color:${m.c}"><div style="font-size:0.7em; color:grey;">${m.t}</div><div class="kpi-value">${m.v}</div></div>`;
             });
-            charts.trend = new Chart(document.getElementById('chartTrend'), {
-                type: 'line', data: { labels: Object.keys(mesesMap), datasets: [{ label: 'Tendencia', borderColor: '#dc3545', data: [], tension: 0.3 }] }, options: commonOptions
-            });
+            container.innerHTML = html;
         }
 
-        function updateCharts() {
+        function renderCharts() {
+            if(chartArea) chartArea.destroy();
+            if(chartTrend) chartTrend.destroy();
+
             const areas = ['EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO', 'PASTELES', 'TINTAS'];
-            let activeData = [];
-            
-            // Lógica para decidir qué datos graficar según la Pill activa
-            if(currentIndicator === '5´S') activeData = rawData.cinco_s;
-            else if(currentIndicator === 'AJUSTES') activeData = rawData.ajustes;
-            else if(currentIndicator === 'BPP') activeData = rawData.bpp;
-            else if(currentIndicator === 'DEVOLUCIONES') activeData = rawData.devoluciones;
-            else activeData = rawData.desperdicio;
+            let dataArea = [], dataTrend = [], configArea = {}, configTrend = {};
 
-            const parseVal = (v) => parseFloat(v?.toString().replace('%','')) || 0;
+            switch(currentInd) {
+                case '5´S':
+                    document.getElementById('title-area').innerText = "Calificación 5'S por Área";
+                    document.getElementById('title-trend').innerText = "Histórico Bimestral";
+                    configArea = { type: 'bar', label: '5´S %', color: '#005db4', labels: areas, 
+                                   data: areas.map(a => parseV(rawData.cinco_s.find(r=>r.ÁREA===a)?.VALOR)) };
+                    configTrend = { type: 'bar', label: 'Evolución %', color: '#1a3a5a', labels: bimestres, 
+                                    data: bimestres.map(b => parseV(rawData.cinco_s.find(r=>r.BIMESTRE===b)?.VALOR)), indexAxis: 'y' };
+                    break;
 
-            // Actualizar Gráfica de Áreas
-            const areaValues = areas.map(a => {
-                const filtered = activeData.filter(r => r.ÁREA === a);
-                return filtered.length ? (filtered.reduce((acc, r) => acc + parseVal(r.VALOR || r['AJUSTE POSITIVO']), 0) / filtered.length).toFixed(1) : 0;
+                case 'AJUSTES':
+                    document.getElementById('title-area').innerText = "Ajuste Neto por Área";
+                    document.getElementById('title-trend').innerText = "Positivos vs Negativos";
+                    configArea = { type: 'bar', label: 'Monto $', color: '#005f9e', labels: areas,
+                                   data: areas.map(a => rawData.ajustes.filter(r=>r.ÁREA===a).reduce((acc,r)=>acc+parseV(r['AJUSTE POSITIVO'])+parseV(r['AJUSTE NEGATIVO']),0)) };
+                    // Tendencia con dos líneas (Positivo vs Negativo) como en Excel
+                    configTrend = { type: 'line', labels: meses, datasets: [
+                        { label: 'Positivos', data: meses.map(m => rawData.ajustes.filter(r=>r.MES===m).reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO']),0)), borderColor: '#28a745', tension:0.3 },
+                        { label: 'Negativos', data: meses.map(m => rawData.ajustes.filter(r=>r.MES===m).reduce((a,r)=>a+parseV(r['AJUSTE NEGATIVO']),0)), borderColor: '#dc3545', tension:0.3 }
+                    ]};
+                    break;
+
+                case 'BPP':
+                    document.getElementById('title-area').innerText = "Eficiencia BPP por Área";
+                    document.getElementById('title-trend').innerText = "Tendencia Mensual vs Objetivo (90%)";
+                    configArea = { type: 'bar', label: 'BPP %', color: '#ffc107', labels: areas,
+                                   data: areas.map(a => parseV(rawData.bpp.find(r=>r.ÁREA===a)?.VALOR)) };
+                    configTrend = { type: 'line', labels: meses, datasets: [
+                        { label: 'Real %', data: meses.map(m => parseV(rawData.bpp.find(r=>r.MES===m)?.VALOR)), borderColor: '#005f9e', fill:true, backgroundColor:'rgba(0,95,158,0.1)' },
+                        { label: 'Objetivo', data: meses.map(()=>90), borderColor: 'red', borderDash: [5,5], pointRadius:0 }
+                    ]};
+                    break;
+                
+                default: // ADICIONALES, DEVOLUCIONES, DESPERDICIO
+                    document.getElementById('title-area').innerText = `Incidencias ${currentInd} por Área`;
+                    document.getElementById('title-trend').innerText = `Histórico Mensual`;
+                    const key = currentInd.toLowerCase() === 'desperdicio' ? 'desperdicio' : currentInd.toLowerCase();
+                    configArea = { type: 'bar', label: 'Cantidad', color: '#17a2b8', labels: areas,
+                                   data: areas.map(a => parseV(rawData[key].find(r=>r.ÁREA===a)?.VALOR)) };
+                    configTrend = { type: 'line', label: 'Tendencia', color: '#6610f2', labels: meses, 
+                                    data: meses.map(m => parseV(rawData[key].find(r=>r.MES===m)?.VALOR)) };
+            }
+
+            // Renderizar Gráfica 1 (Área)
+            chartArea = new Chart(document.getElementById('chartArea'), {
+                type: configArea.type || 'bar',
+                data: { labels: configArea.labels, datasets: configArea.datasets || [{ label: configArea.label, data: configArea.data, backgroundColor: configArea.color }] },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: configArea.indexAxis || 'x' }
             });
-            charts.areas.data.labels = areas;
-            charts.areas.data.datasets[0].data = areaValues;
-            charts.areas.data.datasets[0].label = `Desempeño: ${currentIndicator}`;
-            charts.areas.update();
 
-            // Actualizar Gráfica de Tendencia
-            const trendValues = Object.keys(mesesMap).map(m => {
-                const filtered = activeData.filter(r => (r.MES === m || bimestresMap[r.BIMESTRE] === m));
-                return filtered.length ? (filtered.reduce((acc, r) => acc + parseVal(r.VALOR || r['AJUSTE NEGATIVO']), 0) / filtered.length).toFixed(1) : 0;
+            // Renderizar Gráfica 2 (Tendencia)
+            chartTrend = new Chart(document.getElementById('chartTrend'), {
+                type: configTrend.type || 'line',
+                data: { labels: configTrend.labels, datasets: configTrend.datasets || [{ label: configTrend.label, data: configTrend.data, borderColor: configTrend.color, tension:0.3 }] },
+                options: { responsive: true, maintainAspectRatio: false }
             });
-            charts.trend.data.datasets[0].data = trendValues;
-            charts.trend.data.datasets[0].label = `Histórico: ${currentIndicator}`;
-            charts.trend.update();
         }
     </script>
 </body>
