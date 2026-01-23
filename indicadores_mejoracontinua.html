@@ -293,11 +293,36 @@
         updateAreaFilter(ind);
         updateMonthFilter(ind);
 
+        // --- LÓGICA DE AÑO (NUEVO) ---
+        const yearSelect = document.getElementById('filter-year');
+        const yearOptions = yearSelect.options;
+        
+        if (ind === '5S') {
+            // Si es 5S, deshabilitamos "TODOS" y forzamos un año específico
+            // Buscamos la opción TODOS y la ocultamos/deshabilitamos
+            for (let i = 0; i < yearOptions.length; i++) {
+                if (yearOptions[i].value === 'TODOS') {
+                    yearOptions[i].disabled = true;
+                    yearOptions[i].style.display = 'none';
+                }
+            }
+            // Si estaba seleccionado TODOS, lo cambiamos al año actual (ej. 2025)
+            if (yearSelect.value === 'TODOS') {
+                yearSelect.value = '2025'; 
+            }
+        } else {
+            // Para los demás indicadores, habilitamos TODOS
+            for (let i = 0; i < yearOptions.length; i++) {
+                yearOptions[i].disabled = false;
+                yearOptions[i].style.display = 'block';
+            }
+        }
+
         const area = document.getElementById('filter-area').value;
-        const month = document.getElementById('filter-month').value; // Ahora puede contener "1 BIMESTRE"
+        const month = document.getElementById('filter-month').value;
         const year = document.getElementById('filter-year').value;
 
-        // Ocultar todos
+        // Ocultar todos los contenedores
         ['container-ajustes', 'container-bpp', 'container-movimientos', 'container-desperdicio', 'container-5s'].forEach(id => {
             const el = document.getElementById(id);
             if(el) el.style.display = 'none';
@@ -322,10 +347,24 @@
         }
     }
 
-    // --- RENDER 5'S (ACTUALIZADO CON TENDENCIA) ---
+    // --- RENDER 5'S (VERTICAL Y AÑO ÚNICO) ---
     function render5s(data, areaSelected, timeFilter, yearFilter) {
         let f = data;
-        if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
+
+        // 1. FORZAR ÚLTIMO AÑO SI ES 'TODOS'
+        // Aunque el filtro visual lo bloquea, esto es seguridad lógica interna.
+        if (yearFilter === 'TODOS') {
+            // Obtenemos todos los años disponibles en la data
+            const availableYears = [...new Set(f.map(r => r.AÑO))];
+            if (availableYears.length > 0) {
+                // Seleccionamos el mayor (el más reciente)
+                const maxYear = Math.max(...availableYears).toString();
+                f = f.filter(r => r.AÑO.toString() === maxYear);
+            }
+        } else {
+            f = f.filter(r => r.AÑO.toString() === yearFilter);
+        }
+
         if (areaSelected !== 'TODAS') f = f.filter(r => r.ÁREA === areaSelected);
 
         // Preparar Datos por Bimestre
@@ -342,21 +381,16 @@
         const avg = validValues.length ? (validValues.reduce((a,b)=>a+b,0)/validValues.length) : 0;
         const maxVal = validValues.length ? Math.max(...validValues) : 0;
         
-        // --- LÓGICA DE TENDENCIA (NUEVO) ---
+        // Tendencia
         const firstVal = validValues[0] || 0;
         const lastVal = validValues[validValues.length - 1] || 0;
-        
-        // En 5'S, mayor calificación es mejor.
         const trendIcon = lastVal > firstVal ? '▲ Mejorando' : (lastVal < firstVal ? '▼ Bajando' : '= Estable');
         const trendColor = lastVal > firstVal ? '#28a745' : (lastVal < firstVal ? '#dc3545' : '#005f9e');
 
         document.getElementById('kpi-5s-avg').textContent = avg.toFixed(1) + "%";
         document.getElementById('kpi-5s-best').textContent = maxVal > 0 ? (maxVal.toFixed(1) + "%") : "-";
-        
-        // Actualizamos el KPI de tendencia (antes era conteo)
         document.getElementById('kpi-5s-trend').innerHTML = `<span style="color:${trendColor}">${trendIcon}</span>`;
 
-        // Calcular datos para la línea
         const trendData = calculateTrend(values);
 
         if (charts.c5s) charts.c5s.destroy();
@@ -369,7 +403,7 @@
                     {
                         label: 'Calificación 5\'S',
                         data: values,
-                        backgroundColor: '#002060', // Tu color azul oscuro
+                        backgroundColor: '#002060', // Azul Oscuro
                         borderRadius: 4,
                         barPercentage: 0.6,
                         order: 2
@@ -377,37 +411,37 @@
                     {
                         label: 'Tendencia',
                         data: trendData,
-                        type: 'line', // Línea superpuesta
-                        borderColor: '#dc3545', // Rojo para resaltar la tendencia
+                        type: 'line',
+                        borderColor: '#dc3545',
                         borderDash: [5, 5],
                         pointRadius: 0,
                         fill: false,
-                        order: 1, // Se dibuja encima de las barras
+                        order: 1,
                         datalabels: { display: false }
                     }
                 ]
             },
             plugins: [ChartDataLabels],
             options: {
-                indexAxis: 'y', // Mantiene la orientación horizontal
+                // indexAxis: 'y',  <-- ELIMINADO PARA QUE SEA VERTICAL
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + (c.parsed.x||0).toFixed(1) + '%' } },
+                    tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + (c.parsed.y||0).toFixed(1) + '%' } },
                     datalabels: {
-                        anchor: 'end', align: 'end',
+                        anchor: 'end', align: 'top', // Ajustado para barras verticales
                         formatter: (v) => v > 0 ? v.toFixed(1) + "%" : '',
                         font: { weight: 'bold' },
                         color: '#333'
                     }
                 },
                 scales: {
-                    x: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } }
+                    y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } }
                 }
             }
         });
     }
-
+    
     // --- RENDER DESPERDICIO ---
     function renderDesperdicio(data, areaSelected, monthFilter, yearFilter) {
         let f = data;
