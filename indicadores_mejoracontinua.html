@@ -343,7 +343,7 @@
         document.getElementById('kpi-bpp-promedio').textContent = avg.toLocaleString('es-MX', {maximumFractionDigits: 1}) + "%";
 
         const xLabels = (areaSelected === 'TODAS') ? areasBPP : [areaSelected];
-        const barColors = ['#005f9e', '#28a745', '#ffc107', '#2dc3545', '#17a2b8', '#6610f2'];
+        const barColors = ['#005f9e', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6610f2'];
 
         const datasets = periodsToShow.map((m, index) => {
             return {
