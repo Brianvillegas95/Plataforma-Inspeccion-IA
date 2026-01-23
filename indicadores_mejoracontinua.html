@@ -199,13 +199,15 @@
         }
     }
 
-    // --- RENDER BPP (CORREGIDO: LÍNEA AL FRENTE, ENTEROS Y POSICIÓN 75%) ---
+    // --- RENDER BPP (VERSIÓN FINAL: NUMEROS ALINEADOS AL 75% Y ENTEROS) ---
     function renderBPP(data, areaSelected, monthFilter, yearFilter) {
         let f = data;
         
+        // Filtros
         if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
         if (areaSelected !== 'TODAS') f = f.filter(r => r.ÁREA === areaSelected);
 
+        // Lógica de Periodos (Únicos y ordenados)
         let uniqueMonths = [];
         f.forEach(r => {
             const key = `${r.MES}-${r.AÑO}`;
@@ -215,6 +217,7 @@
         });
         uniqueMonths.sort((a,b) => a.order - b.order);
 
+        // Lógica de visualización (6 meses vs Filtro específico)
         let periodsToShow = [];
         if (monthFilter !== 'TODOS') {
             periodsToShow = uniqueMonths.filter(m => m.mes === monthFilter);
@@ -224,10 +227,12 @@
             document.getElementById('title-bpp').textContent = "Auditoría BPP (Últimos 6 Meses)";
         }
 
+        // Cálculo de KPI Promedio
         const kpiData = f.filter(r => periodsToShow.some(p => p.mes === r.MES && p.año === r.AÑO));
         const avg = kpiData.length ? (kpiData.reduce((acc, r) => acc + parseV(r.VALOR), 0) / kpiData.length) : 0;
         document.getElementById('kpi-bpp-promedio').textContent = avg.toLocaleString('es-MX', {maximumFractionDigits: 1}) + "%";
 
+        // Preparación de Ejes y Datos
         const xLabels = (areaSelected === 'TODAS') ? areasBPP : [areaSelected];
         const barColors = ['#007bff', '#fd7e14', '#ffc107', '#28a745', '#17a2b8', '#6610f2'];
 
@@ -241,21 +246,21 @@
                 backgroundColor: barColors[index % barColors.length],
                 borderRadius: 4,
                 barPercentage: 0.8,
-                order: 1 // LAS BARRAS VAN ATRÁS
+                order: 1 // Las barras van atrás de la línea
             };
         });
 
-        // LÍNEA DE OBJETIVO (AGREGADA AL FINAL PARA QUE SE DIBUJE ENCIMA)
+        // Dataset de la línea roja (Objetivo)
         datasets.push({
             label: 'Objetivo (90%)',
             data: xLabels.map(() => 90),
             type: 'line',
-            borderColor: '#dc3545', // Rojo intenso
-            borderWidth: 4,         // Línea más gruesa
-            pointRadius: 0,         // Sin puntos
+            borderColor: '#dc3545',
+            borderWidth: 4,
+            pointRadius: 0, 
             fill: false,
-            order: 0,               // IMPORTANTE: 0 pone la línea AL FRENTE de las barras
-            datalabels: { display: false }
+            order: 0, // Dibuja la línea AL FRENTE
+            datalabels: { display: false } // Desactiva etiquetas normales para la línea
         });
 
         if (charts.bpp) charts.bpp.destroy();
@@ -266,32 +271,54 @@
                 labels: xLabels,
                 datasets: datasets
             },
-            plugins: [ChartDataLabels],
+            // Desactivamos el plugin automático de etiquetas para usar el nuestro personalizado abajo
+            plugins: [ChartDataLabels], 
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
                     legend: { position: 'bottom' },
                     tooltip: {
                         callbacks: {
-                            // Tooltip con 1 decimal y % para precisión al pasar el mouse
                             label: (c) => c.dataset.label + ': ' + c.parsed.y.toLocaleString('es-MX', {maximumFractionDigits: 1}) + '%'
                         }
                     },
-                    datalabels: {
-                        anchor: 'end',    // Anclado al tope de la barra
-                        align: 'start',   // Alineado hacia abajo (adentro de la barra)
-                        offset: 30,       // Empujamos el número 30px hacia abajo (aprox altura 75%)
-                        color: 'white',   // Color blanco para que contraste dentro de la barra
-                        // Formateador: Redondea al entero más cercano (Math.round) y quita símbolos
-                        formatter: (v) => v > 0 ? Math.round(v) : '',
-                        font: { weight: 'bold', size: 14 } // Letra más grande y negrita
-                    }
+                    // Desactivamos las etiquetas estándar para hacerlo manualmente y que queden parejas
+                    datalabels: { display: false }
                 },
                 scales: {
-                    // Eje Y fijo de 0 a 100
                     y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } }
                 }
-            }
+            },
+            // Plugin personalizado para dibujar los números alineados al 75%
+            plugins: [{
+                id: 'customLabels',
+                afterDatasetsDraw(chart) {
+                    const {ctx, scales: {y}} = chart;
+                    // Aquí definimos la altura fija: Valor 75 en el eje Y
+                    const fixedY = y.getPixelForValue(75); 
+
+                    chart.data.datasets.forEach((dataset, i) => {
+                        // Ignoramos la línea roja (que es tipo 'line') y datasets ocultos
+                        if (dataset.type === 'line' || chart.getDatasetMeta(i).hidden) return;
+                        
+                        const meta = chart.getDatasetMeta(i);
+                        meta.data.forEach((bar, index) => {
+                            const value = dataset.data[index];
+                            if (value > 0) {
+                                // Dibujamos el número
+                                ctx.save();
+                                ctx.fillStyle = '#ffffff'; // Color Blanco
+                                ctx.font = 'bold 13px "Segoe UI"';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                // Math.round(value) quita los decimales
+                                ctx.fillText(Math.round(value), bar.x, fixedY);
+                                ctx.restore();
+                            }
+                        });
+                    });
+                }
+            }]
         });
     }
 
