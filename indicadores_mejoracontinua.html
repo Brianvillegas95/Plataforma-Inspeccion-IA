@@ -89,20 +89,20 @@
         </div>
 
         <div id="container-bpp" style="display: none;">
-        <section class="kpi-container">
+        <section class="kpi-container" style="grid-template-columns: 1fr 1fr; max-width: 800px; margin: 0 auto 30px auto;">
             <div class="kpi-card" style="border-left-color: #ffc107;">
                 <div class="kpi-label">Promedio General</div>
                 <div class="kpi-value" id="kpi-bpp-promedio">0%</div>
             </div>
-            <div class="kpi-card" style="border-left-color: #dc3545;">
+            <div class="kpi-card" style="border-left-color: #28a745;">
                 <div class="kpi-label">Objetivo</div>
                 <div class="kpi-value">90.0%</div>
             </div>
-        </section>
+            </section>
         
         <div class="chart-container chart-full-width">
             <div class="chart-header">
-                <h2 class="chart-title"><i class="fas fa-chart-bar"></i> Auditoría de Buenas Prácticas de Pesaje (Últimos 6 Meses)</h2>
+                <h2 class="chart-title" id="title-bpp"><i class="fas fa-chart-bar"></i> Auditoría de Buenas Prácticas de Pesaje</h2>
             </div>
             <div class="chart-box"><canvas id="chartBPP"></canvas></div>
         </div>
