@@ -75,51 +75,41 @@
             </div>
         </section>
 
+        <div id="container-ajustes">
         <section class="kpi-container">
             <div class="kpi-card" style="border-left-color: #28a745;"><div class="kpi-label">Total Ajustes Positivos</div><div class="kpi-value" id="kpi-positivo">0.00</div></div>
             <div class="kpi-card" style="border-left-color: #dc3545;"><div class="kpi-label">Total Ajustes Negativos</div><div class="kpi-value" id="kpi-negativo">0.00</div></div>
             <div class="kpi-card" style="border-left-color: #005f9e;"><div class="kpi-label">Balance Neto (Absoluto)</div><div class="kpi-value" id="kpi-neto">0.00</div></div>
         </section>
-
         <div class="charts-section">
-            <div class="chart-container">
-                <div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Positivos 2024 vs 2025</h2></div>
-                <div class="chart-box"><canvas id="chartPositive"></canvas></div>
-            </div>
-            <div class="chart-container">
-                <div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Negativos 2024 vs 2025</h2></div>
-                <div class="chart-box"><canvas id="chartNegative"></canvas></div>
-            </div>
-            
-            <div class="chart-container chart-full-width">
-                <div class="chart-header">
-                    <h2 class="chart-title" id="title-summary"><i class="fas fa-chart-bar"></i> Comparativo: Positivo, Negativo y Absoluto</h2>
-                </div>
-                <div class="chart-box"><canvas id="chartSummary"></canvas></div>
-            </div>
+            <div class="chart-container"><div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Positivos 2024 vs 2025</h2></div><div class="chart-box"><canvas id="chartPositive"></canvas></div></div>
+            <div class="chart-container"><div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Negativos 2024 vs 2025</h2></div><div class="chart-box"><canvas id="chartNegative"></canvas></div></div>
+            <div class="chart-container chart-full-width"><div class="chart-header"><h2 class="chart-title" id="title-summary"><i class="fas fa-chart-bar"></i> Resumen Comparativo</h2></div><div class="chart-box"><canvas id="chartSummary"></canvas></div></div>
+        </div>
         </div>
 
         <div id="container-bpp" style="display: none;">
-          <section class="kpi-container">
+        <section class="kpi-container">
             <div class="kpi-card" style="border-left-color: #ffc107;">
-            <div class="kpi-label">Promedio Anual</div>
-            <div class="kpi-value" id="kpi-bpp-promedio">0%</div>
-        </div>
-        <div class="kpi-card" style="border-left-color: #28a745;">
-            <div class="kpi-label">Objetivo</div>
-            <div class="kpi-value">90.0%</div>
-        </div>
-        <div class="kpi-card" style="border-left-color: #6c757d;">
-            <div class="kpi-label">Auditorías Realizadas</div>
-            <div class="kpi-value" id="kpi-bpp-conteo">0</div>
-        </div>
+                <div class="kpi-label">Promedio General</div>
+                <div class="kpi-value" id="kpi-bpp-promedio">0%</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #dc3545;">
+                <div class="kpi-label">Objetivo</div>
+                <div class="kpi-value">90.0%</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #6c757d;">
+                <div class="kpi-label">Registros Procesados</div>
+                <div class="kpi-value" id="kpi-bpp-conteo">0</div>
+            </div>
         </section>
-
+        
         <div class="chart-container chart-full-width">
-         <div class="chart-header">
-            <h2 class="chart-title"><i class="fas fa-chart-bar"></i> Auditoría de Buenas Prácticas de Pesaje Producción</h2>
-         </div>
-         <div class="chart-box"><canvas id="chartBPP"></canvas></div></div>
+            <div class="chart-header">
+                <h2 class="chart-title"><i class="fas fa-chart-bar"></i> Auditoría de Buenas Prácticas de Pesaje (Últimos 6 Meses)</h2>
+            </div>
+            <div class="chart-box"><canvas id="chartBPP"></canvas></div>
+        </div>
         </div>
     </main>
 
@@ -128,17 +118,19 @@
     let rawDataBPP = [];
     let charts = {};
     
-    // Listas de Áreas Específicas
+    // DEFINICIÓN DE ÁREAS EXACTAS PARA CADA INDICADOR
     const areasAjustes = ['BOLÍGRAFO', 'EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO COLORANTES', 'MOLDEO RESINAS', 'TINTAS'];
     const areasBPP = ['BOLÍGRAFO', 'EMPAQUE', 'ENSAMBLE', 'MOLDEO', 'TINTAS']; 
-    
+
     const mesesLabels = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+    const mesesMap = { 'ENERO':0, 'FEBRERO':1, 'MARZO':2, 'ABRIL':3, 'MAYO':4, 'JUNIO':5, 'JULIO':6, 'AGOSTO':7, 'SEPTIEMBRE':8, 'OCTUBRE':9, 'NOVIEMBRE':10, 'DICIEMBRE':11 };
 
     function parseV(v) { 
         if (!v) return 0;
         return parseFloat(v.toString().replace(/,/g, '').replace('%', '')) || 0; 
     }
 
+    // Calculadora de tendencia Ajustes
     function calculateTrend(data) {
         const validData = data.map((v, i) => ({x: i, y: v})).filter(d => d.y !== null);
         if (validData.length < 2) return data.map(() => null);
@@ -158,118 +150,146 @@
             const json = await res.json();
             rawDataAjustes = json.data.ajustes || [];
             rawDataBPP = json.data.bpp || [];
-            processData();
+            processData(); // Primera carga
         } catch (e) { console.error(e); }
     }
 
+    // FUNCIÓN CLAVE: Cambia las opciones del filtro según el indicador
     function updateAreaFilter(indicator) {
         const select = document.getElementById('filter-area');
-        const currentSelection = select.value;
         const targetOptions = (indicator === 'BPP') ? areasBPP : areasAjustes;
         
-        // Verificamos si necesitamos reconstruir el select
-        const currentFirst = select.options.length > 1 ? select.options[1].text : '';
-        if (currentFirst !== targetOptions[0]) {
+        // Verificar si las opciones actuales coinciden con las deseadas
+        const currentFirst = select.options.length > 1 ? select.options[1].value : '';
+        const targetFirst = targetOptions[0];
+
+        // Si son diferentes, reconstruimos el select
+        if (currentFirst !== targetFirst) {
+            const savedValue = select.value; // Intentar guardar selección previa
             let html = '<option value="TODAS">TODAS LAS ÁREAS</option>';
             targetOptions.forEach(area => {
                 html += `<option value="${area}">${area}</option>`;
             });
             select.innerHTML = html;
-            select.value = 'TODAS'; // Reset a TODAS para evitar errores
+            
+            // Si la selección previa existe en la nueva lista, la mantenemos, si no, reset a TODAS
+            if(targetOptions.includes(savedValue)) {
+                select.value = savedValue;
+            } else {
+                select.value = 'TODAS';
+            }
         }
     }
 
     function processData() {
         const ind = document.getElementById('filter-indicator').value;
         
-        // 1. Actualizar lista de áreas disponible
+        // 1. Actualizamos filtros ANTES de leer valores
         updateAreaFilter(ind);
 
         const area = document.getElementById('filter-area').value;
         const month = document.getElementById('filter-month').value;
         const year = document.getElementById('filter-year').value;
 
-        // 2. Controlar visibilidad
+        // 2. Control de Visibilidad (SUSTITUCIÓN, NO SUMA)
         const divAjustes = document.getElementById('container-ajustes');
         const divBPP = document.getElementById('container-bpp');
 
         if (ind === 'AJUSTES') {
-            if(divBPP) divBPP.style.display = 'none';
-            if(divAjustes) divAjustes.style.display = 'block';
+            divBPP.style.display = 'none';      // Ocultar BPP
+            divAjustes.style.display = 'block'; // Mostrar Ajustes
             renderAjustes(rawDataAjustes, area, month, year);
         } else {
-            if(divAjustes) divAjustes.style.display = 'none';
-            if(divBPP) divBPP.style.display = 'block';
+            divAjustes.style.display = 'none';  // Ocultar Ajustes
+            divBPP.style.display = 'block';     // Mostrar BPP
             renderBPP(rawDataBPP, area, month, year);
         }
     }
 
-    // --- RENDER BPP ---
-    function renderBPP(data, area, month, year) {
+    // --- RENDER BPP: 6 MESES AGRUPADOS POR ÁREA ---
+    function renderBPP(data, areaSelected, monthFilter, yearFilter) {
+        // Filtrar datos base (respetando filtros globales si se desea, aunque la gráfica pide últimos 6 meses fijos)
         let f = data;
-        if (area !== 'TODAS') f = f.filter(r => r.ÁREA === area);
-        if (month !== 'TODOS') f = f.filter(r => r.MES === month);
-        if (year !== 'TODOS') f = f.filter(r => r.AÑO.toString() === year);
+        if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
 
+        // KPI: Promedio simple de lo filtrado
         const avg = f.length ? (f.reduce((acc, r) => acc + parseV(r.VALOR), 0) / f.length) : 0;
         document.getElementById('kpi-bpp-promedio').textContent = avg.toLocaleString('es-MX', {maximumFractionDigits: 1}) + "%";
         document.getElementById('kpi-bpp-conteo').textContent = f.length;
 
-        if (charts.bpp) charts.bpp.destroy();
-
-        const labels = (area === 'TODAS') ? areasBPP : mesesLabels;
+        // PREPARACIÓN DE DATOS PARA GRÁFICA (Últimos 6 meses)
+        // 1. Identificar todos los pares Mes-Año únicos disponibles y ordenarlos cronológicamente
+        let uniqueMonths = [];
+        f.forEach(r => {
+            const key = `${r.MES}-${r.AÑO}`;
+            if(!uniqueMonths.some(m => m.key === key)) {
+                uniqueMonths.push({ key: key, mes: r.MES, año: r.AÑO, order: r.AÑO * 100 + mesesMap[r.MES] });
+            }
+        });
+        uniqueMonths.sort((a,b) => a.order - b.order); // Ordenar antiguo a reciente
         
-        const values = labels.map(label => {
-            const subset = f.filter(r => (area === 'TODAS' ? r.ÁREA === label : r.MES === label));
-            if (subset.length === 0) return null;
-            return subset.reduce((a, b) => a + parseV(b.VALOR), 0) / subset.length;
+        // 2. Tomar los últimos 6 meses
+        const last6Months = uniqueMonths.slice(-6); 
+
+        // 3. Eje X: Serán las Áreas (Fijas según la lista de BPP)
+        // Si el usuario filtró un área específica, solo mostramos esa. Si no, todas.
+        const xLabels = (areaSelected === 'TODAS') ? areasBPP : [areaSelected];
+
+        // 4. Datasets: Cada uno de los 6 meses es una "serie" de barras
+        const barColors = ['#007bff', '#fd7e14', '#ffc107', '#28a745', '#17a2b8', '#6610f2']; // Colores para los meses
+        
+        const datasets = last6Months.map((m, index) => {
+            return {
+                label: m.mes, // El nombre del mes aparecerá en la leyenda
+                data: xLabels.map(areaName => {
+                    // Buscar el valor exacto para esa Área en ese Mes/Año
+                    const record = f.find(r => r.ÁREA === areaName && r.MES === m.mes && r.AÑO === m.año);
+                    return record ? parseV(record.VALOR) : 0;
+                }),
+                backgroundColor: barColors[index % barColors.length],
+                borderRadius: 4,
+                order: 2
+            };
         });
 
-        // Paleta de colores para las barras (estilo Excel)
-        const barColors = ['#007bff', '#fd7e14', '#ffc107', '#28a745', '#17a2b8', '#6610f2', '#6c757d', '#343a40', '#005db4', '#dc3545'];
+        // 5. Agregar Línea de Objetivo (Dataset extra)
+        datasets.push({
+            label: 'Objetivo (90%)',
+            data: xLabels.map(() => 90),
+            type: 'line',
+            borderColor: '#dc3545',
+            borderWidth: 3,
+            pointRadius: 0,
+            fill: false,
+            order: 1,
+            datalabels: { display: false }
+        });
+
+        if (charts.bpp) charts.bpp.destroy();
 
         charts.bpp = new Chart(document.getElementById('chartBPP'), {
             type: 'bar',
             data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Calificación',
-                        data: values,
-                        backgroundColor: (ctx) => barColors[ctx.dataIndex % barColors.length],
-                        borderRadius: 4,
-                        order: 2
-                    },
-                    {
-                        label: 'Objetivo (90%)',
-                        data: labels.map(() => 90),
-                        type: 'line',
-                        borderColor: '#dc3545',
-                        borderWidth: 3,
-                        pointRadius: 0,
-                        fill: false,
-                        order: 1,
-                        datalabels: { display: false }
-                    }
-                ]
+                labels: xLabels, // EJE X = ÁREAS
+                datasets: datasets // SERIES = MESES
             },
             plugins: [ChartDataLabels],
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: true, position: 'bottom' },
+                    legend: { position: 'bottom' },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return context.parsed.y.toLocaleString('es-MX') + "%";
+                                return context.dataset.label + ': ' + context.parsed.y.toLocaleString('es-MX') + "%";
                             }
                         }
                     },
                     datalabels: {
                         anchor: 'end', align: 'top',
-                        offset: 4, // Separa el número de la barra
-                        formatter: (v) => v ? v.toFixed(1) + "%" : '',
-                        font: { weight: 'bold' }
+                        rotation: -90, // Rotar etiquetas si hay muchas barras
+                        formatter: (v) => v > 0 ? v.toFixed(1) + "%" : '',
+                        font: { size: 10, weight: 'bold' }
                     }
                 },
                 scales: {
@@ -279,7 +299,7 @@
         });
     }
 
-    // --- RENDER AJUSTES ---
+    // --- RENDER AJUSTES (Sin cambios funcionales, solo estilo México) ---
     function renderAjustes(data, area, month, year) {
         let f = data;
         if (area !== 'TODAS') f = f.filter(r => r.ÁREA === area);
@@ -303,7 +323,6 @@
             return val === 0 ? null : val;
         });
 
-        // Configuración Común para Gráficas de Línea
         const configLine = (field) => ({
             type: 'line',
             data: {
@@ -316,25 +335,13 @@
             },
             plugins: [ChartDataLabels],
             options: { 
-                responsive: true, 
-                maintainAspectRatio: false, 
+                responsive: true, maintainAspectRatio: false, 
                 plugins: { 
                     datalabels: { 
-                        anchor: 'end', 
-                        align: 'top', 
-                        offset: 8, // AQUÍ SEPARAMOS EL NÚMERO DE LA LÍNEA
+                        anchor: 'end', align: 'top', offset: 8,
                         formatter: (v) => (v && v>0) ? v.toLocaleString('es-MX',{maximumFractionDigits:0}) : '' 
                     },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) label += ': ';
-                                if (context.parsed.y !== null) label += context.parsed.y.toLocaleString('es-MX', {minimumFractionDigits: 2});
-                                return label;
-                            }
-                        }
-                    }
+                    tooltip: { callbacks: { label: (c) => (c.dataset.label||'') + ': ' + (c.parsed.y||0).toLocaleString('es-MX') } }
                 } 
             }
         });
@@ -342,8 +349,7 @@
         charts.pos = new Chart(document.getElementById('chartPositive'), configLine('AJUSTE POSITIVO'));
         charts.neg = new Chart(document.getElementById('chartNegative'), configLine('AJUSTE NEGATIVO'));
 
-        const areasList = ['BOLÍGRAFO', 'EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO COLORANTES', 'MOLDEO RESINAS', 'TINTAS'];
-        const sumLabels = area === 'TODAS' ? areasList : mesesLabels;
+        const sumLabels = area === 'TODAS' ? areasAjustes : mesesLabels;
         const sumPos = sumLabels.map(l => f.filter(r => (area === 'TODAS' ? r.ÁREA : r.MES) === l).reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO']),0));
         const sumNeg = sumLabels.map(l => f.filter(r => (area === 'TODAS' ? r.ÁREA : r.MES) === l).reduce((a,r)=>a+parseV(r['AJUSTE NEGATIVO']),0));
         const sumAbs = sumPos.map((v, i) => v + sumNeg[i]);
@@ -352,20 +358,10 @@
             type: 'bar',
             data: { labels: sumLabels, datasets: [{label:'Positivo', data:sumPos, backgroundColor:'#28a745'},{label:'Negativo', data:sumNeg, backgroundColor:'#dc3545'},{label:'Absoluto', data:sumAbs, backgroundColor:'#005f9e'}] },
             options: { 
-                responsive: true, 
-                maintainAspectRatio: false, 
+                responsive: true, maintainAspectRatio: false, 
                 plugins: { 
-                    datalabels: { 
-                        anchor: 'end', align: 'top', 
-                        formatter: (v) => v > 0 ? v.toLocaleString('es-MX', {maximumFractionDigits:0}) : '' 
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.dataset.label + ': ' + context.parsed.y.toLocaleString('es-MX', {minimumFractionDigits: 2});
-                            }
-                        }
-                    }
+                    datalabels: { anchor: 'end', align: 'top', formatter: (v) => v > 0 ? v.toLocaleString('es-MX', {maximumFractionDigits:0}) : '' },
+                    tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.parsed.y.toLocaleString('es-MX') } }
                 } 
             }
         });
