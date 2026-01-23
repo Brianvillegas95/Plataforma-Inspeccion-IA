@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mejora Continua - Dashboard</title>
+    <title>Mejora Continua - Ajuste de Inventario</title>
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -20,13 +20,11 @@
         .filter-group label { font-size: 0.75em; font-weight: 700; color: #495057; margin-bottom: 8px; text-transform: uppercase; }
         .filter-control { padding: 10px; border: 1px solid #dee2e6; border-radius: 6px; background: #f8f9fa; font-size: 0.85em; font-weight: 600; }
 
-        /* KPI Cards */
         .kpi-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .kpi-card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid #005f9e; }
         .kpi-value { font-size: 2.2em; font-weight: 800; color: #212529; margin: 5px 0; }
         .kpi-label { font-size: 0.85em; font-weight: 700; color: #6c757d; }
 
-        /* Charts */
         .charts-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
         .chart-full-width { grid-column: span 2; margin-top: 10px; }
         .chart-container { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -34,9 +32,6 @@
         .chart-title { font-size: 1.1em; font-weight: 700; color: #343a40; margin: 0; }
         .chart-box { height: 450px; width: 100%; position: relative; }
         
-        /* Contenedores de secciones para no mezclar indicadores */
-        #container-ajustes, #container-bpp { display: none; }
-
         @media (max-width: 1100px) { .charts-section { grid-template-columns: 1fr; } .chart-full-width { grid-column: span 1; } }
     </style>
 </head>
@@ -52,13 +47,7 @@
 
     <main class="main-content">
         <section class="filter-panel">
-            <div class="filter-group">
-                <label>Indicador</label>
-                <select id="filter-indicator" class="filter-control" onchange="processData()">
-                    <option value="AJUSTES">AJUSTE DE INVENTARIO</option>
-                    <option value="BPP">BPP (PESAJE)</option>
-                </select>
-            </div>
+            <div class="filter-group"><label>Indicador</label><select id="filter-indicator" class="filter-control"><option value="AJUSTES">AJUSTE DE INVENTARIO</option></select></div>
             <div class="filter-group">
                 <label>Área</label>
                 <select id="filter-area" class="filter-control" onchange="processData()">
@@ -81,35 +70,34 @@
             </div>
         </section>
 
-        <div id="container-ajustes">
-            <section class="kpi-container">
-                <div class="kpi-card" style="border-left-color: #28a745;"><div class="kpi-label">Total Ajustes Positivos</div><div class="kpi-value" id="kpi-positivo">0.00</div></div>
-                <div class="kpi-card" style="border-left-color: #dc3545;"><div class="kpi-label">Total Ajustes Negativos</div><div class="kpi-value" id="kpi-negativo">0.00</div></div>
-                <div class="kpi-card" style="border-left-color: #005f9e;"><div class="kpi-label">Balance Neto (Absoluto)</div><div class="kpi-value" id="kpi-neto">0.00</div></div>
-            </section>
-            <div class="charts-section">
-                <div class="chart-container"><div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Positivos 2024 vs 2025</h2></div><div class="chart-box"><canvas id="chartPositive"></canvas></div></div>
-                <div class="chart-container"><div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Negativos 2024 vs 2025</h2></div><div class="chart-box"><canvas id="chartNegative"></canvas></div></div>
-                <div class="chart-container chart-full-width"><div class="chart-header"><h2 class="chart-title" id="title-summary"><i class="fas fa-chart-bar"></i> Resumen Comparativo</h2></div><div class="chart-box"><canvas id="chartSummary"></canvas></div></div>
-            </div>
-        </div>
+        <section class="kpi-container">
+            <div class="kpi-card" style="border-left-color: #28a745;"><div class="kpi-label">Total Ajustes Positivos</div><div class="kpi-value" id="kpi-positivo">0.00</div></div>
+            <div class="kpi-card" style="border-left-color: #dc3545;"><div class="kpi-label">Total Ajustes Negativos</div><div class="kpi-value" id="kpi-negativo">0.00</div></div>
+            <div class="kpi-card" style="border-left-color: #005f9e;"><div class="kpi-label">Balance Neto (Absoluto)</div><div class="kpi-value" id="kpi-neto">0.00</div></div>
+        </section>
 
-        <div id="container-bpp">
-            <section class="kpi-container">
-                <div class="kpi-card" style="border-left-color: #ffc107;"><div class="kpi-label">Efectividad BPP</div><div class="kpi-value" id="kpi-bpp-promedio">0%</div></div>
-                <div class="kpi-card" style="border-left-color: #005f9e;"><div class="kpi-label">Objetivo</div><div class="kpi-value">90.0%</div></div>
-                <div class="kpi-card" style="border-left-color: #6c757d;"><div class="kpi-label">Auditorías Registradas</div><div class="kpi-value" id="kpi-bpp-conteo">0</div></div>
-            </section>
+        <div class="charts-section">
+            <div class="chart-container">
+                <div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Positivos 2024 vs 2025</h2></div>
+                <div class="chart-box"><canvas id="chartPositive"></canvas></div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Negativos 2024 vs 2025</h2></div>
+                <div class="chart-box"><canvas id="chartNegative"></canvas></div>
+            </div>
+            
             <div class="chart-container chart-full-width">
-                <div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-bar"></i> Auditoría de Buenas Prácticas de Pesaje</h2></div>
-                <div class="chart-box"><canvas id="chartBPP"></canvas></div>
+                <div class="chart-header">
+                    <h2 class="chart-title" id="title-summary"><i class="fas fa-chart-bar"></i> Comparativo: Positivo, Negativo y Absoluto</h2>
+                </div>
+                <div class="chart-box"><canvas id="chartSummary"></canvas></div>
             </div>
         </div>
     </main>
 
     <script>
-        let rawData = {};
-        let charts = {};
+        let rawDataAjustes = [];
+        let chartPos, chartNeg, chartSum;
         const mesesLabels = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
         const areasList = ['BOLÍGRAFO', 'EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO COLORANTES', 'MOLDEO RESINAS', 'TINTAS'];
 
@@ -118,34 +106,34 @@
             return parseFloat(v.toString().replace(/,/g, '').replace('%', '')) || 0;
         }
 
+        function calculateTrend(data) {
+            const validData = data.map((v, i) => ({x: i, y: v})).filter(d => d.y !== null);
+            if (validData.length < 2) return data.map(() => null);
+            const n = validData.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            validData.forEach(d => { sumX += d.x; sumY += d.y; sumXY += d.x * d.y; sumX2 += d.x * d.x; });
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            return data.map((_, x) => slope * x + intercept);
+        }
+
         document.addEventListener('DOMContentLoaded', loadData);
 
         async function loadData() {
             try {
                 const res = await fetch('/.netlify/functions/mejora-continua');
                 const json = await res.json();
-                rawData = json.data;
+                rawDataAjustes = json.data.ajustes;
                 processData();
             } catch (e) { console.error(e); }
         }
 
         function processData() {
-            const ind = document.getElementById('filter-indicator').value;
             const area = document.getElementById('filter-area').value;
             const month = document.getElementById('filter-month').value;
             const year = document.getElementById('filter-year').value;
 
-            // Mostrar/Ocultar secciones sin mover sus elementos internos
-            document.getElementById('container-ajustes').style.display = (ind === 'AJUSTES') ? 'block' : 'none';
-            document.getElementById('container-bpp').style.display = (ind === 'BPP') ? 'block' : 'none';
-
-            if (ind === 'AJUSTES') renderAjustes(rawData.ajustes, area, month, year);
-            else if (ind === 'BPP') renderBPP(rawData.bpp, area, month, year);
-        }
-
-        // --- LÓGICA DE AJUSTES (IDENTICA A TU VERSIÓN ANTERIOR) ---
-        function renderAjustes(data, area, month, year) {
-            let f = data;
+            let f = rawDataAjustes;
             if (area !== 'TODAS') f = f.filter(r => r.ÁREA === area);
             if (month !== 'TODOS') f = f.filter(r => r.MES === month);
             if (year !== 'TODOS') f = f.filter(r => r.AÑO.toString() === year);
@@ -153,81 +141,96 @@
             const tP = f.reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0);
             const tN = f.reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0);
             
+            // Formato es-MX para México
             document.getElementById('kpi-positivo').textContent = tP.toLocaleString('es-MX', {minimumFractionDigits: 2});
             document.getElementById('kpi-negativo').textContent = tN.toLocaleString('es-MX', {minimumFractionDigits: 2});
             document.getElementById('kpi-neto').textContent = (tP + tN).toLocaleString('es-MX', {minimumFractionDigits: 2});
 
-            if (charts.pos) charts.pos.destroy();
-            if (charts.neg) charts.neg.destroy();
-            if (charts.sum) charts.sum.destroy();
+            renderCharts(f, area);
+        }
+
+        function renderCharts(data, areaSelected) {
+            if (chartPos) chartPos.destroy();
+            if (chartNeg) chartNeg.destroy();
+            if (chartSum) chartSum.destroy();
 
             const getS = (y, field) => mesesLabels.map(m => {
-                const r = f.find(item => item.MES === m && item.AÑO.toString() === y.toString());
+                const r = data.find(item => item.MES === m && item.AÑO.toString() === y.toString());
                 const val = r ? parseV(r[field]) : 0;
                 return val === 0 ? null : val;
             });
 
-            const configLine = (field) => ({
-                type: 'line',
-                data: {
-                    labels: mesesLabels,
-                    datasets: [
-                        { label: '2024', data: getS(2024, field), borderColor: '#005db4', borderDash: [5, 5], tension: 0.3, spanGaps: true },
-                        { label: '2025', data: getS(2025, field), borderColor: '#005db4', borderWidth: 3, tension: 0.3, spanGaps: true }
-                    ]
-                },
-                plugins: [ChartDataLabels],
-                options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { formatter: (v) => v ? v.toLocaleString('es-MX',{maximumFractionDigits:0}) : '' } } }
-            });
+            const createConfig = (field) => {
+                const d24 = getS(2024, field);
+                const d25 = getS(2025, field);
+                const trend25 = calculateTrend(d25);
 
-            charts.pos = new Chart(document.getElementById('chartPositive'), configLine('AJUSTE POSITIVO'));
-            charts.neg = new Chart(document.getElementById('chartNegative'), configLine('AJUSTE NEGATIVO'));
+                return {
+                    type: 'line',
+                    data: {
+                        labels: mesesLabels,
+                        datasets: [
+                            { label: '2024', data: d24, borderColor: '#005db4', borderDash: [5, 5], tension: 0.3, pointRadius: 4, spanGaps: true },
+                            { label: '2025', data: d25, borderColor: '#005db4', borderWidth: 3, tension: 0.3, pointRadius: 6, spanGaps: true },
+                            { label: 'Tendencia (2025)', data: trend25, borderColor: '#28a745', borderDash: [2, 2], pointRadius: 0, fill: false, datalabels: { display: false } }
+                        ]
+                    },
+                    plugins: [ChartDataLabels],
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { 
+                            legend: { position: 'bottom' },
+                            datalabels: {
+                                anchor: 'end', align: 'top',
+                                formatter: (v) => (v !== null && v > 0) ? v.toLocaleString('es-MX', {maximumFractionDigits:0}) : '',
+                                font: { weight: 'bold', size: 10 }
+                            }
+                        },
+                        scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } } }
+                    }
+                };
+            };
 
-            // Tu tercera gráfica de barras original
-            const sumLabels = area === 'TODAS' ? areasList : mesesLabels;
-            const sumPos = sumLabels.map(l => f.filter(r => (area === 'TODAS' ? r.ÁREA : r.MES) === l).reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO']),0));
-            const sumNeg = sumLabels.map(l => f.filter(r => (area === 'TODAS' ? r.ÁREA : r.MES) === l).reduce((a,r)=>a+parseV(r['AJUSTE NEGATIVO']),0));
+            chartPos = new Chart(document.getElementById('chartPositive'), createConfig('AJUSTE POSITIVO'));
+            chartNeg = new Chart(document.getElementById('chartNegative'), createConfig('AJUSTE NEGATIVO'));
 
-            charts.sum = new Chart(document.getElementById('chartSummary'), {
+            // --- NUEVO GRÁFICO BARRA COMPARATIVA ---
+            let sumLabels, sumPos, sumNeg, sumAbs;
+            if (areaSelected === 'TODAS') {
+                document.getElementById('title-summary').innerHTML = '<i class="fas fa-chart-bar"></i> Resumen Comparativo por Área';
+                sumLabels = areasList;
+                sumPos = areasList.map(a => data.filter(r => r.ÁREA === a).reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0));
+                sumNeg = areasList.map(a => data.filter(r => r.ÁREA === a).reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0));
+            } else {
+                document.getElementById('title-summary').innerHTML = `<i class="fas fa-chart-bar"></i> Resumen Mensual: ${areaSelected}`;
+                sumLabels = mesesLabels;
+                sumPos = mesesLabels.map(m => data.filter(r => r.MES === m).reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0));
+                sumNeg = mesesLabels.map(m => data.filter(r => r.MES === m).reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0));
+            }
+            sumAbs = sumPos.map((v, i) => v + sumNeg[i]);
+
+            chartSum = new Chart(document.getElementById('chartSummary'), {
                 type: 'bar',
-                data: { labels: sumLabels, datasets: [{label:'Positivo', data:sumPos, backgroundColor:'#28a745'},{label:'Negativo', data:sumNeg, backgroundColor:'#dc3545'}] },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-        }
-
-        // --- LÓGICA DE BPP (BASADA EN EXCEL) ---
-        function renderBPP(data, area, month, year) {
-            let f = data;
-            if (area !== 'TODAS') f = f.filter(r => r.ÁREA === area);
-            if (month !== 'TODOS') f = f.filter(r => r.MES === month);
-            if (year !== 'TODOS') f = f.filter(r => r.AÑO.toString() === year);
-
-            const avg = f.length ? (f.reduce((acc, r) => acc + parseV(r.VALOR), 0) / f.length) : 0;
-            document.getElementById('kpi-bpp-promedio').textContent = avg.toLocaleString('es-MX', {maximumFractionDigits: 1}) + "%";
-            document.getElementById('kpi-bpp-conteo').textContent = f.length;
-
-            if (charts.bpp) charts.bpp.destroy();
-
-            const labels = area === 'TODAS' ? areasList : mesesLabels;
-            const values = labels.map(l => {
-                const group = f.filter(r => (area === 'TODAS' ? r.ÁREA === l : r.MES === l));
-                return group.length ? (group.reduce((a,r)=>a+parseV(r.VALOR),0)/group.length) : null;
-            });
-
-            charts.bpp = new Chart(document.getElementById('chartBPP'), {
-                type: 'bar',
                 data: {
-                    labels: labels,
+                    labels: sumLabels,
                     datasets: [
-                        { label: 'Calificación %', data: values, backgroundColor: '#005f9e', borderRadius: 5 },
-                        { label: 'Objetivo (90%)', data: labels.map(() => 90), type: 'line', borderColor: 'red', borderDash: [5, 5], pointRadius: 0, fill: false, datalabels: { display: false } }
+                        { label: 'Positivo', data: sumPos, backgroundColor: '#28a745' },
+                        { label: 'Negativo', data: sumNeg, backgroundColor: '#dc3545' },
+                        { label: 'Absoluto', data: sumAbs, backgroundColor: '#005f9e' }
                     ]
                 },
                 plugins: [ChartDataLabels],
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { datalabels: { anchor: 'end', align: 'top', formatter: (v) => v ? v.toFixed(1) + "%" : '' } },
-                    scales: { y: { min: 60, max: 100 } }
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        datalabels: {
+                            anchor: 'end', align: 'top',
+                            formatter: (v) => v > 0 ? v.toLocaleString('es-MX', {maximumFractionDigits:0}) : '',
+                            font: { weight: 'bold', size: 9 }
+                        }
+                    },
+                    scales: { y: { beginAtZero: true } }
                 }
             });
         }
