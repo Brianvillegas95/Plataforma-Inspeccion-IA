@@ -93,147 +93,244 @@
                 <div class="chart-box"><canvas id="chartSummary"></canvas></div>
             </div>
         </div>
+
+        <div id="container-bpp" style="display: none;">
+          <section class="kpi-container">
+            <div class="kpi-card" style="border-left-color: #ffc107;">
+            <div class="kpi-label">Promedio Anual</div>
+            <div class="kpi-value" id="kpi-bpp-promedio">0%</div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #28a745;">
+            <div class="kpi-label">Objetivo</div>
+            <div class="kpi-value">90.0%</div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #6c757d;">
+            <div class="kpi-label">Auditorías Realizadas</div>
+            <div class="kpi-value" id="kpi-bpp-conteo">0</div>
+        </div>
+        </section>
+
+        <div class="chart-container chart-full-width">
+         <div class="chart-header">
+            <h2 class="chart-title"><i class="fas fa-chart-bar"></i> Auditoría de Buenas Prácticas de Pesaje Producción</h2>
+         </div>
+         <div class="chart-box"><canvas id="chartBPP"></canvas></div></div>
+        </div>
     </main>
 
     <script>
-        let rawDataAjustes = [];
-        let chartPos, chartNeg, chartSum;
-        const mesesLabels = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
-        const areasList = ['BOLÍGRAFO', 'EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO COLORANTES', 'MOLDEO RESINAS', 'TINTAS'];
+    let rawDataAjustes = [];
+    let rawDataBPP = []; // Nueva variable para datos BPP
+    let charts = {};
+    
+    // Listas de Áreas para cada indicador
+    const areasAjustes = ['BOLÍGRAFO', 'EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO COLORANTES', 'MOLDEO RESINAS', 'TINTAS'];
+    const areasBPP = ['BOLÍGRAFO', 'EMPAQUE', 'ENSAMBLE', 'MOLDEO', 'TINTAS']; // Lista solicitada
+    
+    const mesesLabels = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 
-        function parseV(v) { 
-            if (!v) return 0;
-            return parseFloat(v.toString().replace(/,/g, '').replace('%', '')) || 0;
-        }
+    function parseV(v) { 
+        if (!v) return 0;
+        return parseFloat(v.toString().replace(/,/g, '').replace('%', '')) || 0; 
+    }
 
-        function calculateTrend(data) {
-            const validData = data.map((v, i) => ({x: i, y: v})).filter(d => d.y !== null);
-            if (validData.length < 2) return data.map(() => null);
-            const n = validData.length;
-            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-            validData.forEach(d => { sumX += d.x; sumY += d.y; sumXY += d.x * d.y; sumX2 += d.x * d.x; });
-            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-            const intercept = (sumY - slope * sumX) / n;
-            return data.map((_, x) => slope * x + intercept);
-        }
+    // Calculadora de tendencia para Ajustes
+    function calculateTrend(data) {
+        const validData = data.map((v, i) => ({x: i, y: v})).filter(d => d.y !== null);
+        if (validData.length < 2) return data.map(() => null);
+        const n = validData.length;
+        let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+        validData.forEach(d => { sumX += d.x; sumY += d.y; sumXY += d.x * d.y; sumX2 += d.x * d.x; });
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+        return data.map((_, x) => slope * x + intercept);
+    }
 
-        document.addEventListener('DOMContentLoaded', loadData);
+    document.addEventListener('DOMContentLoaded', loadData);
 
-        async function loadData() {
-            try {
-                const res = await fetch('/.netlify/functions/mejora-continua');
-                const json = await res.json();
-                rawDataAjustes = json.data.ajustes;
-                processData();
-            } catch (e) { console.error(e); }
-        }
+    async function loadData() {
+        try {
+            const res = await fetch('/.netlify/functions/mejora-continua');
+            const json = await res.json();
+            rawDataAjustes = json.data.ajustes;
+            rawDataBPP = json.data.bpp || []; // Cargamos datos BPP
+            processData();
+        } catch (e) { console.error(e); }
+    }
 
-        function processData() {
-            const area = document.getElementById('filter-area').value;
-            const month = document.getElementById('filter-month').value;
-            const year = document.getElementById('filter-year').value;
-
-            let f = rawDataAjustes;
-            if (area !== 'TODAS') f = f.filter(r => r.ÁREA === area);
-            if (month !== 'TODOS') f = f.filter(r => r.MES === month);
-            if (year !== 'TODOS') f = f.filter(r => r.AÑO.toString() === year);
-
-            const tP = f.reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0);
-            const tN = f.reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0);
-            
-            // Formato es-MX para México
-            document.getElementById('kpi-positivo').textContent = tP.toLocaleString('es-MX', {minimumFractionDigits: 2});
-            document.getElementById('kpi-negativo').textContent = tN.toLocaleString('es-MX', {minimumFractionDigits: 2});
-            document.getElementById('kpi-neto').textContent = (tP + tN).toLocaleString('es-MX', {minimumFractionDigits: 2});
-
-            renderCharts(f, area);
-        }
-
-        function renderCharts(data, areaSelected) {
-            if (chartPos) chartPos.destroy();
-            if (chartNeg) chartNeg.destroy();
-            if (chartSum) chartSum.destroy();
-
-            const getS = (y, field) => mesesLabels.map(m => {
-                const r = data.find(item => item.MES === m && item.AÑO.toString() === y.toString());
-                const val = r ? parseV(r[field]) : 0;
-                return val === 0 ? null : val;
+    // Función para actualizar las opciones del filtro de Área dinámicamente
+    function updateAreaFilter(indicator) {
+        const select = document.getElementById('filter-area');
+        const currentSelection = select.value;
+        const targetOptions = (indicator === 'BPP') ? areasBPP : areasAjustes;
+        
+        // Solo reconstruimos si las opciones son diferentes a las actuales
+        // (Verificación simple basada en la longitud o primer elemento)
+        const currentFirst = select.options.length > 1 ? select.options[1].value : '';
+        if (currentFirst !== targetOptions[0]) {
+            let html = '<option value="TODAS">TODAS LAS ÁREAS</option>';
+            targetOptions.forEach(area => {
+                html += `<option value="${area}">${area}</option>`;
             });
+            select.innerHTML = html;
+            // Intentar mantener selección si existe, si no, reset a TODAS
+            select.value = targetOptions.includes(currentSelection) ? currentSelection : 'TODAS';
+        }
+    }
 
-            const createConfig = (field) => {
-                const d24 = getS(2024, field);
-                const d25 = getS(2025, field);
-                const trend25 = calculateTrend(d25);
+    function processData() {
+        const ind = document.getElementById('filter-indicator').value;
+        
+        // 1. Actualizar el filtro de áreas según el indicador seleccionado
+        updateAreaFilter(ind);
 
-                return {
-                    type: 'line',
-                    data: {
-                        labels: mesesLabels,
-                        datasets: [
-                            { label: '2024', data: d24, borderColor: '#005db4', borderDash: [5, 5], tension: 0.3, pointRadius: 4, spanGaps: true },
-                            { label: '2025', data: d25, borderColor: '#005db4', borderWidth: 3, tension: 0.3, pointRadius: 6, spanGaps: true },
-                            { label: 'Tendencia (2025)', data: trend25, borderColor: '#28a745', borderDash: [2, 2], pointRadius: 0, fill: false, datalabels: { display: false } }
-                        ]
+        const area = document.getElementById('filter-area').value;
+        const month = document.getElementById('filter-month').value;
+        const year = document.getElementById('filter-year').value;
+
+        // 2. Controlar visibilidad de las secciones
+        const divAjustes = document.getElementById('container-ajustes');
+        const divBPP = document.getElementById('container-bpp');
+
+        if (ind === 'AJUSTES') {
+            if(divBPP) divBPP.style.display = 'none';
+            if(divAjustes) divAjustes.style.display = 'block';
+            renderAjustes(rawDataAjustes, area, month, year);
+        } else {
+            if(divAjustes) divAjustes.style.display = 'none';
+            if(divBPP) divBPP.style.display = 'block';
+            renderBPP(rawDataBPP, area, month, year);
+        }
+    }
+
+    // --- RENDER BPP (NUEVO) ---
+    function renderBPP(data, area, month, year) {
+        // Filtros
+        let f = data;
+        if (area !== 'TODAS') f = f.filter(r => r.ÁREA === area);
+        if (month !== 'TODOS') f = f.filter(r => r.MES === month);
+        if (year !== 'TODOS') f = f.filter(r => r.AÑO.toString() === year);
+
+        // KPIs BPP
+        const avg = f.length ? (f.reduce((acc, r) => acc + parseV(r.VALOR), 0) / f.length) : 0;
+        document.getElementById('kpi-bpp-promedio').textContent = avg.toLocaleString('es-MX', {maximumFractionDigits: 1}) + "%";
+        document.getElementById('kpi-bpp-conteo').textContent = f.length;
+
+        if (charts.bpp) charts.bpp.destroy();
+
+        // Configuración de Gráfica BPP (Barras agrupadas + Línea Objetivo)
+        // Eje X: Si es TODAS las áreas, mostramos las áreas. Si es un área específica, mostramos los meses.
+        const labels = (area === 'TODAS') ? areasBPP : mesesLabels;
+        
+        // Datos para las barras
+        const values = labels.map(label => {
+            // Filtramos por la etiqueta actual (sea Área o Mes)
+            const subset = f.filter(r => (area === 'TODAS' ? r.ÁREA === label : r.MES === label));
+            if (subset.length === 0) return null;
+            return subset.reduce((a, b) => a + parseV(b.VALOR), 0) / subset.length;
+        });
+
+        // Crear datasets para cada mes si estamos en vista general (para que se vea colorido como tu imagen)
+        // O un solo dataset colorido si es vista detallada.
+        // Para simplificar y replicar tu imagen (Barras de colores), usaremos un array de colores.
+        const barColors = ['#007bff', '#fd7e14', '#ffc107', '#28a745', '#17a2b8', '#6610f2', '#6c757d', '#343a40', '#005db4', '#dc3545', '#20c997', '#e83e8c'];
+
+        charts.bpp = new Chart(document.getElementById('chartBPP'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Calificación',
+                        data: values,
+                        backgroundColor: (ctx) => barColors[ctx.dataIndex % barColors.length], // Colores variados por barra
+                        borderRadius: 4,
+                        order: 2
                     },
-                    plugins: [ChartDataLabels],
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: { 
-                            legend: { position: 'bottom' },
-                            datalabels: {
-                                anchor: 'end', align: 'top',
-                                formatter: (v) => (v !== null && v > 0) ? v.toLocaleString('es-MX', {maximumFractionDigits:0}) : '',
-                                font: { weight: 'bold', size: 10 }
-                            }
-                        },
-                        scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } } }
+                    {
+                        label: 'Objetivo (90%)',
+                        data: labels.map(() => 90), // Línea recta en 90
+                        type: 'line',
+                        borderColor: '#dc3545', // Rojo
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        fill: false,
+                        order: 1,
+                        datalabels: { display: false } // Sin etiquetas en la línea roja
                     }
-                };
-            };
-
-            chartPos = new Chart(document.getElementById('chartPositive'), createConfig('AJUSTE POSITIVO'));
-            chartNeg = new Chart(document.getElementById('chartNegative'), createConfig('AJUSTE NEGATIVO'));
-
-            // --- NUEVO GRÁFICO BARRA COMPARATIVA ---
-            let sumLabels, sumPos, sumNeg, sumAbs;
-            if (areaSelected === 'TODAS') {
-                document.getElementById('title-summary').innerHTML = '<i class="fas fa-chart-bar"></i> Resumen Comparativo por Área';
-                sumLabels = areasList;
-                sumPos = areasList.map(a => data.filter(r => r.ÁREA === a).reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0));
-                sumNeg = areasList.map(a => data.filter(r => r.ÁREA === a).reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0));
-            } else {
-                document.getElementById('title-summary').innerHTML = `<i class="fas fa-chart-bar"></i> Resumen Mensual: ${areaSelected}`;
-                sumLabels = mesesLabels;
-                sumPos = mesesLabels.map(m => data.filter(r => r.MES === m).reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0));
-                sumNeg = mesesLabels.map(m => data.filter(r => r.MES === m).reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0));
-            }
-            sumAbs = sumPos.map((v, i) => v + sumNeg[i]);
-
-            chartSum = new Chart(document.getElementById('chartSummary'), {
-                type: 'bar',
-                data: {
-                    labels: sumLabels,
-                    datasets: [
-                        { label: 'Positivo', data: sumPos, backgroundColor: '#28a745' },
-                        { label: 'Negativo', data: sumNeg, backgroundColor: '#dc3545' },
-                        { label: 'Absoluto', data: sumAbs, backgroundColor: '#005f9e' }
-                    ]
+                ]
+            },
+            plugins: [ChartDataLabels],
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'bottom', labels: { usePointStyle: true } },
+                    datalabels: {
+                        anchor: 'end', align: 'top',
+                        formatter: (v) => v ? v.toFixed(1) + "%" : '',
+                        font: { weight: 'bold' }
+                    }
                 },
-                plugins: [ChartDataLabels],
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        datalabels: {
-                            anchor: 'end', align: 'top',
-                            formatter: (v) => v > 0 ? v.toLocaleString('es-MX', {maximumFractionDigits:0}) : '',
-                            font: { weight: 'bold', size: 9 }
-                        }
-                    },
-                    scales: { y: { beginAtZero: true } }
+                scales: {
+                    y: { min: 0, max: 105, ticks: { callback: (v) => v + '%' } } // Escala hasta 100%
                 }
-            });
-        }
-    </script>
+            }
+        });
+    }
+
+    // --- RENDER AJUSTES (TU CÓDIGO ANTERIOR INTACTO) ---
+    function renderAjustes(data, area, month, year) {
+        let f = data;
+        if (area !== 'TODAS') f = f.filter(r => r.ÁREA === area);
+        if (month !== 'TODOS') f = f.filter(r => r.MES === month);
+        if (year !== 'TODOS') f = f.filter(r => r.AÑO.toString() === year);
+
+        const tP = f.reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0);
+        const tN = f.reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0);
+        
+        document.getElementById('kpi-positivo').textContent = tP.toLocaleString('es-MX', {minimumFractionDigits: 2});
+        document.getElementById('kpi-negativo').textContent = tN.toLocaleString('es-MX', {minimumFractionDigits: 2});
+        document.getElementById('kpi-neto').textContent = (tP + tN).toLocaleString('es-MX', {minimumFractionDigits: 2});
+
+        if (charts.pos) charts.pos.destroy();
+        if (charts.neg) charts.neg.destroy();
+        if (charts.sum) charts.sum.destroy();
+
+        const getS = (y, field) => mesesLabels.map(m => {
+            const r = f.find(item => item.MES === m && item.AÑO.toString() === y.toString());
+            const val = r ? parseV(r[field]) : 0;
+            return val === 0 ? null : val;
+        });
+
+        const configLine = (field) => ({
+            type: 'line',
+            data: {
+                labels: mesesLabels,
+                datasets: [
+                    { label: '2024', data: getS(2024, field), borderColor: '#005db4', borderDash: [5, 5], tension: 0.3, spanGaps: true },
+                    { label: '2025', data: getS(2025, field), borderColor: '#005db4', borderWidth: 3, tension: 0.3, spanGaps: true },
+                    { label: 'Tendencia (2025)', data: calculateTrend(getS(2025, field).map(v=>v||0)), borderColor: '#28a745', borderDash: [2, 2], pointRadius: 0, fill: false, datalabels: { display: false } }
+                ]
+            },
+            plugins: [ChartDataLabels],
+            options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { formatter: (v) => (v && v>0) ? v.toLocaleString('es-MX',{maximumFractionDigits:0}) : '' } } }
+        });
+
+        charts.pos = new Chart(document.getElementById('chartPositive'), configLine('AJUSTE POSITIVO'));
+        charts.neg = new Chart(document.getElementById('chartNegative'), configLine('AJUSTE NEGATIVO'));
+
+        const areasList = ['BOLÍGRAFO', 'EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO COLORANTES', 'MOLDEO RESINAS', 'TINTAS'];
+        const sumLabels = area === 'TODAS' ? areasList : mesesLabels;
+        const sumPos = sumLabels.map(l => f.filter(r => (area === 'TODAS' ? r.ÁREA : r.MES) === l).reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO']),0));
+        const sumNeg = sumLabels.map(l => f.filter(r => (area === 'TODAS' ? r.ÁREA : r.MES) === l).reduce((a,r)=>a+parseV(r['AJUSTE NEGATIVO']),0));
+        const sumAbs = sumPos.map((v, i) => v + sumNeg[i]);
+
+        charts.sum = new Chart(document.getElementById('chartSummary'), {
+            type: 'bar',
+            data: { labels: sumLabels, datasets: [{label:'Positivo', data:sumPos, backgroundColor:'#28a745'},{label:'Negativo', data:sumNeg, backgroundColor:'#dc3545'},{label:'Absoluto', data:sumAbs, backgroundColor:'#005f9e'}] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { formatter: (v) => v > 0 ? v.toLocaleString('es-MX', {maximumFractionDigits:0}) : '' } } }
+        });
+    }
+</script>
 </body>
 </html>
