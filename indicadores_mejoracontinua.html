@@ -52,7 +52,7 @@
                 <select id="filter-indicator" class="filter-control" onchange="processData()">
                     <option value="AJUSTES">AJUSTE DE INVENTARIO</option>
                     <option value="BPP">BPP (PESAJE)</option>
-                    <option value="MOVIMIENTOS">ADICIONALES Y DEVOLUCIONES</option> </select>
+                    <option value="MOVIMIENTOS">MOVIMIENTOS</option> </select>
             </div>
             <div class="filter-group">
                 <label>Área</label>
@@ -111,21 +111,29 @@
 
         <div id="container-movimientos" style="display: none;">
         <section class="kpi-container" style="grid-template-columns: 1fr 1fr; max-width: 800px; margin: 0 auto 30px auto;">
-            <div class="kpi-card" style="border-left-color: #005db4;">
-                <div class="kpi-label">Total Movimientos</div>
-                <div class="kpi-value" id="kpi-mov-total">0</div>
+            <div class="kpi-card" style="border-left-color: #002060;">
+                <div class="kpi-label">Total Adicionales</div>
+                <div class="kpi-value" id="kpi-adic-total">0</div>
             </div>
-            <div class="kpi-card" style="border-left-color: #17a2b8;">
-                <div class="kpi-label">Área con Mayor Flujo</div>
-                <div class="kpi-value" id="kpi-mov-top" style="font-size: 1.5em;">-</div>
+            <div class="kpi-card" style="border-left-color: #dc3545;">
+                <div class="kpi-label">Total Devoluciones</div>
+                <div class="kpi-value" id="kpi-dev-total">0</div>
             </div>
         </section>
 
-        <div class="chart-container chart-full-width">
-            <div class="chart-header">
-                <h2 class="chart-title"><i class="fas fa-chart-pie"></i> Registro de Movimientos (Distribución Porcentual)</h2>
+        <div class="charts-section">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title"><i class="fas fa-plus-circle"></i> Adicionales por Área</h2>
+                </div>
+                <div class="chart-box" style="height: 400px;"><canvas id="chartAdicionales"></canvas></div>
             </div>
-            <div class="chart-box" style="height: 500px;"><canvas id="chartMovimientos"></canvas></div>
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title"><i class="fas fa-undo"></i> Devoluciones por Área</h2>
+                </div>
+                <div class="chart-box" style="height: 400px;"><canvas id="chartDevoluciones"></canvas></div>
+            </div>
         </div>
         </div>
     </main>
@@ -224,95 +232,85 @@
         }
     }
 
-    // --- RENDER MOVIMIENTOS (DONA) ---
+    // --- RENDER MOVIMIENTOS (DOS DONAS SEPARADAS) ---
     function renderMovimientos(dataAdic, dataDev, areaSelected, monthFilter, yearFilter) {
-        // Unificar datos en un solo array
-        let combined = [...dataAdic, ...dataDev];
+        
+        // Función auxiliar para filtrar y sumar por área
+        const processDataset = (dataset) => {
+            let f = dataset;
+            if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
+            if (monthFilter !== 'TODOS') f = f.filter(r => r.MES === monthFilter);
+            // El filtro de área aquí es opcional, pero si seleccionas un área, la dona mostrará 100% de esa área
+            if (areaSelected !== 'TODAS') f = f.filter(r => r.ÁREA === areaSelected);
 
-        // Aplicar Filtros
-        if (yearFilter !== 'TODOS') combined = combined.filter(r => r.AÑO.toString() === yearFilter);
-        if (monthFilter !== 'TODOS') combined = combined.filter(r => r.MES === monthFilter);
-        if (areaSelected !== 'TODAS') combined = combined.filter(r => r.ÁREA === areaSelected);
+            let totals = {};
+            areasMovimientos.forEach(a => totals[a] = 0);
+            f.forEach(r => {
+                if (totals.hasOwnProperty(r.ÁREA)) totals[r.ÁREA] += parseV(r.VALOR);
+            });
+            return totals;
+        };
 
-        // Agrupar por Área para la Dona (Solo las áreas permitidas)
-        let areaTotals = {};
-        areasMovimientos.forEach(a => areaTotals[a] = 0);
+        const totalsAdic = processDataset(dataAdic);
+        const totalsDev = processDataset(dataDev);
 
-        combined.forEach(r => {
-            if (areaTotals.hasOwnProperty(r.ÁREA)) {
-                areaTotals[r.ÁREA] += parseV(r.VALOR);
+        // Actualizar KPIs
+        const sumAdic = Object.values(totalsAdic).reduce((a,b)=>a+b, 0);
+        const sumDev = Object.values(totalsDev).reduce((a,b)=>a+b, 0);
+        
+        document.getElementById('kpi-adic-total').textContent = sumAdic.toLocaleString('es-MX');
+        document.getElementById('kpi-dev-total').textContent = sumDev.toLocaleString('es-MX');
+
+        // Configuración Común para Donas
+        const commonOptions = {
+            responsive: true, maintainAspectRatio: false,
+            layout: { padding: 10 },
+            plugins: {
+                legend: { position: 'right', labels: { boxWidth: 12, padding: 10 } },
+                datalabels: {
+                    color: '#fff',
+                    formatter: (value, ctx) => {
+                        if (value === 0) return '';
+                        let sum = 0;
+                        let dataArr = ctx.chart.data.datasets[0].data;
+                        dataArr.map(data => { sum += data; });
+                        let percentage = (value * 100 / sum).toFixed(1) + "%";
+                        // Solo mostramos porcentaje si cabe
+                        return percentage;
+                    },
+                    font: { weight: 'bold', size: 11 }
+                }
             }
-        });
+        };
 
-        // Calcular Totales para KPIs
-        const totalVal = Object.values(areaTotals).reduce((a,b)=>a+b, 0);
-        
-        // Encontrar Área Top
-        let maxVal = 0;
-        let topArea = "N/A";
-        for (const [key, val] of Object.entries(areaTotals)) {
-            if (val > maxVal) { maxVal = val; topArea = key; }
-        }
+        // Paletas de Colores Diferentes para distinguir
+        const colorsAdic = ['#002060', '#004a7c', '#0070c0', '#0096d6', '#47bbed']; // Azules
+        const colorsDev = ['#8b0000', '#b22222', '#dc3545', '#e4606d', '#f1aeb5']; // Rojos
 
-        document.getElementById('kpi-mov-total').textContent = totalVal.toLocaleString('es-MX', {maximumFractionDigits:0});
-        document.getElementById('kpi-mov-top').textContent = topArea;
+        // Destruir gráficas anteriores si existen
+        if (charts.adic) charts.adic.destroy();
+        if (charts.dev) charts.dev.destroy();
 
-        // Configurar Gráfica Dona
-        const dataValues = areasMovimientos.map(a => areaTotals[a]);
-        
-        // Colores Azules oscuros estilo Azor
-        const donutColors = ['#002060', '#0070c0', '#4472c4', '#bdd7ee', '#1f4e78'];
-
-        if (charts.mov) charts.mov.destroy();
-
-        charts.mov = new Chart(document.getElementById('chartMovimientos'), {
+        // 1. Gráfica Adicionales
+        charts.adic = new Chart(document.getElementById('chartAdicionales'), {
             type: 'doughnut',
             data: {
                 labels: areasMovimientos,
-                datasets: [{
-                    data: dataValues,
-                    backgroundColor: donutColors,
-                    borderColor: '#ffffff',
-                    borderWidth: 2,
-                    hoverOffset: 10
-                }]
+                datasets: [{ data: areasMovimientos.map(a => totalsAdic[a]), backgroundColor: colorsAdic, borderWidth: 1 }]
             },
             plugins: [ChartDataLabels],
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: { padding: 20 },
-                plugins: {
-                    legend: { position: 'right', labels: { font: { size: 12 } } },
-                    tooltip: {
-                        callbacks: {
-                            label: (c) => {
-                                const val = c.parsed;
-                                const pct = totalVal ? ((val / totalVal) * 100).toFixed(1) + '%' : '0%';
-                                return `${c.label}: ${val.toLocaleString('es-MX')} (${pct})`;
-                            }
-                        }
-                    },
-                    datalabels: {
-                        color: (ctx) => {
-                            // Texto blanco si el fondo es oscuro, negro si es claro
-                            const color = ctx.dataset.backgroundColor[ctx.dataIndex];
-                            return (color === '#bdd7ee') ? '#333' : '#fff';
-                        },
-                        formatter: (value, ctx) => {
-                            if (value === 0) return '';
-                            let sum = 0;
-                            let dataArr = ctx.chart.data.datasets[0].data;
-                            dataArr.map(data => { sum += data; });
-                            let percentage = (value * 100 / sum).toFixed(1) + "%";
-                            // Mostramos Nombre + Porcentaje como en tu imagen
-                            return ctx.chart.data.labels[ctx.dataIndex] + '\n' + percentage;
-                        },
-                        font: { weight: 'bold', size: 12 },
-                        textAlign: 'center'
-                    }
-                }
-            }
+            options: commonOptions
+        });
+
+        // 2. Gráfica Devoluciones
+        charts.dev = new Chart(document.getElementById('chartDevoluciones'), {
+            type: 'doughnut',
+            data: {
+                labels: areasMovimientos,
+                datasets: [{ data: areasMovimientos.map(a => totalsDev[a]), backgroundColor: colorsDev, borderWidth: 1 }]
+            },
+            plugins: [ChartDataLabels],
+            options: commonOptions
         });
     }
 
