@@ -179,8 +179,8 @@
                 <div class="kpi-value" id="kpi-5s-best" style="font-size: 1.5em;">-</div>
             </div>
             <div class="kpi-card" style="border-left-color: #6c757d;">
-                <div class="kpi-label">Auditorías</div>
-                <div class="kpi-value" id="kpi-5s-count">0</div>
+                <div class="kpi-label">Tendencia</div>
+                <div class="kpi-value" id="kpi-5s-trend" style="font-size: 1.5em;">-</div>
             </div>
         </section>
 
@@ -322,7 +322,7 @@
         }
     }
 
-    // --- RENDER 5'S (NUEVO) ---
+    // --- RENDER 5'S (ACTUALIZADO CON TENDENCIA) ---
     function render5s(data, areaSelected, timeFilter, yearFilter) {
         let f = data;
         if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
@@ -332,7 +332,6 @@
         let labels = bimestresLabels;
         let values = labels.map(b => {
             if (timeFilter !== 'TODOS' && b !== timeFilter) return null;
-            // Buscar por columna BIMESTRE en lugar de MES
             const subset = f.filter(r => r.BIMESTRE === b);
             if (subset.length === 0) return 0;
             return subset.reduce((a, x) => a + parseV(x.VALOR), 0) / subset.length;
@@ -343,9 +342,22 @@
         const avg = validValues.length ? (validValues.reduce((a,b)=>a+b,0)/validValues.length) : 0;
         const maxVal = validValues.length ? Math.max(...validValues) : 0;
         
+        // --- LÓGICA DE TENDENCIA (NUEVO) ---
+        const firstVal = validValues[0] || 0;
+        const lastVal = validValues[validValues.length - 1] || 0;
+        
+        // En 5'S, mayor calificación es mejor.
+        const trendIcon = lastVal > firstVal ? '▲ Mejorando' : (lastVal < firstVal ? '▼ Bajando' : '= Estable');
+        const trendColor = lastVal > firstVal ? '#28a745' : (lastVal < firstVal ? '#dc3545' : '#005f9e');
+
         document.getElementById('kpi-5s-avg').textContent = avg.toFixed(1) + "%";
         document.getElementById('kpi-5s-best').textContent = maxVal > 0 ? (maxVal.toFixed(1) + "%") : "-";
-        document.getElementById('kpi-5s-count').textContent = f.length;
+        
+        // Actualizamos el KPI de tendencia (antes era conteo)
+        document.getElementById('kpi-5s-trend').innerHTML = `<span style="color:${trendColor}">${trendIcon}</span>`;
+
+        // Calcular datos para la línea
+        const trendData = calculateTrend(values);
 
         if (charts.c5s) charts.c5s.destroy();
 
@@ -357,19 +369,31 @@
                     {
                         label: 'Calificación 5\'S',
                         data: values,
-                        backgroundColor: '#002060', // Azul Oscuro Azor
+                        backgroundColor: '#002060', // Tu color azul oscuro
                         borderRadius: 4,
-                        barPercentage: 0.6
+                        barPercentage: 0.6,
+                        order: 2
+                    },
+                    {
+                        label: 'Tendencia',
+                        data: trendData,
+                        type: 'line', // Línea superpuesta
+                        borderColor: '#dc3545', // Rojo para resaltar la tendencia
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false,
+                        order: 1, // Se dibuja encima de las barras
+                        datalabels: { display: false }
                     }
                 ]
             },
             plugins: [ChartDataLabels],
             options: {
-                indexAxis: 'y', // GRÁFICA HORIZONTAL
+                indexAxis: 'y', // Mantiene la orientación horizontal
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    tooltip: { callbacks: { label: (c) => (c.parsed.x||0).toFixed(1) + '%' } },
+                    tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + (c.parsed.x||0).toFixed(1) + '%' } },
                     datalabels: {
                         anchor: 'end', align: 'end',
                         formatter: (v) => v > 0 ? v.toFixed(1) + "%" : '',
