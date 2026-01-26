@@ -84,36 +84,43 @@
         </section>
 
         <div id="container-ajustes">
-        <section class="kpi-container">
-            <div class="kpi-card" style="border-left-color: #28a745;"><div class="kpi-label">Total Ajustes Positivos</div><div class="kpi-value" id="kpi-positivo">0.00</div></div>
-            <div class="kpi-card" style="border-left-color: #dc3545;"><div class="kpi-label">Total Ajustes Negativos</div><div class="kpi-value" id="kpi-negativo">0.00</div></div>
-            <div class="kpi-card" style="border-left-color: #005f9e;"><div class="kpi-label">Balance Neto (Absoluto)</div><div class="kpi-value" id="kpi-neto">0.00</div></div>
-        </section>
-        <div class="charts-section">
-            <div class="chart-container"><div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Positivos 2024 vs 2025</h2></div><div class="chart-box"><canvas id="chartPositive"></canvas></div></div>
-            <div class="chart-container"><div class="chart-header"><h2 class="chart-title"><i class="fas fa-chart-line"></i> Negativos 2024 vs 2025</h2></div><div class="chart-box"><canvas id="chartNegative"></canvas></div></div>
-            <div class="chart-container chart-full-width"><div class="chart-header"><h2 class="chart-title" id="title-summary"><i class="fas fa-chart-bar"></i> Resumen Comparativo</h2></div><div class="chart-box"><canvas id="chartSummary"></canvas></div></div>
-        </div>
-        </div>
-
-        <div id="container-bpp" style="display: none;">
-        <section class="kpi-container" style="grid-template-columns: 1fr 1fr; max-width: 800px; margin: 0 auto 30px auto;">
-            <div class="kpi-card" style="border-left-color: #ffc107;">
-                <div class="kpi-label">Promedio General</div>
-                <div class="kpi-value" id="kpi-bpp-promedio">0%</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #28a745;">
-                <div class="kpi-label">Objetivo</div>
-                <div class="kpi-value">90.0%</div>
-            </div>
+            <section class="kpi-container">
+                <div class="kpi-card" style="border-left-color: #28a745;">
+                    <div class="kpi-label">Total Ajustes Positivos</div>
+                    <div class="kpi-value" id="kpi-positivo">0.00</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #dc3545;">
+                    <div class="kpi-label">Total Ajustes Negativos</div>
+                    <div class="kpi-value" id="kpi-negativo">0.00</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #005f9e;">
+                    <div class="kpi-label">Balance Neto (Absoluto)</div>
+                    <div class="kpi-value" id="kpi-neto">0.00</div>
+                </div>
             </section>
-        
-        <div class="chart-container chart-full-width">
-            <div class="chart-header">
-                <h2 class="chart-title" id="title-bpp"><i class="fas fa-chart-bar"></i> Auditoría de Buenas Prácticas de Pesaje</h2>
+
+            <div class="charts-section">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h2 class="chart-title" id="title-pos"><i class="fas fa-chart-line"></i> Positivos</h2>
+                    </div>
+                    <div class="chart-box"><canvas id="chartPositive"></canvas></div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h2 class="chart-title" id="title-neg"><i class="fas fa-chart-line"></i> Negativos</h2>
+                    </div>
+                    <div class="chart-box"><canvas id="chartNegative"></canvas></div>
+                </div>
+
+                <div class="chart-container chart-full-width">
+                    <div class="chart-header">
+                        <h2 class="chart-title" id="title-summary"><i class="fas fa-chart-bar"></i> Resumen Comparativo</h2>
+                    </div>
+                    <div class="chart-box"><canvas id="chartSummary"></canvas></div>
+                </div>
             </div>
-            <div class="chart-box"><canvas id="chartBPP"></canvas></div>
-        </div>
         </div>
 
         <div id="container-movimientos" style="display: none;">
@@ -805,122 +812,69 @@
         });
     }
 
-    // --- RENDER AJUSTES (DINÁMICO: AÑO ACTUAL VS ANTERIOR) ---
+    // --- 1. RENDER AJUSTES (DINÁMICO CON TÍTULOS) ---
     function renderAjustes(data, area, month, year) {
         let f = data;
-        
-        // Aplicar filtros de Área y Mes
         if (area !== 'TODAS') f = f.filter(r => r.ÁREA === area);
         if (month !== 'TODOS') f = f.filter(r => r.MES === month);
         
-        // --- LÓGICA DINÁMICA DE AÑOS ---
-        // 1. Determinar cuál es el "Año Actual" (YearCurrent) y "Año Anterior" (YearPrev)
+        // Detectar año actual y anterior dinámicamente
         let yearCurrent, yearPrev;
-
         if (year !== 'TODOS') {
-            // Si el usuario seleccionó un año específico en el filtro (ej. 2025), ese es el actual
             yearCurrent = parseInt(year);
         } else {
-            // Si es "TODOS", buscamos el año más alto que exista en los datos
             const allYears = data.map(r => parseInt(r.AÑO));
-            // Si hay datos, tomamos el máx, si no, usamos el año real del sistema
             yearCurrent = allYears.length ? Math.max(...allYears) : new Date().getFullYear();
         }
-        
         yearPrev = yearCurrent - 1;
 
-        // Filtramos f también por año, pero OJO:
-        // Para las gráficas comparativas necesitamos datos de AMBOS años.
-        // El filtro `if (year !== 'TODOS')` original eliminaba el año anterior, rompiendo la comparación.
-        // Por eso, filtramos para dejar pasar solo los dos años que nos interesan.
-        f = f.filter(r => parseInt(r.AÑO) === yearCurrent || parseInt(r.AÑO) === yearPrev);
+        // --- ACTUALIZACIÓN DE TÍTULOS DINÁMICOS ---
+        const tPos = document.getElementById('title-pos');
+        const tNeg = document.getElementById('title-neg');
+        const tSum = document.getElementById('title-summary');
 
-        // --- CÁLCULO DE KPIs ---
-        // Los KPIs suelen mostrar el acumulado del año seleccionado (o el actual si es TODOS)
-        // Filtramos temporalmente solo el año actual para sumar los KPIs
+        if(tPos) tPos.innerHTML = `<i class="fas fa-chart-line"></i> Positivos ${yearPrev} vs ${yearCurrent}`;
+        if(tNeg) tNeg.innerHTML = `<i class="fas fa-chart-line"></i> Negativos ${yearPrev} vs ${yearCurrent}`;
+        if(tSum) tSum.innerHTML = `<i class="fas fa-chart-bar"></i> Resumen Comparativo (${yearCurrent})`;
+        // ------------------------------------------
+
+        f = f.filter(r => parseInt(r.AÑO) === yearCurrent || parseInt(r.AÑO) === yearPrev);
         const fCurrent = f.filter(r => parseInt(r.AÑO) === yearCurrent);
-        
+
         const tP = fCurrent.reduce((acc, r) => acc + parseV(r['AJUSTE POSITIVO']), 0);
         const tN = fCurrent.reduce((acc, r) => acc + parseV(r['AJUSTE NEGATIVO']), 0);
-        
         document.getElementById('kpi-positivo').textContent = tP.toLocaleString('es-MX', {minimumFractionDigits: 2});
         document.getElementById('kpi-negativo').textContent = tN.toLocaleString('es-MX', {minimumFractionDigits: 2});
         document.getElementById('kpi-neto').textContent = (tP + tN).toLocaleString('es-MX', {minimumFractionDigits: 2});
 
-        // --- PREPARACIÓN DE GRÁFICAS ---
         if (charts.pos) charts.pos.destroy();
         if (charts.neg) charts.neg.destroy();
         if (charts.sum) charts.sum.destroy();
 
-        // Función auxiliar para obtener datos de un año específico
         const getS = (y, field) => mesesLabels.map(m => {
             const r = f.find(item => item.MES === m && item.AÑO.toString() === y.toString());
-            const val = r ? parseV(r[field]) : 0;
-            return val === 0 ? null : val;
+            return r ? parseV(r[field]) : null;
         });
 
-        // Configuración dinámica de la línea
         const configLine = (field) => ({
-            type: 'line',
-            data: {
-                labels: mesesLabels,
-                datasets: [
-                    { 
-                        label: yearPrev.toString(), // Etiqueta dinámica (ej. "2024")
-                        data: getS(yearPrev, field), 
-                        borderColor: '#005db4', 
-                        borderDash: [5, 5], // Línea punteada para el año pasado
-                        tension: 0.3, 
-                        spanGaps: true 
-                    },
-                    { 
-                        label: yearCurrent.toString(), // Etiqueta dinámica (ej. "2025")
-                        data: getS(yearCurrent, field), 
-                        borderColor: '#005db4', 
-                        borderWidth: 3, // Línea sólida y gruesa para el año actual
-                        tension: 0.3, 
-                        spanGaps: true 
-                    },
-                    { 
-                        label: `Tendencia (${yearCurrent})`, 
-                        data: calculateTrend(getS(yearCurrent, field).map(v=>v||0)), 
-                        borderColor: '#28a745', 
-                        borderDash: [2, 2], 
-                        pointRadius: 0, 
-                        fill: false, 
-                        datalabels: { display: false } 
-                    }
-                ]
-            },
-            plugins: [ChartDataLabels],
-            options: { 
-                responsive: true, maintainAspectRatio: false, 
-                plugins: { 
-                    datalabels: { anchor: 'end', align: 'top', offset: 8, formatter: (v) => (v && v>0) ? v.toLocaleString('es-MX',{maximumFractionDigits:0}) : '' },
-                    tooltip: { callbacks: { label: (c) => (c.dataset.label||'') + ': ' + (c.parsed.y||0).toLocaleString('es-MX') } }
-                } 
-            }
+            type: 'line', data: { labels: mesesLabels, datasets: [
+                { label: yearPrev.toString(), data: getS(yearPrev, field), borderColor: '#005db4', borderDash: [5, 5], tension: 0.3, spanGaps: true },
+                { label: yearCurrent.toString(), data: getS(yearCurrent, field), borderColor: '#005db4', borderWidth: 3, tension: 0.3, spanGaps: true },
+                { label: `Tendencia (${yearCurrent})`, data: calculateTrend(getS(yearCurrent, field).map(v=>v||0)), borderColor: '#28a745', borderDash: [2, 2], pointRadius: 0, fill: false, datalabels: { display: false } }
+            ]},
+            plugins: [ChartDataLabels], options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { anchor: 'end', align: 'top', offset: 8, formatter: (v) => (v && v>0) ? v.toLocaleString('es-MX',{maximumFractionDigits:0}) : '' }, tooltip: { callbacks: { label: (c) => (c.dataset.label||'') + ': ' + (c.parsed.y||0).toLocaleString('es-MX') } } } }
         });
 
         charts.pos = new Chart(document.getElementById('chartPositive'), configLine('AJUSTE POSITIVO'));
         charts.neg = new Chart(document.getElementById('chartNegative'), configLine('AJUSTE NEGATIVO'));
 
-        // GRÁFICA DE BARRAS (RESUMEN)
-        // Aquí comparamos por Área (si está en TODOS) o por Meses
         const sumLabels = area === 'TODAS' ? areasAjustes : mesesLabels;
-        
-        // Sumamos solo los datos del año actual para el resumen de barras
         const sumPos = sumLabels.map(l => fCurrent.filter(r => (area === 'TODAS' ? r.ÁREA : r.MES) === l).reduce((a,r)=>a+parseV(r['AJUSTE POSITIVO']),0));
         const sumNeg = sumLabels.map(l => fCurrent.filter(r => (area === 'TODAS' ? r.ÁREA : r.MES) === l).reduce((a,r)=>a+parseV(r['AJUSTE NEGATIVO']),0));
         const sumAbs = sumPos.map((v, i) => v + sumNeg[i]);
-        
-        // Actualizamos el título del resumen para que diga el año
-        const titleEl = document.getElementById('title-summary');
-        if (titleEl) titleEl.innerHTML = `<i class="fas fa-chart-bar"></i> Resumen Comparativo (${yearCurrent})`;
 
         charts.sum = new Chart(document.getElementById('chartSummary'), {
-            type: 'bar',
-            data: { labels: sumLabels, datasets: [{label:'Positivo', data:sumPos, backgroundColor:'#28a745'},{label:'Negativo', data:sumNeg, backgroundColor:'#dc3545'},{label:'Absoluto', data:sumAbs, backgroundColor:'#005f9e'}] },
+            type: 'bar', data: { labels: sumLabels, datasets: [{label:'Positivo', data:sumPos, backgroundColor:'#28a745'},{label:'Negativo', data:sumNeg, backgroundColor:'#dc3545'},{label:'Absoluto', data:sumAbs, backgroundColor:'#005f9e'}] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { anchor: 'end', align: 'top', formatter: (v) => v > 0 ? v.toLocaleString('es-MX', {maximumFractionDigits:0}) : '' }, tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.parsed.y.toLocaleString('es-MX') } } } }
         });
     }
