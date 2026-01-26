@@ -831,7 +831,7 @@
         document.getElementById('kpi-bpp-promedio').textContent = avg.toLocaleString('es-MX', {maximumFractionDigits: 1}) + "%";
 
         const xLabels = (areaSelected === 'TODAS') ? areasBPP : [areaSelected];
-        const barColors = ['#005f9e', '#28a745', '#ffc107', '#20c997', '#17a2b8', '#fd7e14'];
+        const barColors = ['#005f9e', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#fd7e14'];
 
         const datasets = periodsToShow.map((m, index) => {
             return {
@@ -844,7 +844,7 @@
             };
         });
 
-        datasets.push({ label: 'Objetivo (90%)', data: xLabels.map(() => 90), type: 'line', borderColor: '#dc3545', borderWidth: 4, pointRadius: 0, fill: false, order: 0, datalabels: { display: false } });
+        datasets.push({ label: 'Objetivo (90%)', data: xLabels.map(() => 90), type: 'line', borderColor: '#690d0d', borderWidth: 4, pointRadius: 0, fill: false, order: 0, datalabels: { display: false } });
 
         if (charts.bpp) charts.bpp.destroy();
 
