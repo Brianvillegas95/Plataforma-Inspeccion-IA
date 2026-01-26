@@ -151,8 +151,8 @@
                 <div class="kpi-value" id="kpi-desp-avg">0%</div>
             </div>
             <div class="kpi-card" style="border-left-color: #dc3545;">
-                <div class="kpi-label">Mes con Mayor Desperdicio</div>
-                <div class="kpi-value" id="kpi-desp-max" style="font-size: 1.8em;">-</div>
+                <div class="kpi-label">Área con Mayor Desperdicio</div>
+                <div class="kpi-value" id="kpi-desp-max" style="font-size: 1.6em;">-</div>
             </div>
             <div class="kpi-card" style="border-left-color: #005f9e;">
                 <div class="kpi-label">Tendencia Anual</div>
@@ -451,15 +451,16 @@
         });
     }
     
-    // --- RENDER DESPERDICIO (INTERACTIVO: BARRA -> DONA) ---
+    // --- RENDER DESPERDICIO
     function renderDesperdicio(data, areaSelected, monthFilter, yearFilter) {
         let f = data;
+        // Filtros Globales
         if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
         if (areaSelected !== 'TODAS') f = f.filter(r => r.ÁREA === areaSelected);
         
         let labels = mesesLabels;
         
-        // --- 1. PREPARAR DATOS PRINCIPALES ---
+        // --- 1. PREPARAR DATOS PRINCIPALES (BARRAS) ---
         let values = labels.map(m => {
             if (monthFilter !== 'TODOS' && m !== monthFilter) return null;
             const subset = f.filter(r => r.MES === m);
@@ -467,53 +468,54 @@
             return subset.reduce((a, b) => a + parseV(b.VALOR), 0) / subset.length;
         });
 
-        // KPIs
+        // --- 2. CÁLCULO DE KPIs ---
         const validValues = values.filter(v => v !== null && v > 0);
         const avg = validValues.length ? (validValues.reduce((a,b)=>a+b,0)/validValues.length) : 0;
-        let maxRecord = null;
-        let maxRecordVal = 0;
-        f.forEach(r => {
-            const val = parseV(r.VALOR);
-            if (val > maxRecordVal) {
-                maxRecordVal = val;
-                maxRecord = r;
-            }
-        });
-
-        let kpiHtml = '-';
-        if (maxRecord) {
-            const valStr = `(${maxRecordVal.toFixed(2)}%)`;
-            
-            if (yearFilter === 'TODOS') {
-                kpiHtml = `
-                    <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                        <span>${maxRecord.MES} ${valStr}</span>
-                        <span style="font-size: 0.4em; color: #6c757d; margin-top: -5px;">${maxRecord.AÑO}</span>
-                    </div>
-                `;
-            } else {
-                kpiHtml = `${maxRecord.MES} ${valStr}`;
-            }
-        }
         
-        // Tendencia
-
+        // KPI: TENDENCIA
         const trendData = calculateTrend(values);
         const firstVal = validValues[0] || 0;
         const lastVal = validValues[validValues.length - 1] || 0;
         const trendIcon = lastVal < firstVal ? '▼ Mejorando' : (lastVal > firstVal ? '▲ Subiendo' : '= Estable');
         const trendColor = lastVal < firstVal ? '#28a745' : (lastVal > firstVal ? '#dc3545' : '#005f9e');
 
-        document.getElementById('kpi-desp-avg').textContent = avg.toFixed(2) + "%";
-        document.getElementById('kpi-desp-max').innerHTML = kpiHtml;
-        document.getElementById('kpi-desp-trend').innerHTML = `<span style="color:${trendColor}">${trendIcon}</span>`;
+        // KPI: ÁREA CON MAYOR DESPERDICIO
+        let areaMap = {};
+        f.forEach(r => {
+            const val = parseV(r.VALOR);
+            if (val > 0) {
+                if (!areaMap[r.ÁREA]) areaMap[r.ÁREA] = [];
+                areaMap[r.ÁREA].push(val);
+            }
+        });
 
-        // --- 2. FUNCIÓN PARA DIBUJAR LA DONA (DETALLE) ---
+        let maxAreaName = '-';
+        let maxAreaAvg = 0;
+        for (const [nombreArea, valores] of Object.entries(areaMap)) {
+            const promedioArea = valores.reduce((a, b) => a + b, 0) / valores.length;
+            if (promedioArea > maxAreaAvg) {
+                maxAreaAvg = promedioArea;
+                maxAreaName = nombreArea;
+            }
+        }
+
+        // --- ACTUALIZAR DOM DE KPIs ---
+        document.getElementById('kpi-desp-avg').textContent = avg.toFixed(2) + "%";
+        document.getElementById('kpi-desp-trend').innerHTML = `<span style="color:${trendColor}">${trendIcon}</span>`;
+        
+        // Renderizar tarjeta de Área Crítica
+        document.getElementById('kpi-desp-max').innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                <span style="font-size: 0.9em;">${maxAreaName}</span>
+                <span style="font-size: 0.6em; color: #6c757d; margin-top: -2px;">Promedio: ${maxAreaAvg.toFixed(2)}%</span>
+            </div>
+        `;
+
+        // --- 3. FUNCIÓN INTERNA PARA DIBUJAR LA DONA ---
         const renderDoughnut = (targetMonth) => {
             let subData = f;
             let titleText = "Distribución: Promedio General";
 
-            // Si se seleccionó un mes específico (click) o hay filtro global
             if (targetMonth) {
                 subData = f.filter(r => r.MES === targetMonth);
                 titleText = `Distribución: ${targetMonth}`;
@@ -522,9 +524,11 @@
                 titleText = `Distribución: ${monthFilter}`;
             }
 
-            document.getElementById('title-desglose').innerHTML = `<i class="fas fa-chart-pie"></i> ${titleText}`;
+            // Actualizar título
+            const titleEl = document.getElementById('title-desglose');
+            if(titleEl) titleEl.innerHTML = `<i class="fas fa-chart-pie"></i> ${titleText}`;
 
-            // Helper para encontrar valores con nombres flexibles (seguridad)
+            // Helper para encontrar columnas (Scrap, Consumo, Negativos)
             const findValueByKeyword = (row, keyword) => {
                 const key = Object.keys(row).find(k => k.toUpperCase().includes(keyword.toUpperCase()));
                 return key ? parseV(row[key]) : 0;
@@ -536,10 +540,9 @@
                 return sum / subData.length;
             };
 
-            // Extraemos los 3 componentes
             const valScrap = calcAvg('SCRAP');
-            const valConsumo = calcAvg('CONSUMO'); // Busca "SOBRECONSUMO" o "CONSUMO"
-            const valAjustes = calcAvg('NEGATIVOS'); // Busca "AJUSTES NEGATIVOS" o "GATIVOS"
+            const valConsumo = calcAvg('CONSUMO'); 
+            const valAjustes = calcAvg('NEGATIVOS'); 
 
             if (charts.despDona) charts.despDona.destroy();
 
@@ -549,7 +552,7 @@
                     labels: ['Scrap', 'Sobreconsumo', 'Ajustes Negativos'],
                     datasets: [{
                         data: [valScrap, valConsumo, valAjustes],
-                        backgroundColor: ['#690d0d', '#dc3545', '#ff7f8a'],
+                        backgroundColor: ['#690d0d', '#dc3545', '#ff7f8a'], 
                         borderColor: '#ffffff',
                         borderWidth: 2
                     }]
@@ -562,13 +565,12 @@
                         legend: { position: 'right' },
                         tooltip: { callbacks: { label: (c) => c.label + ': ' + c.parsed.toFixed(2) + '%' } },
                         datalabels: {
-                            color: '#fff',
+                            color: '#fff', // Texto blanco
                             font: { weight: 'bold' },
                             formatter: (value, ctx) => {
                                 if (value < 0.1) return ''; 
                                 let sum = 0;
                                 ctx.chart.data.datasets[0].data.map(d => sum += d);
-                                // Porcentaje relativo a la dona (distribución)
                                 let percentage = (sum > 0) ? (value * 100 / sum).toFixed(1) + "%" : "0%";
                                 return percentage; 
                             }
@@ -578,7 +580,7 @@
             });
         };
 
-        // --- 3. RENDERIZAR GRÁFICA PRINCIPAL (BARRAS) ---
+        // --- 4. RENDERIZAR GRÁFICA PRINCIPAL (BARRAS) ---
         if (charts.desp) charts.desp.destroy();
 
         charts.desp = new Chart(document.getElementById('chartDesperdicio'), {
@@ -593,14 +595,14 @@
             plugins: [ChartDataLabels],
             options: {
                 responsive: true, maintainAspectRatio: false,
-                // EVENTO CLICK: Detecta qué barra se tocó y actualiza la dona
+                // EVENTO CLICK PARA ACTUALIZAR LA DONA
                 onClick: (evt, elements) => {
                     if (elements.length > 0) {
                         const index = elements[0].index;
                         const clickedMonth = labels[index];
-                        renderDoughnut(clickedMonth); // Actualiza dona con mes clickeado
+                        renderDoughnut(clickedMonth);
                     } else {
-                        renderDoughnut(null); // Click fuera = reset a general
+                        renderDoughnut(null); // Reset al hacer click fuera
                     }
                 },
                 plugins: {
@@ -612,7 +614,7 @@
             }
         });
 
-        // 4. Render inicial de la dona (Promedio)
+        // 5. Inicializar la dona con el promedio general
         renderDoughnut(null);
     }
 
