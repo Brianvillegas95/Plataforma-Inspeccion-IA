@@ -78,7 +78,7 @@
             <div class="filter-group">
                 <label>Año</label>
                 <select id="filter-year" class="filter-control" onchange="processData()">
-                    <option value="TODOS">TODOS LOS AÑOS</option><option>2024</option><option>2025</option>
+                    <option value="TODOS">TODOS LOS AÑOS</option>
                 </select>
             </div>
         </section>
@@ -240,14 +240,62 @@
         try {
             const res = await fetch('/.netlify/functions/mejora-continua');
             const json = await res.json();
+            
+            // Cargar datos a variables globales
             rawDataAjustes = json.data.ajustes || [];
             rawDataBPP = json.data.bpp || [];
             rawDataAdic = json.data.adicionales || [];
             rawDataDev = json.data.devoluciones || [];
             rawDataDesp = json.data.desperdicio || [];
-            rawData5s = json.data.cinco_s || []; // Nueva data 5S
+            rawData5s = json.data.cinco_s || [];
+
+            // --- NUEVO: LLENAR FILTRO DE AÑOS AUTOMÁTICAMENTE ---
+            // Esto asegura que si metes datos de 2026, aparezca la opción sola.
+            populateYearFilter(); 
+
             processData();
         } catch (e) { console.error(e); }
+    }
+
+    // --- FUNCIÓN NUEVA: DETECTAR AÑOS DISPONIBLES ---
+    function populateYearFilter() {
+        const select = document.getElementById('filter-year');
+        
+        // 1. Recolectar todos los años únicos de todas las tablas
+        const allData = [
+            ...rawDataAjustes, 
+            ...rawDataBPP, 
+            ...rawDataAdic, 
+            ...rawDataDev, 
+            ...rawDataDesp, 
+            ...rawData5s
+        ];
+        
+        const yearsSet = new Set();
+        allData.forEach(r => {
+            if (r.AÑO) yearsSet.add(parseInt(r.AÑO));
+        });
+
+        // Convertir a array y ordenar descendente (2026, 2025, 2024...)
+        const yearsArr = Array.from(yearsSet).sort((a, b) => b - a);
+
+        // 2. Limpiar opciones actuales (dejando solo TODOS)
+        // Guardamos el valor actual por si queremos mantenerlo, si no default a TODOS
+        const currentVal = select.value; 
+        select.innerHTML = '<option value="TODOS">TODOS LOS AÑOS</option>';
+
+        // 3. Insertar opciones dinámicas
+        yearsArr.forEach(y => {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            select.appendChild(opt);
+        });
+
+        // Restaurar selección si es posible
+        if (yearsArr.includes(parseInt(currentVal))) {
+            select.value = currentVal;
+        }
     }
 
     // Actualiza Areas
