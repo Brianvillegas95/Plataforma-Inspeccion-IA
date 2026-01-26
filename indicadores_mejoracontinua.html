@@ -299,33 +299,47 @@
 
     function processData() {
         const ind = document.getElementById('filter-indicator').value;
+        
+        // Actualizamos filtros de Área y Mes/Bimestre
         updateAreaFilter(ind);
         updateMonthFilter(ind);
 
-        // --- LÓGICA DE AÑO (NUEVO) ---
+        // --- LÓGICA DE AÑO (MEJORADA: RESET AUTO) ---
         const yearSelect = document.getElementById('filter-year');
         const yearOptions = yearSelect.options;
-        
-        if (ind === '5S') {
-            // Si es 5S, deshabilitamos "TODOS" y forzamos un año específico
-            // Buscamos la opción TODOS y la ocultamos/deshabilitamos
-            for (let i = 0; i < yearOptions.length; i++) {
-                if (yearOptions[i].value === 'TODOS') {
-                    yearOptions[i].disabled = true;
-                    yearOptions[i].style.display = 'none';
-                }
+        let todosOption = null;
+
+        // 1. Buscamos la opción "TODOS" para manipularla
+        for (let i = 0; i < yearOptions.length; i++) {
+            if (yearOptions[i].value === 'TODOS') {
+                todosOption = yearOptions[i];
+                break;
             }
-            // Si estaba seleccionado TODOS, lo cambiamos al año actual (ej. 2025)
+        }
+
+        if (ind === '5S') {
+            // CASO 5'S: Bloquear "TODOS"
+            if (todosOption) {
+                todosOption.disabled = true;
+                todosOption.style.display = 'none';
+            }
+            // Si estaba en TODOS, forzar al año actual
             if (yearSelect.value === 'TODOS') {
                 yearSelect.value = '2025'; 
             }
         } else {
-            // Para los demás indicadores, habilitamos TODOS
-            for (let i = 0; i < yearOptions.length; i++) {
-                yearOptions[i].disabled = false;
-                yearOptions[i].style.display = 'block';
+            // CASO OTROS INDICADORES: Desbloquear "TODOS"
+            // TRUCO: Verificamos si estaba bloqueada antes de desbloquearla.
+            // Si estaba blocked == true, significa que venimos de la pantalla de 5'S.
+            if (todosOption && todosOption.disabled) {
+                todosOption.disabled = false;
+                todosOption.style.display = 'block';
+                
+                // AQUÍ ESTÁ LA MAGIA: Como venimos de 5'S, reseteamos a TODOS automáticamente
+                yearSelect.value = 'TODOS';
             }
         }
+        // --------------------------------------------------
 
         const area = document.getElementById('filter-area').value;
         const month = document.getElementById('filter-month').value;
