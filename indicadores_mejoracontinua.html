@@ -160,6 +160,22 @@
             </div>
         </section>
 
+        <div id="container-desperdicio" style="display: none;">
+        <section class="kpi-container" style="grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+            <div class="kpi-card" style="border-left-color: #dc3545;">
+                <div class="kpi-label">Promedio de Desperdicio (General)</div>
+                <div class="kpi-value" id="kpi-desp-avg">0%</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #ffc107;">
+                <div class="kpi-label">Mes con Mayor Merma</div>
+                <div class="kpi-value" id="kpi-desp-max" style="font-size: 1.8em;">-</div>
+            </div>
+            <div class="kpi-card" style="border-left-color: #005f9e;">
+                <div class="kpi-label">Tendencia Anual</div>
+                <div class="kpi-value" id="kpi-desp-trend" style="font-size: 1.8em;">-</div>
+            </div>
+        </section>
+
         <div class="chart-container chart-full-width" style="margin-bottom: 25px;">
             <div class="chart-header">
                 <h2 class="chart-title"><i class="fas fa-trash-alt"></i> Comportamiento General de Desperdicio vs Tendencia</h2>
@@ -167,27 +183,13 @@
             <div class="chart-box"><canvas id="chartDesperdicio"></canvas></div>
         </div>
 
-        <div class="charts-section" style="grid-template-columns: repeat(3, 1fr); gap: 15px;">
-            <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title" style="font-size: 0.9em;"><i class="fas fa-cogs"></i> SCRAP</h2>
-                </div>
-                <div class="chart-box" style="height: 300px;"><canvas id="chartScrap"></canvas></div>
+        <div class="chart-container chart-full-width">
+            <div class="chart-header">
+                <h2 class="chart-title"><i class="fas fa-layer-group"></i> Distribución del Desperdicio (Scrap vs Sobreconsumo vs Ajustes)</h2>
             </div>
-            <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title" style="font-size: 0.9em;"><i class="fas fa-exclamation-triangle"></i> SOBRECONSUMO</h2>
-                </div>
-                <div class="chart-box" style="height: 300px;"><canvas id="chartSobreconsumo"></canvas></div>
-            </div>
-            <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title" style="font-size: 0.9em;"><i class="fas fa-minus-circle"></i> AJUSTES NEGATIVOS</h2>
-                </div>
-                <div class="chart-box" style="height: 300px;"><canvas id="chartAjustesNeg"></canvas></div>
-            </div>
+            <div class="chart-box"><canvas id="chartDesgloseStack"></canvas></div>
         </div>
-        </div> 
+        </div>
 
         <div id="container-5s" style="display: none;">
         <section class="kpi-container" style="grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
@@ -463,7 +465,7 @@
         });
     }
     
-    // --- RENDER DESPERDICIO (ACTUALIZADO CON DESGLOSE) ---
+    // --- RENDER DESPERDICIO (ACTUALIZADO: APILADO 100%) ---
     function renderDesperdicio(data, areaSelected, monthFilter, yearFilter) {
         let f = data;
         if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
@@ -471,7 +473,7 @@
         
         let labels = mesesLabels;
         
-        // --- 1. PROCESAR DATOS GENERALES (VALOR) ---
+        // --- 1. PROCESAR DATOS GENERALES ---
         let values = labels.map(m => {
             if (monthFilter !== 'TODOS' && m !== monthFilter) return null;
             const subset = f.filter(r => r.MES === m);
@@ -518,59 +520,61 @@
             }
         });
 
-        // --- 2. PROCESAR Y RENDERIZAR SUB-GRÁFICOS (Scrap, Sobreconsumo, Ajustes Negativos) ---
+        // --- 2. GRÁFICO APILADO (STACKED) PARA EL DESGLOSE ---
         
-        // Función auxiliar para obtener datos de una columna específica
+        // Función auxiliar para obtener datos
         const getSeriesData = (colName) => {
             return labels.map(m => {
                 if (monthFilter !== 'TODOS' && m !== monthFilter) return null;
                 const subset = f.filter(r => r.MES === m);
                 if (subset.length === 0) return 0;
-                // Busca la columna por nombre (Asegúrate que coincida con tu JSON)
-                // Intentamos buscar variantes comunes por si acaso
+                // Busca la columna por nombre (Asegúrate que coincida con tu JSON/Excel)
+                // Se busca 'SCRAP', 'SOBRECONSUMO', 'AJUSTES NEGATIVOS'
                 return subset.reduce((a, b) => a + parseV(b[colName] || b[colName.toUpperCase()] || 0), 0) / subset.length;
             });
         };
 
-        const createMiniChart = (canvasId, dataValues, color, labelTitle) => {
-            if (charts[canvasId]) charts[canvasId].destroy();
-            charts[canvasId] = new Chart(document.getElementById(canvasId), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: labelTitle,
-                        data: dataValues,
-                        backgroundColor: color,
-                        borderRadius: 3
-                    }]
-                },
-                plugins: [ChartDataLabels],
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { callbacks: { label: (c) => (c.parsed.y||0).toFixed(2) + '%' } },
-                        datalabels: { 
-                            anchor: 'end', align: 'top', 
-                            formatter: (v) => v > 0 ? v.toFixed(1) + "%" : '', 
-                            font: { size: 9, weight: 'bold' },
-                            color: '#555' 
-                        }
+        const dataScrap = getSeriesData('SCRAP');
+        const dataConsumo = getSeriesData('SOBRECONSUMO'); // O 'CONSUMO' según tu excel
+        const dataAjustes = getSeriesData('AJUSTES NEGATIVOS'); // O 'GATIVOS'
+
+        if (charts.stackDesp) charts.stackDesp.destroy();
+
+        charts.stackDesp = new Chart(document.getElementById('chartDesgloseStack'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Scrap', data: dataScrap, backgroundColor: '#dc3545' }, // Rojo
+                    { label: 'Sobreconsumo', data: dataConsumo, backgroundColor: '#fd7e14' }, // Naranja
+                    { label: 'Ajustes Negativos', data: dataAjustes, backgroundColor: '#6c757d' } // Gris
+                ]
+            },
+            plugins: [ChartDataLabels],
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        mode: 'index', intersect: false, // Tooltip muestra los 3 valores al pasar mouse
+                        callbacks: { label: (c) => c.dataset.label + ': ' + Math.round(c.parsed.y) + '%' }
                     },
-                    scales: { 
-                        y: { beginAtZero: true, ticks: { display: false } }, // Ocultamos eje Y para limpieza visual
-                        x: { ticks: { font: { size: 8 } } } // Letra pequeña eje X
+                    datalabels: {
+                        color: 'white',
+                        font: { weight: 'bold', size: 10 },
+                        formatter: (value) => value > 5 ? Math.round(value) + '%' : '' // Solo muestra si es > 5% para que quepa
+                    }
+                },
+                scales: {
+                    x: { stacked: true }, // Eje X Apilado
+                    y: { 
+                        stacked: true,    // Eje Y Apilado
+                        min: 0, max: 100, // Forzar 0 a 100%
+                        ticks: { callback: (v) => v + '%' } 
                     }
                 }
-            });
-        };
-
-        // Renderizar los 3 pequeños
-        // NOTA: Ajusta las claves 'SCRAP', 'SOBRECONSUMO', 'AJUSTES NEGATIVOS' si en tu JSON vienen diferente.
-        createMiniChart('chartScrap', getSeriesData('SCRAP'), '#dc3545', 'Scrap'); // Rojo
-        createMiniChart('chartSobreconsumo', getSeriesData('SOBRECONSUMO'), '#fd7e14', 'Sobreconsumo'); // Naranja
-        createMiniChart('chartAjustesNeg', getSeriesData('AJUSTES NEGATIVOS'), '#6c757d', 'Ajustes Neg.'); // Gris
+            }
+        });
     }
 
     // --- RENDER MOVIMIENTOS ---
