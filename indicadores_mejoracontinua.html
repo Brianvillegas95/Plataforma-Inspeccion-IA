@@ -160,20 +160,22 @@
             </div>
         </section>
 
-        <div class="chart-container chart-full-width" style="margin-bottom: 25px;">
-            <div class="chart-header">
-                <h2 class="chart-title"><i class="fas fa-hand-pointer"></i> Comportamiento General (Haz Click en una barra para ver detalle)</h2>
+        <div class="charts-section">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title"><i class="fas fa-hand-pointer"></i> Comportamiento (Click en barra)</h2>
+                </div>
+                <div class="chart-box" style="height: 400px;"><canvas id="chartDesperdicio"></canvas></div>
             </div>
-            <div class="chart-box"><canvas id="chartDesperdicio"></canvas></div>
-        </div>
 
-        <div class="chart-container chart-full-width">
-            <div class="chart-header">
-                <h2 class="chart-title" id="title-desglose"><i class="fas fa-chart-pie"></i> Distribución General</h2>
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title" id="title-desglose"><i class="fas fa-chart-pie"></i> Distribución</h2>
+                </div>
+                <div class="chart-box" style="height: 400px;"><canvas id="chartDesgloseDona"></canvas></div>
             </div>
-            <div class="chart-box" style="height: 400px;"><canvas id="chartDesgloseDona"></canvas></div>
         </div>
-        </div>
+        </div> 
 
         <div id="container-5s" style="display: none;">
         <section class="kpi-container" style="grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
