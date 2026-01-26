@@ -163,7 +163,7 @@
         <div class="charts-section">
             <div class="chart-container">
                 <div class="chart-header">
-                    <h2 class="chart-title"><i class="fas fa-hand-pointer"></i> Comportamiento (Click en barra)</h2>
+                    <h2 class="chart-title"><i class="fas fa-hand-pointer"></i> Desperdicio Total vs Tendencia</h2>
                 </div>
                 <div class="chart-box" style="height: 400px;"><canvas id="chartDesperdicio"></canvas></div>
             </div>
@@ -470,11 +470,34 @@
         // KPIs
         const validValues = values.filter(v => v !== null && v > 0);
         const avg = validValues.length ? (validValues.reduce((a,b)=>a+b,0)/validValues.length) : 0;
-        const maxVal = validValues.length ? Math.max(...validValues) : 0;
-        const maxIndex = values.indexOf(maxVal);
-        const maxMonth = maxIndex >= 0 ? labels[maxIndex] : '-';
+        let maxRecord = null;
+        let maxRecordVal = 0;
+        f.forEach(r => {
+            const val = parseV(r.VALOR);
+            if (val > maxRecordVal) {
+                maxRecordVal = val;
+                maxRecord = r;
+            }
+        });
+
+        let kpiHtml = '-';
+        if (maxRecord) {
+            const valStr = `(${maxRecordVal.toFixed(2)}%)`;
+            
+            if (yearFilter === 'TODOS') {
+                kpiHtml = `
+                    <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                        <span>${maxRecord.MES} ${valStr}</span>
+                        <span style="font-size: 0.4em; color: #6c757d; margin-top: -5px;">${maxRecord.AÑO}</span>
+                    </div>
+                `;
+            } else {
+                kpiHtml = `${maxRecord.MES} ${valStr}`;
+            }
+        }
         
         // Tendencia
+
         const trendData = calculateTrend(values);
         const firstVal = validValues[0] || 0;
         const lastVal = validValues[validValues.length - 1] || 0;
@@ -482,7 +505,7 @@
         const trendColor = lastVal < firstVal ? '#28a745' : (lastVal > firstVal ? '#dc3545' : '#005f9e');
 
         document.getElementById('kpi-desp-avg').textContent = avg.toFixed(2) + "%";
-        document.getElementById('kpi-desp-max').textContent = maxMonth + ` (${maxVal.toFixed(2)}%)`;
+        document.getElementById('kpi-desp-max').innerHTML = kpiHtml;
         document.getElementById('kpi-desp-trend').innerHTML = `<span style="color:${trendColor}">${trendIcon}</span>`;
 
         // --- 2. FUNCIÓN PARA DIBUJAR LA DONA (DETALLE) ---
@@ -493,10 +516,10 @@
             // Si se seleccionó un mes específico (click) o hay filtro global
             if (targetMonth) {
                 subData = f.filter(r => r.MES === targetMonth);
-                titleText = `Distribución del Mes: ${targetMonth}`;
+                titleText = `Distribución: ${targetMonth}`;
             } else if (monthFilter !== 'TODOS') {
                 subData = f.filter(r => r.MES === monthFilter);
-                titleText = `Distribución del Mes: ${monthFilter}`;
+                titleText = `Distribución: ${monthFilter}`;
             }
 
             document.getElementById('title-desglose').innerHTML = `<i class="fas fa-chart-pie"></i> ${titleText}`;
