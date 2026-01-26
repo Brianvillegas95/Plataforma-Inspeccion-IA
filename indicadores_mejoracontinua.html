@@ -147,7 +147,7 @@
         <div id="container-desperdicio" style="display: none;">
         <section class="kpi-container" style="grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
             <div class="kpi-card" style="border-left-color: #dc3545;">
-                <div class="kpi-label">Promedio de Desperdicio (General)</div>
+                <div class="kpi-label">Promedio de Desperdicio</div>
                 <div class="kpi-value" id="kpi-desp-avg">0%</div>
             </div>
             <div class="kpi-card" style="border-left-color: #ffc107;">
@@ -162,16 +162,16 @@
 
         <div class="chart-container chart-full-width" style="margin-bottom: 25px;">
             <div class="chart-header">
-                <h2 class="chart-title"><i class="fas fa-trash-alt"></i> Comportamiento General de Desperdicio vs Tendencia</h2>
+                <h2 class="chart-title"><i class="fas fa-hand-pointer"></i> Comportamiento General (Haz Click en una barra para ver detalle)</h2>
             </div>
             <div class="chart-box"><canvas id="chartDesperdicio"></canvas></div>
         </div>
 
         <div class="chart-container chart-full-width">
             <div class="chart-header">
-                <h2 class="chart-title"><i class="fas fa-layer-group"></i> Distribución del Desperdicio (Scrap vs Sobreconsumo vs Ajustes)</h2>
+                <h2 class="chart-title" id="title-desglose"><i class="fas fa-chart-pie"></i> Distribución General</h2>
             </div>
-            <div class="chart-box"><canvas id="chartDesgloseStack"></canvas></div>
+            <div class="chart-box" style="height: 400px;"><canvas id="chartDesgloseDona"></canvas></div>
         </div>
         </div>
 
@@ -449,7 +449,7 @@
         });
     }
     
-    // --- RENDER DESPERDICIO (ACTUALIZADO: APILADO 100%) ---
+    // --- RENDER DESPERDICIO (INTERACTIVO: BARRA -> DONA) ---
     function renderDesperdicio(data, areaSelected, monthFilter, yearFilter) {
         let f = data;
         if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
@@ -457,7 +457,7 @@
         
         let labels = mesesLabels;
         
-        // --- 1. PROCESAR DATOS GENERALES ---
+        // --- 1. PREPARAR DATOS PRINCIPALES ---
         let values = labels.map(m => {
             if (monthFilter !== 'TODOS' && m !== monthFilter) return null;
             const subset = f.filter(r => r.MES === m);
@@ -465,13 +465,15 @@
             return subset.reduce((a, b) => a + parseV(b.VALOR), 0) / subset.length;
         });
 
+        // KPIs
         const validValues = values.filter(v => v !== null && v > 0);
         const avg = validValues.length ? (validValues.reduce((a,b)=>a+b,0)/validValues.length) : 0;
         const maxVal = validValues.length ? Math.max(...validValues) : 0;
         const maxIndex = values.indexOf(maxVal);
         const maxMonth = maxIndex >= 0 ? labels[maxIndex] : '-';
+        
+        // Tendencia
         const trendData = calculateTrend(values);
-
         const firstVal = validValues[0] || 0;
         const lastVal = validValues[validValues.length - 1] || 0;
         const trendIcon = lastVal < firstVal ? '▼ Mejorando' : (lastVal > firstVal ? '▲ Subiendo' : '= Estable');
@@ -481,6 +483,77 @@
         document.getElementById('kpi-desp-max').textContent = maxMonth + ` (${maxVal.toFixed(2)}%)`;
         document.getElementById('kpi-desp-trend').innerHTML = `<span style="color:${trendColor}">${trendIcon}</span>`;
 
+        // --- 2. FUNCIÓN PARA DIBUJAR LA DONA (DETALLE) ---
+        const renderDoughnut = (targetMonth) => {
+            let subData = f;
+            let titleText = "Distribución: Promedio General";
+
+            // Si se seleccionó un mes específico (click) o hay filtro global
+            if (targetMonth) {
+                subData = f.filter(r => r.MES === targetMonth);
+                titleText = `Distribución del Mes: ${targetMonth}`;
+            } else if (monthFilter !== 'TODOS') {
+                subData = f.filter(r => r.MES === monthFilter);
+                titleText = `Distribución del Mes: ${monthFilter}`;
+            }
+
+            document.getElementById('title-desglose').innerHTML = `<i class="fas fa-chart-pie"></i> ${titleText}`;
+
+            // Helper para encontrar valores con nombres flexibles (seguridad)
+            const findValueByKeyword = (row, keyword) => {
+                const key = Object.keys(row).find(k => k.toUpperCase().includes(keyword.toUpperCase()));
+                return key ? parseV(row[key]) : 0;
+            };
+
+            const calcAvg = (key) => {
+                if (subData.length === 0) return 0;
+                const sum = subData.reduce((acc, row) => acc + findValueByKeyword(row, key), 0);
+                return sum / subData.length;
+            };
+
+            // Extraemos los 3 componentes
+            const valScrap = calcAvg('SCRAP');
+            const valConsumo = calcAvg('CONSUMO'); // Busca "SOBRECONSUMO" o "CONSUMO"
+            const valAjustes = calcAvg('NEGATIVOS'); // Busca "AJUSTES NEGATIVOS" o "GATIVOS"
+
+            if (charts.despDona) charts.despDona.destroy();
+
+            charts.despDona = new Chart(document.getElementById('chartDesgloseDona'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Scrap', 'Sobreconsumo', 'Ajustes Negativos'],
+                    datasets: [{
+                        data: [valScrap, valConsumo, valAjustes],
+                        backgroundColor: ['#dc3545', '#fd7e14', '#6c757d'], // Rojo, Naranja, Gris
+                        borderColor: '#ffffff',
+                        borderWidth: 2
+                    }]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    layout: { padding: 20 },
+                    plugins: {
+                        legend: { position: 'right' },
+                        tooltip: { callbacks: { label: (c) => c.label + ': ' + c.parsed.toFixed(2) + '%' } },
+                        datalabels: {
+                            color: '#fff',
+                            font: { weight: 'bold' },
+                            formatter: (value, ctx) => {
+                                if (value < 0.1) return ''; 
+                                let sum = 0;
+                                ctx.chart.data.datasets[0].data.map(d => sum += d);
+                                // Porcentaje relativo a la dona (distribución)
+                                let percentage = (sum > 0) ? (value * 100 / sum).toFixed(1) + "%" : "0%";
+                                return percentage; 
+                            }
+                        }
+                    }
+                }
+            });
+        };
+
+        // --- 3. RENDERIZAR GRÁFICA PRINCIPAL (BARRAS) ---
         if (charts.desp) charts.desp.destroy();
 
         charts.desp = new Chart(document.getElementById('chartDesperdicio'), {
@@ -495,6 +568,16 @@
             plugins: [ChartDataLabels],
             options: {
                 responsive: true, maintainAspectRatio: false,
+                // EVENTO CLICK: Detecta qué barra se tocó y actualiza la dona
+                onClick: (evt, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const clickedMonth = labels[index];
+                        renderDoughnut(clickedMonth); // Actualiza dona con mes clickeado
+                    } else {
+                        renderDoughnut(null); // Click fuera = reset a general
+                    }
+                },
                 plugins: {
                     legend: { position: 'bottom' },
                     tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + (c.parsed.y||0).toFixed(2) + '%' } },
@@ -504,61 +587,8 @@
             }
         });
 
-        // --- 2. GRÁFICO APILADO (STACKED) PARA EL DESGLOSE ---
-        
-        // Función auxiliar para obtener datos
-        const getSeriesData = (colName) => {
-            return labels.map(m => {
-                if (monthFilter !== 'TODOS' && m !== monthFilter) return null;
-                const subset = f.filter(r => r.MES === m);
-                if (subset.length === 0) return 0;
-                // Busca la columna por nombre (Asegúrate que coincida con tu JSON/Excel)
-                // Se busca 'SCRAP', 'SOBRECONSUMO', 'AJUSTES NEGATIVOS'
-                return subset.reduce((a, b) => a + parseV(b[colName] || b[colName.toUpperCase()] || 0), 0) / subset.length;
-            });
-        };
-
-        const dataScrap = getSeriesData('SCRAP');
-        const dataConsumo = getSeriesData('SOBRECONSUMO'); // O 'CONSUMO' según tu excel
-        const dataAjustes = getSeriesData('AJUSTES NEGATIVOS'); // O 'GATIVOS'
-
-        if (charts.stackDesp) charts.stackDesp.destroy();
-
-        charts.stackDesp = new Chart(document.getElementById('chartDesgloseStack'), {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: 'Scrap', data: dataScrap, backgroundColor: '#dc3545' }, // Rojo
-                    { label: 'Sobreconsumo', data: dataConsumo, backgroundColor: '#fd7e14' }, // Naranja
-                    { label: 'Ajustes Negativos', data: dataAjustes, backgroundColor: '#6c757d' } // Gris
-                ]
-            },
-            plugins: [ChartDataLabels],
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom' },
-                    tooltip: {
-                        mode: 'index', intersect: false, // Tooltip muestra los 3 valores al pasar mouse
-                        callbacks: { label: (c) => c.dataset.label + ': ' + Math.round(c.parsed.y) + '%' }
-                    },
-                    datalabels: {
-                        color: 'white',
-                        font: { weight: 'bold', size: 10 },
-                        formatter: (value) => value > 5 ? Math.round(value) + '%' : '' // Solo muestra si es > 5% para que quepa
-                    }
-                },
-                scales: {
-                    x: { stacked: true }, // Eje X Apilado
-                    y: { 
-                        stacked: true,    // Eje Y Apilado
-                        min: 0, max: 100, // Forzar 0 a 100%
-                        ticks: { callback: (v) => v + '%' } 
-                    }
-                }
-            }
-        });
+        // 4. Render inicial de la dona (Promedio)
+        renderDoughnut(null);
     }
 
     // --- RENDER MOVIMIENTOS ---
