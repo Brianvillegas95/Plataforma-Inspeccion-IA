@@ -926,14 +926,14 @@
         });
     }
 
-    // --- 2. RENDER BPP (CON CORRECCIÓN DE ETIQUETAS CORTADAS) ---
+    // --- 2. RENDER BPP (SOLUCIÓN: LÍNEA DE OBJETIVO VISIBLE EN FILTRO INDIVIDUAL) ---
     function renderBPP(data, areaSelected, selectedMonths, isAllMonths, yearFilter) {
         let f = data;
         // 1. Aplicamos filtros generales (Año y Área)
         if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
         if (areaSelected !== 'TODAS') f = f.filter(r => r.ÁREA === areaSelected);
 
-        // --- LÓGICA GRÁFICA 1 (La de Barras / Selección / Últimos 6 meses) ---
+        // --- PREPARACIÓN DE DATOS ---
         let uniqueMonths = [];
         f.forEach(r => {
             const key = `${r.MES}-${r.AÑO}`;
@@ -942,7 +942,6 @@
         uniqueMonths.sort((a,b) => a.order - b.order);
 
         let periodsToShow = [];
-        
         if (!isAllMonths) {
             periodsToShow = uniqueMonths.filter(m => selectedMonths.includes(m.mes));
             document.getElementById('title-bpp').textContent = `Auditoría BPP: Selección`;
@@ -951,33 +950,71 @@
             document.getElementById('title-bpp').textContent = "Auditoría BPP (Últimos 6 Registros)";
         }
 
+        // KPI
         const kpiData = f.filter(r => periodsToShow.some(p => p.mes === r.MES && p.año === r.AÑO));
         const avg = kpiData.length ? (kpiData.reduce((acc, r) => acc + parseV(r.VALOR), 0) / kpiData.length) : 0;
         document.getElementById('kpi-bpp-promedio').textContent = avg.toLocaleString('es-MX', {maximumFractionDigits: 1}) + "%";
 
-        const xLabels = (areaSelected === 'TODAS') ? areasBPP : [areaSelected];
+        // --- LÓGICA HÍBRIDA PARA LA GRÁFICA DE BARRAS ---
         const barColors = ['#005f9e', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#fd7e14'];
+        let xLabels, datasets;
 
-        const datasets = periodsToShow.map((m, index) => {
-            return {
-                label: m.mes,
-                data: xLabels.map(areaName => {
-                    const record = f.find(r => r.ÁREA === areaName && r.MES === m.mes && r.AÑO === m.año);
-                    return record ? parseV(record.VALOR) : 0;
-                }),
-                backgroundColor: barColors[index % barColors.length], borderRadius: 4, barPercentage: 0.8, order: 1
-            };
-        });
-        datasets.push({ label: 'Objetivo (90%)', data: xLabels.map(() => 90), type: 'line', borderColor: '#dc3545', borderWidth: 4, pointRadius: 0, fill: false, order: 0, datalabels: { display: false } });
+        if (areaSelected === 'TODAS') {
+            // MODO 1: MUCHAS ÁREAS (Eje X = Áreas)
+            // Aquí la línea se dibuja "a través" de las áreas
+            xLabels = areasBPP;
+            datasets = periodsToShow.map((m, index) => {
+                return {
+                    label: m.mes,
+                    data: xLabels.map(areaName => {
+                        const record = f.find(r => r.ÁREA === areaName && r.MES === m.mes && r.AÑO === m.año);
+                        return record ? parseV(record.VALOR) : 0;
+                    }),
+                    backgroundColor: barColors[index % barColors.length], borderRadius: 4, barPercentage: 0.8, order: 1
+                };
+            });
+            // Linea Objetivo
+            datasets.push({ label: 'Objetivo (90%)', data: xLabels.map(() => 90), type: 'line', borderColor: '#dc3545', borderWidth: 4, pointRadius: 0, fill: false, order: 0, datalabels: { display: false } });
 
-        // Renderizar Gráfica 1 (Barras)
+        } else {
+            // MODO 2: UNA SOLA ÁREA (Eje X = Meses)
+            // Cambiamos el eje X a "Meses" para que la línea tenga trayectoria y se vea.
+            xLabels = periodsToShow.map(m => m.mes);
+            
+            const areaValues = xLabels.map(mes => {
+                 const record = f.find(r => r.MES === mes); // Ya filtramos por área al inicio
+                 return record ? parseV(record.VALOR) : 0;
+            });
+
+            datasets = [{
+                label: areaSelected,
+                data: areaValues,
+                // Usamos colores variados para que se vea alegre igual que la otra vista
+                backgroundColor: xLabels.map((_, i) => barColors[i % barColors.length]),
+                borderRadius: 4, barPercentage: 0.6, order: 1
+            }];
+
+            // Linea Objetivo (Ahora sí se ve porque tiene un punto por cada mes)
+            datasets.push({ 
+                label: 'Objetivo (90%)', 
+                data: xLabels.map(() => 90), 
+                type: 'line', 
+                borderColor: '#cd1b2c', 
+                borderWidth: 4, 
+                pointRadius: 0, 
+                fill: false, 
+                order: 0, 
+                datalabels: { display: false } 
+            });
+        }
+
+        // Renderizar Gráfica 1
         if (charts.bpp) charts.bpp.destroy();
         charts.bpp = new Chart(document.getElementById('chartBPP'), {
             type: 'bar', data: { labels: xLabels, datasets: datasets },
             plugins: [ChartDataLabels],
             options: {
                 responsive: true, maintainAspectRatio: false,
-                // Agregamos un poco de padding aquí también por si acaso
                 layout: { padding: { top: 20 } }, 
                 plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.parsed.y.toLocaleString('es-MX', {maximumFractionDigits: 1}) + '%' } }, datalabels: { display: false } },
                 scales: { y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } }
@@ -1002,7 +1039,7 @@
             }]
         });
 
-        // --- LÓGICA GRÁFICA 2 (NUEVA: TENDENCIA ANUAL COMPLETA) ---
+        // --- LÓGICA GRÁFICA 2 (TENDENCIA ANUAL - SE MANTIENE IGUAL) ---
         const annualValues = mesesLabels.map(m => {
             const monthlyRecords = f.filter(r => r.MES === m);
             if (monthlyRecords.length === 0) return null; 
@@ -1015,52 +1052,20 @@
             data: {
                 labels: mesesLabels, 
                 datasets: [
-                    {
-                        label: 'Promedio BPP',
-                        data: annualValues,
-                        borderColor: '#005db4',
-                        backgroundColor: '#005db4',
-                        borderWidth: 3,
-                        tension: 0.3, 
-                        spanGaps: false 
-                    },
-                    {
-                        label: 'Objetivo (90%)',
-                        data: mesesLabels.map(() => 90),
-                        borderColor: '#28a745',
-                        borderDash: [5, 5],
-                        pointRadius: 0,
-                        fill: false,
-                        datalabels: { display: false }
-                    }
+                    { label: 'Promedio BPP', data: annualValues, borderColor: '#005db4', backgroundColor: '#005db4', borderWidth: 3, tension: 0.3, spanGaps: false },
+                    { label: 'Objetivo (90%)', data: mesesLabels.map(() => 90), borderColor: '#cd1b2c', borderDash: [5, 5], pointRadius: 0, fill: false, datalabels: { display: false } }
                 ]
             },
             plugins: [ChartDataLabels],
             options: {
                 responsive: true, maintainAspectRatio: false,
-                // --- AQUÍ ESTÁ LA SOLUCIÓN: PADDING SUPERIOR ---
-                layout: {
-                    padding: {
-                        top: 30, // Dejamos 30px libres arriba para que quepa la etiqueta
-                        left: 10,
-                        right: 10,
-                        bottom: 10
-                    }
-                },
-                // -----------------------------------------------
+                layout: { padding: { top: 30, left: 10, right: 10, bottom: 10 } },
                 plugins: {
                     legend: { position: 'bottom' },
-                    datalabels: {
-                        anchor: 'end', align: 'top',
-                        formatter: (v) => v ? v.toFixed(1) + "%" : '',
-                        color: '#333',
-                        font: { weight: 'bold' }
-                    },
+                    datalabels: { anchor: 'end', align: 'top', formatter: (v) => v ? v.toFixed(1) + "%" : '', color: '#333', font: { weight: 'bold' } },
                     tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + (c.parsed.y || 0).toFixed(2) + '%' } }
                 },
-                scales: {
-                    y: { beginAtZero: true, max: 100, ticks: { callback: (v) => v + '%' } }
-                }
+                scales: { y: { beginAtZero: true, max: 100, ticks: { callback: (v) => v + '%' } } }
             }
         });
     }
