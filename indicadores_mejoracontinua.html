@@ -517,37 +517,51 @@
             btnDrive.href = linksMap[ind] || '#';
         }
 
-        // --- CORRECCIÓN AQUÍ ---
-        // Solo actualizamos las listas de Área y Meses si el indicador CAMBIÓ.
-        // Esto evita que se borre tu selección de mes cuando cambias el año.
-        if (ind !== currentIndicator) {
+        // 2. ACTUALIZAR FILTROS (ÁREA Y MES) SOLO SI CAMBIA EL INDICADOR
+        // Esto evita que se reinicien tus selecciones al cambiar de año,
+        // pero asegura que se llenen las opciones al cambiar de gráfica.
+        if (typeof currentIndicator === 'undefined' || ind !== currentIndicator) {
             updateAreaFilter(ind);
             updateMonthFilter(ind);
-            currentIndicator = ind; // Guardamos el nuevo indicador
+            currentIndicator = ind; // Guardamos el indicador actual
         }
-        // -----------------------
 
-        // 2. LÓGICA DE AÑO (Bloqueo automático para 5'S)
+        // 3. LÓGICA DE AÑO (Bloqueo automático para 5'S)
         const yearSelect = document.getElementById('filter-year');
         const yearOptions = yearSelect.options;
         let todosOption = null;
         
+        // Buscar la opción "TODOS"
         for (let i = 0; i < yearOptions.length; i++) {
             if (yearOptions[i].value === 'TODOS') { todosOption = yearOptions[i]; break; }
         }
 
         if (ind === '5S') {
-            if (todosOption) { todosOption.disabled = true; todosOption.style.display = 'none'; }
-            if (yearSelect.value === 'TODOS') yearSelect.value = new Date().getFullYear().toString(); 
+            // CASO 5'S: Bloquear "TODOS"
+            if (todosOption) { 
+                todosOption.disabled = true; 
+                todosOption.style.display = 'none'; 
+            }
+            
+            // --- CORRECCIÓN AQUÍ: SELECCIÓN AUTOMÁTICA DEL AÑO MÁS RECIENTE ---
+            // Si está seleccionado "TODOS", forzamos al primer año disponible de la lista.
+            // (Como la lista está ordenada descendente, options[1] es el año mayor, ej: 2026 o 2025)
+            if (yearSelect.value === 'TODOS' && yearSelect.options.length > 1) {
+                yearSelect.value = yearSelect.options[1].value;
+            }
+            // -------------------------------------------------------------------
+
         } else {
+            // CASO OTROS: Desbloquear "TODOS"
             if (todosOption && todosOption.disabled) {
                 todosOption.disabled = false;
                 todosOption.style.display = 'block';
-                yearSelect.value = 'TODOS';
+                // Al salir de 5'S, regresamos a "TODOS" para ver el panorama completo
+                yearSelect.value = 'TODOS'; 
             }
         }
 
-        // 3. OBTENER VALORES DE LOS FILTROS
+        // 4. OBTENER VALORES DE LOS FILTROS
         const area = document.getElementById('filter-area').value;
         const year = document.getElementById('filter-year').value;
 
@@ -556,16 +570,15 @@
         const selectedMonths = Array.from(checkboxes).map(c => c.value);
         
         const totalOptions = (ind === '5S') ? bimestresLabels.length : mesesLabels.length;
-        // Si no hay ninguno o están todos, isAllMonths = true
         const isAllMonths = (selectedMonths.length === totalOptions || selectedMonths.length === 0);
 
-        // 4. OCULTAR TODOS LOS CONTENEDORES
+        // 5. OCULTAR TODOS LOS CONTENEDORES
         ['container-ajustes', 'container-bpp', 'container-movimientos', 'container-desperdicio', 'container-5s'].forEach(id => {
             const el = document.getElementById(id);
             if(el) el.style.display = 'none';
         });
 
-        // 5. ROUTER DE INDICADORES
+        // 6. ROUTER DE INDICADORES
         if (ind === 'AJUSTES') {
             document.getElementById('container-ajustes').style.display = 'block';
             renderAjustes(rawDataAjustes, area, selectedMonths, isAllMonths, year);
