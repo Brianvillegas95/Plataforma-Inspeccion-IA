@@ -362,7 +362,8 @@
     });
 
     // Actualiza el texto del botón (Ej: "ENERO, FEBRERO" o "3 Seleccionados")
-    function updateMultiSelectText(is5S) {
+    // AHORA RECIBE UN SEGUNDO PARÁMETRO: shouldProcess
+    function updateMultiSelectText(is5S, shouldProcess = true) {
         const checkboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]');
         const display = document.getElementById('month-display-text');
         const checked = Array.from(checkboxes).filter(i => i.checked).map(i => i.value);
@@ -374,8 +375,11 @@
         } else {
             display.innerText = `${checked.length} ${is5S ? 'Bimestres' : 'Meses'} Seleccionados`;
         }
-        // Disparar proceso de datos
-        processData(); 
+        
+        // CORRECCIÓN: Solo procesamos datos si se solicita (evita el bucle infinito)
+        if (shouldProcess) {
+            processData(); 
+        }
     }
 
     document.addEventListener('DOMContentLoaded', loadData);
@@ -464,21 +468,18 @@
         else select.value = 'TODAS';
     }
 
-    // Actualiza Filtro de Tiempo (Mes vs Bimestre)
     function updateMonthFilter(indicator) {
         const label = document.getElementById('label-month');
         const container = document.getElementById('checkboxes');
         const is5S = (indicator === '5S');
         const targetLabel = is5S ? 'Bimestre' : 'Mes';
         
-        // Actualizamos etiqueta visual
         label.textContent = targetLabel;
-
-        // Limpiamos y regeneramos los checkboxes
         container.innerHTML = '';
         
         // Opción "Seleccionar Todos"
         const divAll = document.createElement('label');
+        // Aquí SÍ queremos procesar datos si el usuario da click (true)
         divAll.innerHTML = `<input type="checkbox" id="check-all" onchange="toggleAllMonths(this, ${is5S})"/> (Seleccionar Todos)`;
         container.appendChild(divAll);
 
@@ -486,21 +487,25 @@
         
         options.forEach(opt => {
             const labelEl = document.createElement('label');
-            // Al cambiar un checkbox, actualizamos el texto y la data
-            labelEl.innerHTML = `<input type="checkbox" value="${opt}" checked onchange="updateMultiSelectText(${is5S})" /> ${opt}`;
+            // Al cambiar un checkbox manualmente, SÍ queremos procesar (true es default)
+            labelEl.innerHTML = `<input type="checkbox" value="${opt}" checked onchange="updateMultiSelectText(${is5S}, true)" /> ${opt}`;
             container.appendChild(labelEl);
         });
 
-        // Aseguramos que el "check-all" esté marcado al inicio
         document.getElementById('check-all').checked = true;
-        updateMultiSelectText(is5S);
+        
+        // --- AQUÍ ESTÁ LA SOLUCIÓN CLAVE ---
+        // Pasamos 'false' para que SOLO actualice el texto visualmente
+        // y NO llame a processData() de nuevo.
+        updateMultiSelectText(is5S, false); 
     }
 
     // Helper para el botón "Seleccionar Todos"
     function toggleAllMonths(source, is5S) {
         const checkboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]');
         checkboxes.forEach(c => c.checked = source.checked);
-        updateMultiSelectText(is5S);
+        // Aquí es una acción del usuario, así que SÍ queremos procesar (true)
+        updateMultiSelectText(is5S, true); 
     }
 
     function processData() {
