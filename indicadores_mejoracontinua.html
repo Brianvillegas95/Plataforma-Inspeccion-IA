@@ -300,7 +300,8 @@
     <script>
     let rawDataAjustes = [], rawDataBPP = [], rawDataAdic = [], rawDataDev = [], rawDataDesp = [], rawData5s = [];
     let charts = {};
-    
+    let currentIndicator = '';
+
     // ÁREAS POR INDICADOR
     const areasAjustes = ['BOLÍGRAFO', 'EMPAQUE', 'ENSAMBLE', 'KINERA', 'MOLDEO COLORANTES', 'MOLDEO RESINAS', 'TINTAS'];
     const areasBPP = ['BOLÍGRAFO', 'EMPAQUE', 'ENSAMBLE', 'MOLDEO', 'TINTAS']; 
@@ -506,40 +507,38 @@
         const ind = document.getElementById('filter-indicator').value;
         
         // 1. ACTUALIZAR LINK DEL BOTÓN DRIVE
-        // (Asegúrate de haber definido 'const linksMap = { ... }' al inicio de tu script)
         const btnDrive = document.getElementById('btn-detail-drive');
         if(btnDrive && typeof linksMap !== 'undefined') {
             btnDrive.href = linksMap[ind] || '#';
         }
 
-        // NOTA: updateAreaFilter y updateMonthFilter se llaman en el evento 'onchange' del HTML
-        // del select indicador, pero si queremos asegurar que se carguen al inicio o al cambiar lógica:
-        // (Si ves que al cambiar de indicador no se actualizan las opciones de mes/área, descomenta las siguientes lineas)
-        // updateAreaFilter(ind);
-        // updateMonthFilter(ind);
+        // --- CORRECCIÓN AQUÍ ---
+        // Solo actualizamos las listas de Área y Meses si el indicador CAMBIÓ.
+        // Esto evita que se borre tu selección de mes cuando cambias el año.
+        if (ind !== currentIndicator) {
+            updateAreaFilter(ind);
+            updateMonthFilter(ind);
+            currentIndicator = ind; // Guardamos el nuevo indicador
+        }
+        // -----------------------
 
         // 2. LÓGICA DE AÑO (Bloqueo automático para 5'S)
         const yearSelect = document.getElementById('filter-year');
         const yearOptions = yearSelect.options;
         let todosOption = null;
         
-        // Buscar la opción "TODOS"
         for (let i = 0; i < yearOptions.length; i++) {
             if (yearOptions[i].value === 'TODOS') { todosOption = yearOptions[i]; break; }
         }
 
         if (ind === '5S') {
-            // Caso 5'S: Bloquear "TODOS" y forzar año actual si es necesario
             if (todosOption) { todosOption.disabled = true; todosOption.style.display = 'none'; }
-            if (yearSelect.value === 'TODOS') {
-                yearSelect.value = new Date().getFullYear().toString(); 
-            }
+            if (yearSelect.value === 'TODOS') yearSelect.value = new Date().getFullYear().toString(); 
         } else {
-            // Caso Otros: Desbloquear "TODOS"
             if (todosOption && todosOption.disabled) {
                 todosOption.disabled = false;
                 todosOption.style.display = 'block';
-                yearSelect.value = 'TODOS'; // Reset automático al salir de 5'S
+                yearSelect.value = 'TODOS';
             }
         }
 
@@ -547,16 +546,12 @@
         const area = document.getElementById('filter-area').value;
         const year = document.getElementById('filter-year').value;
 
-        // --- LÓGICA MULTISELECT (NUEVO) ---
-        // Obtenemos los checkboxes marcados (ignorando el de "Seleccionar Todos")
+        // --- LÓGICA MULTISELECT ---
         const checkboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]:checked:not(#check-all)');
-        
-        // Creamos un array con los valores (ej: ['ENERO', 'MARZO'])
         const selectedMonths = Array.from(checkboxes).map(c => c.value);
         
-        // Verificamos si están todos seleccionados para optimizar filtros
         const totalOptions = (ind === '5S') ? bimestresLabels.length : mesesLabels.length;
-        // Si no hay ninguno seleccionado o están todos, lo tratamos como "Todos"
+        // Si no hay ninguno o están todos, isAllMonths = true
         const isAllMonths = (selectedMonths.length === totalOptions || selectedMonths.length === 0);
 
         // 4. OCULTAR TODOS LOS CONTENEDORES
@@ -565,8 +560,7 @@
             if(el) el.style.display = 'none';
         });
 
-        // 5. ROUTER DE INDICADORES (LLAMADAS ACTUALIZADAS)
-        // Ahora pasamos la lista 'selectedMonths' y la bandera 'isAllMonths'
+        // 5. ROUTER DE INDICADORES
         if (ind === 'AJUSTES') {
             document.getElementById('container-ajustes').style.display = 'block';
             renderAjustes(rawDataAjustes, area, selectedMonths, isAllMonths, year);
