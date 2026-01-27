@@ -193,22 +193,29 @@
 
         <div id="container-bpp" style="display: none;">
             <section class="kpi-container" style="grid-template-columns: 1fr 1fr; max-width: 800px; margin: 0 auto 30px auto;">
-            <div class="kpi-card" style="border-left-color: #ffc107;">
-                <div class="kpi-label">Promedio General</div>
-                <div class="kpi-value" id="kpi-bpp-promedio">0%</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #28a745;">
-                <div class="kpi-label">Objetivo</div>
-                <div class="kpi-value">90.0%</div>
-            </div>
+                <div class="kpi-card" style="border-left-color: #ffc107;">
+                    <div class="kpi-label">Promedio General</div>
+                    <div class="kpi-value" id="kpi-bpp-promedio">0%</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #28a745;">
+                    <div class="kpi-label">Objetivo</div>
+                    <div class="kpi-value">90.0%</div>
+                </div>
             </section>
         
-        <div class="chart-container chart-full-width">
-            <div class="chart-header">
-                <h2 class="chart-title" id="title-bpp"><i class="fas fa-chart-bar"></i> Auditoría de Buenas Prácticas de Pesaje</h2>
+            <div class="chart-container chart-full-width">
+                <div class="chart-header">
+                    <h2 class="chart-title" id="title-bpp"><i class="fas fa-chart-bar"></i> Auditoría BPP (Detalle)</h2>
+                </div>
+                <div class="chart-box"><canvas id="chartBPP"></canvas></div>
             </div>
-            <div class="chart-box"><canvas id="chartBPP"></canvas></div>
-        </div>
+
+            <div class="chart-container chart-full-width" style="margin-top: 20px;">
+                <div class="chart-header">
+                    <h2 class="chart-title"><i class="fas fa-calendar-alt"></i> Tendencia Anual (Enero - Diciembre)</h2>
+                </div>
+                <div class="chart-box"><canvas id="chartBPPAnual"></canvas></div>
+            </div>
         </div>
 
         <div id="container-movimientos" style="display: none;">
@@ -240,60 +247,72 @@
         </div>
 
         <div id="container-desperdicio" style="display: none;">
-        <section class="kpi-container" style="grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
-            <div class="kpi-card" style="border-left-color: #ffc107;">
-                <div class="kpi-label">Promedio de Desperdicio</div>
-                <div class="kpi-value" id="kpi-desp-avg">0%</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #dc3545;">
-                <div class="kpi-label">Área con Mayor Desperdicio</div>
-                <div class="kpi-value" id="kpi-desp-max" style="font-size: 1.6em;">-</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #005f9e;">
-                <div class="kpi-label">Tendencia Anual</div>
-                <div class="kpi-value" id="kpi-desp-trend" style="font-size: 1.8em;">-</div>
-            </div>
-        </section>
-
-        <div class="charts-section">
-            <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title"><i class="fas fa-hand-pointer"></i> Desperdicio Total vs Tendencia</h2>
+            <section class="kpi-container" style="grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+                <div class="kpi-card" style="border-left-color: #ffc107;">
+                    <div class="kpi-label">Promedio Real</div>
+                    <div class="kpi-value" id="kpi-desp-avg">0%</div>
                 </div>
-                <div class="chart-box" style="height: 400px;"><canvas id="chartDesperdicio"></canvas></div>
-            </div>
-
-            <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title" id="title-desglose"><i class="fas fa-chart-pie"></i> Distribución</h2>
+                
+                <div class="kpi-card" style="border-left-color: #28a745;">
+                    <div class="kpi-label">Objetivo</div>
+                    <div class="kpi-value">3.00%</div>
                 </div>
-                <div class="chart-box" style="height: 400px;"><canvas id="chartDesgloseDona"></canvas></div>
+                
+                <div class="kpi-card" style="border-left-color: #dc3545;">
+                    <div class="kpi-label">Área Crítica</div>
+                    <div class="kpi-value" id="kpi-desp-max" style="font-size: 1.4em;">-</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #005f9e;">
+                    <div class="kpi-label">Tendencia</div>
+                    <div class="kpi-value" id="kpi-desp-trend" style="font-size: 1.8em;">-</div>
+                </div>
+            </section>
+
+            <div class="charts-section">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h2 class="chart-title"><i class="fas fa-hand-pointer"></i> Desperdicio Total vs Tendencia</h2>
+                    </div>
+                    <div class="chart-box" style="height: 400px;"><canvas id="chartDesperdicio"></canvas></div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h2 class="chart-title" id="title-desglose"><i class="fas fa-chart-pie"></i> Distribución</h2>
+                    </div>
+                    <div class="chart-box" style="height: 400px;"><canvas id="chartDesgloseDona"></canvas></div>
+                </div>
             </div>
         </div>
-        </div> 
 
         <div id="container-5s" style="display: none;">
-        <section class="kpi-container" style="grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
-            <div class="kpi-card" style="border-left-color: #28a745;">
-                <div class="kpi-label">Promedio General</div>
-                <div class="kpi-value" id="kpi-5s-avg">0%</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #005f9e;">
-                <div class="kpi-label">Mejor Bimestre</div>
-                <div class="kpi-value" id="kpi-5s-best">-</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #6c757d;">
-                <div class="kpi-label">Tendencia</div>
-                <div class="kpi-value" id="kpi-5s-trend" style="font-size: 1.8em;">-</div>
-            </div>
-        </section>
+            <section class="kpi-container" style="grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+                <div class="kpi-card" style="border-left-color: #002060;">
+                    <div class="kpi-label">Promedio General</div>
+                    <div class="kpi-value" id="kpi-5s-avg">0%</div>
+                </div>
 
-        <div class="chart-container chart-full-width">
-            <div class="chart-header">
-                <h2 class="chart-title"><i class="fas fa-broom"></i> Cumplimiento 5'S por Bimestre</h2>
+                <div class="kpi-card" style="border-left-color: #28a745;">
+                    <div class="kpi-label">Objetivo</div>
+                    <div class="kpi-value">85.0%</div>
+                </div>
+
+                <div class="kpi-card" style="border-left-color: #005f9e;">
+                    <div class="kpi-label">Mejor Bimestre</div>
+                    <div class="kpi-value" id="kpi-5s-best">-</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #6c757d;">
+                    <div class="kpi-label">Tendencia</div>
+                    <div class="kpi-value" id="kpi-5s-trend" style="font-size: 1.8em;">-</div>
+                </div>
+            </section>
+
+            <div class="chart-container chart-full-width">
+                <div class="chart-header">
+                    <h2 class="chart-title"><i class="fas fa-broom"></i> Cumplimiento 5'S por Bimestre</h2>
+                </div>
+                <div class="chart-box"><canvas id="chart5s"></canvas></div>
             </div>
-            <div class="chart-box"><canvas id="chart5s"></canvas></div>
-        </div>
         </div>
     </main>
 
@@ -761,7 +780,7 @@
                     datasets: [{
                         data: [valScrap, valConsumo, valAjustes],
                         // MANTENGO LA ESCALA DE ROJOS QUE PEDISTE ANTES
-                        backgroundColor: ['#690d0d', '#dc3545', '#ff7f8a'], 
+                        backgroundColor: ['#dc3545', '#17a2b8', '#28a745'], 
                         borderColor: '#ffffff',
                         borderWidth: 2
                     }]
@@ -888,12 +907,14 @@
         });
     }
 
-    // --- 2. RENDER BPP (CON MULTI-SELECCIÓN) ---
+    // --- 2. RENDER BPP (CON GRÁFICA ANUAL ADICIONAL) ---
     function renderBPP(data, areaSelected, selectedMonths, isAllMonths, yearFilter) {
         let f = data;
+        // 1. Aplicamos filtros generales (Año y Área)
         if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
         if (areaSelected !== 'TODAS') f = f.filter(r => r.ÁREA === areaSelected);
 
+        // --- LÓGICA GRÁFICA 1 (La de Barras / Selección / Últimos 6 meses) ---
         let uniqueMonths = [];
         f.forEach(r => {
             const key = `${r.MES}-${r.AÑO}`;
@@ -903,15 +924,14 @@
 
         let periodsToShow = [];
         
-        // LÓGICA DE FILTRADO MÚLTIPLE
         if (!isAllMonths) {
-            // Si hay selección específica, mostramos SOLO esos meses que coincidan
+            // Si hay selección específica de meses
             periodsToShow = uniqueMonths.filter(m => selectedMonths.includes(m.mes));
             document.getElementById('title-bpp').textContent = `Auditoría BPP: Selección`;
         } else {
-            // Si son TODOS, mantenemos la lógica de "Últimos 6 meses" para que no se sature
+            // Si son TODOS, mostramos los últimos 6 disponibles para no saturar la gráfica de barras
             periodsToShow = uniqueMonths.slice(-6);
-            document.getElementById('title-bpp').textContent = "Auditoría BPP (Últimos 6 Meses)";
+            document.getElementById('title-bpp').textContent = "Auditoría BPP (Últimos 6 Registros)";
         }
 
         const kpiData = f.filter(r => periodsToShow.some(p => p.mes === r.MES && p.año === r.AÑO));
@@ -931,11 +951,10 @@
                 backgroundColor: barColors[index % barColors.length], borderRadius: 4, barPercentage: 0.8, order: 1
             };
         });
-
         datasets.push({ label: 'Objetivo (90%)', data: xLabels.map(() => 90), type: 'line', borderColor: '#dc3545', borderWidth: 4, pointRadius: 0, fill: false, order: 0, datalabels: { display: false } });
 
+        // Renderizar Gráfica 1 (Barras)
         if (charts.bpp) charts.bpp.destroy();
-
         charts.bpp = new Chart(document.getElementById('chartBPP'), {
             type: 'bar', data: { labels: xLabels, datasets: datasets },
             plugins: [ChartDataLabels],
@@ -962,6 +981,60 @@
                     });
                 }
             }]
+        });
+
+        // --- LÓGICA GRÁFICA 2 (NUEVA: TENDENCIA ANUAL COMPLETA) ---
+        // Aquí usamos 'mesesLabels' para forzar que aparezcan Enero, Febrero... Diciembre
+        const annualValues = mesesLabels.map(m => {
+            // Filtramos 'f' (que ya tiene el año y área seleccionados) por cada mes
+            const monthlyRecords = f.filter(r => r.MES === m);
+            if (monthlyRecords.length === 0) return null; // Si no hay datos, retornamos null para cortar la línea
+            return monthlyRecords.reduce((a, b) => a + parseV(b.VALOR), 0) / monthlyRecords.length;
+        });
+
+        if (charts.bppAnual) charts.bppAnual.destroy();
+        charts.bppAnual = new Chart(document.getElementById('chartBPPAnual'), {
+            type: 'line',
+            data: {
+                labels: mesesLabels, // Eje X siempre es Enero - Diciembre
+                datasets: [
+                    {
+                        label: 'Promedio BPP',
+                        data: annualValues,
+                        borderColor: '#005db4',
+                        backgroundColor: '#005db4',
+                        borderWidth: 3,
+                        tension: 0.3, // Curvatura suave
+                        spanGaps: false // Si falta un mes, corta la línea (más honesto)
+                    },
+                    {
+                        label: 'Objetivo (90%)',
+                        data: mesesLabels.map(() => 90),
+                        borderColor: '#28a745',
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false,
+                        datalabels: { display: false }
+                    }
+                ]
+            },
+            plugins: [ChartDataLabels],
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    datalabels: {
+                        anchor: 'end', align: 'top',
+                        formatter: (v) => v ? v.toFixed(1) + "%" : '',
+                        color: '#333',
+                        font: { weight: 'bold' }
+                    },
+                    tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + (c.parsed.y || 0).toFixed(2) + '%' } }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 100, ticks: { callback: (v) => v + '%' } }
+                }
+            }
         });
     }
 
