@@ -926,7 +926,7 @@
         });
     }
 
-    // --- 2. RENDER BPP (CON GRÁFICA ANUAL ADICIONAL) ---
+    // --- 2. RENDER BPP (CON CORRECCIÓN DE ETIQUETAS CORTADAS) ---
     function renderBPP(data, areaSelected, selectedMonths, isAllMonths, yearFilter) {
         let f = data;
         // 1. Aplicamos filtros generales (Año y Área)
@@ -944,11 +944,9 @@
         let periodsToShow = [];
         
         if (!isAllMonths) {
-            // Si hay selección específica de meses
             periodsToShow = uniqueMonths.filter(m => selectedMonths.includes(m.mes));
             document.getElementById('title-bpp').textContent = `Auditoría BPP: Selección`;
         } else {
-            // Si son TODOS, mostramos los últimos 6 disponibles para no saturar la gráfica de barras
             periodsToShow = uniqueMonths.slice(-6);
             document.getElementById('title-bpp').textContent = "Auditoría BPP (Últimos 6 Registros)";
         }
@@ -979,6 +977,8 @@
             plugins: [ChartDataLabels],
             options: {
                 responsive: true, maintainAspectRatio: false,
+                // Agregamos un poco de padding aquí también por si acaso
+                layout: { padding: { top: 20 } }, 
                 plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.parsed.y.toLocaleString('es-MX', {maximumFractionDigits: 1}) + '%' } }, datalabels: { display: false } },
                 scales: { y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } }
             },
@@ -1003,11 +1003,9 @@
         });
 
         // --- LÓGICA GRÁFICA 2 (NUEVA: TENDENCIA ANUAL COMPLETA) ---
-        // Aquí usamos 'mesesLabels' para forzar que aparezcan Enero, Febrero... Diciembre
         const annualValues = mesesLabels.map(m => {
-            // Filtramos 'f' (que ya tiene el año y área seleccionados) por cada mes
             const monthlyRecords = f.filter(r => r.MES === m);
-            if (monthlyRecords.length === 0) return null; // Si no hay datos, retornamos null para cortar la línea
+            if (monthlyRecords.length === 0) return null; 
             return monthlyRecords.reduce((a, b) => a + parseV(b.VALOR), 0) / monthlyRecords.length;
         });
 
@@ -1015,7 +1013,7 @@
         charts.bppAnual = new Chart(document.getElementById('chartBPPAnual'), {
             type: 'line',
             data: {
-                labels: mesesLabels, // Eje X siempre es Enero - Diciembre
+                labels: mesesLabels, 
                 datasets: [
                     {
                         label: 'Promedio BPP',
@@ -1023,8 +1021,8 @@
                         borderColor: '#005db4',
                         backgroundColor: '#005db4',
                         borderWidth: 3,
-                        tension: 0.3, // Curvatura suave
-                        spanGaps: false // Si falta un mes, corta la línea (más honesto)
+                        tension: 0.3, 
+                        spanGaps: false 
                     },
                     {
                         label: 'Objetivo (90%)',
@@ -1040,6 +1038,16 @@
             plugins: [ChartDataLabels],
             options: {
                 responsive: true, maintainAspectRatio: false,
+                // --- AQUÍ ESTÁ LA SOLUCIÓN: PADDING SUPERIOR ---
+                layout: {
+                    padding: {
+                        top: 30, // Dejamos 30px libres arriba para que quepa la etiqueta
+                        left: 10,
+                        right: 10,
+                        bottom: 10
+                    }
+                },
+                // -----------------------------------------------
                 plugins: {
                     legend: { position: 'bottom' },
                     datalabels: {
