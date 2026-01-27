@@ -616,11 +616,11 @@
         }
     }
 
-    // --- 5. RENDER 5'S (CON MULTI-SELECCIÓN) ---
+    // --- 5. RENDER 5'S (CON ETIQUETA DE MEJOR BIMESTRE) ---
     function render5s(data, areaSelected, selectedMonths, isAllMonths, yearFilter) {
         let f = data;
         
-        // Lógica de Año (igual que antes)
+        // Lógica de Año
         if (yearFilter === 'TODOS') {
             const availableYears = [...new Set(f.map(r => r.AÑO))];
             if (availableYears.length > 0) {
@@ -633,15 +633,12 @@
 
         // LÓGICA DE FILTRADO MÚLTIPLE
         if (!isAllMonths) {
-            // Nota: Aquí 'selectedMonths' contiene Bimestres (ej: "1 BIMESTRE")
             f = f.filter(r => selectedMonths.includes(r.BIMESTRE));
         }
 
         let labels = bimestresLabels;
         let values = labels.map(b => {
-            // Si no está seleccionado, retornamos null para no pintar la barra
             if (!isAllMonths && !selectedMonths.includes(b)) return null;
-
             const subset = f.filter(r => r.BIMESTRE === b);
             if (subset.length === 0) return 0;
             return subset.reduce((a, x) => a + parseV(x.VALOR), 0) / subset.length;
@@ -649,7 +646,20 @@
 
         const validValues = values.filter(v => v !== null && v > 0);
         const avg = validValues.length ? (validValues.reduce((a,b)=>a+b,0)/validValues.length) : 0;
-        const maxVal = validValues.length ? Math.max(...validValues) : 0;
+        
+        // --- NUEVA LÓGICA PARA ENCONTRAR EL NOMBRE DEL MEJOR BIMESTRE ---
+        let maxVal = 0;
+        let bestBimesterLabel = '-';
+
+        // Recorremos los valores para encontrar el mayor y su etiqueta correspondiente
+        values.forEach((v, i) => {
+            if (v !== null && v > maxVal) {
+                maxVal = v;
+                bestBimesterLabel = labels[i]; // Guardamos el nombre (ej. "1 BIMESTRE")
+            }
+        });
+        // ---------------------------------------------------------------
+
         const trendData = calculateTrend(values);
         const firstVal = validValues[0] || 0;
         const lastVal = validValues[validValues.length - 1] || 0;
@@ -657,7 +667,20 @@
         const trendColor = lastVal > firstVal ? '#28a745' : (lastVal < firstVal ? '#dc3545' : '#005f9e');
 
         document.getElementById('kpi-5s-avg').textContent = avg.toFixed(1) + "%";
-        document.getElementById('kpi-5s-best').textContent = maxVal > 0 ? (maxVal.toFixed(1) + "%") : "-";
+        
+        // --- ACTUALIZACIÓN VISUAL DEL KPI ---
+        if (maxVal > 0) {
+            document.getElementById('kpi-5s-best').innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                    <span>${maxVal.toFixed(1)}%</span>
+                    <span style="font-size: 0.4em; color: #6c757d; margin-top: -5px; font-weight: 600;">${bestBimesterLabel}</span>
+                </div>
+            `;
+        } else {
+            document.getElementById('kpi-5s-best').textContent = "-";
+        }
+        // ------------------------------------
+
         document.getElementById('kpi-5s-trend').innerHTML = `<span style="color:${trendColor}">${trendIcon}</span>`;
 
         if (charts.c5s) charts.c5s.destroy();
