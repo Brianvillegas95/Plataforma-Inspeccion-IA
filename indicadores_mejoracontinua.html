@@ -194,7 +194,7 @@
         <div id="container-bpp" style="display: none;">
             <section class="kpi-container" style="grid-template-columns: 1fr 1fr; max-width: 800px; margin: 0 auto 30px auto;">
                 <div class="kpi-card" style="border-left-color: #28a745;">
-                    <div class="kpi-label">Objetivo</div>
+                    <div class="kpi-label">Objetivo (Mínimo)</div>
                     <div class="kpi-value">90.0%</div>
                 </div>
                 <div class="kpi-card" style="border-left-color: #ffc107;">
@@ -212,7 +212,7 @@
 
             <div class="chart-container chart-full-width" style="margin-top: 20px;">
                 <div class="chart-header">
-                    <h2 class="chart-title"><i class="fas fa-calendar-alt"></i> Tendencia Anual (Enero - Diciembre)</h2>
+                    <h2 class="chart-title"><i class="fas fa-calendar-alt"></i> Tendencia Anual</h2>
                 </div>
                 <div class="chart-box"><canvas id="chartBPPAnual"></canvas></div>
             </div>
@@ -249,7 +249,7 @@
         <div id="container-desperdicio" style="display: none;">
             <section class="kpi-container" style="grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
                 <div class="kpi-card" style="border-left-color: #28a745;">
-                    <div class="kpi-label">Objetivo</div>
+                    <div class="kpi-label">Objetivo (Máximo)</div>
                     <div class="kpi-value">3.00%</div>
                 </div>
                 <div class="kpi-card" style="border-left-color: #ffc107;">
@@ -286,7 +286,7 @@
         <div id="container-5s" style="display: none;">
             <section class="kpi-container" style="grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
                 <div class="kpi-card" style="border-left-color: #28a745;">
-                    <div class="kpi-label">Objetivo</div>
+                    <div class="kpi-label">Objetivo (Mínimo)</div>
                     <div class="kpi-value">85.0%</div>
                 </div>
                 <div class="kpi-card" style="border-left-color: #ffc107;">
@@ -799,7 +799,7 @@
                     datasets: [{
                         data: [valScrap, valConsumo, valAjustes],
                         // MANTENGO LA ESCALA DE ROJOS QUE PEDISTE ANTES
-                        backgroundColor: ['#dc3545', '#17a2b8', '#28a745'], 
+                        backgroundColor: ['#dc3545', '#17a2b8', '#ffc107'], 
                         borderColor: '#ffffff',
                         borderWidth: 2
                     }]
