@@ -956,7 +956,7 @@
         document.getElementById('kpi-bpp-promedio').textContent = avg.toLocaleString('es-MX', {maximumFractionDigits: 1}) + "%";
 
         // --- LÓGICA HÍBRIDA PARA LA GRÁFICA DE BARRAS ---
-        const barColors = ['#005f9e', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#fd7e14'];
+        const barColors = ['#005f9e', '#08f19b', '#ffc107', '#dc3545', '#17a2b8', '#fd7e14'];
         let xLabels, datasets;
 
         if (areaSelected === 'TODAS') {
@@ -974,7 +974,7 @@
                 };
             });
             // Linea Objetivo
-            datasets.push({ label: 'Objetivo (90%)', data: xLabels.map(() => 90), type: 'line', borderColor: '#dc3545', borderWidth: 4, pointRadius: 0, fill: false, order: 0, datalabels: { display: false } });
+            datasets.push({ label: 'Objetivo (90%)', data: xLabels.map(() => 90), type: 'line', borderColor: '#28a745', borderWidth: 4, pointRadius: 0, fill: false, order: 0, datalabels: { display: false } });
 
         } else {
             // MODO 2: UNA SOLA ÁREA (Eje X = Meses)
@@ -999,7 +999,7 @@
                 label: 'Objetivo (90%)', 
                 data: xLabels.map(() => 90), 
                 type: 'line', 
-                borderColor: '#cd1b2c', 
+                borderColor: '#28a745', 
                 borderWidth: 4, 
                 pointRadius: 0, 
                 fill: false, 
