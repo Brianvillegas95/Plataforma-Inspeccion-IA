@@ -956,7 +956,7 @@
         document.getElementById('kpi-bpp-promedio').textContent = avg.toLocaleString('es-MX', {maximumFractionDigits: 1}) + "%";
 
         // --- LÓGICA HÍBRIDA PARA LA GRÁFICA DE BARRAS ---
-        const barColors = ['#005f9e', '#08f19b', '#ffc107', '#dc3545', '#17a2b8', '#fd7e14'];
+        const barColors = ['#005f9e', '#00ff3a', '#ffc107', '#dc3545', '#17a2b8', '#fd7e14'];
         let xLabels, datasets;
 
         if (areaSelected === 'TODAS') {
@@ -1053,7 +1053,7 @@
                 labels: mesesLabels, 
                 datasets: [
                     { label: 'Promedio BPP', data: annualValues, borderColor: '#005db4', backgroundColor: '#005db4', borderWidth: 3, tension: 0.3, spanGaps: false },
-                    { label: 'Objetivo (90%)', data: mesesLabels.map(() => 90), borderColor: '#cd1b2c', borderDash: [5, 5], pointRadius: 0, fill: false, datalabels: { display: false } }
+                    { label: 'Objetivo (90%)', data: mesesLabels.map(() => 90), borderColor: '#28a745', borderDash: [5, 5], pointRadius: 0, fill: false, datalabels: { display: false } }
                 ]
             },
             plugins: [ChartDataLabels],
