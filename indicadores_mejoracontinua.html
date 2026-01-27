@@ -58,6 +58,37 @@
             background-color: #005db4;
             color: white;
         }
+
+        /* Estilos para el Multiselect de Meses */
+        .multiselect { position: relative; width: 100%; }
+        .selectBox { position: relative; }
+        .selectBox select { width: 100%; font-weight: bold; }
+        .overSelect { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+        
+        #checkboxes {
+            display: none;
+            border: 1px solid #dee2e6;
+            position: absolute;
+            background-color: white;
+            z-index: 1000;
+            width: 100%;
+            max-height: 300px;
+            overflow-y: auto;
+            border-radius: 0 0 6px 6px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        #checkboxes label {
+            display: block;
+            padding: 8px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin: 0;
+            color: #333;
+        }
+        #checkboxes label:hover { background-color: #f1f8ff; color: #005db4; }
+        #checkboxes input { margin-right: 10px; }
     </style>
 </head>
 <body>
@@ -65,7 +96,7 @@
     <header class="app-header">
     <div class="logo-container">
         <img src="imagenes/Logo azor.png" alt="Grupo Azor" class="logo">
-        <h1 class="app-title">Indicadores Mejora Continua - Producción</h1>
+        <h1 class="app-title">Indicadores Mejora Continua-Producción</h1>
     </div>
     
     <div style="display: flex; gap: 10px; align-items: center;">
@@ -94,10 +125,16 @@
                     </select>
             </div>
             <div class="filter-group">
-                <label id="label-month">Mes</label>
-                <select id="filter-month" class="filter-control" onchange="processData()">
-                    <option value="TODOS">TODOS LOS MESES</option>
-                    </select>
+                <label id="label-month">Mes / Bimestre</label>
+                <div class="multiselect">
+                    <div class="selectBox" onclick="showCheckboxes()">
+                        <select class="filter-control">
+                            <option id="month-display-text">TODOS LOS MESES</option>
+                        </select>
+                        <div class="overSelect"></div>
+                    </div>
+                    <div id="checkboxes"></div>
+                </div>
             </div>
             <div class="filter-group">
                 <label>Año</label>
@@ -301,6 +338,45 @@
         return data.map((_, x) => slope * x + intercept);
     }
 
+    // --- LÓGICA MULTISELECT ---
+    let expanded = false;
+    function showCheckboxes() {
+        const checkboxes = document.getElementById("checkboxes");
+        if (!expanded) {
+            checkboxes.style.display = "block";
+            expanded = true;
+        } else {
+            checkboxes.style.display = "none";
+            expanded = false;
+        }
+    }
+
+    // Cierra el menú si hacen clic fuera
+    document.addEventListener('click', function(e) {
+        const container = document.querySelector('.multiselect');
+        if (container && !container.contains(e.target)) {
+            document.getElementById("checkboxes").style.display = "none";
+            expanded = false;
+        }
+    });
+
+    // Actualiza el texto del botón (Ej: "ENERO, FEBRERO" o "3 Seleccionados")
+    function updateMultiSelectText(is5S) {
+        const checkboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]');
+        const display = document.getElementById('month-display-text');
+        const checked = Array.from(checkboxes).filter(i => i.checked).map(i => i.value);
+        
+        if (checked.length === 0 || checked.length === checkboxes.length) {
+            display.innerText = `TODOS LOS ${is5S ? 'BIMESTRES' : 'MESES'}`;
+        } else if (checked.length <= 2) {
+            display.innerText = checked.join(', ');
+        } else {
+            display.innerText = `${checked.length} ${is5S ? 'Bimestres' : 'Meses'} Seleccionados`;
+        }
+        // Disparar proceso de datos
+        processData(); 
+    }
+
     document.addEventListener('DOMContentLoaded', loadData);
 
     async function loadData() {
@@ -390,141 +466,160 @@
     // Actualiza Filtro de Tiempo (Mes vs Bimestre)
     function updateMonthFilter(indicator) {
         const label = document.getElementById('label-month');
-        const select = document.getElementById('filter-month');
+        const container = document.getElementById('checkboxes');
         const is5S = (indicator === '5S');
         const targetLabel = is5S ? 'Bimestre' : 'Mes';
         
-        // Si ya está correcto, no hacemos nada para no reiniciar la selección
-        if (label.textContent === targetLabel) return;
-
+        // Actualizamos etiqueta visual
         label.textContent = targetLabel;
-        const savedVal = select.value;
-        select.innerHTML = `<option value="TODOS">TODOS LOS ${is5S ? 'BIMESTRES' : 'MESES'}</option>`;
+
+        // Limpiamos y regeneramos los checkboxes
+        container.innerHTML = '';
         
+        // Opción "Seleccionar Todos"
+        const divAll = document.createElement('label');
+        divAll.innerHTML = `<input type="checkbox" id="check-all" onchange="toggleAllMonths(this, ${is5S})"/> (Seleccionar Todos)`;
+        container.appendChild(divAll);
+
         const options = is5S ? bimestresLabels : mesesLabels;
+        
         options.forEach(opt => {
-            const el = document.createElement('option');
-            el.value = opt;
-            el.textContent = opt;
-            select.appendChild(el);
+            const labelEl = document.createElement('label');
+            // Al cambiar un checkbox, actualizamos el texto y la data
+            labelEl.innerHTML = `<input type="checkbox" value="${opt}" checked onchange="updateMultiSelectText(${is5S})" /> ${opt}`;
+            container.appendChild(labelEl);
         });
-        // Reset a TODOS porque cambiamos de escala de tiempo
-        select.value = 'TODOS';
+
+        // Aseguramos que el "check-all" esté marcado al inicio
+        document.getElementById('check-all').checked = true;
+        updateMultiSelectText(is5S);
+    }
+
+    // Helper para el botón "Seleccionar Todos"
+    function toggleAllMonths(source, is5S) {
+        const checkboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]');
+        checkboxes.forEach(c => c.checked = source.checked);
+        updateMultiSelectText(is5S);
     }
 
     function processData() {
         const ind = document.getElementById('filter-indicator').value;
+        
+        // 1. ACTUALIZAR LINK DEL BOTÓN DRIVE
+        // (Asegúrate de haber definido 'const linksMap = { ... }' al inicio de tu script)
         const btnDrive = document.getElementById('btn-detail-drive');
-        if(btnDrive) {
-            // Si existe link en el mapa, lo pone. Si no, pone '#' (enlace vacío)
+        if(btnDrive && typeof linksMap !== 'undefined') {
             btnDrive.href = linksMap[ind] || '#';
         }
 
-        // Actualizamos filtros de Área y Mes/Bimestre
-        updateAreaFilter(ind);
-        updateMonthFilter(ind);
+        // NOTA: updateAreaFilter y updateMonthFilter se llaman en el evento 'onchange' del HTML
+        // del select indicador, pero si queremos asegurar que se carguen al inicio o al cambiar lógica:
+        // (Si ves que al cambiar de indicador no se actualizan las opciones de mes/área, descomenta las siguientes lineas)
+        // updateAreaFilter(ind);
+        // updateMonthFilter(ind);
 
-        // --- LÓGICA DE AÑO (MEJORADA: RESET AUTO) ---
+        // 2. LÓGICA DE AÑO (Bloqueo automático para 5'S)
         const yearSelect = document.getElementById('filter-year');
         const yearOptions = yearSelect.options;
         let todosOption = null;
-
-        // 1. Buscamos la opción "TODOS" para manipularla
+        
+        // Buscar la opción "TODOS"
         for (let i = 0; i < yearOptions.length; i++) {
-            if (yearOptions[i].value === 'TODOS') {
-                todosOption = yearOptions[i];
-                break;
-            }
+            if (yearOptions[i].value === 'TODOS') { todosOption = yearOptions[i]; break; }
         }
 
         if (ind === '5S') {
-            // CASO 5'S: Bloquear "TODOS"
-            if (todosOption) {
-                todosOption.disabled = true;
-                todosOption.style.display = 'none';
-            }
-            // Si estaba en TODOS, forzar al año actual
+            // Caso 5'S: Bloquear "TODOS" y forzar año actual si es necesario
+            if (todosOption) { todosOption.disabled = true; todosOption.style.display = 'none'; }
             if (yearSelect.value === 'TODOS') {
-                yearSelect.value = '2025'; 
+                yearSelect.value = new Date().getFullYear().toString(); 
             }
         } else {
-            // CASO OTROS INDICADORES: Desbloquear "TODOS"
-            // TRUCO: Verificamos si estaba bloqueada antes de desbloquearla.
-            // Si estaba blocked == true, significa que venimos de la pantalla de 5'S.
+            // Caso Otros: Desbloquear "TODOS"
             if (todosOption && todosOption.disabled) {
                 todosOption.disabled = false;
                 todosOption.style.display = 'block';
-                
-                // AQUÍ ESTÁ LA MAGIA: Como venimos de 5'S, reseteamos a TODOS automáticamente
-                yearSelect.value = 'TODOS';
+                yearSelect.value = 'TODOS'; // Reset automático al salir de 5'S
             }
         }
-        // --------------------------------------------------
 
+        // 3. OBTENER VALORES DE LOS FILTROS
         const area = document.getElementById('filter-area').value;
-        const month = document.getElementById('filter-month').value;
         const year = document.getElementById('filter-year').value;
 
-        // Ocultar todos los contenedores
+        // --- LÓGICA MULTISELECT (NUEVO) ---
+        // Obtenemos los checkboxes marcados (ignorando el de "Seleccionar Todos")
+        const checkboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]:checked:not(#check-all)');
+        
+        // Creamos un array con los valores (ej: ['ENERO', 'MARZO'])
+        const selectedMonths = Array.from(checkboxes).map(c => c.value);
+        
+        // Verificamos si están todos seleccionados para optimizar filtros
+        const totalOptions = (ind === '5S') ? bimestresLabels.length : mesesLabels.length;
+        // Si no hay ninguno seleccionado o están todos, lo tratamos como "Todos"
+        const isAllMonths = (selectedMonths.length === totalOptions || selectedMonths.length === 0);
+
+        // 4. OCULTAR TODOS LOS CONTENEDORES
         ['container-ajustes', 'container-bpp', 'container-movimientos', 'container-desperdicio', 'container-5s'].forEach(id => {
             const el = document.getElementById(id);
             if(el) el.style.display = 'none';
         });
 
-        // Router de indicadores
+        // 5. ROUTER DE INDICADORES (LLAMADAS ACTUALIZADAS)
+        // Ahora pasamos la lista 'selectedMonths' y la bandera 'isAllMonths'
         if (ind === 'AJUSTES') {
             document.getElementById('container-ajustes').style.display = 'block';
-            renderAjustes(rawDataAjustes, area, month, year);
+            renderAjustes(rawDataAjustes, area, selectedMonths, isAllMonths, year);
         } else if (ind === 'BPP') {
             document.getElementById('container-bpp').style.display = 'block';
-            renderBPP(rawDataBPP, area, month, year);
+            renderBPP(rawDataBPP, area, selectedMonths, isAllMonths, year);
         } else if (ind === 'MOVIMIENTOS') {
             document.getElementById('container-movimientos').style.display = 'block';
-            renderMovimientos(rawDataAdic, rawDataDev, area, month, year);
+            renderMovimientos(rawDataAdic, rawDataDev, area, selectedMonths, isAllMonths, year);
         } else if (ind === 'DESPERDICIO') {
             document.getElementById('container-desperdicio').style.display = 'block';
-            renderDesperdicio(rawDataDesp, area, month, year);
+            renderDesperdicio(rawDataDesp, area, selectedMonths, isAllMonths, year);
         } else if (ind === '5S') {
             document.getElementById('container-5s').style.display = 'block';
-            render5s(rawData5s, area, month, year);
+            render5s(rawData5s, area, selectedMonths, isAllMonths, year);
         }
     }
 
-    // --- RENDER 5'S (VERTICAL Y AÑO ÚNICO) ---
-    function render5s(data, areaSelected, timeFilter, yearFilter) {
+    // --- 5. RENDER 5'S (CON MULTI-SELECCIÓN) ---
+    function render5s(data, areaSelected, selectedMonths, isAllMonths, yearFilter) {
         let f = data;
-
-        // 1. FORZAR ÚLTIMO AÑO SI ES 'TODOS'
-        // Aunque el filtro visual lo bloquea, esto es seguridad lógica interna.
+        
+        // Lógica de Año (igual que antes)
         if (yearFilter === 'TODOS') {
-            // Obtenemos todos los años disponibles en la data
             const availableYears = [...new Set(f.map(r => r.AÑO))];
             if (availableYears.length > 0) {
-                // Seleccionamos el mayor (el más reciente)
                 const maxYear = Math.max(...availableYears).toString();
                 f = f.filter(r => r.AÑO.toString() === maxYear);
             }
-        } else {
-            f = f.filter(r => r.AÑO.toString() === yearFilter);
-        }
+        } else { f = f.filter(r => r.AÑO.toString() === yearFilter); }
 
         if (areaSelected !== 'TODAS') f = f.filter(r => r.ÁREA === areaSelected);
 
-        // Preparar Datos por Bimestre
+        // LÓGICA DE FILTRADO MÚLTIPLE
+        if (!isAllMonths) {
+            // Nota: Aquí 'selectedMonths' contiene Bimestres (ej: "1 BIMESTRE")
+            f = f.filter(r => selectedMonths.includes(r.BIMESTRE));
+        }
+
         let labels = bimestresLabels;
         let values = labels.map(b => {
-            if (timeFilter !== 'TODOS' && b !== timeFilter) return null;
+            // Si no está seleccionado, retornamos null para no pintar la barra
+            if (!isAllMonths && !selectedMonths.includes(b)) return null;
+
             const subset = f.filter(r => r.BIMESTRE === b);
             if (subset.length === 0) return 0;
             return subset.reduce((a, x) => a + parseV(x.VALOR), 0) / subset.length;
         });
 
-        // KPIs
         const validValues = values.filter(v => v !== null && v > 0);
         const avg = validValues.length ? (validValues.reduce((a,b)=>a+b,0)/validValues.length) : 0;
         const maxVal = validValues.length ? Math.max(...validValues) : 0;
-        
-        // Tendencia
+        const trendData = calculateTrend(values);
         const firstVal = validValues[0] || 0;
         const lastVal = validValues[validValues.length - 1] || 0;
         const trendIcon = lastVal > firstVal ? '▲ Mejorando' : (lastVal < firstVal ? '▼ Bajando' : '= Estable');
@@ -534,69 +629,35 @@
         document.getElementById('kpi-5s-best').textContent = maxVal > 0 ? (maxVal.toFixed(1) + "%") : "-";
         document.getElementById('kpi-5s-trend').innerHTML = `<span style="color:${trendColor}">${trendIcon}</span>`;
 
-        const trendData = calculateTrend(values);
-
         if (charts.c5s) charts.c5s.destroy();
-
         charts.c5s = new Chart(document.getElementById('chart5s'), {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Calificación 5\'S',
-                        data: values,
-                        backgroundColor: '#002060', // Azul Oscuro
-                        borderRadius: 4,
-                        barPercentage: 0.6,
-                        order: 2
-                    },
-                    {
-                        label: 'Tendencia',
-                        data: trendData,
-                        type: 'line',
-                        borderColor: '#dc3545',
-                        borderDash: [5, 5],
-                        pointRadius: 0,
-                        fill: false,
-                        order: 1,
-                        datalabels: { display: false }
-                    }
-                ]
-            },
-            plugins: [ChartDataLabels],
-            options: {
-                // indexAxis: 'y',  <-- ELIMINADO PARA QUE SEA VERTICAL
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + (c.parsed.y||0).toFixed(1) + '%' } },
-                    datalabels: {
-                        anchor: 'end', align: 'top', // Ajustado para barras verticales
-                        formatter: (v) => v > 0 ? v.toFixed(1) + "%" : '',
-                        font: { weight: 'bold' },
-                        color: '#333'
-                    }
-                },
-                scales: {
-                    y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } }
-                }
-            }
+            type: 'bar', data: { labels: labels, datasets: [
+                { label: 'Calificación 5\'S', data: values, backgroundColor: '#002060', borderRadius: 4, barPercentage: 0.6, order: 2 },
+                { label: 'Tendencia', data: trendData, type: 'line', borderColor: '#dc3545', borderDash: [5, 5], pointRadius: 0, fill: false, order: 1, datalabels: { display: false } }
+            ] },
+            plugins: [ChartDataLabels], options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + (c.parsed.y||0).toFixed(1) + '%' } }, datalabels: { anchor: 'end', align: 'top', formatter: (v) => v > 0 ? v.toFixed(1) + "%" : '', font: { weight: 'bold' }, color: '#333' } }, scales: { y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } } }
         });
     }
     
-    // --- RENDER DESPERDICIO
-    function renderDesperdicio(data, areaSelected, monthFilter, yearFilter) {
+    // --- 4. RENDER DESPERDICIO (CON MULTI-SELECCIÓN) ---
+    function renderDesperdicio(data, areaSelected, selectedMonths, isAllMonths, yearFilter) {
         let f = data;
-        // Filtros Globales
+        // Filtros Globales 
         if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
         if (areaSelected !== 'TODAS') f = f.filter(r => r.ÁREA === areaSelected);
+        
+        // NUEVO: Filtro Múltiple de Meses
+        if (!isAllMonths) {
+            f = f.filter(r => selectedMonths.includes(r.MES));
+        }
         
         let labels = mesesLabels;
         
         // --- 1. PREPARAR DATOS PRINCIPALES (BARRAS) ---
         let values = labels.map(m => {
-            if (monthFilter !== 'TODOS' && m !== monthFilter) return null;
+            // CAMBIO: Verificamos si el mes está en la lista de seleccionados
+            if (!isAllMonths && !selectedMonths.includes(m)) return null;
+            
             const subset = f.filter(r => r.MES === m);
             if (subset.length === 0) return 0;
             return subset.reduce((a, b) => a + parseV(b.VALOR), 0) / subset.length;
@@ -653,9 +714,10 @@
             if (targetMonth) {
                 subData = f.filter(r => r.MES === targetMonth);
                 titleText = `Distribución: ${targetMonth}`;
-            } else if (monthFilter !== 'TODOS') {
-                subData = f.filter(r => r.MES === monthFilter);
-                titleText = `Distribución: ${monthFilter}`;
+            } else if (!isAllMonths) {
+                // Si hay selección múltiple y no se dio click a una barra específica
+                // subData ya viene filtrada por 'f' al inicio de la función principal
+                titleText = "Distribución: Selección";
             }
 
             // Actualizar título
@@ -686,7 +748,8 @@
                     labels: ['Scrap', 'Sobreconsumo', 'Ajustes Negativos'],
                     datasets: [{
                         data: [valScrap, valConsumo, valAjustes],
-                        backgroundColor: ['#005f9e', '#28a745', '#ffc107'], 
+                        // MANTENGO LA ESCALA DE ROJOS QUE PEDISTE ANTES
+                        backgroundColor: ['#690d0d', '#dc3545', '#ff7f8a'], 
                         borderColor: '#ffffff',
                         borderWidth: 2
                     }]
@@ -748,17 +811,26 @@
             }
         });
 
-        // 5. Inicializar la dona con el promedio general
+        // 5. Inicializar la dona con el promedio general (o de la selección)
         renderDoughnut(null);
     }
 
-    // --- RENDER MOVIMIENTOS ---
-    function renderMovimientos(dataAdic, dataDev, areaSelected, monthFilter, yearFilter) {
+    // --- 3. RENDER MOVIMIENTOS (CON MULTI-SELECCIÓN) ---
+    function renderMovimientos(dataAdic, dataDev, areaSelected, selectedMonths, isAllMonths, yearFilter) {
         const processDataset = (dataset) => {
             let f = dataset;
+            
+            // Filtro de Año
             if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
-            if (monthFilter !== 'TODOS') f = f.filter(r => r.MES === monthFilter);
+            
+            // Filtro de Meses (NUEVO: MULTI-SELECCIÓN)
+            if (!isAllMonths) {
+                f = f.filter(r => selectedMonths.includes(r.MES));
+            }
+
+            // Filtro de Área
             if (areaSelected !== 'TODAS') f = f.filter(r => r.ÁREA === areaSelected);
+            
             let totals = {};
             areasMovimientos.forEach(a => totals[a] = 0);
             f.forEach(r => { if (totals.hasOwnProperty(r.ÁREA)) totals[r.ÁREA] += parseV(r.VALOR); });
@@ -804,8 +876,8 @@
         });
     }
 
-    // --- RENDER BPP ---
-    function renderBPP(data, areaSelected, monthFilter, yearFilter) {
+    // --- 2. RENDER BPP (CON MULTI-SELECCIÓN) ---
+    function renderBPP(data, areaSelected, selectedMonths, isAllMonths, yearFilter) {
         let f = data;
         if (yearFilter !== 'TODOS') f = f.filter(r => r.AÑO.toString() === yearFilter);
         if (areaSelected !== 'TODAS') f = f.filter(r => r.ÁREA === areaSelected);
@@ -818,10 +890,14 @@
         uniqueMonths.sort((a,b) => a.order - b.order);
 
         let periodsToShow = [];
-        if (monthFilter !== 'TODOS') {
-            periodsToShow = uniqueMonths.filter(m => m.mes === monthFilter);
-            document.getElementById('title-bpp').textContent = `Auditoría BPP: ${monthFilter}`;
+        
+        // LÓGICA DE FILTRADO MÚLTIPLE
+        if (!isAllMonths) {
+            // Si hay selección específica, mostramos SOLO esos meses que coincidan
+            periodsToShow = uniqueMonths.filter(m => selectedMonths.includes(m.mes));
+            document.getElementById('title-bpp').textContent = `Auditoría BPP: Selección`;
         } else {
+            // Si son TODOS, mantenemos la lógica de "Últimos 6 meses" para que no se sature
             periodsToShow = uniqueMonths.slice(-6);
             document.getElementById('title-bpp').textContent = "Auditoría BPP (Últimos 6 Meses)";
         }
@@ -844,7 +920,7 @@
             };
         });
 
-        datasets.push({ label: 'Objetivo (90%)', data: xLabels.map(() => 90), type: 'line', borderColor: '#690d0d', borderWidth: 4, pointRadius: 0, fill: false, order: 0, datalabels: { display: false } });
+        datasets.push({ label: 'Objetivo (90%)', data: xLabels.map(() => 90), type: 'line', borderColor: '#dc3545', borderWidth: 4, pointRadius: 0, fill: false, order: 0, datalabels: { display: false } });
 
         if (charts.bpp) charts.bpp.destroy();
 
@@ -877,11 +953,18 @@
         });
     }
 
-    // --- 1. RENDER AJUSTES (DINÁMICO CON TÍTULOS) ---
-    function renderAjustes(data, area, month, year) {
+    // --- 1. RENDER AJUSTES (DINÁMICO CON MULTI-SELECCIÓN) ---
+    function renderAjustes(data, area, selectedMonths, isAllMonths, year) {
         let f = data;
+        
+        // 1. Filtro de Área
         if (area !== 'TODAS') f = f.filter(r => r.ÁREA === area);
-        if (month !== 'TODOS') f = f.filter(r => r.MES === month);
+
+        // 2. Filtro de Meses (NUEVO: MULTI-SELECCIÓN)
+        // Si no están todos seleccionados, filtramos solo los que coincidan con la lista
+        if (!isAllMonths) {
+            f = f.filter(r => selectedMonths.includes(r.MES));
+        }
         
         // Detectar año actual y anterior dinámicamente
         let yearCurrent, yearPrev;
@@ -917,6 +1000,8 @@
         if (charts.sum) charts.sum.destroy();
 
         const getS = (y, field) => mesesLabels.map(m => {
+            // Nota: Si el mes no está seleccionado, f.find devolverá undefined, y aquí retornaremos null.
+            // Esto hará que la línea de la gráfica se "corte" en los meses no seleccionados, lo cual es correcto.
             const r = f.find(item => item.MES === m && item.AÑO.toString() === y.toString());
             return r ? parseV(r[field]) : null;
         });
